@@ -184,10 +184,12 @@ The following could be ideas to implement in the project to enhance it with more
 This project scraps data for various mutual funds and creates a portfolio, depending on the weights provided. Using this, anyone can create a average of a portfolio of stocks of a class of mutual funds to be invested in markets without paying the extra expense ratio.
 
 2. <https://medium.com/@TejasEkawade/getting-and-analyzing-mutual-funds-in-python-c2d0feb09881>
+<https://medium.com/@TejasEkawade/analyzing-mutual-funds-using-python-benchmarking-and-comparing-funds-215350bf58b7>
+[Here is the second blog (paid in medium, free for new users)](tejasblog2.md)
 
-Getting and analyzing Indian Mutual Funds data in Python (uses yfinance and mftool, also suggest way to compare mutual fund performance with peers and index both in tabular and graphical representation)
+Getting and analyzing Indian Mutual Funds data in Python (uses yfinance and mftool, also suggest way to compare mutual fund performance with peers and index both in tabular and graphical representation, then give a way to compare mutual funds on basis of returns along with their benchmarks)
 
-3. <https://medium.com/@TejasEkawade/getting-indian-stock-prices-using-python-19f8c83d2015>
+1. <https://medium.com/@TejasEkawade/getting-indian-stock-prices-using-python-19f8c83d2015>
 
 Getting Indian Stock Prices Using Python (show the use of `yfinance`, `jugaad_data`, `nselib` to fetch stocks, etf and indices data)
 
@@ -562,7 +564,7 @@ except Exception as e:
 
 Documentation: <https://kite.trade/docs/connect/v3/mutual-funds/#retrieving-the-full-instrument-list>
 
-Blog(example): https://shivamsouravjha.medium.com/building-mutualfund-data-via-zerodhas-api-4529786cf04c
+Blog(example): <https://shivamsouravjha.medium.com/building-mutualfund-data-via-zerodhas-api-4529786cf04c>
 
 But requires zerodha account setup and thus maping it not useful for our project that would be publically available. Also does not give much information of all the funds like portfolio holdings (give info for the funds that you hold yourself).
 
@@ -1293,6 +1295,7 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
 > === Fund Information ===
 Scheme Name: quant Small Cap Fund - Growth Option - Direct Plan
 Fund House: quant Mutual Fund
