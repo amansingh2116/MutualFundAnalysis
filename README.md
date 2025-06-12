@@ -67,6 +67,12 @@ This will be a full-stack web application that provides:
 | **AI-based scraping**      | Not mature          | Overkill now, use APIs first                    |
 
 > ✅ **Suggestion: Use `mftool` + `mstarpy`** for reliability, avoid direct scraping of websites like MoneyControl or Morningstar unless API data is unavailable and terms allow scraping.
+>
+> another api: [indianapi](https://indianapi.in/indian-stock-market) (for indian stocks data and basic mutual fund details)
+>
+> Good arguments regarding web scraping:
+> [How Secure Web Scraping Enhances Cybersecurity for Online Services](https://www.promptcloud.com/blog/how-secure-web-scraping-enhances-cybersecurity-for-online-services/)
+> [Ethical Scraping with AI](https://www.promptcloud.com/blog/ethical-web-scraping-with-ai/)
 
 ---
 
@@ -116,6 +122,24 @@ This will be a full-stack web application that provides:
 * Users may not know exact transaction data
 
 🟡 **Optional for V1**, add in V2 after initial release
+
+#### Example:
+
+Input csv format:
+1) details of each transaction
+Scheme Name	Transaction Type	Units	NAV	Date	Amount in/out
+
+2) current portfolio
+Scheme Name	GOOGLE FINANCE CODE	AMC	Category	Sub-category	Folio No.	NAV	Source	Units	Invested Value	Current Value	XIRR
+
+then we will generate following analytics:
+
+1) Diversification analysis: ![alt text](image.png)
+2) net xirr
+3) fund wise xirr: ![alt text](image-1.png)
+4) top performing and lagging funds
+5) portfolio over time: ![alt text](image-2.png)
+6) ai generated recommendations based on portfolio
 
 ---
 
