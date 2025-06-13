@@ -123,14 +123,15 @@ This will be a full-stack web application that provides:
 
 🟡 **Optional for V1**, add in V2 after initial release
 
-#### Example:
+#### Example
 
 Input csv format:
+
 1) details of each transaction
-Scheme Name	Transaction Type	Units	NAV	Date	Amount in/out
+Scheme Name Transaction Type Units NAV Date Amount in/out
 
 2) current portfolio
-Scheme Name	GOOGLE FINANCE CODE	AMC	Category	Sub-category	Folio No.	NAV	Source	Units	Invested Value	Current Value	XIRR
+Scheme Name GOOGLE FINANCE CODE AMC Category Sub-category Folio No. NAV Source Units Invested Value Current Value XIRR
 
 then we will generate following analytics:
 
@@ -1062,7 +1063,7 @@ print("="*50)
 | **Fund Manager**       | Error accessing manager: `'Funds' object has no attribute 'manager'`                     |
 | **Management Company** | Error accessing managementCompany: `'Funds' object has no attribute 'managementCompany'` |
 
-**Performance Metrics**
+**Performance Metrics:**
 
 #### Trailing Returns
 
@@ -1108,7 +1109,7 @@ print("="*50)
 | Entry Load     | Error accessing frontLoad: `'Funds' object has no attribute 'frontLoad'`         |
 | Exit Load      | Error accessing backLoad: `'Funds' object has no attribute 'backLoad'`           |
 
-**Portfolio Holdings**
+**Portfolio Holdings:**
 
 #### Top 10 Equity Holdings
 
@@ -1155,7 +1156,7 @@ print("="*50)
 | Total Bonds     | 1.83%          |
 | Cash & Others   | 6.79%          |
 
-**Historical NAV Data**
+**Historical NAV Data:**
 
 #### Recent NAV Entries
 
@@ -1203,7 +1204,7 @@ print("="*50)
 
 ---
 
-**Data Extraction Complete**
+**Data Extraction Complete:**
 
 ### mfapi.in
 
@@ -1321,16 +1322,21 @@ if __name__ == "__main__":
 ```
 
 > === Fund Information ===
-Scheme Name: quant Small Cap Fund - Growth Option - Direct Plan
-Fund House: quant Mutual Fund
-Scheme Category: Equity Scheme - Small Cap Fund
-Scheme Type: Open Ended Schemes
+> Scheme Name: quant Small Cap Fund - Growth Option - Direct Plan
+> Fund House: quant Mutual Fund
+> Scheme Category: Equity Scheme - Small Cap Fund
+> Scheme Type: Open Ended Schemes
 >=== Historical NAV (Last 5 Entries) ===
-      date      nav
-2025-05-22 269.5646
-2025-05-23 270.1382
-2025-05-26 270.2846
-2025-05-27 272.2418
-2025-05-28 271.4398
+> date      nav
+> 2025-05-22 269.5646
+> 2025-05-23 270.1382
+> 2025-05-26 270.2846
+> 2025-05-27 272.2418
+> 2025-05-28 271.4398
 
-> **Note:** There are more apis availbale to fetch financial data, but most of them are either paid or they do not offer data for indian mutual funds.
+**Note:** There are more apis availbale to fetch financial data, but most of them are either paid or they do not offer data for indian mutual funds.
+
+---
+**Disclaimer:** This mutual fund analysis report, including comparisons and buy/sell recommendations, is generated based on your questionnaire data and further analysis by Artificial Intelligence. The suggestions provided regarding your portfolio are also AI-generated. This output is for informational purposes only and does not constitute personalized financial advice from a human expert. It does not consider your complete financial situation, risk profile, or investment objectives beyond the scope of the provided questionnaire. We strongly recommend that you consult with a certified financial advisor before making any investment decisions, as market conditions are dynamic, and your individual circumstances may require tailored professional guidance.
+
+---
