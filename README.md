@@ -202,25 +202,30 @@ Following are useful mutual fund research websites:
 
 The following could be ideas to implement in the project to enhance it with more features:
 
-1. **mfutility**
+### 1. **mfutility**
 
 <https://github.com/devanshdalal/mfutility>
 
 This project scraps data for various mutual funds and creates a portfolio, depending on the weights provided. Using this, anyone can create a average of a portfolio of stocks of a class of mutual funds to be invested in markets without paying the extra expense ratio.
 
-2. <https://medium.com/@TejasEkawade/getting-and-analyzing-mutual-funds-in-python-c2d0feb09881>
+### 2. <https://medium.com/@TejasEkawade/getting-and-analyzing-mutual-funds-in-python-c2d0feb09881>
+
 <https://medium.com/@TejasEkawade/analyzing-mutual-funds-using-python-benchmarking-and-comparing-funds-215350bf58b7>
 [Here is the second blog (paid in medium, free for new users)](tejasblog2.md)
 
 Getting and analyzing Indian Mutual Funds data in Python (uses yfinance and mftool, also suggest way to compare mutual fund performance with peers and index both in tabular and graphical representation, then give a way to compare mutual funds on basis of returns along with their benchmarks)
 
-1. <https://medium.com/@TejasEkawade/getting-indian-stock-prices-using-python-19f8c83d2015>
+### 3. <https://medium.com/@TejasEkawade/getting-indian-stock-prices-using-python-19f8c83d2015>
 
 Getting Indian Stock Prices Using Python (show the use of `yfinance`, `jugaad_data`, `nselib` to fetch stocks, etf and indices data)
 
-4. <https://github.com/NayakwadiS/Forecasting_Mutual_Funds>
+### 4. <https://github.com/NayakwadiS/Forecasting_Mutual_Funds>
 
 This Project gives you an overall idea for Forecasting Mutual Funds (linear, auto regression, ARIMA, exponential, LSTM, time series forecasting applied o mutual fund NAV data).
+
+### <https://amaltyagi.medium.com/fetching-news-sentiment-with-python-5c2a0888e681>
+
+MSN Money offers news sentiment for many assets, not just the broader market along with other financial data. In this article we explore how we can scrape MSN Money to perform news sentiment data analysis using Selenium, Python.
 
 ---
 
