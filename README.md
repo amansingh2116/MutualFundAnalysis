@@ -15,6 +15,7 @@ This will be a full-stack web application that provides:
 ## 🧠 Key Features
 
 * **Mutual Fund Analysis:** Using APIs and/or web scraping to show complete information about a mutual fund scheme that is needed in order to make investment decision.
+* **Common Mutual Fund Calculators and Tools** (NAV, XIRR, SIP vs Lumpsum, rolling returns, etc.)
 * **Comparison Tools:** Compare between two or more funds to choose the best availaable option according to your need.
 * **Personalized Recommendations:** User-questionnaire + AI for suggesting suitable funds according to user's risk profile and return expectations.
 * **Custom Portfolio Analysis:** Analyze uploaded or entered user portfolios and suggest changes like removing a mutual fund from portfolio, portfolio rebalancing, etc.
@@ -76,7 +77,83 @@ This will be a full-stack web application that provides:
 
 ---
 
-### 5. **AI-Powered Recommendation System**
+### 5. Ideas
+
+Our project is designed to empower investors with the tools and insights needed to make informed decisions about mutual funds. By leveraging data from APIs and web scraping, we provide comprehensive analysis and comparison capabilities. Below are the key aspects of our approach:
+
+#### Analyzing Mutual Funds
+
+To thoroughly analyze a mutual fund, we focus on three main areas:
+
+- **Basic Information:**
+  - Fund name
+  - Fund objective
+  - Fund journey and history
+  - Fund manager(s)
+  - AUM size and growth
+  - Inception date
+
+- **Performance Consistency:**
+  - Annual return
+  - Up capture ratio
+  - Downside capture ratio
+  - Comparison with benchmarks and peers
+  - SIP vs lumpsum XIRR return
+  - Annual returns comparison within the fund and with benchmark, especially during quarters with negative benchmark returns
+
+- **Portfolio Composition:**
+  - Categories (e.g., mid cap, small cap, large cap)
+  - Industry types (e.g., pharma, electricity, FMCG)
+  - Diversification against category average
+  - Number of stocks and holding percentages
+  - Top holdings
+  - Asset allocation and portfolio rebalancing
+  - Portfolio turnover
+  - Cash percentage
+  - Recent portfolio changes over time
+
+This comprehensive analysis allows investors to gauge a fund's historical performance, management strategy, and alignment with their investment goals.
+
+#### Comparing Mutual Funds
+
+When comparing mutual funds, we provide a detailed breakdown across several critical dimensions:
+
+- **About:**
+  - Asset Management Company (AMC)
+  - Fund manager
+  - Expense ratio
+
+- **Return Analysis:**
+  - Trailing returns for 3, 5, 7, 10 years, and since inception
+  - Rolling returns for 2, 5, 7, and 10 years (maximum, minimum, mean)
+  - Comparison with category average and benchmark
+  - SIP returns
+  - Outperformance in calendar year returns
+
+- **Risk Analysis:**
+  - Standard deviation of rolling returns for 2, 5, 7, and 10 years
+  - Percentage of times the fund outperformed in rolling returns for 5, 7, and 10 years
+  - Comparison with category average and benchmark
+  - Annual return comparison: number of negative years, underperformance relative to benchmark, and range of yearly return differences
+  - Quarterly returns comparison, especially during quarters with negative benchmark returns
+  - Portfolio concentration: company, industry, theme with time analysis
+  - P/E ratio of the fund over time
+
+- **Portfolio Allocation:**
+  - Equity, debt, and cash holdings
+  - Small, mid, and large cap holdings
+  - Overseas vs. domestic investment holdings, compared with category average over time
+  - Portfolio turnover ratio
+  - Industry and sector diversification
+  - Top holdings allocation and their performance
+  - Portfolio overlap
+  - Portfolio concentration analysis
+
+These comparison tools enable investors to evaluate multiple funds side-by-side, assessing their relative strengths and weaknesses across performance, risk, and portfolio management strategies.
+
+By providing these in-depth analysis and comparison capabilities, our project aims to be a one-stop solution for mutual fund investors, offering the insights needed to make confident and informed investment choices.
+
+### 6. **AI-Powered Recommendation System**
 
 * Create a questionnaire (risk appetite, goals, investment horizon)
 * Use responses + fund data to suggest suitable funds
@@ -95,7 +172,7 @@ This will be a full-stack web application that provides:
 
 ---
 
-### 6. **Custom Portfolio Analysis**
+### 7. **Custom Portfolio Analysis**
 
 #### Steps
 
@@ -144,7 +221,7 @@ then we will generate following analytics:
 
 ---
 
-### 7. **Deployment**
+### 8. **Deployment**
 
 * GitHub Pages is static only → not for Django
 * Use:
