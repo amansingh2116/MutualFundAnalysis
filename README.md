@@ -83,6 +83,8 @@ Our project is designed to empower investors with the tools and insights needed 
 
 #### Analyzing Mutual Funds
 
+Check [this google sheet](Quant_small_cap_analysis.xlsx) for sample mutual fund analysis.
+
 To thoroughly analyze a mutual fund, we focus on three main areas:
 
 - **Basic Information:**
@@ -170,37 +172,76 @@ By providing these in-depth analysis and comparison capabilities, our project ai
 * Avoiding biases in recommendations
 * Evaluate AI output reliability
 
+🟡 **Optional for V1**, add in V2 after initial release
+
 ---
 
 ### 7. **Custom Portfolio Analysis**
 
 #### Steps
 
-1. Ask user to upload portfolio as CSV or manually input:
 
-   * Scheme name
-   * Purchase date
-   * Units / Amount
-2. Match with mutual fund database (ISIN, scheme code, etc.)
-3. Calculate:
+1. **Ask user to upload portfolio as CSV or manually input:**
+   - Scheme name
+   - Purchase date
+   - Units / Amount
+   - (Optional) Sale transactions for churn rate calculation
 
-   * **XIRR**
-   * **Diversification score**
-   * **Category/benchmark comparison**
-   * **Portfolio overlap**
-   * **Top & lagging funds**
-4. Display analytics using charts (Matplotlib/Plotly)
+2. **Match with mutual fund database (ISIN, scheme code, etc.) and fetch additional data:**
+   - Historical NAVs
+   - Benchmark data
+   - Fund holdings (for diversification and overlap)
+   - Expense ratios
+   - Other relevant financial data
+
+3. **Calculate the following metrics and analyses:**
+   - **Return Metrics:**
+     - XIRR
+     - Absolute return
+     - Rolling return
+     - Comparison of actual investment strategy with SIP, lump sum, and combination approaches
+     - Performance relative to category average, peers, benchmark, and Nifty/Sensex
+   - **Risk Metrics:**
+     - Standard deviation
+     - Beta
+     - Sharpe ratio
+   - **Diversification:**
+     - Diversification score
+     - Asset allocation
+     - Sector allocation
+     - Geographical allocation
+     - Portfolio overlap (stock-level overlap between funds)
+   - **Cost Analysis:**
+     - Impact of expense ratios on returns
+     - Brokerage fees
+     - Securities Transaction Tax (STT)
+     - Other transaction costs
+   - **Advanced Analyses:**
+     - Alpha generation
+     - Sector rotation analysis
+     - Portfolio evolution over time in relation to market conditions
+     - Optimal SIP or lump sum investment dates and amounts
+     - Investor's behavioral analysis and strategy decoding (identifying mistakes and suggesting corrections)
+     - Portfolio optimization recommendations
+     - Tax efficiency analysis
+
+4. **Display analytics using charts and visualizations (Matplotlib/Plotly)** for easy interpretation.
 
 > ❗ **Challenges**:
+> - Complex data mapping and integration from multiple sources
+> - Ensuring calculation accuracy for advanced financial metrics
+> - Creating intuitive visualizations and user experience
+> - Handling cases where users lack exact transaction data
+> - Obtaining detailed fund holdings and historical data
+> - Performing computationally intensive calculations efficiently
+> - Interpreting behavioral insights and providing actionable recommendations
+> - Maintaining data privacy and security
 
-* Data mapping is complex
-* Calculation needs accuracy
-* Visualization and UX
-* Users may not know exact transaction data
-
-🟡 **Optional for V1**, add in V2 after initial release
+🟡 **Optional for V1 and V2**, add in V3 after initial release
 
 #### Example
+
+Check [this google sheet](Portfolio_Analysis.xlsx) for a sample portfolio analysis.
 
 Input csv format:
 
@@ -232,36 +273,6 @@ then we will generate following analytics:
   * **Heroku (limited free tier)**
 
 > ✅ Suggest using **Render** or **Railway** (easy for Django apps)
-
----
-
-## 🧭 Roadmap
-
-### Phase 1 - Core App
-
-* [ ] Setup Django project
-* [ ] Fund listing from `mftool` or `mstarpy`
-* [ ] Fund comparison view
-* [ ] Static recommendation logic (based on question answers)
-
-### Phase 2 - AI Enhancement
-
-* [ ] Connect Gemini/OpenAI
-* [ ] Refine recommendation engine
-* [ ] Add ML model if needed
-
-### Phase 3 - Portfolio Analysis
-
-* [ ] Add portfolio upload or input
-* [ ] Analysis logic (XIRR, overlap, etc.)
-* [ ] Charts and downloadable reports
-
-### Phase 4 - Hosting & Polish
-
-* [ ] Deploy on Render/Railway
-* [ ] Add user accounts
-* [ ] Write documentation
-* [ ] Publish on GitHub
 
 ---
 
