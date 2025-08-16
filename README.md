@@ -87,32 +87,32 @@ Check [this google sheet](Quant_small_cap_analysis.xlsx) for sample mutual fund 
 
 To thoroughly analyze a mutual fund, we focus on three main areas:
 
-- **Basic Information:**
-  - Fund name
-  - Fund objective
-  - Fund journey and history
-  - Fund manager(s)
-  - AUM size and growth
-  - Inception date
+* **Basic Information:**
+  * Fund name
+  * Fund objective
+  * Fund journey and history
+  * Fund manager(s)
+  * AUM size and growth
+  * Inception date
 
-- **Performance Consistency:**
-  - Annual return
-  - Up capture ratio
-  - Downside capture ratio
-  - Comparison with benchmarks and peers
-  - SIP vs lumpsum XIRR return
-  - Annual returns comparison within the fund and with benchmark, especially during quarters with negative benchmark returns
+* **Performance Consistency:**
+  * Annual return
+  * Up capture ratio
+  * Downside capture ratio
+  * Comparison with benchmarks and peers
+  * SIP vs lumpsum XIRR return
+  * Annual returns comparison within the fund and with benchmark, especially during quarters with negative benchmark returns
 
-- **Portfolio Composition:**
-  - Categories (e.g., mid cap, small cap, large cap)
-  - Industry types (e.g., pharma, electricity, FMCG)
-  - Diversification against category average
-  - Number of stocks and holding percentages
-  - Top holdings
-  - Asset allocation and portfolio rebalancing
-  - Portfolio turnover
-  - Cash percentage
-  - Recent portfolio changes over time
+* **Portfolio Composition:**
+  * Categories (e.g., mid cap, small cap, large cap)
+  * Industry types (e.g., pharma, electricity, FMCG)
+  * Diversification against category average
+  * Number of stocks and holding percentages
+  * Top holdings
+  * Asset allocation and portfolio rebalancing
+  * Portfolio turnover
+  * Cash percentage
+  * Recent portfolio changes over time
 
 This comprehensive analysis allows investors to gauge a fund's historical performance, management strategy, and alignment with their investment goals.
 
@@ -120,36 +120,36 @@ This comprehensive analysis allows investors to gauge a fund's historical perfor
 
 When comparing mutual funds, we provide a detailed breakdown across several critical dimensions:
 
-- **About:**
-  - Asset Management Company (AMC)
-  - Fund manager
-  - Expense ratio
+* **About:**
+  * Asset Management Company (AMC)
+  * Fund manager
+  * Expense ratio
 
-- **Return Analysis:**
-  - Trailing returns for 3, 5, 7, 10 years, and since inception
-  - Rolling returns for 2, 5, 7, and 10 years (maximum, minimum, mean)
-  - Comparison with category average and benchmark
-  - SIP returns
-  - Outperformance in calendar year returns
+* **Return Analysis:**
+  * Trailing returns for 3, 5, 7, 10 years, and since inception
+  * Rolling returns for 2, 5, 7, and 10 years (maximum, minimum, mean)
+  * Comparison with category average and benchmark
+  * SIP returns
+  * Outperformance in calendar year returns
 
-- **Risk Analysis:**
-  - Standard deviation of rolling returns for 2, 5, 7, and 10 years
-  - Percentage of times the fund outperformed in rolling returns for 5, 7, and 10 years
-  - Comparison with category average and benchmark
-  - Annual return comparison: number of negative years, underperformance relative to benchmark, and range of yearly return differences
-  - Quarterly returns comparison, especially during quarters with negative benchmark returns
-  - Portfolio concentration: company, industry, theme with time analysis
-  - P/E ratio of the fund over time
+* **Risk Analysis:**
+  * Standard deviation of rolling returns for 2, 5, 7, and 10 years
+  * Percentage of times the fund outperformed in rolling returns for 5, 7, and 10 years
+  * Comparison with category average and benchmark
+  * Annual return comparison: number of negative years, underperformance relative to benchmark, and range of yearly return differences
+  * Quarterly returns comparison, especially during quarters with negative benchmark returns
+  * Portfolio concentration: company, industry, theme with time analysis
+  * P/E ratio of the fund over time
 
-- **Portfolio Allocation:**
-  - Equity, debt, and cash holdings
-  - Small, mid, and large cap holdings
-  - Overseas vs. domestic investment holdings, compared with category average over time
-  - Portfolio turnover ratio
-  - Industry and sector diversification
-  - Top holdings allocation and their performance
-  - Portfolio overlap
-  - Portfolio concentration analysis
+* **Portfolio Allocation:**
+  * Equity, debt, and cash holdings
+  * Small, mid, and large cap holdings
+  * Overseas vs. domestic investment holdings, compared with category average over time
+  * Portfolio turnover ratio
+  * Industry and sector diversification
+  * Top holdings allocation and their performance
+  * Portfolio overlap
+  * Portfolio concentration analysis
 
 These comparison tools enable investors to evaluate multiple funds side-by-side, assessing their relative strengths and weaknesses across performance, risk, and portfolio management strategies.
 
@@ -180,62 +180,62 @@ By providing these in-depth analysis and comparison capabilities, our project ai
 
 #### Steps
 
-
 1. **Ask user to upload portfolio as CSV or manually input:**
-   - Scheme name
-   - Purchase date
-   - Units / Amount
-   - (Optional) Sale transactions for churn rate calculation
+   * Scheme name
+   * Purchase date
+   * Units / Amount
+   * (Optional) Sale transactions for churn rate calculation
 
 2. **Match with mutual fund database (ISIN, scheme code, etc.) and fetch additional data:**
-   - Historical NAVs
-   - Benchmark data
-   - Fund holdings (for diversification and overlap)
-   - Expense ratios
-   - Other relevant financial data
+   * Historical NAVs
+   * Benchmark data
+   * Fund holdings (for diversification and overlap)
+   * Expense ratios
+   * Other relevant financial data
 
 3. **Calculate the following metrics and analyses:**
-   - **Return Metrics:**
-     - XIRR
-     - Absolute return
-     - Rolling return
-     - Comparison of actual investment strategy with SIP, lump sum, and combination approaches
-     - Performance relative to category average, peers, benchmark, and Nifty/Sensex
-   - **Risk Metrics:**
-     - Standard deviation
-     - Beta
-     - Sharpe ratio
-   - **Diversification:**
-     - Diversification score
-     - Asset allocation
-     - Sector allocation
-     - Geographical allocation
-     - Portfolio overlap (stock-level overlap between funds)
-   - **Cost Analysis:**
-     - Impact of expense ratios on returns
-     - Brokerage fees
-     - Securities Transaction Tax (STT)
-     - Other transaction costs
-   - **Advanced Analyses:**
-     - Alpha generation
-     - Sector rotation analysis
-     - Portfolio evolution over time in relation to market conditions
-     - Optimal SIP or lump sum investment dates and amounts
-     - Investor's behavioral analysis and strategy decoding (identifying mistakes and suggesting corrections)
-     - Portfolio optimization recommendations
-     - Tax efficiency analysis
+   * **Return Metrics:**
+     * XIRR
+     * Absolute return
+     * Rolling return
+     * Comparison of actual investment strategy with SIP, lump sum, and combination approaches
+     * Performance relative to category average, peers, benchmark, and Nifty/Sensex
+   * **Risk Metrics:**
+     * Standard deviation
+     * Beta
+     * Sharpe ratio
+   * **Diversification:**
+     * Diversification score
+     * Asset allocation
+     * Sector allocation
+     * Geographical allocation
+     * Portfolio overlap (stock-level overlap between funds)
+   * **Cost Analysis:**
+     * Impact of expense ratios on returns
+     * Brokerage fees
+     * Securities Transaction Tax (STT)
+     * Other transaction costs
+   * **Advanced Analyses:**
+     * Alpha generation
+     * Sector rotation analysis
+     * Portfolio evolution over time in relation to market conditions
+     * Optimal SIP or lump sum investment dates and amounts
+     * Investor's behavioral analysis and strategy decoding (identifying mistakes and suggesting corrections)
+     * Portfolio optimization recommendations
+     * Tax efficiency analysis
 
 4. **Display analytics using charts and visualizations (Matplotlib/Plotly)** for easy interpretation.
 
 > ❗ **Challenges**:
-> - Complex data mapping and integration from multiple sources
-> - Ensuring calculation accuracy for advanced financial metrics
-> - Creating intuitive visualizations and user experience
-> - Handling cases where users lack exact transaction data
-> - Obtaining detailed fund holdings and historical data
-> - Performing computationally intensive calculations efficiently
-> - Interpreting behavioral insights and providing actionable recommendations
-> - Maintaining data privacy and security
+>
+> * Complex data mapping and integration from multiple sources
+> * Ensuring calculation accuracy for advanced financial metrics
+> * Creating intuitive visualizations and user experience
+> * Handling cases where users lack exact transaction data
+> * Obtaining detailed fund holdings and historical data
+> * Performing computationally intensive calculations efficiently
+> * Interpreting behavioral insights and providing actionable recommendations
+> * Maintaining data privacy and security
 
 🟡 **Optional for V1 and V2**, add in V3 after initial release
 
@@ -314,6 +314,45 @@ This Project gives you an overall idea for Forecasting Mutual Funds (linear, aut
 ### <https://amaltyagi.medium.com/fetching-news-sentiment-with-python-5c2a0888e681>
 
 MSN Money offers news sentiment for many assets, not just the broader market along with other financial data. In this article we explore how we can scrape MSN Money to perform news sentiment data analysis using Selenium, Python.
+
+### <https://github.com/codereverser/folioman>
+
+Portfolio manager and analysis tools for investments in Indian mutual funds, stocks and other digital assets.
+
+### <https://github.com/rishabhrkaushik/MF-Investment-Analyser>
+
+The purpose of the project is to analyze one's Mutual Funds Portfolio. The project involves creating various graphs and summary table to give insights on one's investments so as to take informed decisions on investment and disinvestment. The graphs and summary table are preliminary and investor should take consider various other factors before taking any decisions.
+
+Note: This is not completely automated script. The investment details needs to be stored manually in a JSON file.
+
+### <https://github.com/srinivasRM/Mutual-funds-Analysis-and-prediction?tab=readme-ov-file>
+
+In this project I have performed analysis and prediction on 1,3,and 5 year returns on 1064 mutual funds in India. I have scraped data from a website which is the most visited website for mutual fund investments.I have tested regression models linear model,SGD Regressor , Random Forest Regressor,Decision Tree Regressor,Ridge,MLP Regressor and linear model (Lasso).After which I have selected the best perorming model and performed Hyper parameter tuning and then deployed an interactive application which can generate the visualization and send an email with the visualization to the users email address.
+
+### <https://github.com/asrajavel/mf-analysis>
+
+This project is a Mutual Funds Analysis tool that provides various graphs representing different investment scenarios. The tool is designed to help users understand the performance of various mutual funds over time, and even compare them aginst indices. Various indices can also be compared against each other.
+The tool provides the following types of graphs:
+
+NAV
+SIP Rolling Returns
+SIP Rolling Absolute Value
+Lumpsum Rolling Returns
+Lumpsum Rolling Absolute Value
+Standard Deviation Rolling Annualized Monthly
+
+Details about each graph can be found in the [wiki](https://asrajavel.github.io/mf-analysis/wiki.html).
+
+Each graph represents a different investment scenario and provides insights into the performance of the mutual funds. The data can be alaysed for differnt rolling time periods - 1, 3, 5 and 10 years.
+
+### <https://github.com/anoninvestor/portfolioanalyser>
+
+determines how much of your money is invested in each company with following inputs from you :
+
+Portfolio disclosure documents (or) portfolio document download urls[wouldn't recommend this though]
+Units invested in each fund
+MF api url for each fund
+Sheet name in each file
 
 ---
 
