@@ -309,4 +309,59 @@ Interactive Quetionaire form and then detailed analysis of each fund based on th
 
 Input Mutual Fund excel sheets with transaction details or manual entries update or connecting to MF Central using PAN tp fetch data automatically, then perform detailed analysis and recommendations.
 
+---
+
+### Mutual Fund Portfolio Backtesting
+
+Input mutual funds (respective benchmark indices), their weightage in the portfolio, investment amount, investment frequency (monthly, quarterly, yearly), investment type (SIP, Lumpsum) and then backtest the portfolio for last 10 years with detailed analysis.
+
+![alt text](image-58.png)
+
+Index Fund Portfolio construction and rebalancing details (this is just to enhance the output look by writing text and explaining things in the output, at the start of the output I want to show as output the information about the current strategy backtesting basically the details about the funds/indices, respective benchmark indexes, and weightage and rebalancing rules that is yearly and 5 strategic rebalancing)
+
+#### Metrics & Analysis
+
+- CAGR of strategies
+- Trailing returns (trend of yearly returns and their comparative performances)
+- Min, Max, Average5 year rolling returns
+- Standard Deviation (Volatility) of returns
+- Downside quarters analysis (for the quarters with returns, time, individual index performance)
+- SIP assumption and analysis results (SIP XIRR)
+- with all 5 rebalancing strategies
+
+#### Rebalancing strategies
+
+**1) For each equity sleeve (Momentum, Midcap, Nasdaq):**
+
+- If 12-month total return > 0, allow debt → equity switch
+- If 12-month return ≤ 0, stay in debt
+
+**2) For each equity index:**
+
+- If index price > 10-month moving average → equity ON
+- Else → debt
+
+**3) Estimate 6-month realized volatility.**
+
+- If volatility > threshold → shift debt → debt
+- If volatility normal → allow equit
+
+**4) If PE \> long-term 90th percentile -> pause new equity SIP**
+
+- Redirect incremental SIP to debt
+
+**5) Signal = average of:**
+
+- Trend signal (12M return)
+- MA filter
+
+**Note:** check ![backtest.py] file for sample python implementation.
+
+Refer to the following videos for more details on mutual fund backtesting and comparison of different strategies:
+
+- [https://www.youtube.com/watch?v=ppxnjQ86T-Q&t=152s](https://www.youtube.com/watch?v=ppxnjQ86T-Q&t=152s)
+- [https://youtu.be/ZAKdP5FcFio?si=8gbq_4B-lDibScDj](https://youtu.be/ZAKdP5FcFio?si=8gbq_4B-lDibScDj)
+- [https://youtu.be/8SfVk8P4Bxs?si=9aC6LWwCBPkNrGZC](https://youtu.be/8SfVk8P4Bxs?si=9aC6LWwCBPkNrGZC)
+- [https://youtu.be/JWgHNLsdRUY?si=eHCvs9cPceTawkUt](https://youtu.be/JWgHNLsdRUY?si=eHCvs9cPceTawkUt)
+
 ## Workflow
