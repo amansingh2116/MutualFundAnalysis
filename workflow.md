@@ -355,7 +355,7 @@ Index Fund Portfolio construction and rebalancing details (this is just to enhan
 - Trend signal (12M return)
 - MA filter
 
-**Note:** check ![backtest.py] file for sample python implementation.
+**Note:** check [backtest.py](backtest.py) file for sample python implementation.
 
 Refer to the following videos for more details on mutual fund backtesting and comparison of different strategies:
 
@@ -363,5 +363,64 @@ Refer to the following videos for more details on mutual fund backtesting and co
 - [https://youtu.be/ZAKdP5FcFio?si=8gbq_4B-lDibScDj](https://youtu.be/ZAKdP5FcFio?si=8gbq_4B-lDibScDj)
 - [https://youtu.be/8SfVk8P4Bxs?si=9aC6LWwCBPkNrGZC](https://youtu.be/8SfVk8P4Bxs?si=9aC6LWwCBPkNrGZC)
 - [https://youtu.be/JWgHNLsdRUY?si=eHCvs9cPceTawkUt](https://youtu.be/JWgHNLsdRUY?si=eHCvs9cPceTawkUt)
+
+### Mutual Fund Portfolio AI Quantitative and Qualitative Analysis
+
+This module performs a comprehensive analysis of the mutual fund portfolio, providing insights into the quantitative and qualitative aspects of the portfolio.
+
+#### Quantitative Analysis
+
+This section provides a detailed analysis of the quantitative aspects of the portfolio, including:
+
+- XIRR calculation: calculates the internal rate of return of the portfolio
+- Absolute returns: calculates the absolute returns of the portfolio
+- SIP pattern analysis: analyzes the Systematic Investment Plan (SIP) pattern of the portfolio
+- Market timing efficiency: analyzes the efficiency of the market timing strategy employed by the portfolio manager
+- Diversification metrics: calculates the diversification metrics of the portfolio, including the Sharpe ratio, Sortino ratio, and Information ratio
+
+#### Psychological Analysis
+
+This section provides a detailed analysis of the qualitative aspects of the portfolio, including:
+
+- Investor archetype identification: identifies the investor archetype based on their risk tolerance, investment goals, and investment horizon
+- Risk evolution tracking: analyzes the risk evolution of the portfolio over time
+- Behavioral pattern detection: detects behavioral patterns in the portfolio, such as overconfidence, loss aversion, and framing effects
+- Consistency scoring: scores the consistency of the portfolio manager's decisions based on their investment philosophy and risk tolerance
+
+#### Comparative Analysis
+
+This section provides a detailed comparison of the portfolio with various benchmarks and peer groups, including:
+
+- Benchmark comparison (Nifty): compares the performance of the portfolio with the Nifty index
+- Peer-relative positioning: compares the performance of the portfolio with its peer group
+- Historical performance analysis: analyzes the historical performance of the portfolio and its peer group
+
+#### Visualization
+
+This section provides a detailed visualization of the portfolio, including:
+
+- Cumulative investment plot: plots the cumulative investment of the portfolio over time
+- Monthly investment patterns: plots the monthly investment patterns of the portfolio
+- Portfolio allocation pie chart: plots the portfolio allocation as a pie chart
+- Risk evolution timeline: plots the risk evolution of the portfolio over time
+
+#### Actionable Insights
+
+This section provides actionable insights based on the analysis, including:
+
+- Personalized recommendations: provides personalized recommendations based on the investor's risk tolerance, investment goals, and investment horizon
+- Key strengths identification: identifies the key strengths of the portfolio manager
+- Improvement areas: identifies areas for improvement in the portfolio manager's decision-making process
+
+#### Strategic Suggestions to Adapt to Your Data
+
+This section provides strategic suggestions to adapt the system to your data, including:
+
+- Replace sample data with your actual transaction history
+- Update CSV parsing in CSVAdapter class to match your file formats
+- Add your benchmark data for accurate comparison
+- Set AI_ENABLED = True if you want AI insights (requires API key)
+
+**Note:** check [analysis.py](analysis.py) file for sample python implementation.
 
 ## Workflow
