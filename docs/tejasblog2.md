@@ -1,5 +1,11 @@
 # Part 2: Analyzing Mutual Funds Performance
 
+> **Research source:** This locally retained reference is based on Tejas
+> Ekawade's article, [Analyzing Mutual Funds Using Python: Benchmarking and
+> Comparing Funds](https://medium.com/@TejasEkawade/analyzing-mutual-funds-using-python-benchmarking-and-comparing-funds-215350bf58b7).
+> Its methodology has been incorporated into the project overview in the
+> [README](../README.md).
+
 This article continues from Part 1: Getting and Analyzing Mutual Funds in Python, where we explored fetching mutual fund data using Python libraries. Here, we dive into key performance metrics to compare mutual funds with their benchmarks and among themselves, aiding your investment decisions. The focus is on Flexi Cap Funds, which allow fund managers to invest across market capitalizations without restrictions.
 While this analysis uses Indian mutual fund data, the methodology is applicable globally to mutual funds, index funds, or stocks. According to the Association of Mutual Funds in India (AMFI), the Indian mutual fund industry's Assets Under Management (AUM) grew from ₹9.03 trillion (January 31, 2014) to ₹52.74 trillion (January 31, 2024).
 Disclaimer: This content is for informational purposes only and should not be construed as legal, tax, investment, or other advice.
@@ -144,7 +150,7 @@ results, time_period_dataframes = calculate_funds_returns(time_periods, funds_me
 results_long = pd.DataFrame(results, columns=['Fund', 'Years', 'Abs_returns_prcnt', 'CAGR'])
 ```
 
-![alt text](images/image.png)
+![alt text](../images/image.png)
 
 ```py
 result_df = pd.DataFrame(results, columns=['Fund', 'Years', 'Abs_prcnt', 'CAGR']).pivot(
@@ -154,7 +160,7 @@ result_df.columns = [f'{x}_{y}' for x, y in result_df.columns]
 result_df = result_df.applymap(lambda x: f"{x:.2f}%")
 ```
 
-![alt text](images/image-1.png)
+![alt text](../images/image-1.png)
 
 ```py
 plt.rcParams["figure.figsize"] = [20,7]
@@ -176,7 +182,7 @@ plt.legend(loc='upper left')
 plt.savefig('investment_journey.png')
 ```
 
-![alt text](images/image-2.png)
+![alt text](../images/image-2.png)
 
 **Observations:**
 
@@ -204,7 +210,7 @@ result_df.columns = [f'{x}_{y}' for x, y in result_df.columns]
 result_df = result_df.applymap(lambda x: f"{x:.2f}%")
 ```
 
-![alt text](images/image-3.png)
+![alt text](../images/image-3.png)
 
 ```py
 plt.rcParams["figure.figsize"] = [16,9]
@@ -221,7 +227,7 @@ ax.legend(loc='upper left')
 plt.savefig('screener_style.png')
 ```
 
-![alt text](images/image-4.png)
+![alt text](../images/image-4.png)
 
 **Observations:**
 
@@ -263,7 +269,7 @@ nifty_indices_results, time_period_nifty_dataframes = calculate_funds_returns(ti
 results_year_lvl_long = pd.DataFrame(mf_results + nifty_indices_results, columns=['Fund', 'Year', 'Returns', 'CAGR']).drop(['CAGR'], axis=1)
 ```
 
-![alt text](images/image-5.png)
+![alt text](../images/image-5.png)
 
 ```py
 plt.rcParams["figure.figsize"] = [20,7]
@@ -285,7 +291,7 @@ plt.legend(loc='upper left')
 plt.savefig('annual_returns.png')
 ```
 
-![alt text](images/image-6.png)
+![alt text](../images/image-6.png)
 
 **Observations:**
 
@@ -307,7 +313,7 @@ funds_benchmark_mapping = {
 mapping_df = pd.DataFrame(list(funds_benchmark_mapping.items()), columns=['Fund', 'Index'])
 ```
 
-![alt text](images/image-7.png)
+![alt text](../images/image-7.png)
 
 ```py
 fund_benchmark_yr_lvl = funds_results_long.merge(mapping_df, on='Fund').merge(
@@ -321,7 +327,7 @@ fund_benchmarking.columns = [f'{x}_{y}' for x, y in fund_benchmarking.columns]
 fund_benchmarking = fund_benchmarking.reset_index()
 ```
 
-![alt text](images/image-8.png)
+![alt text](../images/image-8.png)
 
 **Observations:**
 
@@ -332,7 +338,7 @@ Funds outperforming the benchmark in most years indicate strong performance.
 For new investors, combine screener-style analysis (1.2) with benchmark consistency (2.2) to evaluate recent performance and reliability. For existing investors, use the investment journey perspective (1.1) with benchmark
 consistency (2.2) to track portfolio growth.
 
-![alt text](images/image-9.png)
+![alt text](../images/image-9.png)
 
 ## Conclusion
 

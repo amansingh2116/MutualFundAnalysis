@@ -1,5 +1,9 @@
 # Project Workflow
 
+> **Status:** This is the detailed feature and interface planning document for
+> future implementation. For project orientation, current artifacts, and the
+> implementation roadmap, start with the [README](../README.md).
+
 ## Introduction
 
 Now we are going to formulate the workflow for the project in detail.
@@ -20,46 +24,46 @@ The first and maybe the most important feauture is to provide investors with the
 
 Fund Name
 Fund Type: Classification by Structure (Open-Ended Funds, Close-Ended Funds, Interval Funds), Classification by Asset Class (Equity (Small Cap, Mid Cap, Large Cap, Multi Cap, Flexi Cap, Value, Focused, ELSS, etc.), Debt (Liquid, Overnight, Short Term, Long Term, Corporate Bond, Credit Risk, Gilt, etc.), Hybrid (Aggressive, Balanced, Conservative, Multi-Asset Allocation, etc.), Solution Oriented and Other (Retirement,Children, Index Fund and ETF, Fund of Funds), Direct vs Indirect, Active vs Passive, Domestic vs International, Growth vs IDCW)
-![alt text](image-12.png)
+![alt text](../images/workflow-image-12.png)
 Ranking and rank trend (built in model to rank funds not just based on details like past performance but based on the investors personal details and other factors, a return, recency and stability score model to be developed which leads to overall fund ranking normalized with investors details, also show the trend of the ranking, how it has changed over time, absolute ranking, relative ranking, ranking within category, etc.) (Stabilty is how well fund protect capital during downturns, Returns is how consistent the fund's returns have been over time, Recency is how well a fund has performed in the last 2 years, continuosly backtested framework thast best assesses a fund's future potential developed by experts after studying every mutual fund since its inception) (some funds might not have ratings due to insufficient data or because they belong to certain non-equity categories that are less relevant for retail investors) (to display it we can design a score card with performance risk, cost, composition, red flags, THEN RANKING BY RETURNS, COST AND VOLATILITY) {Our recommendations are continuously back-tested. And they have consistently been able to deliver 3-7% better returns across equity mutual fund categories (compared to category averages). Past data does not guarantee future returns. Neither do we. What we CAN assure you of is that our experts are always on top of the recommendations we make. So you make informed decisions.}
-![alt text](image-13.png)
+![alt text](../images/workflow-image-13.png)
 Overview (One page fund profile, commentary on whether to invest or not: In form, On track, Off track, Out of form)
-![alt text](image-14.png)
-![alt text](image-22.png)
+![alt text](../images/workflow-image-14.png)
+![alt text](../images/workflow-image-22.png)
 Performance (Trailing 3, 5, 7, 10 years, since inception, Rolling returns for 2, 5, 7, 10 years (maximum, minimum, mean) vs category average and benchmark and vs peers, a time series graph is recommended)
-![alt text](image-15.png)
-![alt text](image-16.png)
-![alt text](image-17.png)
-![alt text](image-23.png)
-![alt text](image-36.png)
+![alt text](../images/workflow-image-15.png)
+![alt text](../images/workflow-image-16.png)
+![alt text](../images/workflow-image-17.png)
+![alt text](../images/workflow-image-23.png)
+![alt text](../images/workflow-image-36.png)
 Returns calculator (SIP vs Lumpsum, Returns before or After tax, input: investment amount, number of years, output: returns, total value, cagr, absolute returns, vs benchmar vs peers, XIRR analysis)
-![alt text](image-18.png)
-![alt text](image-4.png)
+![alt text](../images/workflow-image-18.png)
+![alt text](../images/workflow-image-4.png)
 Portfolio (Equity, Debt, Cash, with time target according to category vs actual weightage with time ,Small, Mid, Large, Overseas vs. Domestic, industry and sector diversification, changes over time to understand how the portfolio has changed over time {it can be shown as two ways: sector distribution [sector diversification with chaging time], sector weightage [or with time changing sector weightage]}) (actual holdings with percentage)
-![alt text](image-32.png)
-![alt text](image-19.png)
-![alt text](image-20.png)
-![alt text](image-21.png)
-![alt text](image-27.png)
-![alt text](image-28.png)
-![alt text](image-29.png)
-![alt text](image-30.png)
-![alt text](image-31.png)
-![alt text](image-38.png)
-![alt text](image-39.png)
+![alt text](../images/workflow-image-32.png)
+![alt text](../images/workflow-image-19.png)
+![alt text](../images/workflow-image-20.png)
+![alt text](../images/workflow-image-21.png)
+![alt text](../images/workflow-image-27.png)
+![alt text](../images/workflow-image-28.png)
+![alt text](../images/workflow-image-29.png)
+![alt text](../images/workflow-image-30.png)
+![alt text](../images/workflow-image-31.png)
+![alt text](../images/workflow-image-38.png)
+![alt text](../images/workflow-image-39.png)
 Peer comparison (ratios {PE ratio, std dev, sharpe ratio, sortino ratio, max drawdown}, returns {cagr, trailing returns, rolling returns}, scheme information {expense ratio, exit load, stamp duty, lock in, minimum SIP & Lumpsum, inception date, tax implications, fund objective, fund house ranking, AUM, launch date})
-![alt text](image-24.png)
-![alt text](image-41.png)
+![alt text](../images/workflow-image-24.png)
+![alt text](../images/workflow-image-41.png)
 Fund Information (NAV with graph, AUM, Expense ratio, Exit Load, Stamp Duty, Lock in, Minimum investment SIP & Lumpsum, Benchmark, Inception Date, Tax Implications {taxable, tax free, tax saving through ELSS investment, STCG, LTCG}, Fund Objective, Fund House {ranking, AUM, launch date})
-![alt text](image-42.png)
-![alt text](image-34.png)
-![alt text](image-35.png)
+![alt text](../images/workflow-image-42.png)
+![alt text](../images/workflow-image-34.png)
+![alt text](../images/workflow-image-35.png)
 Fund Managers (Name, Date joined, Qualification, Past experience and years of experience, other funds managed with their returns, AUM managed)
-![alt text](image-25.png)
-![alt text](image-26.png)
+![alt text](../images/workflow-image-25.png)
+![alt text](../images/workflow-image-26.png)
 Ratios (P/E ratio, P/B ratio, Alpha, Beta, Sharpe, Sortino, Standard deviation, R squared, Max Drawdown vs category vs benchmark)
-![alt text](image-33.png)
-![alt text](image-37.png)
+![alt text](../images/workflow-image-33.png)
+![alt text](../images/workflow-image-37.png)
 
 ## Common Mutual Fund Calculators and Tools
 
@@ -119,7 +123,7 @@ In summary, our portfolios are designed to strike a balance between risk, return
 
 Then custom portfolio is prepared and simulated for 10 years with and without balancing, SIP vs Lumpsum, returns before and after tax and XIRR analysis, time series forecast graph pf portfolio vs benchmark
 
-![alt text](image-52.png)
+![alt text](../images/workflow-image-52.png)
 
 ## Custom Portfolio Analysis
 
@@ -139,33 +143,33 @@ Total invested
 XIRR
 funds
 portfolio performance (overall and fund wise, with time)(in form {among tom performers, great to continue SIP, great to invest more lumpsum}, on track {performing better than most funds, good to continue SIP, good to invest more lumpsum}, off track {falling behind most funds, stop SIP and hold fund and dont buy more}, out of form {among the lowest performers, stop SIP and sell and exit fund})
-![alt text](image-53.png)
+![alt text](../images/workflow-image-53.png)
 rebalancing recommendation (based on maximizing returns, tax optimization and diversification)
-![alt text](image-54.png)
+![alt text](../images/workflow-image-54.png)
 portfolio vs market (nifty, benchmark, category average) with time 1D, 1W, 1M, 3M, 6M, 1Y, All
 portfolio allocation (equity, debt, cash, small, mid, large, overseas vs. domestic, industry and sector diversification)
 portfolio journey (invested vs total value and returns and singularly too)(with time 1D, 1W, 1M, 3M, 6M, 1Y, All)
 portfolio fund overlap (stock-level overlap between funds, percentage, number of stocks, low vs high overlap and its implication as good or bad diversification) (stock wise overall weightage in the portfolio)
 portfolio turnover (turnover ratio compared to benchmark and category average)
 diversification score and commentary (based on last 1 year NAV movement and volatility, correlation based on daily movement of last 1 year for each fund and benchmark, under or over diversified based on number of funds, asset allocation, sectoral distribution)
-![alt text](image-48.png)
+![alt text](../images/workflow-image-48.png)
 XIRR analysis vs category (each fund compared with each sub category average then calculated returns {compare each fund with benchmark or category average, simulate every past transaction of user portfolio in the benchmark or category average, then compare returns, abs and xirr, missed gains or alpha generated with respect to benchmark or category average} are shown compared to your returns) and benchmark (same for this)
-![alt text](image-47.png)
+![alt text](../images/workflow-image-47.png)
 Forecasting (forecasting returns for next 1, 3, 6, 12 months) (financial independence age)
 red flag analysis (part of ASM/GSM list, high pledged promoter holdings, high probability of default)
-![alt text](image-50.png)
+![alt text](../images/workflow-image-50.png)
 Total Cost
 News and Events (news and events related to the portfolio and the market and thier implication on the portfolio, actionable insights if any)
 portfolio review: investors generally get poor returns due to following reasons: no portfolio overview and adjustments, no rebalancing, choosing fund based on past performance, non disciplined investing mindset, one should review the portfolio at least once a quarter becuase of the economicenvironment and market condition, it could be due to regulatory changes, macro economic factors, market conditions, etc., or due to changes in the portfolio itself (like changes in holdings, changes in weights, etc. so overall analysis of fund in this section with actionable insights like rebalancing suggestion, exit funds suggestion, add funds suggestion with reasoning data backed, tax saving/tax harvesting implementation, etc., because past returns does not guarantee future returns and investing is not about choosing past winners but future ones, economic conditions like interest rates and global events affect market cycles and thus portfolio performance, so one should review the portfolio and take some actions accordingly)
-![alt text](image-43.png)
-![alt text](image-44.png)
-![alt text](image-45.png)
-![alt text](image-46.png)
-![alt text](image-51.png)
+![alt text](../images/workflow-image-43.png)
+![alt text](../images/workflow-image-44.png)
+![alt text](../images/workflow-image-45.png)
+![alt text](../images/workflow-image-46.png)
+![alt text](../images/workflow-image-51.png)
 ratios (P/E ratio, P/B ratio, Alpha, Beta, Sharpe, Sortino, Standard deviation, R squared, Max Drawdown vs category vs benchmark)
 
-![inspiration for interactive display](image-3.png)
-![alt text](image-55.png)
+![inspiration for interactive display](../images/workflow-image-3.png)
+![alt text](../images/workflow-image-55.png)
 
 ## Other considerations
 
@@ -179,15 +183,15 @@ Risks: Mutual fund investments are subject to market risks. Always thoroughly re
 
 Mutual Fund Recommendation, Ranking of Mutual Funds classified on basis of asset class, risk profile, returns, etc., Mutual Fund Portfolio suggestions for Aggressive, Balanced, Conservative, etc., major indices, market mood index, blogs, learn section, news and events, other tabs options
 
-![alt text](image-56.png)
-![alt text](image-49.png)
+![alt text](../images/workflow-image-56.png)
+![alt text](../images/workflow-image-49.png)
 
 ### Mutual Fund Information
 
 Mutual Fund Information with detailed information on each fund, including performance, risk, fees, etc.
 Recommendation based on personal information and questionnaire.
 Each fund has a comment section where users can share their views and opinions.inions.
-![alt text](image-40.png)
+![alt text](../images/workflow-image-40.png)
 
 ### Tools and Calculators
 
@@ -198,11 +202,11 @@ Best Rated funds based on Performance, Risk, Fees, etc.
 Category-wise top performing funds
 Investment Ideas (Portfolio buckets based on risk and performance)
 
-![alt text](image-9.png)
+![alt text](../images/workflow-image-9.png)
 
-![alt text](image-10.png)
+![alt text](../images/workflow-image-10.png)
 
-![alt text](image-11.png)
+![alt text](../images/workflow-image-11.png)
 
 #### Mutual Fund Screener
 
@@ -214,12 +218,12 @@ Fund Manager (returns, risk, alpha, sharpe, Information, expertise)
 Portfolio (large, small, mid cap, equity, debt, holding percentage filter, sector diversification)
 rating (recency, performance, diversification, risk, etc.)
 
-![alt text](image-5.png)
+![alt text](../images/workflow-image-5.png)
 
 And give columns to add or hide to compare like:
 Rating, AUM(cr), Age(yr), Mod Dur, Avg Mat, Return(1d), Return(1w), Return(1m), Return(3m), Return(6m), Return(1y), Return(2y), Return(3y), Return(5y), Alpha(1y), Alpha(2y), Alpha(3y), VolatilityBetaSharpe, etc.
 
-![alt text](image-6.png)
+![alt text](../images/workflow-image-6.png)
 
 #### Mutual Fund Comparison
 
@@ -254,9 +258,9 @@ Portfolio Concentration: The percentage weight of the top 5 and top 10 holdings.
 Asset Allocation: The fund's breakdown across different asset classes (e.g., Equity, Bonds, Cash).
 Sector Holdings: The percentage allocation to different industry sectors (e.g., Financials, IT, Health Care).
 
-![alt text](image-7.png)
+![alt text](../images/workflow-image-7.png)
 
-![alt text](image-8.png)
+![alt text](../images/workflow-image-8.png)
 
 #### Calculators
 
@@ -299,7 +303,7 @@ Various mutual fund related calculators that are required by investors on regula
 - Market Indices
 - Rating
 
-![alt text](image-57.png)
+![alt text](../images/workflow-image-57.png)
 
 ### Mutual Fund Recommendation
 
@@ -315,7 +319,7 @@ Input Mutual Fund excel sheets with transaction details or manual entries update
 
 Input mutual funds (respective benchmark indices), their weightage in the portfolio, investment amount, investment frequency (monthly, quarterly, yearly), investment type (SIP, Lumpsum) and then backtest the portfolio for last 10 years with detailed analysis.
 
-![alt text](image-58.png)
+![alt text](../images/workflow-image-58.png)
 
 Index Fund Portfolio construction and rebalancing details (this is just to enhance the output look by writing text and explaining things in the output, at the start of the output I want to show as output the information about the current strategy backtesting basically the details about the funds/indices, respective benchmark indexes, and weightage and rebalancing rules that is yearly and 5 strategic rebalancing)
 
