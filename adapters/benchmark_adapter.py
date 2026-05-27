@@ -22,6 +22,12 @@ from typing import Optional
 
 import requests
 
+from apps.benchmarks.registry import (
+    BENCHMARK_TICKERS as REGISTRY_BENCHMARK_TICKERS,
+    CATEGORY_BENCHMARK_MAP as REGISTRY_CATEGORY_BENCHMARK_MAP,
+    configure_yfinance_cache,
+)
+
 from .base import BaseAdapter, AdapterError
 
 logger = logging.getLogger('adapters.benchmark')
@@ -38,70 +44,8 @@ NSE_HEADERS = {
     'Referer':         'https://www.nseindia.com/',
 }
 
-# ── Benchmark ticker mapping table ─────────────────────────────────────────────
-# Format: 'Index Name': (yahoo_ticker, 'Close')
-# NSE index names must match what NSE API returns in 'index' field.
-BENCHMARK_TICKERS: dict[str, tuple[str, str]] = {
-    'NIFTY 50':              ('^NSEI',             'Close'),
-    'NIFTY NEXT 50':         ('^NSMIDCP',           'Close'),
-    'NIFTY 100':             ('^CNX100',             'Close'),
-    'NIFTY 200':             ('NIFTY200.NS',         'Close'),
-    'NIFTY 500':             ('^CRSLDX',             'Close'),
-    'NIFTY MIDCAP 50':       ('NIFMID50.NS',         'Close'),
-    'NIFTY MIDCAP 100':      ('NIFMIDCAP100.NS',     'Close'),
-    'NIFTY MIDCAP 150':      ('NIFMID150.NS',        'Close'),
-    'NIFTY SMALLCAP 50':     ('NIFSMCP50.NS',        'Close'),
-    'NIFTY SMALLCAP 100':    ('NIFSMCP100.NS',       'Close'),
-    'NIFTY SMALLCAP 250':    ('NIFSMCP250.NS',       'Close'),
-    'NIFTY BANK':            ('^NSEBANK',            'Close'),
-    'NIFTY IT':              ('^CNXIT',              'Close'),
-    'NIFTY PHARMA':          ('^CNXPHARMA',          'Close'),
-    'NIFTY FMCG':            ('NIFTYFMCG.NS',        'Close'),
-    'S&P 500':               ('^GSPC',               'Close'),
-    'NASDAQ 100':            ('^NDX',                'Close'),
-    'DOW JONES':             ('^DJI',                'Close'),
-}
-
-# ── SEBI category → benchmark mapping ──────────────────────────────────────────
-# Used by analytics engine to select the right benchmark for each scheme.
-# None means no equity benchmark (debt/liquid funds).
-CATEGORY_BENCHMARK_MAP: dict[str, Optional[str]] = {
-    'Equity Scheme - Large Cap Fund':           'NIFTY 100',
-    'Equity Scheme - Mid Cap Fund':             'NIFTY MIDCAP 150',
-    'Equity Scheme - Small Cap Fund':           'NIFTY SMALLCAP 250',
-    'Equity Scheme - Flexi Cap Fund':           'NIFTY 500',
-    'Equity Scheme - Multi Cap Fund':           'NIFTY 500',
-    'Equity Scheme - ELSS':                     'NIFTY 500',
-    'Equity Scheme - Large & Mid Cap Fund':     'NIFTY 200',
-    'Equity Scheme - Value Fund':               'NIFTY 500',
-    'Equity Scheme - Contra Fund':              'NIFTY 500',
-    'Equity Scheme - Focused Fund':             'NIFTY 500',
-    'Equity Scheme - Dividend Yield Fund':      'NIFTY 500',
-    'Equity Scheme - Index Funds':              'NIFTY 50',   # overridden per-fund
-    'Equity Scheme - ETFs':                     'NIFTY 50',
-    'Hybrid Scheme - Aggressive Hybrid Fund':   'NIFTY 500',
-    'Hybrid Scheme - Balanced Hybrid Fund':     'NIFTY 500',
-    'Hybrid Scheme - Conservative Hybrid Fund': 'NIFTY 50',
-    'Hybrid Scheme - Dynamic Asset Allocation': 'NIFTY 500',
-    'Hybrid Scheme - Multi Asset Allocation':   'NIFTY 500',
-    'Hybrid Scheme - Arbitrage Fund':           None,
-    'Debt Scheme - Liquid Fund':                None,
-    'Debt Scheme - Ultra Short Duration Fund':  None,
-    'Debt Scheme - Low Duration Fund':          None,
-    'Debt Scheme - Short Duration Fund':        None,
-    'Debt Scheme - Medium Duration Fund':       None,
-    'Debt Scheme - Long Duration Fund':         None,
-    'Debt Scheme - Dynamic Bond':               None,
-    'Debt Scheme - Corporate Bond Fund':        None,
-    'Debt Scheme - Credit Risk Fund':           None,
-    'Debt Scheme - Gilt Fund':                  None,
-    'Debt Scheme - Overnight Fund':             None,
-    'Debt Scheme - Money Market Fund':          None,
-    'Solution Oriented Scheme - Retirement Fund': 'NIFTY 500',
-    'Solution Oriented Scheme - Childrens Fund':  'NIFTY 500',
-    'Other Scheme - FoF Domestic':              None,
-    'Other Scheme - FoF Overseas':              None,
-}
+BENCHMARK_TICKERS = REGISTRY_BENCHMARK_TICKERS
+CATEGORY_BENCHMARK_MAP = REGISTRY_CATEGORY_BENCHMARK_MAP
 
 
 class BenchmarkAdapter(BaseAdapter):
@@ -253,6 +197,8 @@ class BenchmarkAdapter(BaseAdapter):
         Returns same format as fetch_index_history: [{'date': date, 'close': float}]
         """
         import yfinance as yf
+
+        configure_yfinance_cache(yf)
         time.sleep(2)   # avoid rate limit — confirmed necessary in notebook
         try:
             ticker = yf.Ticker(yahoo_ticker)

@@ -45,7 +45,7 @@ class Scheme(BaseModel):
     kuvera_code    = models.CharField(max_length=30, null=True, blank=True,
                                       help_text="Kuvera/captnemo 'code' field")
 
-    # ── Denormalized cached fields (fast screener queries; updated nightly) ───
+    # Denormalized cached fields used by browse/search and fund detail pages.
     expense_ratio = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     aum_cr        = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
                                         help_text="AUM in crores")

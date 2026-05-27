@@ -15,7 +15,6 @@ urlpatterns = [
 
     # Apps
     path('',             include('apps.funds.urls',           namespace='funds')),
-    path('screener/',    include('apps.screener.urls',        namespace='screener')),
     path('calculators/', include('apps.calculators.urls',     namespace='calculators')),
     path('portfolio/',   include('apps.portfolio.urls',       namespace='portfolio')),
     path('recommend/',   include('apps.recommendations.urls', namespace='recommendations')),

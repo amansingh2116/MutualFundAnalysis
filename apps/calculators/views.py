@@ -1,6 +1,7 @@
 """apps/calculators/views.py — All 10 calculators"""
 import json
 import logging
+import re
 from datetime import date
 
 import numpy as np
@@ -214,22 +215,36 @@ def holding_key(holding) -> str:
     isin = str(getattr(holding, 'isin', '') or '').strip().upper()
     if isin:
         return f'isin:{isin}'
-    name = str(getattr(holding, 'security_name', '') or '').strip().lower()
+    name = normalise_holding_name(getattr(holding, 'security_name', '') or '')
     if not name:
         return ''
-    return 'name:' + ' '.join(name.replace('&', 'and').split())
+    return 'name:' + name
+
+
+def normalise_holding_name(value) -> str:
+    name = str(value or '').strip().lower()
+    if not name:
+        return ''
+    name = name.replace('&', ' and ')
+    name = re.sub(r'[^a-z0-9]+', ' ', name)
+    suffixes = {
+        'ltd', 'limited', 'equity', 'equities', 'share', 'shares', 'ordinary',
+        'ord', 'class', 'company', 'co', 'private', 'pvt', 'inc', 'plc',
+    }
+    tokens = [token for token in name.split() if token not in suffixes]
+    return ' '.join(tokens)
 
 
 @require_http_methods(["POST"])
 def calc_overlap_api(request):
-    """Fund Overlap: 2-3 AMFI codes -> pairwise scores and shared holdings."""
+    """Fund Overlap: two AMFI codes -> weighted shared holdings."""
     d = _parse_body(request)
     from apps.funds.models import Scheme
     try:
-        raw_codes = d.get('funds') or [d.get('fund1'), d.get('fund2'), d.get('fund3')]
-        codes = list(dict.fromkeys(str(code).strip() for code in raw_codes if str(code or '').strip()))[:3]
-        if len(codes) < 2:
-            return JsonResponse({'error': 'Select at least two funds to compare overlap.'}, status=400)
+        raw_codes = d.get('funds') or [d.get('fund1'), d.get('fund2')]
+        codes = list(dict.fromkeys(str(code).strip() for code in raw_codes if str(code or '').strip()))
+        if len(codes) != 2:
+            return JsonResponse({'error': 'Select exactly two funds to compare overlap.'}, status=400)
 
         from apps.funds.runtime import get_runtime_snapshot
         from apps.funds.services import get_or_fetch_scheme
@@ -303,7 +318,7 @@ def calc_overlap_api(request):
             'funds': fund_rows,
             'pairs': pairs,
             'all_common_holdings': len([row for row in overlap if row['present_count'] == len(fund_rows)]),
-            'overlap': overlap[:60],
+            'overlap': overlap,
         })
     except Scheme.DoesNotExist:
         return JsonResponse({'error': 'One or more AMFI codes were not found.'}, status=404)

@@ -13,20 +13,26 @@ import re
 import json
 import subprocess
 import sys
-import tempfile
 from hashlib import md5
 from datetime import date, datetime, timedelta
 from difflib import SequenceMatcher
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
 import pandas as pd
+import requests
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 
+from apps.benchmarks.registry import (
+    benchmark_for as registry_benchmark_for,
+    configure_yfinance_cache,
+    fetch_yahoo_history_for_benchmark,
+    infer_category as registry_infer_category,
+    iter_benchmark_candidates,
+)
 from apps.core.utils import parse_amfi_date, parse_iso_date
 from apps.funds.models import Scheme
 
@@ -35,39 +41,59 @@ logger = logging.getLogger("mfanalysis")
 SNAPSHOT_TTL = 60 * 30
 NAV_TTL = 60 * 60
 YAHOO_TTL = 60 * 60
+FINAPI_TTL = 60 * 60 * 6
 BENCHMARK_TTL = 60 * 60 * 6
-
-BENCHMARK_TICKERS = {
-    "NIFTY 50": "^NSEI",
-    "NIFTY 100": "^CNX100",
-    "NIFTY 500": "^CRSLDX",
-    "NIFTY MIDCAP 150": "^CRSMID",
-    "NIFTY SMALLCAP 250": "^CNXSC",
-    "NIFTY BANK": "^NSEBANK",
-}
-
-CATEGORY_BENCHMARK_RULES = [
-    ("large & mid", "NIFTY 200"),
-    ("small cap", "NIFTY SMALLCAP 250"),
-    ("mid cap", "NIFTY MIDCAP 150"),
-    ("large cap", "NIFTY 100"),
-    ("flexi cap", "NIFTY 500"),
-    ("multi cap", "NIFTY 500"),
-    ("elss", "NIFTY 500"),
-    ("value", "NIFTY 500"),
-    ("focused", "NIFTY 500"),
-    ("index", "NIFTY 50"),
-    ("aggressive hybrid", "NIFTY 500"),
-    ("balanced hybrid", "NIFTY 500"),
-]
 
 
 def ns(**kwargs):
     return SimpleNamespace(**kwargs)
 
 
+PORTFOLIO_SNAPSHOT_TTL = 60 * 60 * 4  # 4 hours — portfolio data changes slowly
+
+
+def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
+    """Lightweight snapshot for portfolio/sector API endpoints.
+
+    Skips the expensive benchmark fetch (which can block for 30-60 s on slow
+    indices) so the Portfolio tab renders quickly, even when the full snapshot
+    is still being built in the background.
+    """
+    cache_key = f"fund:portfolio:v2:{scheme.amfi_code}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    # Minimal NAV fetch — only need latest_nav to help resolve the Yahoo ticker
+    try:
+        nav_rows, _ = fetch_nav_and_meta(scheme.amfi_code)
+    except Exception:
+        nav_rows = []
+    nav_series = nav_rows_to_series(nav_rows)
+    latest_nav = float(nav_series.iloc[-1]) if not nav_series.empty else _float(scheme.nav_latest)
+
+    yahoo = fetch_yahoo_data(scheme, latest_nav)
+    mstar = fetch_mstarpy_data(scheme)
+    finapi = fetch_finapi_portfolio(scheme)
+
+    portfolio = merge_portfolio_data(mstar, merge_portfolio_data(finapi, yahoo))
+    if not portfolio.get("holdings") and not portfolio.get("sectors"):
+        portfolio = fetch_db_portfolio(scheme)
+
+    result = ns(
+        top_holdings=portfolio.get("holdings", []),
+        sector_alloc=portfolio.get("sectors", []),
+        asset_alloc=portfolio.get("asset_alloc"),
+        holdings_month=portfolio.get("as_of"),
+        portfolio_source=portfolio.get("source", ""),
+    )
+    ttl = PORTFOLIO_SNAPSHOT_TTL if (result.top_holdings or result.sector_alloc) else 5 * 60
+    cache.set(cache_key, result, ttl)
+    return result
+
+
 def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
-    cache_key = f"fund:snapshot:v4:{scheme.amfi_code}"
+    cache_key = f"fund:snapshot:v8:{scheme.amfi_code}"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -86,14 +112,18 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
     db_meta = scheme_meta_dict(scheme)
     category = mfapi_meta.get("scheme_category") or db_meta.get("scheme_category") or scheme.scheme_category or infer_category(scheme.scheme_name)
     benchmark_name = benchmark_for(category, scheme.scheme_name)
-    benchmark_series = fetch_benchmark_series(benchmark_name, nav_series) if benchmark_name else pd.Series(dtype=float)
+    benchmark_result = fetch_benchmark_result(benchmark_name, nav_series) if benchmark_name else empty_benchmark_result()
+    benchmark_series = benchmark_result.series
 
     captnemo = fetch_captnemo_meta(scheme)
     yahoo = fetch_yahoo_data(scheme, latest_nav)
-    mstar = {}
-    if not yahoo.get("holdings") and not yahoo.get("sectors"):
-        mstar = fetch_mstarpy_data(scheme)
-    portfolio = merge_portfolio_data(mstar, yahoo)
+    
+    # Prioritize mstarpy (Morningstar) for portfolio and sector weightage, using FinAPI and Yahoo as fallbacks
+    mstar = fetch_mstarpy_data(scheme)
+    finapi = fetch_finapi_portfolio(scheme)
+    
+    portfolio = merge_portfolio_data(mstar, merge_portfolio_data(finapi, yahoo))
+    
     if not portfolio.get("holdings") and not portfolio.get("sectors"):
         portfolio = fetch_db_portfolio(scheme)
 
@@ -101,7 +131,11 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
     trailing = compute_trailing_returns(nav_series, benchmark_series) or fetch_db_trailing_returns(scheme)
     calendar = compute_calendar_returns(nav_series, benchmark_series) or fetch_db_calendar_returns(scheme)
     rolling = compute_rolling_returns(nav_series) or fetch_db_rolling_returns(scheme)
-    risk = compute_risk_metrics(nav_series, benchmark_series) or fetch_db_risk_metrics(scheme)
+    risk = compute_risk_metrics(nav_series, benchmark_series)
+    if not risk or not risk.get("3Y") or risk["3Y"].beta is None:
+        db_risk = fetch_db_risk_metrics(scheme)
+        if db_risk and db_risk.get("3Y"):
+            risk = db_risk
     drawdown = compute_drawdown(nav_series)
 
     managers = split_manager_names(str(getattr(meta, "fund_manager", "") or ""))
@@ -119,6 +153,13 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         nav_date=latest_date,
         category=category,
         benchmark_name=benchmark_name,
+        benchmark_display_name=benchmark_result.display_name or benchmark_name,
+        benchmark_actual_name=benchmark_result.actual_name,
+        benchmark_ticker=benchmark_result.ticker,
+        benchmark_source=benchmark_result.source,
+        benchmark_fallback_used=benchmark_result.fallback_used,
+        benchmark_note=benchmark_result.note,
+        benchmark_info=benchmark_result,
         benchmark_series=benchmark_series,
         meta=meta,
         trailing_returns=trailing,
@@ -151,7 +192,7 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
             crisil_rating=meta.crisil_rating,
             portfolio_turnover=meta.portfolio_turnover,
             investment_objective=meta.investment_objective,
-            benchmark_name=benchmark_name,
+            benchmark_name=benchmark_result.display_name or benchmark_name,
             risk_3y=risk.get("3Y"),
             top_holdings_count=len(portfolio.get("holdings", [])),
             sector_count=len(portfolio.get("sectors", [])),
@@ -162,7 +203,7 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
             nav="mfapi.in / AMFI" if nav_rows != db_nav_rows else "database",
             meta=meta.fetch_source,
             portfolio=portfolio.get("source") or "unavailable",
-            benchmark="yfinance" if not benchmark_series.empty else "unavailable",
+            benchmark=benchmark_result.source if not benchmark_series.empty else "unavailable",
         ),
     )
     has_data = bool(snapshot.nav_rows or snapshot.trailing_returns or snapshot.top_holdings or snapshot.sector_alloc or snapshot.meta.fetch_source != "computed + mfapi.in")
@@ -235,7 +276,7 @@ def fetch_db_portfolio(scheme: Scheme) -> dict:
                     forward_pe=_float(row.forward_pe),
                     holding_type=row.holding_type,
                 )
-                for row in Holding.objects.filter(scheme=scheme, as_of_month=latest_holding_month).order_by("-weight_pct")[:80]
+                for row in Holding.objects.filter(scheme=scheme, as_of_month=latest_holding_month).order_by("-weight_pct")
             ]
 
         latest_sector_month = (
@@ -492,9 +533,138 @@ def normalise_captnemo_fields(info: dict) -> dict:
     }
 
 
+def fetch_finapi_portfolio(scheme: Scheme) -> dict:
+    """Fetch full mutual fund portfolio rows by AMFI scheme code."""
+    code = str(scheme.amfi_code or "").strip()
+    if not code:
+        return {}
+    cache_key = f"fund:finapi-portfolio:v1:{code}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    result: dict[str, Any] = {}
+    try:
+        response = requests.get(
+            f"https://finapi.upvaly.com/api/mf/scheme-code/{code}",
+            params={"fields": "schemeCode,schemeName,latestNavDate,portfolio,holdings,sectors"},
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "MFAnalysis/1.0 (+https://github.com)",
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        data = payload.get("data") if isinstance(payload, dict) else payload
+        if isinstance(data, list):
+            data = data[0] if data else {}
+        if not isinstance(data, dict):
+            data = {}
+
+        portfolio = data.get("portfolio") if isinstance(data.get("portfolio"), dict) else {}
+        holdings = finapi_holdings(data.get("holdings"))
+        sectors = finapi_sectors(data.get("sectors"))
+        asset_alloc = finapi_asset_alloc(portfolio.get("assetAllocation"))
+        as_of = _parse_yahoo_date(
+            data.get("portfolioDate")
+            or portfolio.get("portfolioDate")
+            or data.get("latestNavDate")
+            or data.get("navDate")
+        )
+        if holdings or sectors or asset_alloc:
+            result = {
+                "source": "finapi.upvaly",
+                "holdings": holdings,
+                "sectors": sectors,
+                "asset_alloc": asset_alloc,
+                "as_of": as_of,
+            }
+    except Exception as exc:
+        logger.info("[%s] finapi portfolio unavailable: %s", code, exc)
+
+    cache.set(cache_key, result, FINAPI_TTL if result else 15 * 60)
+    return result
+
+
+def finapi_holdings(raw: Any) -> list[SimpleNamespace]:
+    if not isinstance(raw, list):
+        return []
+    rows: list[SimpleNamespace] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or row.get("securityName") or row.get("holdingName") or "").strip()
+        weight = _float(row.get("weightage") or row.get("weight") or row.get("holdingPercent"))
+        if not name or weight is None or weight <= 0:
+            continue
+        sector = str(row.get("sector") or row.get("industry") or "").strip()
+        rows.append(ns(
+            security_name=name,
+            ticker=str(row.get("ticker") or row.get("symbol") or ""),
+            isin=str(row.get("isin") or row.get("isinCode") or ""),
+            sector=sector,
+            weight_pct=weight * 100 if weight <= 1 else weight,
+            forward_pe=_float(row.get("forwardPE") or row.get("forward_pe") or row.get("pe")),
+            holding_type=finapi_holding_type(name, sector),
+        ))
+    return sorted(rows, key=lambda item: item.weight_pct, reverse=True)
+
+
+def finapi_sectors(raw: Any) -> list[SimpleNamespace]:
+    if not isinstance(raw, list):
+        return []
+    rows: list[SimpleNamespace] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("sector") or row.get("name") or "").strip()
+        weight = _float(row.get("weightage") or row.get("weight"))
+        if name and weight is not None and weight > 0:
+            rows.append(ns(sector=name, weight_pct=weight * 100 if weight <= 1 else weight))
+    return sorted(rows, key=lambda item: item.weight_pct, reverse=True)
+
+
+def finapi_asset_alloc(raw: Any):
+    if not isinstance(raw, dict):
+        return None
+    label_map = {
+        "equity": "Equity",
+        "stock": "Equity",
+        "debt": "Debt",
+        "bond": "Debt",
+        "cash": "Cash",
+        "money": "Cash",
+        "other": "Other",
+        "commod": "Other",
+    }
+    rows = []
+    for key, value in raw.items():
+        weight = _float(value)
+        if weight is None:
+            continue
+        lower = str(key).lower()
+        label = next((name for marker, name in label_map.items() if marker in lower), humanize_key(key))
+        rows.append(ns(label=label, weight_pct=weight * 100 if weight <= 1 else weight))
+    deduped: dict[str, float] = {}
+    for row in rows:
+        deduped[row.label] = deduped.get(row.label, 0.0) + row.weight_pct
+    return [ns(label=label, weight_pct=weight) for label, weight in deduped.items()] or None
+
+
+def finapi_holding_type(name: str, sector: str) -> str:
+    text = f"{name} {sector}".lower()
+    if any(marker in text for marker in ["cash", "treasury", "clearing corporation", "ccil", "tri party", "t-bill"]):
+        return "cash"
+    if any(marker in text for marker in ["bond", "debenture", "government securities", "g-sec", "securit"]):
+        return "debt"
+    return "equity"
+
+
 def fetch_mstarpy_data(scheme: Scheme) -> dict:
-    # Morningstar startup is expensive and unreliable without a verified SecId.
-    # Run it only for funds that have been explicitly mapped during ingestion.
+    # Only attempt mstarpy when a verified Morningstar SecId is available.
+    # Without it the subprocess always fails after a long timeout (403 Forbidden)
+    # which would block the portfolio tab for 35+ seconds on every page load.
     if not scheme.morningstar_id:
         return {}
     terms = [scheme.morningstar_id, scheme.isin_growth, clean_fund_name(scheme.scheme_name)]
@@ -536,7 +706,7 @@ def fetch_mstarpy_payload(scheme: Scheme, terms: list[str]) -> dict:
             cwd=str(settings.BASE_DIR),
             capture_output=True,
             text=True,
-            timeout=45,
+            timeout=8,
             check=False,
         )
         if completed.returncode != 0:
@@ -728,9 +898,9 @@ def mstarpy_holdings(holdings_df) -> list[SimpleNamespace]:
     if hasattr(holdings_df, "empty"):
         if holdings_df.empty:
             return []
-        records = holdings_df.head(40).to_dict("records")
+        records = holdings_df.to_dict("records")
     rows = []
-    for row in records[:40]:
+    for row in records:
         name = row.get("securityName") or row.get("holdingName")
         weight = _float(row.get("weighting") or row.get("weight") or row.get("holdingPercent"))
         if not name or weight is None or weight <= 0:
@@ -830,7 +1000,7 @@ def yahoo_holdings(yq, ticker: str, holding_info: dict) -> list[SimpleNamespace]
         except Exception:
             holdings = []
     rows = []
-    for row in holdings[:30]:
+    for row in holdings:
         name = row.get("holdingName") or row.get("securityName")
         weight = _float(row.get("holdingPercent") or row.get("weighting"))
         if not name or weight is None:
@@ -976,11 +1146,11 @@ def compute_trailing_returns(nav: pd.Series, bm: pd.Series) -> list[SimpleNamesp
 def cagr_for_window(series: pd.Series, start_date: pd.Timestamp, end_date: pd.Timestamp) -> float | None:
     if series.empty:
         return None
-    window = series[series.index >= start_date]
+    window = series[(series.index >= start_date) & (series.index <= end_date)]
     if len(window) < 2:
         return None
     start = float(window.iloc[0])
-    end = float(series.iloc[-1])
+    end = float(window.iloc[-1])
     years = max((end_date - window.index[0]).days / 365.25, 1 / 365.25)
     if start <= 0:
         return None
@@ -1053,9 +1223,16 @@ def compute_risk_metrics(nav: pd.Series, bm: pd.Series) -> dict[str, SimpleNames
         beta = alpha = r_squared = tracking_error = info_ratio = upside = downside_capture = None
         if not bm.empty:
             b = bm[bm.index >= s.index[0]]
-            aligned = pd.concat([s.pct_change(), b.pct_change()], axis=1, join="inner").dropna()
+            aligned_prices = pd.concat(
+                [
+                    s.resample("B").ffill().rename("fund"),
+                    b.resample("B").ffill().rename("benchmark"),
+                ],
+                axis=1,
+                join="inner",
+            ).dropna()
+            aligned = aligned_prices.pct_change().dropna()
             if len(aligned) > 30:
-                aligned.columns = ["fund", "benchmark"]
                 cov = aligned.cov().loc["fund", "benchmark"]
                 var = aligned["benchmark"].var()
                 if var:
@@ -1101,11 +1278,123 @@ def compute_drawdown(nav: pd.Series) -> list[SimpleNamespace]:
     return [ns(date=idx.date().isoformat(), drawdown=float(value)) for idx, value in dd.resample("W").last().dropna().items()]
 
 
+def empty_benchmark_result(name: str | None = None) -> SimpleNamespace:
+    return ns(
+        requested_name=name,
+        actual_name=None,
+        display_name=name,
+        ticker="",
+        tickers=(),
+        source="unavailable",
+        fallback_used=False,
+        note="",
+        series=pd.Series(dtype=float),
+    )
+
+
+def fetch_benchmark_result(name: str | None, nav: pd.Series) -> SimpleNamespace:
+    if not name or nav.empty:
+        return empty_benchmark_result(name)
+
+    start = nav.index[0] - pd.Timedelta(days=10)
+    yahoo_candidates = list(iter_benchmark_candidates(name))
+    db_fallback_candidates = [candidate.benchmark_name for candidate in yahoo_candidates if candidate.is_fallback]
+
+    for candidate_name in [name]:
+        series = fetch_db_benchmark_series(candidate_name, start)
+        if len(series) >= 2:
+            return ns(
+                requested_name=name,
+                actual_name=candidate_name,
+                display_name=candidate_name,
+                ticker="database",
+                tickers=(),
+                source="database",
+                fallback_used=False,
+                note="",
+                series=series,
+            )
+
+    series, candidate = fetch_yahoo_history_for_benchmark(name, start_date=start.date(), min_rows=2)
+    if candidate is not None and len(series) >= 2:
+        fallback_used = candidate.is_fallback or candidate.is_proxy
+        if candidate.is_proxy:
+            display_name = f"{candidate.benchmark_name} proxy"
+            source = f"{candidate.source} proxy"
+        elif candidate.is_fallback:
+            display_name = f"{name} via {candidate.benchmark_name}"
+            source = f"{candidate.source} fallback"
+        else:
+            display_name = candidate.benchmark_name
+            source = candidate.source
+        return ns(
+            requested_name=name,
+            actual_name=candidate.benchmark_name,
+            display_name=display_name,
+            ticker=candidate.yahoo_ticker,
+            tickers=tuple(c.yahoo_ticker for c in yahoo_candidates),
+            source=source,
+            fallback_used=fallback_used,
+            note=candidate.note,
+            series=series,
+        )
+
+    for candidate_name in dict.fromkeys(db_fallback_candidates):
+        series = fetch_db_benchmark_series(candidate_name, start)
+        if len(series) >= 2:
+            return ns(
+                requested_name=name,
+                actual_name=candidate_name,
+                display_name=f"{name} via {candidate_name}",
+                ticker="database",
+                tickers=tuple(c.yahoo_ticker for c in yahoo_candidates),
+                source="database fallback",
+                fallback_used=True,
+                note=f"{name} has no stored or Yahoo-compatible history; using {candidate_name} as fallback.",
+                series=series,
+            )
+
+    logger.info(
+        "Benchmark unavailable for %s; tried %s",
+        name,
+        ", ".join(candidate.yahoo_ticker for candidate in yahoo_candidates) or "no Yahoo ticker",
+    )
+    result = empty_benchmark_result(name)
+    result.actual_name = yahoo_candidates[0].benchmark_name if yahoo_candidates else None
+    result.display_name = name
+    result.tickers = tuple(candidate.yahoo_ticker for candidate in yahoo_candidates)
+    result.fallback_used = any(candidate.is_fallback or candidate.is_proxy for candidate in yahoo_candidates)
+    result.note = next((candidate.note for candidate in yahoo_candidates if candidate.note), "")
+    return result
+
+
 def fetch_benchmark_series(name: str, nav: pd.Series) -> pd.Series:
-    ticker = BENCHMARK_TICKERS.get(name)
-    if not ticker or nav.empty:
+    return fetch_benchmark_result(name, nav).series
+
+
+def fetch_db_benchmark_series(name: str, start_date: pd.Timestamp | None = None) -> pd.Series:
+    try:
+        from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV
+
+        index = BenchmarkIndex.objects.filter(name__iexact=name).first()
+        if not index:
+            return pd.Series(dtype=float)
+        qs = BenchmarkNAV.objects.filter(index=index)
+        if start_date is not None:
+            qs = qs.filter(date__gte=start_date.date())
+        rows = list(qs.order_by("date").values("date", "close"))
+        if not rows:
+            return pd.Series(dtype=float)
+        series = pd.Series({pd.Timestamp(row["date"]): float(row["close"]) for row in rows})
+        series.index = pd.to_datetime(series.index).tz_localize(None).normalize()
+        return series.sort_index()
+    except Exception as exc:
+        logger.info("DB benchmark fetch failed for %s: %s", name, exc)
         return pd.Series(dtype=float)
-    cache_key = f"benchmark:yf:v1:{ticker}"
+
+
+def fetch_yfinance_benchmark_series(ticker: str) -> pd.Series:
+    cache_key = f"benchmark:yf:v3:{ticker}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -1114,49 +1403,25 @@ def fetch_benchmark_series(name: str, nav: pd.Series) -> pd.Series:
 
         configure_yfinance_cache(yf)
 
-        start = (nav.index[0] - pd.Timedelta(days=10)).date().isoformat()
-        hist = yf.Ticker(ticker).history(start=start, auto_adjust=False)
-        if hist.empty or "Close" not in hist:
+        hist = yf.Ticker(ticker).history(period="max", auto_adjust=False, raise_errors=False)
+        if hist is None or hist.empty or "Close" not in hist:
             return pd.Series(dtype=float)
         series = hist["Close"].dropna()
         series.index = pd.to_datetime(series.index).tz_localize(None).normalize()
+        series = series[~series.index.duplicated(keep="last")].sort_index()
         cache.set(cache_key, series, BENCHMARK_TTL)
         return series
     except Exception as exc:
-        logger.info("Benchmark fetch failed for %s/%s: %s", name, ticker, exc)
+        logger.info("Benchmark fetch failed for %s: %s", ticker, exc)
         return pd.Series(dtype=float)
 
 
-def configure_yfinance_cache(yf_module) -> None:
-    try:
-        cache_dir = Path(tempfile.gettempdir()) / "mfanalysis-yfinance-cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        if hasattr(yf_module, "set_tz_cache_location"):
-            yf_module.set_tz_cache_location(str(cache_dir))
-        try:
-            import yfinance.cache as yf_cache
-
-            yf_cache.set_cache_location(str(cache_dir))
-        except Exception:
-            pass
-    except Exception as exc:
-        logger.info("Could not configure yfinance cache directory: %s", exc)
-
-
 def benchmark_for(category: str, name: str = "") -> str | None:
-    text = f"{category} {name}".lower()
-    for marker, benchmark in CATEGORY_BENCHMARK_RULES:
-        if marker in text:
-            return benchmark
-    return None
+    return registry_benchmark_for(category, name)
 
 
 def infer_category(name: str) -> str:
-    lower = name.lower()
-    for marker, _benchmark in CATEGORY_BENCHMARK_RULES:
-        if marker in lower:
-            return marker.title()
-    return ""
+    return registry_infer_category(name)
 
 
 def _by_symbol(data: Any, symbol: str) -> dict:

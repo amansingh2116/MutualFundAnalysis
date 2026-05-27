@@ -16,23 +16,6 @@ from apps.funds.models import NAVHistory, Scheme, SchemeMeta
 
 logger = logging.getLogger('mfanalysis')
 
-CATEGORY_BENCHMARK_MAP = {
-    'Equity Scheme - Large Cap Fund':         'NIFTY 100',
-    'Equity Scheme - Mid Cap Fund':           'NIFTY MIDCAP 150',
-    'Equity Scheme - Small Cap Fund':         'NIFTY SMALLCAP 250',
-    'Equity Scheme - Flexi Cap Fund':         'NIFTY 500',
-    'Equity Scheme - Multi Cap Fund':         'NIFTY 500',
-    'Equity Scheme - ELSS':                   'NIFTY 500',
-    'Equity Scheme - Large & Mid Cap Fund':   'NIFTY 200',
-    'Equity Scheme - Value Fund':             'NIFTY 500',
-    'Equity Scheme - Focused Fund':           'NIFTY 500',
-    'Equity Scheme - Index Funds':            'NIFTY 50',
-    'Hybrid Scheme - Aggressive Hybrid Fund': 'NIFTY 500',
-    'Hybrid Scheme - Balanced Hybrid Fund':   'NIFTY 500',
-    'Debt Scheme - Liquid Fund':              None,
-    'Debt Scheme - Short Duration Fund':      None,
-}
-
 NAV_RANGE_OPTIONS = [
     ('1M', 30), ('3M', 91), ('6M', 182),
     ('1Y', 365), ('3Y', 1095), ('5Y', 1826), ('MAX', None),
@@ -132,6 +115,11 @@ class FundDetailView(DetailView):
             'holdings_month': runtime.holdings_month.strftime('%b %Y') if runtime.holdings_month else None,
             'asset_alloc': runtime.asset_alloc,
             'benchmark_name': runtime.benchmark_name,
+            'benchmark_display_name': runtime.benchmark_display_name,
+            'benchmark_actual_name': runtime.benchmark_actual_name,
+            'benchmark_ticker': runtime.benchmark_ticker,
+            'benchmark_note': runtime.benchmark_note,
+            'benchmark_fallback_used': runtime.benchmark_fallback_used,
             'managers': runtime.managers,
             'manager_cards': runtime.manager_cards,
             'manager_context': runtime.manager_context,

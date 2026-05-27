@@ -42,14 +42,14 @@ async function loadChart(containerId, apiUrl, buildFn) {
 }
 
 // ── NAV Chart ─────────────────────────────────────────────────
-function renderNavChart(el, { data, scheme_name }) {
+function renderNavChart(el, { data, scheme_name, benchmark_data, benchmark_name }) {
   if (!data || !data.length) {
     el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📊</span><span style="font-size:12px;color:var(--text-muted)">No NAV history in database yet.</span></div>`;
     return;
   }
   const dates = data.map(d => d.date);
   const navs = data.map(d => d.nav);
-  const trace = {
+  const traces = [{
     x: dates, y: navs,
     type: 'scatter', mode: 'lines',
     name: 'NAV',
@@ -57,12 +57,24 @@ function renderNavChart(el, { data, scheme_name }) {
     fill: 'tozeroy',
     fillcolor: 'rgba(99,102,241,0.08)',
     hovertemplate: '%{x}<br>₹%{y:.4f}<extra></extra>',
-  };
-  Plotly.newPlot(el, [trace], mergePlotlyLayout({ title: { text: '', font: { size: 0 } } }), MF_PLOTLY_CONFIG);
+  }];
+  if (benchmark_data && benchmark_data.length) {
+    traces.push({
+      x: benchmark_data.map(d => d.date),
+      y: benchmark_data.map(d => d.value),
+      customdata: benchmark_data.map(d => d.raw_value),
+      type: 'scatter',
+      mode: 'lines',
+      name: benchmark_name || 'Benchmark',
+      line: { color: '#34d399', width: 1.8, dash: 'dot' },
+      hovertemplate: '%{x}<br>Rebased: %{y:.4f}<br>Index: %{customdata:.2f}<extra></extra>',
+    });
+  }
+  Plotly.newPlot(el, traces, mergePlotlyLayout({ title: { text: '', font: { size: 0 } } }), MF_PLOTLY_CONFIG);
 }
 
 // ── Returns Bar Chart ──────────────────────────────────────────
-function renderReturnsChart(el, { trailing }) {
+function renderReturnsChart(el, { trailing, benchmark_name }) {
   if (!trailing || !trailing.length) {
     el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📊</span><span style="font-size:12px;color:var(--text-muted)">No on-demand returns data available yet.</span></div>`;
     return;
@@ -74,7 +86,7 @@ function renderReturnsChart(el, { trailing }) {
     { name: 'Fund', x: periods, y: fundVals, type: 'bar', marker: { color: '#6366f1' }, hovertemplate: '%{x}: %{y:.2f}%<extra>Fund</extra>' },
   ];
   if (bmVals.some(v => v != null)) {
-    traces.push({ name: 'Benchmark', x: periods, y: bmVals, type: 'bar', marker: { color: 'rgba(148,163,184,0.4)' }, hovertemplate: '%{x}: %{y:.2f}%<extra>Benchmark</extra>' });
+    traces.push({ name: benchmark_name || 'Benchmark', x: periods, y: bmVals, type: 'bar', marker: { color: 'rgba(148,163,184,0.4)' }, hovertemplate: '%{x}: %{y:.2f}%<extra>Benchmark</extra>' });
   }
   Plotly.newPlot(el, traces, mergePlotlyLayout({ barmode: 'group', xaxis: { type: 'category' }, yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
 }
@@ -111,17 +123,29 @@ function renderSectorChart(el, { sectors }) {
 }
 
 // ── Calendar Return Chart ──────────────────────────────────────
-function renderCalendarChart(el, { calendar }) {
+function renderCalendarChart(el, { calendar, benchmark_name }) {
   if (!calendar || !calendar.length) { el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📅</span></div>`; return; }
   const years = calendar.map(c => c.year.toString());
   const rets = calendar.map(c => c.return_pct);
+  const bmRets = calendar.map(c => c.bm_return);
   const colors = rets.map(r => r >= 0 ? '#34d399' : '#f87171');
-  const trace = {
+  const traces = [{
+    name: 'Fund',
     x: years, y: rets, type: 'bar',
     marker: { color: colors },
-    hovertemplate: '%{x}: %{y:.2f}%<extra></extra>',
-  };
-  Plotly.newPlot(el, [trace], mergePlotlyLayout({ xaxis: { type: 'category' }, yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
+    hovertemplate: '%{x}: %{y:.2f}%<extra>Fund</extra>',
+  }];
+  if (bmRets.some(v => v != null)) {
+    traces.push({
+      name: benchmark_name || 'Benchmark',
+      x: years,
+      y: bmRets,
+      type: 'bar',
+      marker: { color: 'rgba(148,163,184,0.45)' },
+      hovertemplate: '%{x}: %{y:.2f}%<extra>Benchmark</extra>',
+    });
+  }
+  Plotly.newPlot(el, traces, mergePlotlyLayout({ barmode: 'group', xaxis: { type: 'category' }, yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
 }
 
 // ── SIP Result Chart ───────────────────────────────────────────
@@ -206,7 +230,7 @@ function initSearch() {
   document.addEventListener('click', e => { if (!inp.contains(e.target)) dropdown.classList.remove('open'); });
 }
 
-// ── Screener range display ─────────────────────────────────────
+// ── Range display ──────────────────────────────────────────────
 function initRangeInputs() {
   document.querySelectorAll('input[type="range"]').forEach(inp => {
     const display = document.getElementById(inp.id + '_display');

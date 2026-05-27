@@ -81,7 +81,7 @@ def compute_all_metrics(scheme) -> None:
         return
 
     try:
-        bm = _load_benchmark_series(scheme)
+        bm = _load_benchmark_series(scheme, nav)
     except Exception as e:
         logger.warning(f"[{scheme.amfi_code}] Benchmark load failed: {e} — computing without benchmark")
         bm = None
@@ -128,35 +128,44 @@ def _load_nav_series(scheme) -> pd.Series:
     return series.sort_index()
 
 
-def _load_benchmark_series(scheme) -> Optional[pd.Series]:
+def _load_benchmark_series(scheme, nav: Optional[pd.Series] = None) -> Optional[pd.Series]:
     """
     Load benchmark NAV series for a scheme based on its SEBI category.
     Returns None if no benchmark is mapped or no data exists.
     """
     from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV
-    from adapters.benchmark_adapter import CATEGORY_BENCHMARK_MAP
+    from apps.benchmarks.registry import benchmark_for, fetch_yahoo_history_for_benchmark, iter_benchmark_candidates
 
-    bm_name = CATEGORY_BENCHMARK_MAP.get(scheme.scheme_category)
+    bm_name = benchmark_for(scheme.scheme_category, getattr(scheme, 'scheme_name', ''))
     if not bm_name:
         return None
+    start_date = None
+    if nav is not None and not nav.empty:
+        start_date = (nav.index[0] - pd.Timedelta(days=10)).date()
 
-    try:
-        bm_index = BenchmarkIndex.objects.get(name=bm_name)
-    except BenchmarkIndex.DoesNotExist:
-        return None
+    candidates = [bm_name, *(candidate.benchmark_name for candidate in iter_benchmark_candidates(bm_name) if candidate.is_fallback)]
 
-    qs = (BenchmarkNAV.objects
-          .filter(index=bm_index)
-          .values('date', 'close')
-          .order_by('date'))
-    df = pd.DataFrame(list(qs))
-    if df.empty:
-        return None
-    df['date']  = pd.to_datetime(df['date'])
-    df['close'] = pd.to_numeric(df['close'], errors='coerce')
-    series = df.set_index('date')['close'].dropna()
-    series = series[~series.index.duplicated(keep='last')]
-    return series.sort_index()
+    for candidate in dict.fromkeys(candidates):
+        bm_index = BenchmarkIndex.objects.filter(name__iexact=candidate).first()
+        if not bm_index:
+            continue
+        qs = BenchmarkNAV.objects.filter(index=bm_index)
+        if start_date:
+            qs = qs.filter(date__gte=start_date)
+        df = pd.DataFrame(list(qs.values('date', 'close').order_by('date')))
+        if df.empty:
+            continue
+        df['date'] = pd.to_datetime(df['date'])
+        df['close'] = pd.to_numeric(df['close'], errors='coerce')
+        series = df.set_index('date')['close'].dropna()
+        series = series[~series.index.duplicated(keep='last')].sort_index()
+        if len(series) >= 2:
+            return series
+
+    series, _candidate = fetch_yahoo_history_for_benchmark(bm_name, start_date=start_date, min_rows=2)
+    if not series.empty:
+        return series
+    return None
 
 
 # ── Trailing Returns ───────────────────────────────────────────────────────────

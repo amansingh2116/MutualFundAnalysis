@@ -652,8 +652,7 @@ input[type="range"]::-webkit-slider-thumb {
 .flex-center { display: flex; align-items: center; justify-content: center; }
 .flex-gap-2 { display: flex; gap: 8px; align-items: center; }
 
-/* ── Screener Sidebar ───────────────────────────────────────── */
-.screener-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; }
+/* ── Filter Sidebar ───────────────────────────────────────── */
 .filter-sidebar { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; height: fit-content; position: sticky; top: 72px; }
 .filter-section { margin-bottom: 24px; }
 .filter-section:last-child { margin-bottom: 0; }
@@ -794,7 +793,6 @@ input[type="range"]::-webkit-slider-thumb {
   .sidebar { transform: translateX(-240px); }
   .sidebar.open { transform: none; --sidebar-width: 240px; }
   .main-content { margin-left: 0; }
-  .screener-layout { grid-template-columns: 1fr; }
   .calc-layout { grid-template-columns: 1fr; }
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(2, 1fr); }

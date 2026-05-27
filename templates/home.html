@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Home{% endblock %}
-{% block meta_description %}India's open-source mutual fund research platform. Search, analyse, compare 14,000+ funds. SIP calculators, portfolio tracker, and more.{% endblock %}
+{% block meta_description %}India's open-source mutual fund research platform. Search and analyse 14,000+ funds. SIP calculators, portfolio tracker, and more.{% endblock %}
 
 {% block content %}
 <!-- Hero Search Section -->
@@ -57,10 +57,10 @@
 
 <!-- Feature Row -->
 <div class="grid-3" style="margin-bottom:32px">
-  <a href="{% url 'screener:screener' %}" class="fund-card" style="text-decoration:none">
-    <div style="font-size:32px;margin-bottom:12px">🔍</div>
-    <div class="fund-card-name">Fund Screener</div>
-    <div class="fund-card-house">Filter by category, AMC, returns, expense ratio, AUM. Compare up to 4 funds side-by-side.</div>
+  <a href="{% url 'funds:category_list' %}" class="fund-card" style="text-decoration:none">
+    <div style="font-size:32px;margin-bottom:12px">📂</div>
+    <div class="fund-card-name">Browse Funds</div>
+    <div class="fund-card-house">Explore the AMFI fund universe and open any fund detail page from the search or category list.</div>
   </a>
   <a href="{% url 'calculators:hub' %}" class="fund-card" style="text-decoration:none">
     <div style="font-size:32px;margin-bottom:12px">🧮</div>

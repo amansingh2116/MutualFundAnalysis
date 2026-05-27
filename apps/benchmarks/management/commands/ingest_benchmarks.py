@@ -3,6 +3,7 @@
 from django.core.management.base import BaseCommand
 from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV
 from adapters.benchmark_adapter import BenchmarkAdapter
+from apps.benchmarks.registry import BENCHMARK_DEFINITIONS, fetch_yahoo_history_for_benchmark, primary_yahoo_ticker
 from datetime import date, timedelta
 
 class Command(BaseCommand):
@@ -10,6 +11,17 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         adapter = BenchmarkAdapter()
+        for name, definition in BENCHMARK_DEFINITIONS.items():
+            BenchmarkIndex.objects.update_or_create(
+                name=name,
+                defaults={
+                    'nse_type_str': definition.nse_name or name,
+                    'yahoo_ticker': primary_yahoo_ticker(name),
+                    'description': f"Fallback source: {definition.fallback}" if definition.fallback else '',
+                    'is_active': True,
+                },
+            )
+
         # ---- Fetch live index list and ensure BenchmarkIndex records exist ----
         live_indices = adapter.fetch_all_indices_live()
         for item in live_indices:
@@ -32,7 +44,7 @@ class Command(BaseCommand):
             while start < today:
                 end = min(date(start.year + 1, 1, 1) - timedelta(days=1), today)
                 try:
-                    rows = adapter.fetch_index_history(bench.name, start, end)
+                    rows = adapter.fetch_index_history(bench.nse_type_str or bench.name, start, end)
                 except Exception as e:
                     self.stderr.write(f"NSE fetch error for {bench.name} {start}–{end}: {e}")
                     # fallback to yfinance if NSE fails entirely for this range
@@ -41,14 +53,32 @@ class Command(BaseCommand):
                     # Attempt yfinance fallback using the mapped Yahoo ticker if available
                     if bench.yahoo_ticker:
                         self.stdout.write(f"  Falling back to yfinance for {bench.yahoo_ticker}")
-                        rows_df = adapter.fetch_yfinance_fallback(bench.yahoo_ticker)
-                        if rows_df is not None:
-                            for nav_date, close in rows_df['close'].items():
-                                BenchmarkNAV.objects.update_or_create(
-                                    index=bench,
-                                    date=nav_date,
-                                    defaults={"close": float(close)},
-                                )
+                        rows = adapter.fetch_yfinance_history(bench.yahoo_ticker, start)
+                        if rows:
+                            for row in rows:
+                                nav_date = row.get('date')
+                                close = row.get('close')
+                                if nav_date and close is not None and nav_date <= end:
+                                    BenchmarkNAV.objects.update_or_create(
+                                        index=bench,
+                                        date=nav_date,
+                                        defaults={"close": float(close), "source": "yfinance"},
+                                    )
+                    if not rows:
+                        self.stdout.write(f"  Falling back to benchmark registry providers for {bench.name}")
+                        series, candidate = fetch_yahoo_history_for_benchmark(bench.name, start_date=start, end_date=end, min_rows=1)
+                        rows = [
+                            {"date": idx.date(), "close": float(value)}
+                            for idx, value in series.items()
+                            if start <= idx.date() <= end
+                        ]
+                        source = candidate.source if candidate else "registry"
+                        for row in rows:
+                            BenchmarkNAV.objects.update_or_create(
+                                index=bench,
+                                date=row["date"],
+                                defaults={"close": float(row["close"]), "source": source},
+                            )
                     start = end + timedelta(days=1)
                     continue
                 for row in rows:
@@ -58,7 +88,7 @@ class Command(BaseCommand):
                         BenchmarkNAV.objects.update_or_create(
                             index=bench,
                             date=nav_date,
-                            defaults={"close": float(close)},
+                            defaults={"close": float(close), "source": "nse"},
                         )
                 start = end + timedelta(days=1)
         self.stdout.write(self.style.SUCCESS("Benchmark ingestion completed."))

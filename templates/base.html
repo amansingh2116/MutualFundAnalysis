@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="{% block meta_description %}Indian Mutual Fund Research, Screener, Portfolio Analysis & Calculators{% endblock %}">
+  <meta name="description" content="{% block meta_description %}Indian Mutual Fund Research, Portfolio Analysis & Calculators{% endblock %}">
   <title>{% block title %}MF Analysis{% endblock %} — MutualFundAnalysis</title>
 
   <!-- Favicons -->
@@ -41,10 +41,6 @@
       <a href="{% url 'funds:category_list' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
         <span class="nav-icon">📂</span> Browse Funds
       </a>
-      <a href="{% url 'screener:screener' %}" class="nav-item {% if request.resolver_match.namespace == 'screener' %}active{% endif %}">
-        <span class="nav-icon">🔍</span> Screener
-      </a>
-
       <div class="nav-section-label" style="margin-top:12px">Tools</div>
       <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' %}active{% endif %}">
         <span class="nav-icon">🧮</span> Calculators
@@ -93,11 +89,12 @@
          hx-trigger="load"
          hx-swap="innerHTML">
       <!-- Placeholders shown while indices load (~1s) -->
-      <div class="market-item"><span class="market-name">NIFTY 50</span><span class="market-val" style="opacity:.4">loading…</span></div>
-      <div class="market-item"><span class="market-name">SENSEX</span><span class="market-val" style="opacity:.4">loading…</span></div>
-      <div class="market-item"><span class="market-name">NIFTY MIDCAP 150</span><span class="market-val" style="opacity:.4">loading…</span></div>
-      <div class="market-item"><span class="market-name">NIFTY SMALLCAP 250</span><span class="market-val" style="opacity:.4">loading…</span></div>
-      <div class="market-item"><span class="market-name">₹/USD</span><span class="market-val" style="opacity:.4">loading…</span></div>
+      <div class="market-item"><span class="market-name">NIFTY 50</span><span class="market-val" style="opacity:.4">loading...</span></div>
+      <div class="market-item"><span class="market-name">SENSEX</span><span class="market-val" style="opacity:.4">loading...</span></div>
+      <div class="market-item"><span class="market-name">NIFTY 200</span><span class="market-val" style="opacity:.4">loading...</span></div>
+      <div class="market-item"><span class="market-name">NIFTY MIDCAP 150</span><span class="market-val" style="opacity:.4">loading...</span></div>
+      <div class="market-item"><span class="market-name">NIFTY SMLCAP 250</span><span class="market-val" style="opacity:.4">loading...</span></div>
+      <div class="market-item"><span class="market-name">USD/INR</span><span class="market-val" style="opacity:.4">loading...</span></div>
     </div>
     {% endblock %}
 

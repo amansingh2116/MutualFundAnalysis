@@ -4,7 +4,7 @@
 <div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">&rsaquo;</span><span>Overlap Checker</span></div>
 <div class="page-header">
   <div class="page-title">Fund Overlap Checker</div>
-  <div class="page-subtitle">Search and compare stock-level overlap for 2 to 3 funds.</div>
+  <div class="page-subtitle">Search and compare stock-level overlap between two funds.</div>
 </div>
 
 <div class="calc-layout">
@@ -16,7 +16,7 @@
         <div class="search-results-dropdown" id="overlap-search-dropdown"></div>
       </div>
       <div id="selected-overlap-funds" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-      <div class="form-hint" style="margin-bottom:12px">Select at least 2 funds. Maximum 3 funds can be compared at once.</div>
+      <div class="form-hint" style="margin-bottom:12px">Select exactly 2 funds. All available portfolio rows from the provider are used.</div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Check Overlap</button>
     </form>
     <div class="alert alert-info" style="margin-top:16px">Portfolio data is fetched live from available providers and may be unavailable for some schemes.</div>
@@ -25,7 +25,7 @@
   <div class="calc-results">
     <div id="overlap-results">
       <div class="chart-placeholder" style="min-height:200px">
-        <span style="font-size:13px;color:var(--text-muted)">Search and select two or three funds to check overlap.</span>
+        <span style="font-size:13px;color:var(--text-muted)">Search and select two funds to check overlap.</span>
       </div>
     </div>
   </div>
@@ -65,7 +65,7 @@ async function searchOverlapFunds(q) {
 overlapDropdown.addEventListener('click', (e) => {
   const item = e.target.closest('.search-result-item');
   if (!item) return;
-  if (overlapSelected.length >= 3) return;
+  if (overlapSelected.length >= 2) return;
   if (overlapSelected.some(f => f.code === item.dataset.code)) return;
   overlapSelected.push({ code: item.dataset.code, name: item.dataset.name, house: item.dataset.house });
   overlapInput.value = '';
@@ -94,8 +94,8 @@ function removeOverlapFund(idx) {
 document.getElementById('overlap-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const el = document.getElementById('overlap-results');
-  if (overlapSelected.length < 2) {
-    el.innerHTML = `<div class="alert alert-warning">Select at least two funds first.</div>`;
+  if (overlapSelected.length !== 2) {
+    el.innerHTML = `<div class="alert alert-warning">Select exactly two funds first.</div>`;
     return;
   }
   el.innerHTML = `<div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fetching holdings and calculating overlap...</span></div>`;
@@ -144,7 +144,7 @@ function renderOverlapResults(d) {
     <div class="table-wrapper">
       <table>
         <thead><tr><th>#</th><th>Security</th>${fundHeads}<th>Present</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="${d.funds.length + 3}" class="muted">No common holdings found in the available top holdings data.</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="${d.funds.length + 3}" class="muted">No common holdings found in the available portfolio data.</td></tr>`}</tbody>
       </table>
     </div>
   `;

@@ -14,12 +14,29 @@ from typing import Any
 
 
 def main() -> int:
+    selenium_cache = os.path.join(os.getcwd(), ".cache", "selenium")
+    os.makedirs(selenium_cache, exist_ok=True)
+    os.environ.setdefault("SE_CACHE_PATH", selenium_cache)
+    os.environ.setdefault("XDG_CACHE_HOME", os.path.join(os.getcwd(), ".cache"))
+    chrome_profile = os.path.join(os.getcwd(), ".cache", "chrome-mstarpy")
+    os.makedirs(chrome_profile, exist_ok=True)
     os.environ.setdefault(
         "SELENIUM_CHROME_FLAGS",
-        "--headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage",
+        " ".join([
+            "--headless=new",
+            "--disable-gpu",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-extensions",
+            "--disable-background-networking",
+            "--disable-default-apps",
+            "--no-first-run",
+            "--remote-debugging-port=0",
+            f"--user-data-dir={chrome_profile}",
+        ]),
     )
     os.environ.setdefault("SELENIUM_DRIVER_WAIT_TIME", "1")
-    request = json.loads(sys.argv[1])
+    request = json.loads(sys.argv[1] if len(sys.argv) > 1 else os.environ.get("MSTARPY_REQUEST_JSON", "{}"))
     terms = request.get("terms") or []
     expected_isin = str(request.get("expected_isin") or "").upper()
     family = str(request.get("family") or "")
@@ -74,7 +91,7 @@ def family_key(name: str) -> str:
 def frame_records(value: Any) -> list[dict]:
     if value is None or not hasattr(value, "empty") or value.empty:
         return []
-    return clean(value.head(80).to_dict("records"))
+    return clean(value.to_dict("records"))
 
 
 def clean(value: Any):

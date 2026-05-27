@@ -47,7 +47,6 @@
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <a href="{% url 'funds:export_pdf' scheme.amfi_code %}" class="btn btn-secondary btn-sm">📄 Export Report</a>
-      <a href="{% url 'screener:compare' %}?funds={{ scheme.amfi_code }}" class="btn btn-secondary btn-sm">⚖️ Compare</a>
     </div>
   </div>
 </div>
@@ -329,7 +328,7 @@
         <div><div class="metric-key">Info Ratio</div><div class="metric-val">{{ risk_5y.info_ratio|floatformat:2|default:"—" }}</div></div>
         <div><div class="metric-key">Upside Capture %</div><div class="metric-val positive">{{ risk_5y.upside_capture|floatformat:1|default:"—" }}</div></div>
         <div><div class="metric-key">Downside Capture %</div><div class="metric-val negative">{{ risk_5y.downside_capture|floatformat:1|default:"—" }}</div></div>
-        <div><div class="metric-key">Benchmark</div><div class="metric-val" style="font-size:12px">{{ benchmark_name|default:"—" }}</div></div>
+        <div><div class="metric-key">Benchmark</div><div class="metric-val" style="font-size:12px">{{ benchmark_display_name|default:"—" }}</div></div>
       </div>
     </div>
     {% else %}
@@ -500,8 +499,10 @@
       <div class="card-header"><div class="card-title">Benchmark</div></div>
       <div class="card-body">
         {% if benchmark_name %}
-        <div style="font-size:14px;font-weight:600;color:var(--indigo-400)">{{ benchmark_name }}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--indigo-400)">{{ benchmark_display_name|default:benchmark_name }}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:4px">SEBI-assigned category benchmark for this fund type.</div>
+        {% if benchmark_ticker %}<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Source: {{ benchmark_ticker }}</div>{% endif %}
+        {% if benchmark_note %}<div style="font-size:11px;color:var(--amber-400);margin-top:6px">{{ benchmark_note }}</div>{% endif %}
         <div class="alert alert-warning" style="margin-top:12px;margin-bottom:0">
           ⚠️ Data shown is Price Index, not TRI. TRI returns are typically 1-2% higher annually.
         </div>

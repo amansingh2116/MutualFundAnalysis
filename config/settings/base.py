@@ -32,7 +32,6 @@ LOCAL_APPS = [
     'apps.benchmarks',
     'apps.holdings',
     'apps.portfolio',
-    'apps.screener',
     'apps.calculators',
     'apps.recommendations',
 ]
