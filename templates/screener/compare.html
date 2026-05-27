@@ -48,7 +48,7 @@
           <td class="muted">{{ period }}</td>
           {% for s in schemes %}
           <td>
-            {% with ret=s._trailing|get_item:period %}
+            {% with ret=s.trailing_map|get_item:period %}
             {% if ret %}<span class="{% if ret.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{% if ret.cagr_pct >= 0 %}+{% endif %}{{ ret.cagr_pct|floatformat:2 }}%</span>{% else %}<span class="muted">—</span>{% endif %}
             {% endwith %}
           </td>
@@ -58,11 +58,11 @@
 
         <!-- Risk -->
         <tr style="background:var(--bg-elevated)"><td colspan="{{ schemes|length|add:1 }}" style="font-weight:700;font-size:11px;text-transform:uppercase;color:var(--text-muted);padding:8px 16px">RISK METRICS (3Y)</td></tr>
-        <tr><td class="muted">Sharpe Ratio</td>{% for s in schemes %}<td>{% if s._risk_3y and s._risk_3y.sharpe_ratio %}{{ s._risk_3y.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}</tr>
-        <tr><td class="muted">Max Drawdown</td>{% for s in schemes %}<td class="negative">{% if s._risk_3y and s._risk_3y.max_drawdown %}{{ s._risk_3y.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
-        <tr><td class="muted">Std Dev (Ann)</td>{% for s in schemes %}<td>{% if s._risk_3y and s._risk_3y.std_dev_ann %}{{ s._risk_3y.std_dev_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
-        <tr><td class="muted">Beta</td>{% for s in schemes %}<td>{% if s._risk_3y and s._risk_3y.beta %}{{ s._risk_3y.beta|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}</tr>
-        <tr><td class="muted">Alpha (Ann)</td>{% for s in schemes %}<td class="{% if s._risk_3y and s._risk_3y.alpha_ann and s._risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{% if s._risk_3y and s._risk_3y.alpha_ann %}{{ s._risk_3y.alpha_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Sharpe Ratio</td>{% for s in schemes %}<td>{% if s.risk_3y_runtime and s.risk_3y_runtime.sharpe_ratio %}{{ s.risk_3y_runtime.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Max Drawdown</td>{% for s in schemes %}<td class="negative">{% if s.risk_3y_runtime and s.risk_3y_runtime.max_drawdown %}{{ s.risk_3y_runtime.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Std Dev (Ann)</td>{% for s in schemes %}<td>{% if s.risk_3y_runtime and s.risk_3y_runtime.std_dev_ann %}{{ s.risk_3y_runtime.std_dev_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Beta</td>{% for s in schemes %}<td>{% if s.risk_3y_runtime and s.risk_3y_runtime.beta %}{{ s.risk_3y_runtime.beta|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Alpha (Ann)</td>{% for s in schemes %}<td class="{% if s.risk_3y_runtime and s.risk_3y_runtime.alpha_ann and s.risk_3y_runtime.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{% if s.risk_3y_runtime and s.risk_3y_runtime.alpha_ann %}{{ s.risk_3y_runtime.alpha_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
 
         <!-- Actions -->
         <tr style="background:var(--bg-elevated)">

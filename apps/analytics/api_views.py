@@ -11,9 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.funds.models import NAVHistory, Scheme
-from apps.analytics.models import TrailingReturn, CalendarReturn, RiskMetrics
 from apps.analytics.engine import simulate_sip
-from apps.holdings.models import SectorAllocation
 
 logger = logging.getLogger('mfanalysis')
 
@@ -26,18 +24,17 @@ def get_scheme_or_404(amfi_code):
 def nav_chart_api(request, amfi_code):
     """Returns NAV history as [{date, nav}, ...] with optional ?days= filter."""
     scheme = get_scheme_or_404(amfi_code)
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
     days = request.GET.get('days')
-    qs = NAVHistory.objects.filter(scheme=scheme).order_by('date')
+    data = snapshot.nav_rows
     if days:
         try:
             cutoff = date.today() - timedelta(days=int(days))
-            qs = qs.filter(date__gte=cutoff)
+            data = [r for r in data if date.fromisoformat(r['date']) >= cutoff]
         except ValueError:
             pass
-    data = list(qs.values('date', 'nav'))
-    for r in data:
-        r['date'] = r['date'].isoformat()
-        r['nav'] = float(r['nav'])
     return JsonResponse({'data': data, 'scheme_name': scheme.scheme_name})
 
 
@@ -45,18 +42,19 @@ def nav_chart_api(request, amfi_code):
 def returns_api(request, amfi_code):
     """Trailing returns for returns bar chart."""
     scheme = get_scheme_or_404(amfi_code)
-    latest = TrailingReturn.objects.filter(scheme=scheme).order_by('-as_of').values('as_of').first()
-    trailing = []
-    if latest:
-        trailing = list(
-            TrailingReturn.objects.filter(scheme=scheme, as_of=latest['as_of'])
-            .order_by('years')
-            .values('period', 'cagr_pct', 'bm_cagr', 'excess', 'years')
-        )
-        for r in trailing:
-            r['cagr_pct'] = float(r['cagr_pct']) if r['cagr_pct'] else None
-            r['bm_cagr'] = float(r['bm_cagr']) if r['bm_cagr'] else None
-            r['excess'] = float(r['excess']) if r['excess'] else None
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
+    trailing = [
+        {
+            'period': r.period,
+            'cagr_pct': float(r.cagr_pct) if r.cagr_pct is not None else None,
+            'bm_cagr': float(r.bm_cagr) if r.bm_cagr is not None else None,
+            'excess': float(r.excess) if r.excess is not None else None,
+            'years': float(r.years) if r.years is not None else None,
+        }
+        for r in snapshot.trailing_returns
+    ]
     return JsonResponse({'trailing': trailing})
 
 
@@ -64,14 +62,18 @@ def returns_api(request, amfi_code):
 def calendar_api(request, amfi_code):
     """Calendar year returns."""
     scheme = get_scheme_or_404(amfi_code)
-    calendar = list(
-        CalendarReturn.objects.filter(scheme=scheme)
-        .order_by('year')
-        .values('year', 'return_pct', 'bm_return', 'outperformed')
-    )
-    for r in calendar:
-        r['return_pct'] = float(r['return_pct']) if r['return_pct'] else None
-        r['bm_return'] = float(r['bm_return']) if r['bm_return'] else None
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
+    calendar = [
+        {
+            'year': r.year,
+            'return_pct': float(r.return_pct) if r.return_pct is not None else None,
+            'bm_return': float(r.bm_return) if r.bm_return is not None else None,
+            'outperformed': bool(r.outperformed) if r.outperformed is not None else None,
+        }
+        for r in sorted(snapshot.calendar_returns, key=lambda row: row.year)
+    ]
     return JsonResponse({'calendar': calendar})
 
 
@@ -79,18 +81,10 @@ def calendar_api(request, amfi_code):
 def drawdown_api(request, amfi_code):
     """Compute and return drawdown series from stored NAV."""
     scheme = get_scheme_or_404(amfi_code)
-    qs = NAVHistory.objects.filter(scheme=scheme).order_by('date').values('date', 'nav')
-    if not qs.exists():
-        return JsonResponse({'data': []})
-    df = pd.DataFrame(list(qs))
-    df['date'] = pd.to_datetime(df['date'])
-    df['nav'] = df['nav'].astype(float)
-    df = df.set_index('date').sort_index()
-    running_max = df['nav'].cummax()
-    df['drawdown'] = (df['nav'] - running_max) / running_max * 100
-    # Downsample to weekly for performance
-    df_weekly = df.resample('W').last().dropna()
-    data = [{'date': idx.date().isoformat(), 'drawdown': round(row['drawdown'], 4)} for idx, row in df_weekly.iterrows()]
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
+    data = [{'date': r.date, 'drawdown': round(r.drawdown, 4)} for r in snapshot.drawdown]
     return JsonResponse({'data': data})
 
 
@@ -98,9 +92,12 @@ def drawdown_api(request, amfi_code):
 def risk_api(request, amfi_code):
     """Risk metrics for the fund."""
     scheme = get_scheme_or_404(amfi_code)
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
     result = {}
     for period in ['3Y', '5Y']:
-        rm = RiskMetrics.objects.filter(scheme=scheme, period=period).order_by('-as_of').first()
+        rm = getattr(snapshot, f"risk_{period.lower()}", None)
         if rm:
             result[period] = {
                 'std_dev_ann': float(rm.std_dev_ann) if rm.std_dev_ann else None,
@@ -117,37 +114,33 @@ def risk_api(request, amfi_code):
 @require_GET
 def holdings_api(request, amfi_code):
     """Top holdings as JSON."""
-    from apps.holdings.models import Holding
     scheme = get_scheme_or_404(amfi_code)
-    last = Holding.objects.filter(scheme=scheme).order_by('-as_of_month').values('as_of_month').first()
-    if not last:
-        return JsonResponse({'holdings': [], 'as_of': None})
-    holdings = list(
-        Holding.objects.filter(scheme=scheme, as_of_month=last['as_of_month'])
-        .order_by('-weight_pct').values(
-            'security_name', 'sector', 'weight_pct', 'isin', 'forward_pe', 'holding_type'
-        )[:30]
-    )
-    for h in holdings:
-        h['weight_pct'] = float(h['weight_pct']) if h['weight_pct'] else None
-        h['forward_pe'] = float(h['forward_pe']) if h['forward_pe'] else None
-    return JsonResponse({'holdings': holdings, 'as_of': last['as_of_month'].isoformat()})
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
+    holdings = [
+        {
+            'security_name': h.security_name,
+            'sector': h.sector,
+            'weight_pct': float(h.weight_pct) if h.weight_pct is not None else None,
+            'isin': h.isin,
+            'forward_pe': float(h.forward_pe) if h.forward_pe is not None else None,
+            'holding_type': h.holding_type,
+        }
+        for h in snapshot.top_holdings[:30]
+    ]
+    return JsonResponse({'holdings': holdings, 'as_of': snapshot.holdings_month.isoformat() if snapshot.holdings_month else None})
 
 
 @require_GET
 def sector_api(request, amfi_code):
     """Sector allocation as JSON for Plotly donut."""
     scheme = get_scheme_or_404(amfi_code)
-    last = SectorAllocation.objects.filter(scheme=scheme).order_by('-as_of_month').values('as_of_month').first()
-    if not last:
-        return JsonResponse({'sectors': []})
-    sectors = list(
-        SectorAllocation.objects.filter(scheme=scheme, as_of_month=last['as_of_month'])
-        .order_by('-weight_pct').values('sector', 'weight_pct')
-    )
-    for s in sectors:
-        s['weight_pct'] = float(s['weight_pct']) if s['weight_pct'] else 0
-    return JsonResponse({'sectors': sectors, 'as_of': last['as_of_month'].isoformat()})
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
+    sectors = [{'sector': s.sector, 'weight_pct': float(s.weight_pct) if s.weight_pct else 0} for s in snapshot.sector_alloc]
+    return JsonResponse({'sectors': sectors, 'as_of': snapshot.holdings_month.isoformat() if snapshot.holdings_month else None})
 
 
 @require_http_methods(["POST"])
@@ -161,14 +154,12 @@ def sip_simulate_api(request, amfi_code):
     except (json.JSONDecodeError, ValueError, TypeError):
         return JsonResponse({'error': 'Invalid input parameters.'}, status=400)
 
-    qs = NAVHistory.objects.filter(scheme=scheme).order_by('date').values('date', 'nav')
-    if not qs.exists():
-        return JsonResponse({'error': 'No NAV data available. Run ingest_nav first.'})
+    from apps.funds.runtime import get_runtime_snapshot
 
-    df = pd.DataFrame(list(qs))
-    df['date'] = pd.to_datetime(df['date'])
-    df['nav'] = df['nav'].astype(float)
-    nav_series = df.set_index('date')['nav']
+    snapshot = get_runtime_snapshot(scheme)
+    nav_series = snapshot.nav_series
+    if nav_series.empty:
+        return JsonResponse({'error': 'No NAV data available from mfapi.in right now.'})
 
     # Trim to requested years
     from_date = nav_series.index[-1] - pd.DateOffset(years=years)

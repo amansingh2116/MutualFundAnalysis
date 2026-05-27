@@ -116,6 +116,34 @@ mfanalysis/                          ← Django project root (manage.py lives he
 
 > **Critical principle:** The app must keep working even if 2–3 libraries fail simultaneously. Every data need has a primary source, a fallback, and a "compute from stored data" last resort.
 
+### 3.0 Current Runtime Implementation
+
+The current Django implementation follows the routing strategy without bulk
+persisting full fund detail datasets. `apps/funds/runtime.py` builds a
+request-scoped snapshot for each fund, and chart/API/compare views read from
+that snapshot. SQLite is still used for Django state and the lightweight scheme
+registry, but NAV histories, enriched metadata, risk/return tables, holdings,
+sectors, and asset allocation are fetched or computed on demand.
+
+Current provider order:
+
+- Scheme search and latest NAV: AMFI scheme universe, then mfapi-style fund
+  history/metadata responses.
+- Historical NAV: mfapi response data, normalized and used directly for charts
+  and analytics.
+- Metadata and costs: captnemo by exact ISIN first, then same-fund sibling
+  growth-plan fallback when exact-plan data is unavailable. Sibling-plan values
+  must be labelled as reference data in the UI.
+- Holdings, sector allocation, and asset allocation: `mstarpy` first, validated
+  through ISIN/fund-family matching where possible. Because `mstarpy` uses
+  process signal handling, Django calls it through `apps/funds/mstarpy_fetch.py`
+  in a subprocess.
+- Yahoo fallback: `yahooquery`/`yfinance` after normalized fund-name queries and
+  NAV/date sanity checks find a plausible ticker.
+- Analytics: trailing, calendar, rolling, drawdown, SIP, and risk metrics are
+  computed from the runtime NAV series with Pandas instead of saved analytics
+  rows.
+
 ### 3.1 The Fallback Registry Pattern
 
 ```python

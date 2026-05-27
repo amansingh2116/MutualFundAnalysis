@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Fund Overlap Checker{% endblock %}
 {% block content %}
-<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Overlap Checker</span></div>
-<div class="page-header"><div class="page-title">🔄 Fund Overlap Checker</div><div class="page-subtitle">Find the percentage of common stock holdings between two funds. Requires holdings data.</div></div>
+<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">&rsaquo;</span><span>Overlap Checker</span></div>
+<div class="page-header"><div class="page-title">Fund Overlap Checker</div><div class="page-subtitle">Find common stock holdings between two funds using on-demand portfolio data.</div></div>
 <div class="calc-layout">
   <div class="calc-inputs">
     <form id="overlap-form">{% csrf_token %}
@@ -11,7 +11,7 @@
       <div class="form-hint" style="margin-bottom:12px">Find AMFI codes on fund detail pages or use the Screener.</div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Check Overlap</button>
     </form>
-    <div class="alert alert-warning" style="margin-top:16px">⚠️ Requires holdings data. Run <code style="color:var(--indigo-400)">python manage.py ingest_holdings</code> first.</div>
+    <div class="alert alert-info" style="margin-top:16px">Portfolio data is fetched live from available providers and may be unavailable for some schemes.</div>
   </div>
   <div class="calc-results">
     <div id="overlap-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Enter two AMFI codes and click Check Overlap.</span></div></div>
@@ -33,9 +33,8 @@ document.getElementById('overlap-form').addEventListener('submit', async (e) => 
   el.innerHTML=`
     <div class="grid-2" style="gap:12px;margin-bottom:16px">
       <div class="calc-result-highlight"><div class="label">Overlap Score</div><div class="value ${d.overlap_score>50?'negative':d.overlap_score>25?'':'positive'}">${d.overlap_score.toFixed(1)}%</div><div class="sub">${d.overlap_score>50?'High overlap':'Low overlap'}</div></div>
-      <div class="calc-result-highlight"><div class="label">Common Holdings</div><div class="value">${d.common_holdings}</div><div class="sub">of ${d.fund1_total_holdings} / ${d.fund2_total_holdings} stocks</div></div>
+      <div class="calc-result-highlight"><div class="label">Common Holdings</div><div class="value">${d.common_holdings}</div><div class="sub">Across ${d.fund1_total_holdings} and ${d.fund2_total_holdings} holdings</div></div>
     </div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px"><strong style="color:var(--text-primary)">${d.fund1_name.substring(0,40)}</strong> vs <strong style="color:var(--text-primary)">${d.fund2_name.substring(0,40)}</strong></div>
-    ${rows.length ? `<div class="table-wrapper"><table><thead><tr><th>#</th><th>Security</th><th>Fund 1 Wt</th><th>Fund 2 Wt</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="alert alert-info">No common holdings found.</div>'}`;
+    <div class="table-container"><table class="data-table"><thead><tr><th>#</th><th>Security</th><th>${d.fund1_name}</th><th>${d.fund2_name}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 });
 </script>{% endblock %}

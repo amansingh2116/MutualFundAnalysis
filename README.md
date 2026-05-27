@@ -56,7 +56,7 @@ The planned platform has five primary capabilities:
 This project has successfully transitioned from a design workspace into a functional, data-driven web application built with Django, HTMX, and Pandas.
 
 **Core Features Implemented:**
-- **On-Demand Lazy Loading Architecture:** Fetches years of NAV and Metadata from AMFI, `mfapi.in`, `captnemo`, and `mstarpy` instantly on-demand without requiring a massive pre-loaded database.
+- **On-Demand Runtime Data Architecture:** Keeps only lightweight scheme data locally, then fetches NAV, metadata, holdings, sectors, and allocations on demand from AMFI, `mfapi.in`, `captnemo`, `mstarpy`, `yahooquery`, and `yfinance`.
 - **Advanced Analytics Engine:** Uses vectorized Pandas operations to calculate Rolling Returns, Sharpe, Sortino, Alpha, Beta, Max Drawdown, and Trailing Returns dynamically.
 - **Screener & Fund Compare:** Real-time HTMX-powered screening and side-by-side comparison.
 - **PDF Reports:** 1-click export of beautifully formatted fund fact sheets.
@@ -307,13 +307,29 @@ Holdings history, expense/load history, manager tenure data, benchmark mapping,
 tax rules, corporate actions, and data licensing are important gaps to solve
 before a complete report generator or public application can be dependable.
 
+### Current Runtime Provider Flow
+
+The implemented Django app currently favors temporary, request-scoped data over
+bulk persistence:
+
+- Search uses the AMFI scheme universe cache.
+- Fund detail pages fetch NAV history and latest NAV on demand, then calculate
+  returns and risk metrics in memory.
+- Captnemo metadata is requested by exact ISIN first; when a provider only has
+  a sibling growth plan, those values are labelled as reference values in the
+  UI instead of being treated as exact-plan facts.
+- Portfolio data tries `mstarpy` first because it has the best observed
+  holdings and allocation coverage, then falls back to `yahooquery` after
+  resolving a Yahoo ticker through normalized fund-name and NAV/date checks.
+- Detail data is cached briefly in process memory but is not written as a
+  permanent local fund dataset.
+
 ## Technology Direction
 
-The existing design notes favor a Python-first application and identify Django
-as a practical baseline because it provides routing, forms, authentication,
-database support, administration, and a path to a full web product. This is a
-direction for implementation, not a dependency already configured in this
-repository.
+The implementation is now a Python-first Django application. The original
+design notes still explain the intended product direction, while the current
+codebase provides routing, forms, authentication, database support,
+administration, and a path to a full web product.
 
 | Layer | Proposed direction |
 | --- | --- |

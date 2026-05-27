@@ -73,17 +73,17 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">Fund Information</div>
-          {% if meta %}<div class="data-freshness"><span class="freshness-dot"></span> {{ meta.last_fetched|date:"d M Y" }} · captnemo</div>{% endif %}
+          {% if meta %}<div class="data-freshness"><span class="freshness-dot"></span> {{ meta.last_fetched|date:"d M Y" }} · {{ runtime.sources.meta }}</div>{% endif %}
         </div>
         <div class="metrics-dl">
           <div><div class="metric-key">Fund House</div><div class="metric-val" style="font-size:13px">{{ scheme.fund_house }}</div></div>
           <div><div class="metric-key">Category</div><div class="metric-val" style="font-size:12px">{{ scheme.scheme_category }}</div></div>
           <div><div class="metric-key">AUM</div><div class="metric-val">{% if meta.aum %}₹{{ meta.aum }} Cr{% elif scheme.aum_cr %}₹{{ scheme.aum_cr }} Cr{% else %}—{% endif %}</div></div>
-          <div><div class="metric-key">Expense Ratio</div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% else %}—{% endif %}</div></div>
+          <div><div class="metric-key">Expense Ratio</div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}</div></div>
           <div><div class="metric-key">Min SIP</div><div class="metric-val">{% if meta.sip_min %}₹{{ meta.sip_min }}{% else %}—{% endif %}</div></div>
           <div><div class="metric-key">Min Lumpsum</div><div class="metric-val">{% if meta.lump_min %}₹{{ meta.lump_min }}{% else %}—{% endif %}</div></div>
           <div><div class="metric-key">Fund Start Date</div><div class="metric-val" style="font-size:13px">{% if meta.start_date %}{{ meta.start_date|date:"d M Y" }}{% else %}—{% endif %}</div></div>
-          <div><div class="metric-key">Lock-in Period</div><div class="metric-val" style="font-size:13px">{% if meta.lock_in_period %}{{ meta.lock_in_period }} days{% else %}None{% endif %}</div></div>
+          <div><div class="metric-key">Lock-in Period</div><div class="metric-val" style="font-size:13px">{{ meta.lock_in_label }}</div></div>
         </div>
       </div>
 
@@ -133,7 +133,7 @@
           </table>
           {% else %}
           <div class="chart-placeholder" style="min-height:80px">
-            <span style="font-size:12px;color:var(--text-muted)">Run <code style="color:var(--indigo-400)">compute_analytics</code> to compute returns.</span>
+            <span style="font-size:12px;color:var(--text-muted)">Returns are unavailable from the on-demand NAV source right now.</span>
           </div>
           {% endif %}
         </div>
@@ -305,12 +305,12 @@
         <div><div class="metric-key">Info Ratio</div><div class="metric-val">{{ risk_3y.info_ratio|floatformat:2|default:"—" }}</div></div>
         <div><div class="metric-key">Upside Capture %</div><div class="metric-val positive">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}</div></div>
         <div><div class="metric-key">Downside Capture %</div><div class="metric-val negative">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}</div></div>
-        <div><div class="metric-key">Risk-Free Rate Used</div><div class="metric-val" style="font-size:13px">{{ risk_3y.rf_rate_used }}%</div></div>
+        <div><div class="metric-key">Risk-Free Rate Used</div><div class="metric-val" style="font-size:13px">{{ risk_3y.rf_rate_pct|floatformat:2 }}%</div></div>
       </div>
     </div>
     {% else %}
     <div class="card">
-      <div class="card-body chart-placeholder" style="min-height:200px"><span style="font-size:12px;color:var(--text-muted)">No 3Y risk metrics. Run <code style="color:var(--indigo-400)">compute_analytics</code>.</span></div>
+      <div class="card-body chart-placeholder" style="min-height:200px"><span style="font-size:12px;color:var(--text-muted)">No 3Y risk metrics available from the on-demand NAV source.</span></div>
     </div>
     {% endif %}
 
@@ -375,27 +375,21 @@
       {% endif %}
     </div>
 
-    <!-- Market Cap Blend -->
+    <!-- Asset Allocation -->
     <div class="card">
-      <div class="card-header"><div class="card-title">Market Cap Blend</div></div>
+      <div class="card-header"><div class="card-title">Asset Allocation</div></div>
       <div class="card-body">
-        {% if cap_alloc %}
+        {% if asset_alloc %}
         <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+          {% for row in asset_alloc %}
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text-secondary)">Large Cap</span><strong>{{ cap_alloc.large|floatformat:1 }}%</strong></div>
-            <div class="progress-bar"><div class="progress-fill" style="width:{{ cap_alloc.large }}%"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text-secondary)">{{ row.label }}</span><strong>{{ row.weight_pct|floatformat:1 }}%</strong></div>
+            <div class="progress-bar"><div class="progress-fill {% if row.label == 'Cash' %}amber{% elif row.label == 'Debt' %}green{% endif %}" style="width:{{ row.weight_pct }}%"></div></div>
           </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text-secondary)">Mid Cap</span><strong>{{ cap_alloc.mid|floatformat:1 }}%</strong></div>
-            <div class="progress-bar"><div class="progress-fill green" style="width:{{ cap_alloc.mid }}%"></div></div>
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text-secondary)">Small Cap</span><strong>{{ cap_alloc.small|floatformat:1 }}%</strong></div>
-            <div class="progress-bar"><div class="progress-fill amber" style="width:{{ cap_alloc.small }}%"></div></div>
-          </div>
+          {% endfor %}
         </div>
         {% else %}
-        <div class="chart-placeholder" style="min-height:120px"><span style="font-size:12px;color:var(--text-muted)">Holdings data not available yet.<br>Run <code style="color:var(--indigo-400)">ingest_holdings</code>.</span></div>
+        <div class="chart-placeholder" style="min-height:120px"><span style="font-size:12px;color:var(--text-muted)">Asset allocation is not available from the on-demand sources for this plan.</span></div>
         {% endif %}
       </div>
     </div>
@@ -441,7 +435,7 @@
       </table>
     </div>
     {% else %}
-    <div class="card-body chart-placeholder"><span style="font-size:12px;color:var(--text-muted)">Holdings not ingested yet. Run <code style="color:var(--indigo-400)">ingest_holdings</code>.</span></div>
+    <div class="card-body chart-placeholder"><span style="font-size:12px;color:var(--text-muted)">No holdings were returned by the on-demand portfolio sources for this fund.</span></div>
     {% endif %}
   </div>
 </div>
@@ -454,7 +448,7 @@
     <div class="card">
       <div class="card-header"><div class="card-title">Costs & Fees</div></div>
       <div class="metrics-dl">
-        <div><div class="metric-key">Expense Ratio</div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% else %}—{% endif %}</div></div>
+        <div><div class="metric-key">Expense Ratio</div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}</div></div>
         {% if meta.expense_ratio_date %}<div><div class="metric-key">Expense Ratio Date</div><div class="metric-val" style="font-size:13px">{{ meta.expense_ratio_date|date:"d M Y" }}</div></div>{% endif %}
         <div><div class="metric-key">Portfolio Turnover</div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover }}%{% else %}—{% endif %}</div></div>
         <div><div class="metric-key">CRISIL Rating</div><div class="metric-val" style="font-size:13px">{{ meta.crisil_rating|default:"—" }}</div></div>
@@ -469,7 +463,7 @@
         <div><div class="metric-key">Min Additional</div><div class="metric-val">{% if meta.lump_min_additional %}₹{{ meta.lump_min_additional|floatformat:0 }}{% else %}—{% endif %}</div></div>
         <div><div class="metric-key">Min SIP</div><div class="metric-val">{% if meta.sip_min %}₹{{ meta.sip_min|floatformat:0 }}{% else %}—{% endif %}</div></div>
         <div><div class="metric-key">SIP Available</div><div class="metric-val">{% if meta.sip_available %}✅ Yes{% else %}❌ No{% endif %}</div></div>
-        <div><div class="metric-key">Lock-in Period</div><div class="metric-val">{% if meta.lock_in_period %}{{ meta.lock_in_period }} days ({{ meta.lock_in_period|divisibleby:365|yesno:"3y,—" }}){% else %}None{% endif %}</div></div>
+        <div><div class="metric-key">Lock-in Period</div><div class="metric-val">{{ meta.lock_in_label }}</div></div>
         <div><div class="metric-key">Redemption Allowed</div><div class="metric-val">{% if meta.redemption_allowed %}✅ Yes{% else %}❌ No{% endif %}</div></div>
       </div>
     </div>
@@ -539,7 +533,7 @@
   {% else %}
   <div class="card">
     <div class="card-body chart-placeholder">
-      <span style="font-size:12px;color:var(--text-muted)">Manager data not available yet. Run <code style="color:var(--indigo-400)">ingest_metadata</code>.</span>
+      <span style="font-size:12px;color:var(--text-muted)">Manager data is not exposed by the available on-demand sources for this fund.</span>
     </div>
   </div>
   {% endif %}

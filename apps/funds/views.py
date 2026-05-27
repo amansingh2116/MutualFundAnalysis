@@ -12,9 +12,7 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import DetailView, ListView, TemplateView
 
-from apps.analytics.models import RiskMetrics, TrailingReturn
 from apps.funds.models import NAVHistory, Scheme, SchemeMeta
-from apps.holdings.models import Holding, SectorAllocation
 
 logger = logging.getLogger('mfanalysis')
 
@@ -91,77 +89,50 @@ class FundDetailView(DetailView):
     slug_url_kwarg = 'amfi_code'
 
     def get_object(self, queryset=None):
-        """Auto-fetch scheme from mfapi.in if not in DB yet."""
-        from apps.funds.services import prepare_fund_for_display
+        """Auto-fetch only the lightweight scheme record if it is missing."""
+        from apps.funds.services import get_or_fetch_scheme
         amfi_code = self.kwargs['amfi_code']
-        scheme, has_nav, has_meta = prepare_fund_for_display(amfi_code)
+        scheme = get_or_fetch_scheme(amfi_code)
         if not scheme:
             raise Http404(f"Fund {amfi_code} not found and could not be fetched.")
-        # Attach flags so get_context_data can use them
-        scheme._has_nav  = has_nav
-        scheme._has_meta = has_meta
         return scheme
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         scheme = self.object
-        today = date.today()
-        latest_month = date(today.year, today.month, 1)
+        from apps.funds.runtime import get_runtime_snapshot
 
-        meta = getattr(scheme, 'meta', None)
-        ms_data = getattr(scheme, 'ms_data', None)
+        runtime = get_runtime_snapshot(scheme)
 
-        trailing = list(
-            scheme.trailing_returns.filter(as_of=today).order_by('years')
-        )
-        if not trailing:
-            # Use most recent available
-            last_tr = scheme.trailing_returns.order_by('-as_of').values('as_of').first()
-            if last_tr:
-                trailing = list(scheme.trailing_returns.filter(as_of=last_tr['as_of']).order_by('years'))
-
-        risk_3y = scheme.risk_metrics.filter(period='3Y').order_by('-as_of').first()
-        risk_5y = scheme.risk_metrics.filter(period='5Y').order_by('-as_of').first()
-
-        top_holdings = Holding.objects.filter(
-            scheme=scheme, as_of_month=latest_month
-        ).order_by('-weight_pct')[:20]
-        if not top_holdings.exists():
-            last_holding = Holding.objects.filter(scheme=scheme).order_by('-as_of_month').first()
-            if last_holding:
-                top_holdings = Holding.objects.filter(
-                    scheme=scheme, as_of_month=last_holding.as_of_month
-                ).order_by('-weight_pct')[:20]
-                latest_month = last_holding.as_of_month
-
-        sector_alloc = SectorAllocation.objects.filter(
-            scheme=scheme, as_of_month=latest_month
-        ).order_by('-weight_pct')
-
-        managers = []
-        if meta and meta.fund_manager:
-            managers = [m.strip() for m in meta.fund_manager.split(';') if m.strip()]
-
-        rolling_1y = scheme.rolling_returns.filter(window='1Y').order_by('-as_of').first()
-        rolling_3y = scheme.rolling_returns.filter(window='3Y').order_by('-as_of').first()
-        rolling_5y = scheme.rolling_returns.filter(window='5Y').order_by('-as_of').first()
+        # Keep existing templates simple without persisting these enriched values.
+        if runtime.nav_latest:
+            scheme.nav_latest = runtime.nav_latest
+        if runtime.nav_date:
+            scheme.nav_date = runtime.nav_date
+        if runtime.category:
+            scheme.scheme_category = runtime.category
+        if runtime.meta.expense_ratio:
+            scheme.expense_ratio = runtime.meta.expense_ratio
+        if runtime.meta.aum:
+            scheme.aum_cr = runtime.meta.aum
 
         ctx.update({
-            'meta': meta,
-            'ms_data': ms_data,
-            'trailing_returns': trailing,
-            'calendar_returns': scheme.calendar_returns.order_by('-year')[:10],
-            'rolling_1y': rolling_1y,
-            'rolling_3y': rolling_3y,
-            'rolling_5y': rolling_5y,
-            'risk_3y': risk_3y,
-            'risk_5y': risk_5y,
-            'top_holdings': top_holdings,
-            'sector_alloc': sector_alloc,
-            'holdings_month': latest_month.strftime('%b %Y') if top_holdings.exists() else None,
-            'cap_alloc': None,  # Will populate when mstarpy data available
-            'benchmark_name': CATEGORY_BENCHMARK_MAP.get(scheme.scheme_category),
-            'managers': managers,
+            'runtime': runtime,
+            'meta': runtime.meta,
+            'ms_data': None,
+            'trailing_returns': runtime.trailing_returns,
+            'calendar_returns': runtime.calendar_returns[:10],
+            'rolling_1y': runtime.rolling_returns.get('1Y'),
+            'rolling_3y': runtime.rolling_returns.get('3Y'),
+            'rolling_5y': runtime.rolling_returns.get('5Y'),
+            'risk_3y': runtime.risk_3y,
+            'risk_5y': runtime.risk_5y,
+            'top_holdings': runtime.top_holdings,
+            'sector_alloc': runtime.sector_alloc,
+            'holdings_month': runtime.holdings_month.strftime('%b %Y') if runtime.holdings_month else None,
+            'asset_alloc': runtime.asset_alloc,
+            'benchmark_name': runtime.benchmark_name,
+            'managers': runtime.managers,
             'nav_range_options': NAV_RANGE_OPTIONS,
         })
         return ctx

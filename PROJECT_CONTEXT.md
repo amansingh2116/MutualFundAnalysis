@@ -16,21 +16,31 @@ This document provides a deep, comprehensive overview of the Mutual Fund Analysi
 
 ---
 
-## 2. Core Architecture: "On-Demand Lazy Loading"
+## 2. Core Architecture: "On-Demand Runtime Loading"
 
-The most crucial architectural decision in this project is the **Lazy-Loading Data Model**.
-Indian mutual funds comprise over 14,000 active schemes. Downloading and updating NAVs for all of them daily requires immense compute.
-Instead, the platform operates entirely on-demand:
+The most crucial architectural decision in this project is the **On-Demand Runtime Data Model**.
+Indian mutual funds comprise over 14,000 active schemes. Downloading and updating NAVs,
+metadata, and portfolios for all of them daily requires unnecessary compute and creates
+local database fragility. Instead, the platform keeps only the lightweight scheme registry
+locally and fetches fund detail data at request time.
 
 1. **Initial State:** The database starts completely empty.
 2. **Search (AMFI Cache):** When a user searches for a fund, the app fetches a lightweight text file (NAVAll.txt, ~300KB) from AMFI, caches it in memory for 6 hours, and uses it to power instant auto-complete suggestions.
-3. **Fund Visit (The Orchestrator):** When a user clicks on a fund (e.g., `Parag Parikh Flexi Cap`), the `apps.funds.services.prepare_fund_for_display(amfi_code)` function intercepts the request:
-   - **Checks DB:** Does the fund exist? 
-   - **Fetches if Missing:** If not, it hits `mfapi.in` for NAV history and `captnemo.in` for rich metadata.
-   - **Updates if Stale:** If the NAV is older than 24 hours, it fetches the delta.
-   - **Computes:** It triggers the Pandas analytics engine to compute all metrics inline.
-   - **Serves:** Renders the page.
-4. **Result:** The system only consumes API limits and database storage for funds that users actually care about.
+3. **Fund Visit (Runtime Snapshot):** When a user clicks on a fund, `apps.funds.runtime.get_runtime_snapshot(scheme)` builds a short-lived in-memory snapshot:
+   - **NAV:** Fetches current and historical NAV from AMFI/mfapi, with mftool-style fallbacks where available.
+   - **Metadata:** Fetches captnemo data by ISIN and can fall back to a same-fund sibling growth plan when the exact plan is missing.
+   - **Portfolio:** Uses `mstarpy` first for holdings, sectors, and allocation, then falls back to `yahooquery` after resolving a Yahoo ticker.
+   - **Analytics:** Computes trailing, calendar, rolling, drawdown, and risk metrics from the fetched NAV history in memory.
+   - **Serves:** Renders the page and API responses without persisting all detail rows.
+4. **Result:** The system only stores minimal local data needed to identify schemes and power Django workflows. Fund detail data is temporary/runtime data unless a future feature explicitly needs persistence.
+
+### Runtime Data Rules
+
+- Do not bulk-ingest all schemes, NAV histories, metadata, or holdings for normal fund-detail browsing.
+- Do not fabricate exact-plan values. If a provider only returns a sibling plan, the UI must label it as a reference value.
+- Use ISIN matching first, then normalized fund-name/ticker matching, then NAV/date sanity checks before trusting provider-specific symbols.
+- Keep provider failures visible in logs and degrade the UI with neutral missing-data states rather than asking users to run ingestion commands.
+- `apps/funds/mstarpy_fetch.py` exists because `mstarpy` uses signal handling that is unsafe inside Django request threads; it runs Morningstar fetches in a subprocess main thread.
 
 ---
 
@@ -46,9 +56,12 @@ The project relies entirely on free, open APIs with built-in fallbacks.
    - **Use:** The primary source of historical NAV data (often spanning 15-20 years for a single fund).
 3. **Captnemo API (Mutual Fund API):**
    - **URL:** `https://api.mfapi.in/mf/{amfi_code}` (Note: We use Captnemo's fork/dataset for extended meta).
-   - **Use:** Rich metadata (Expense ratio, AUM, Fund Manager, Inception Date). *Quirk handled in code: Captnemo always returns a list, so we index `[0]` and filter for `direct='Y'` and `plan='GROWTH'`.*
-4. **Yahoo Finance (`yfinance`) & NSE India:**
+   - **Use:** Rich metadata where available (Expense ratio, AUM, Fund Manager, Inception Date). Captnemo can have exact-plan gaps, so runtime code tries current ISIN first and then a clearly labelled sibling-plan fallback.
+4. **mstarpy / Morningstar public data:**
+   - **Use:** Primary on-demand source for portfolio holdings, sector allocation, asset allocation, and selected enrichment fields. The app validates candidates against ISIN and fund family where possible.
+5. **Yahoo Finance (`yfinance`, `yahooquery`) & NSE India:**
    - **Use:** Fetches daily benchmark index data (Nifty 50, Sensex, etc.) for live market strips and alpha/beta regression baselines.
+   - **Use:** Fund-specific fallback for ticker-based metadata, holdings, and sector fields when Morningstar data is unavailable.
 
 ---
 
@@ -57,7 +70,7 @@ The project relies entirely on free, open APIs with built-in fallbacks.
 The repository is modularized into specific business domains inside the `apps/` folder:
 
 *   **`apps/core/`**: Base models (UUIDs, timestamps) and shared utilities (HTTP clients, rate limiters).
-*   **`apps/funds/`**: The heart of the app. Contains the `Scheme`, `SchemeMeta`, and `NAVHistory` models. Houses the `services.py` orchestrator and the `report.py` PDF generator.
+*   **`apps/funds/`**: The heart of the app. Contains scheme models, the runtime snapshot layer (`runtime.py`), the mstarpy subprocess helper (`mstarpy_fetch.py`), lightweight services, and the PDF report generator.
 *   **`apps/benchmarks/`**: Fetches and stores index data (Nifty 50). Provides HTMX API endpoints for the live market ticker strip on the homepage.
 *   **`apps/analytics/`**: The Data Science engine. Contains zero views, only mathematical logic (`engine.py`) and models to persist results (CAGR, Risk metrics).
 *   **`apps/holdings/`**: Manages the underlying stocks/bonds a mutual fund holds. (Future capability for parsing monthly portfolios).
@@ -109,7 +122,7 @@ Users can upload their CAMS/KFintech CAS (exported as Excel/CSV).
 ## 6. How to Use This Document
 
 If you are an AI assistant inheriting this project, follow these guidelines:
-1.  **Never try to pre-load all 14,000 funds.** Stick to the lazy-loading architecture utilizing `services.prepare_fund_for_display(amfi_code)`.
+1.  **Never try to pre-load all 14,000 funds.** Stick to the runtime-loading architecture and use `apps.funds.runtime.get_runtime_snapshot(scheme)` for fund detail, chart, compare, and portfolio data.
 2.  **Data Processing:** If editing metrics, edit `apps/analytics/engine.py` and ensure you use vectorized Pandas operations. Do not iterate over Django querysets for math.
 3.  **HTMX Principles:** Keep JavaScript to an absolute minimum. Use HTMX for interactivity (e.g., the market ticker, search bar, and screener).
 4.  **Resilience:** All APIs (`mfapi.in`, `captnemo`) have rate limits or downtime. Ensure all HTTP calls are wrapped in `try/except` with sensible UI fallbacks.

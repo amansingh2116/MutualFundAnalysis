@@ -213,33 +213,42 @@ def calc_tax_api(request):
 @require_http_methods(["POST"])
 def calc_overlap_api(request):
     """Fund Overlap: two AMFI codes → overlapping holdings list."""
-    from apps.holdings.models import Holding
     d = _parse_body(request)
     try:
         code1 = d.get('fund1')
         code2 = d.get('fund2')
         from apps.funds.models import Scheme
+        from apps.funds.runtime import get_runtime_snapshot
+
         s1 = Scheme.objects.get(amfi_code=code1)
         s2 = Scheme.objects.get(amfi_code=code2)
 
-        last1 = Holding.objects.filter(scheme=s1).order_by('-as_of_month').values('as_of_month').first()
-        last2 = Holding.objects.filter(scheme=s2).order_by('-as_of_month').values('as_of_month').first()
+        snap1 = get_runtime_snapshot(s1)
+        snap2 = get_runtime_snapshot(s2)
 
-        if not last1 or not last2:
-            return JsonResponse({'error': 'Holdings data not available for one or both funds. Run ingest_holdings.'})
+        if not snap1.top_holdings or not snap2.top_holdings:
+            return JsonResponse({'error': 'Holdings data is not available for one or both funds from the on-demand providers.'})
 
-        h1 = {h['security_name']: h['weight_pct'] for h in Holding.objects.filter(scheme=s1, as_of_month=last1['as_of_month']).values('security_name', 'weight_pct')}
-        h2 = {h['security_name']: h['weight_pct'] for h in Holding.objects.filter(scheme=s2, as_of_month=last2['as_of_month']).values('security_name', 'weight_pct')}
+        h1 = {
+            h.security_name.strip().lower(): h
+            for h in snap1.top_holdings
+            if h.security_name and h.weight_pct is not None
+        }
+        h2 = {
+            h.security_name.strip().lower(): h
+            for h in snap2.top_holdings
+            if h.security_name and h.weight_pct is not None
+        }
 
         common = set(h1.keys()) & set(h2.keys())
         overlap = [{
-            'security_name': name,
-            'weight_fund1': float(h1[name]),
-            'weight_fund2': float(h2[name]),
-        } for name in sorted(common, key=lambda x: -h1[x])]
+            'security_name': h1[key].security_name,
+            'weight_fund1': float(h1[key].weight_pct),
+            'weight_fund2': float(h2[key].weight_pct),
+        } for key in sorted(common, key=lambda x: -float(h1[x].weight_pct))]
 
         # Overlap score: sum of min(w1, w2) for common stocks
-        overlap_score = sum(min(float(h1[n]), float(h2[n])) for n in common)
+        overlap_score = sum(min(float(h1[n].weight_pct), float(h2[n].weight_pct)) for n in common)
 
         return JsonResponse({
             'fund1_name': s1.scheme_name,
@@ -249,6 +258,8 @@ def calc_overlap_api(request):
             'fund2_total_holdings': len(h2),
             'overlap_score': round(overlap_score, 2),
             'overlap': overlap[:30],
+            'source_1': snap1.portfolio_source,
+            'source_2': snap2.portfolio_source,
         })
     except Scheme.DoesNotExist:
         return JsonResponse({'error': 'One or both AMFI codes not found.'}, status=404)

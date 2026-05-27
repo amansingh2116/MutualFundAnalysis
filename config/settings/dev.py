@@ -1,14 +1,19 @@
 """
 Development settings — SQLite, DEBUG=True, relaxed security.
 """
+import os
+from pathlib import Path
+
 from .base import *  # noqa
 
 DEBUG = True
 
+SQLITE_DB_PATH = os.environ.get('SQLITE_DB_PATH')
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': Path(SQLITE_DB_PATH) if SQLITE_DB_PATH else BASE_DIR / 'db.sqlite3',
     }
 }
 

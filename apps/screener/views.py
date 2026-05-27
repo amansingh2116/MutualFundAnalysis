@@ -61,12 +61,14 @@ def screener_results_view(request):
 
 def compare_view(request):
     """Multi-fund comparison — up to 4 funds."""
-    amfi_codes = request.GET.getlist('funds')[:4]
+    amfi_codes = request.GET.getlist('funds')
+    if request.GET.get('funds_input'):
+        amfi_codes += [c.strip() for c in request.GET['funds_input'].split(',') if c.strip()]
+    amfi_codes = amfi_codes[:4]
     schemes = []
     if amfi_codes:
-        from apps.analytics.models import TrailingReturn, RiskMetrics
-        from datetime import date
-        today = date.today()
+        from apps.funds.runtime import get_runtime_snapshot
+
         schemes_qs = Scheme.objects.filter(amfi_code__in=amfi_codes).select_related('meta')
         schemes_map = {s.amfi_code: s for s in schemes_qs}
 
@@ -74,12 +76,19 @@ def compare_view(request):
             s = schemes_map.get(code)
             if not s:
                 continue
-            # Attach trailing returns
-            s._trailing = {
-                r.period: r
-                for r in TrailingReturn.objects.filter(scheme=s).order_by('-as_of')[:9]
-            }
-            s._risk_3y = RiskMetrics.objects.filter(scheme=s, period='3Y').order_by('-as_of').first()
+            runtime = get_runtime_snapshot(s)
+            if runtime.nav_latest:
+                s.nav_latest = runtime.nav_latest
+            if runtime.nav_date:
+                s.nav_date = runtime.nav_date
+            if runtime.category:
+                s.scheme_category = runtime.category
+            if runtime.meta.aum:
+                s.aum_cr = runtime.meta.aum
+            if runtime.meta.expense_ratio:
+                s.expense_ratio = runtime.meta.expense_ratio
+            s.trailing_map = runtime.trailing_map
+            s.risk_3y_runtime = runtime.risk_3y
             schemes.append(s)
 
     return render(request, 'screener/compare.html', {

@@ -37,7 +37,7 @@ async function loadChart(containerId, apiUrl, buildFn) {
     el.innerHTML = '';
     buildFn(el, data);
   } catch (e) {
-    el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📉</span><span style="font-size:12px;color:var(--text-muted)">Chart unavailable — no data yet.<br>Run <code style="color:var(--indigo-400)">python manage.py ingest_nav</code> first.</span></div>`;
+    el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📉</span><span style="font-size:12px;color:var(--text-muted)">Chart unavailable from the on-demand data source right now.</span></div>`;
   }
 }
 
@@ -64,7 +64,7 @@ function renderNavChart(el, { data, scheme_name }) {
 // ── Returns Bar Chart ──────────────────────────────────────────
 function renderReturnsChart(el, { trailing }) {
   if (!trailing || !trailing.length) {
-    el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📊</span><span style="font-size:12px;color:var(--text-muted)">No returns data computed yet.<br>Run <code style="color:var(--indigo-400)">python manage.py compute_analytics</code> first.</span></div>`;
+    el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📊</span><span style="font-size:12px;color:var(--text-muted)">No on-demand returns data available yet.</span></div>`;
     return;
   }
   const periods = trailing.map(t => t.period);
@@ -76,7 +76,7 @@ function renderReturnsChart(el, { trailing }) {
   if (bmVals.some(v => v != null)) {
     traces.push({ name: 'Benchmark', x: periods, y: bmVals, type: 'bar', marker: { color: 'rgba(148,163,184,0.4)' }, hovertemplate: '%{x}: %{y:.2f}%<extra>Benchmark</extra>' });
   }
-  Plotly.newPlot(el, traces, mergePlotlyLayout({ barmode: 'group', yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
+  Plotly.newPlot(el, traces, mergePlotlyLayout({ barmode: 'group', xaxis: { type: 'category' }, yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
 }
 
 // ── Drawdown Chart ─────────────────────────────────────────────
@@ -121,7 +121,7 @@ function renderCalendarChart(el, { calendar }) {
     marker: { color: colors },
     hovertemplate: '%{x}: %{y:.2f}%<extra></extra>',
   };
-  Plotly.newPlot(el, [trace], mergePlotlyLayout({ yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
+  Plotly.newPlot(el, [trace], mergePlotlyLayout({ xaxis: { type: 'category' }, yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
 }
 
 // ── SIP Result Chart ───────────────────────────────────────────
