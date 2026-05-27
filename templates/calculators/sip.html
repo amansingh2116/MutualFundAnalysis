@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}SIP Calculator{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>SIP Calculator</span>
+</div>
+<div class="page-header">
+  <div class="page-title">📈 SIP Calculator</div>
+  <div class="page-subtitle">Calculate future value of monthly SIP investments with projected CAGR.</div>
+</div>
+
+<div class="calc-layout">
+  <!-- Inputs -->
+  <div class="calc-inputs">
+    <h3 style="font-size:14px;font-weight:600;margin-bottom:20px">Investment Parameters</h3>
+    <form id="sip-form">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Monthly SIP Amount (₹)</label>
+        <input class="form-control" type="number" name="monthly_amount" id="monthly_amount" value="10000" min="100" step="500">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Investment Period</label>
+        <div class="range-wrapper">
+          <input type="range" name="years" id="years" min="1" max="40" value="10">
+          <span class="range-value" id="years_display">10 yrs</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Expected Return Rate (% p.a.)</label>
+        <div class="range-wrapper">
+          <input type="range" name="expected_rate" id="expected_rate" min="5" max="30" value="12" step="0.5">
+          <span class="range-value" id="expected_rate_display">12%</span>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
+  </div>
+
+  <!-- Results -->
+  <div class="calc-results">
+    <div id="sip-results">
+      <div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Enter values and click Calculate.</span></div>
+    </div>
+    <div id="sip-chart" style="height:320px;margin-top:16px"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('sip-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent = 'Calculating…'; btn.disabled = true;
+  const r = await fetch('{% url "calculators:api_sip" %}', {
+    method: 'POST',
+    body: JSON.stringify({ monthly_amount: parseFloat(fd.get('monthly_amount')), years: parseFloat(fd.get('years')), expected_rate: parseFloat(fd.get('expected_rate')) }),
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }
+  });
+  const d = await r.json();
+  btn.textContent = 'Calculate'; btn.disabled = false;
+  if (d.error) { document.getElementById('sip-results').innerHTML = `<div class="alert alert-danger">${d.error}</div>`; return; }
+  document.getElementById('sip-results').innerHTML = `
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight">
+        <div class="label">Future Value</div>
+        <div class="value">₹${(d.future_value/100000).toFixed(2)}L</div>
+        <div class="sub">after ${d.years} years</div>
+      </div>
+      <div class="calc-result-highlight">
+        <div class="label">Total Gain</div>
+        <div class="value" style="color:var(--emerald-400)">₹${(d.gain/100000).toFixed(2)}L</div>
+        <div class="sub">${d.return_pct.toFixed(1)}% absolute return</div>
+      </div>
+    </div>
+    <div class="metrics-dl">
+      <div><div class="metric-key">Total Invested</div><div class="metric-val" style="font-size:14px">₹${d.total_invested.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+      <div><div class="metric-key">Monthly SIP</div><div class="metric-val" style="font-size:14px">₹${d.monthly_amount.toLocaleString('en-IN')}</div></div>
+      <div><div class="metric-key">Instalments</div><div class="metric-val" style="font-size:14px">${d.n_instalments}</div></div>
+      <div><div class="metric-key">Duration</div><div class="metric-val" style="font-size:14px">${d.years} years</div></div>
+    </div>`;
+  // Donut chart
+  renderSIPChart(document.getElementById('sip-chart'), d);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block meta_description %}India's open-source mutual fund research platform. Search, analyse, compare 14,000+ funds. SIP calculators, portfolio tracker, and more.{% endblock %}
+
+{% block content %}
+<!-- Hero Search Section -->
+<div style="text-align:center;padding:40px 0 32px;max-width:680px;margin:0 auto">
+  <h1 style="font-size:32px;font-weight:800;letter-spacing:-0.03em;margin-bottom:10px;background:linear-gradient(135deg,#f1f5f9 0%,#818cf8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+    Research Mutual Funds
+  </h1>
+  <p style="font-size:15px;color:var(--text-secondary);margin-bottom:28px">
+    Search 14,000+ schemes · Live NAVs · Analytics · Portfolio Tracker
+  </p>
+
+  <!-- Big Search Bar -->
+  <div style="position:relative;max-width:560px;margin:0 auto">
+    <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;pointer-events:none">🔍</span>
+    <input id="hero-search" type="text"
+      placeholder="Search funds by name, AMC, category…"
+      style="width:100%;background:var(--bg-card);border:2px solid var(--border-accent);border-radius:var(--radius-xl);padding:14px 16px 14px 46px;font-size:15px;color:var(--text-primary);outline:none;font-family:inherit;box-shadow:0 0 40px rgba(99,102,241,0.2);transition:all 0.2s"
+      autofocus>
+    <div id="hero-search-dropdown" style="position:absolute;top:calc(100%+8px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);z-index:300;display:none;overflow:hidden"></div>
+  </div>
+
+  <p style="font-size:11px;color:var(--text-muted);margin-top:12px">
+    Try: "Parag Parikh" · "Mirae Asset" · "Axis Bluechip" · "ELSS"
+  </p>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-grid" style="max-width:800px;margin:0 auto 32px">
+  <div class="stat-card">
+    <div class="stat-card-icon">📈</div>
+    <div class="stat-label">Total Schemes</div>
+    <div class="stat-value">{{ total_funds|default:"14,000+" }}</div>
+    <div class="stat-change positive">AMFI registered</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon">🏢</div>
+    <div class="stat-label">Fund Houses</div>
+    <div class="stat-value">{{ fund_houses|default:"44+" }}</div>
+    <div class="stat-change positive">AMCs in India</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon">📅</div>
+    <div class="stat-label">NAV Updated</div>
+    <div class="stat-value" style="font-size:16px">{{ last_nav_date|default:"Daily" }}</div>
+    <div class="stat-change positive">Business days</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon">🆓</div>
+    <div class="stat-label">Cost</div>
+    <div class="stat-value">Free</div>
+    <div class="stat-change positive">Open source</div>
+  </div>
+</div>
+
+<!-- Feature Row -->
+<div class="grid-3" style="margin-bottom:32px">
+  <a href="{% url 'screener:screener' %}" class="fund-card" style="text-decoration:none">
+    <div style="font-size:32px;margin-bottom:12px">🔍</div>
+    <div class="fund-card-name">Fund Screener</div>
+    <div class="fund-card-house">Filter by category, AMC, returns, expense ratio, AUM. Compare up to 4 funds side-by-side.</div>
+  </a>
+  <a href="{% url 'calculators:hub' %}" class="fund-card" style="text-decoration:none">
+    <div style="font-size:32px;margin-bottom:12px">🧮</div>
+    <div class="fund-card-name">Calculators</div>
+    <div class="fund-card-house">SIP, SWP, Goal Planner, XIRR, Tax (STCG/LTCG), Fund Overlap, Step-Up SIP</div>
+  </a>
+  <a href="{% url 'portfolio:upload' %}" class="fund-card" style="text-decoration:none">
+    <div style="font-size:32px;margin-bottom:12px">📊</div>
+    <div class="fund-card-name">Portfolio Tracker</div>
+    <div class="fund-card-house">Upload CAS/broker statements (Excel, CSV). See your XIRR, gains, overlap, and allocation.</div>
+  </a>
+</div>
+
+<!-- Popular Categories -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div class="card-title">Browse by Category</div>
+    <a href="{% url 'funds:category_list' %}" class="btn btn-secondary btn-sm">All Categories →</a>
+  </div>
+  <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px">
+    {% for cat in categories %}
+    <a href="{% url 'funds:category_list' %}?category={{ cat.scheme_category|urlencode }}"
+       class="filter-chip">
+      {{ cat.scheme_category|truncatechars:50 }}
+      {% if cat.count %}<span style="opacity:.5;margin-left:4px">({{ cat.count }})</span>{% endif %}
+    </a>
+    {% empty %}
+    <!-- Static categories when DB is empty - these link to fund detail on-demand -->
+    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Large+Cap+Fund" class="filter-chip">🔵 Large Cap</a>
+    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Mid+Cap+Fund" class="filter-chip">🟡 Mid Cap</a>
+    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Small+Cap+Fund" class="filter-chip">🟠 Small Cap</a>
+    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Flexi+Cap+Fund" class="filter-chip">🌈 Flexi Cap</a>
+    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+ELSS" class="filter-chip">💚 ELSS (Tax Saving)</a>
+    <a href="{% url 'funds:category_list' %}?category=Hybrid+Scheme+-+Aggressive+Hybrid+Fund" class="filter-chip">⚖️ Aggressive Hybrid</a>
+    <a href="{% url 'funds:category_list' %}?category=Debt+Scheme+-+Liquid+Fund" class="filter-chip">💧 Liquid</a>
+    <a href="{% url 'funds:category_list' %}?category=Debt+Scheme+-+Short+Duration+Fund" class="filter-chip">⏱️ Short Duration</a>
+    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Index+Funds" class="filter-chip">📊 Index Funds</a>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Popular Funds Quick Links (static, loads on-demand) -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Popular Funds (click any to open)</div>
+    <span style="font-size:11px;color:var(--text-muted)">Data fetched on first visit</span>
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Fund Name</th>
+          <th>Category</th>
+          <th>Known For</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><a href="{% url 'funds:detail' '122639' %}" class="fund-link">Parag Parikh Flexi Cap Fund — Direct Growth</a><div class="fund-house">PPFAS Mutual Fund</div></td><td class="muted" style="font-size:11px">Flexi Cap</td><td class="muted" style="font-size:11px">Global stocks + India</td><td><a href="{% url 'funds:detail' '122639' %}" class="btn btn-secondary btn-sm">View →</a></td></tr>
+        <tr><td><a href="{% url 'funds:detail' '120503' %}" class="fund-link">Mirae Asset Large Cap Fund — Direct Growth</a><div class="fund-house">Mirae Asset</div></td><td class="muted" style="font-size:11px">Large Cap</td><td class="muted" style="font-size:11px">Consistent large cap</td><td><a href="{% url 'funds:detail' '120503' %}" class="btn btn-secondary btn-sm">View →</a></td></tr>
+        <tr><td><a href="{% url 'funds:detail' '120465' %}" class="fund-link">Axis Bluechip Fund — Direct Growth</a><div class="fund-house">Axis Mutual Fund</div></td><td class="muted" style="font-size:11px">Large Cap</td><td class="muted" style="font-size:11px">Quality growth</td><td><a href="{% url 'funds:detail' '120465' %}" class="btn btn-secondary btn-sm">View →</a></td></tr>
+        <tr><td><a href="{% url 'funds:detail' '125497' %}" class="fund-link">SBI Small Cap Fund — Direct Growth</a><div class="fund-house">SBI Mutual Fund</div></td><td class="muted" style="font-size:11px">Small Cap</td><td class="muted" style="font-size:11px">Small cap leader</td><td><a href="{% url 'funds:detail' '125497' %}" class="btn btn-secondary btn-sm">View →</a></td></tr>
+        <tr><td><a href="{% url 'funds:detail' '118834' %}" class="fund-link">HDFC Mid-Cap Opportunities — Direct Growth</a><div class="fund-house">HDFC Mutual Fund</div></td><td class="muted" style="font-size:11px">Mid Cap</td><td class="muted" style="font-size:11px">Largest mid-cap</td><td><a href="{% url 'funds:detail' '118834' %}" class="btn btn-secondary btn-sm">View →</a></td></tr>
+        <tr><td><a href="{% url 'funds:detail' '120716' %}" class="fund-link">Quant Small Cap Fund — Direct Growth</a><div class="fund-house">Quant Mutual Fund</div></td><td class="muted" style="font-size:11px">Small Cap</td><td class="muted" style="font-size:11px">High return small cap</td><td><a href="{% url 'funds:detail' '120716' %}" class="btn btn-secondary btn-sm">View →</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer" style="font-size:12px;color:var(--text-muted);text-align:center">
+    First click on a fund fetches its data live from AMFI / mfapi.in. Subsequent visits are instant.
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Hero search — same logic as topbar but with bigger dropdown
+const heroInput = document.getElementById('hero-search');
+const heroDropdown = document.getElementById('hero-search-dropdown');
+let heroTimer = null;
+
+heroInput.addEventListener('input', () => {
+  clearTimeout(heroTimer);
+  const q = heroInput.value.trim();
+  if (q.length < 2) { heroDropdown.style.display = 'none'; return; }
+  heroTimer = setTimeout(() => doHeroSearch(q), 280);
+});
+
+async function doHeroSearch(q) {
+  try {
+    const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+    const data = await r.json();
+    if (!data.results.length) { heroDropdown.style.display = 'none'; return; }
+    heroDropdown.innerHTML = data.results.map(s => `
+      <a href="/funds/${s.amfi_code}/" style="display:block;padding:12px 16px;border-bottom:1px solid var(--border);text-decoration:none;transition:background 0.15s" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='transparent'">
+        <div style="font-size:13px;font-weight:500;color:var(--text-primary)">${s.scheme_name}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${s.fund_house || s.amc_name || ''}${s.nav_latest ? ' &nbsp;·&nbsp; NAV ₹'+parseFloat(s.nav_latest).toFixed(4) : ''}</div>
+      </a>
+    `).join('');
+    heroDropdown.style.display = 'block';
+  } catch(e) { console.error(e); }
+}
+
+document.addEventListener('click', (e) => {
+  if (!heroInput.contains(e.target) && !heroDropdown.contains(e.target)) {
+    heroDropdown.style.display = 'none';
+  }
+});
+
+heroInput.addEventListener('focus', () => {
+  if (heroInput.value.trim().length >= 2) heroDropdown.style.display = 'block';
+});
+</script>
+{% endblock %}

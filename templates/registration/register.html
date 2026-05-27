@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+{% block hide_layout %}True{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper" style="min-height: calc(100vh - 150px); background: transparent;">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div style="width:48px;height:48px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;margin:0 auto 12px">M</div>
+    </div>
+    <h1 class="auth-title">Create account</h1>
+    <p class="auth-sub">Free forever. No credit card required.</p>
+
+    {% if form.errors %}
+    <div class="alert alert-danger">❌ Please fix the errors below.</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        {{ form.username }}
+        {% if form.username.errors %}<div class="form-error">{{ form.username.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email (optional)</label>
+        {{ form.email }}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        {{ form.password1 }}
+        {% if form.password1.errors %}<div class="form-error">{{ form.password1.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        {{ form.password2 }}
+        {% if form.password2.errors %}<div class="form-error">{{ form.password2.errors.0 }}</div>{% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">Create Account</button>
+    </form>
+
+    <p style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted)">
+      Already have an account? <a href="{% url 'login' %}" style="color:var(--indigo-400);text-decoration:none">Sign in →</a>
+    </p>
+    <p style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-muted)">
+      <a href="{% url 'funds:home' %}" style="color:var(--text-secondary);text-decoration:none">← Back to Home</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Step-Up SIP{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Step-Up SIP</span></div>
+<div class="page-header"><div class="page-title">📊 Step-Up SIP Calculator</div><div class="page-subtitle">Increase your SIP amount annually and accelerate wealth creation.</div></div>
+<div class="calc-layout">
+  <div class="calc-inputs">
+    <form id="stepsip-form">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Starting Monthly SIP (₹)</label><input class="form-control" type="number" name="start_amount" value="5000" min="500" step="500"></div>
+      <div class="form-group"><label class="form-label">Annual Step-Up (%)</label><div class="range-wrapper"><input type="range" name="step_up_pct" id="step_up_pct" min="5" max="50" value="10" step="5"><span class="range-value" id="step_up_pct_display">10%</span></div></div>
+      <div class="form-group"><label class="form-label">Investment Period (Years)</label><div class="range-wrapper"><input type="range" name="years" id="years" min="1" max="30" value="10"><span class="range-value" id="years_display">10 yrs</span></div></div>
+      <div class="form-group"><label class="form-label">Expected Return (% p.a.)</label><div class="range-wrapper"><input type="range" name="expected_rate" id="expected_rate" min="5" max="25" value="12" step="0.5"><span class="range-value" id="expected_rate_display">12%</span></div></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
+  </div>
+  <div class="calc-results">
+    <div id="stepsip-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div></div>
+    <div id="stepsip-chart" style="height:280px;margin-top:16px"></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+document.getElementById('stepsip-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const r = await fetch('{% url "calculators:api_step_sip" %}', {
+    method:'POST', body: JSON.stringify({start_amount:parseFloat(fd.get('start_amount')), step_up_pct:parseFloat(fd.get('step_up_pct')), years:parseInt(fd.get('years')), expected_rate:parseFloat(fd.get('expected_rate'))}),
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+  });
+  const d = await r.json();
+  if(d.error){document.getElementById('stepsip-results').innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
+  document.getElementById('stepsip-results').innerHTML=`
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight"><div class="label">Future Value</div><div class="value">₹${(d.future_value/100000).toFixed(2)}L</div></div>
+      <div class="calc-result-highlight"><div class="label">Total Gain</div><div class="value positive">₹${(d.gain/100000).toFixed(2)}L</div></div>
+    </div>
+    <div class="metrics-dl">
+      <div><div class="metric-key">Total Invested</div><div class="metric-val" style="font-size:14px">₹${(d.total_invested/100000).toFixed(2)}L</div></div>
+      <div><div class="metric-key">Final Monthly SIP</div><div class="metric-val" style="font-size:14px">₹${d.final_monthly_sip.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+    </div>`;
+  if(d.history.length) {
+    Plotly.newPlot('stepsip-chart',[
+      {x:d.history.map(h=>'Yr '+h.year), y:d.history.map(h=>h.value_to_date/100000), name:'Value', type:'scatter', mode:'lines', line:{color:'#34d399',width:2}, fill:'tozeroy', fillcolor:'rgba(52,211,153,0.1)'},
+      {x:d.history.map(h=>'Yr '+h.year), y:d.history.map(h=>h.invested_to_date/100000), name:'Invested', type:'scatter', mode:'lines', line:{color:'#6366f1',width:1.5,dash:'dot'}}
+    ], {...MF_PLOTLY_LAYOUT_BASE, yaxis:{ticksuffix:'L'}}, MF_PLOTLY_CONFIG);
+  }
+});
+</script>{% endblock %}

@@ -5,10 +5,7 @@ application that can help an investor understand funds, compare alternatives,
 evaluate an existing portfolio, and eventually receive transparent,
 data-supported guidance aligned with their risk profile and goals.
 
-> **Project status:** This repository currently contains product research,
-> workflow design, sample analytical implementations, and example report
-> artifacts. It is not yet a production web application or an investment
-> advisory service.
+> **Project status:** This repository contains a fully functional Django web application implementing Phase 1 and Phase 2 of the Mutual Fund Analysis platform. It includes real-time fund screening, performance analytics, PDF reporting, and portfolio calculators.
 >
 > **Important disclaimer:** Mutual fund investments are subject to market
 > risk. Material in this repository is for research and educational use only;
@@ -56,21 +53,17 @@ The planned platform has five primary capabilities:
 
 ## Current Project State
 
-This repository is presently a design and prototyping workspace. The following
-artifacts are intentionally retained because they capture research, possible
-features, and examples that will guide later implementation.
+This project has successfully transitioned from a design workspace into a functional, data-driven web application built with Django, HTMX, and Pandas.
 
-| Artifact | Purpose | Current maturity |
-| --- | --- | --- |
-| [docs/workflow.md](docs/workflow.md) | Detailed draft product flow, screen concepts, analysis metrics, calculators, and proposed portfolio/backtesting functionality, with design-reference screenshots. | Design document to be refined during implementation. |
-| [docs/tejasblog2.md](docs/tejasblog2.md) | Local reference notes from an online performance-analysis article, including Python examples and figures for comparing funds with the NIFTY 500 benchmark. | Research input whose methodology is incorporated below. |
-| [docs/data-source-exploration.md](docs/data-source-exploration.md) | Preserved detailed working notes from the original README: feature exploration, library/API experiments, example outputs, and source evaluation. | Research archive and implementation reference. |
-| [docs/analysis.py](docs/analysis.py) | Sample Python implementation for portfolio quantitative and qualitative analysis, with optional AI-related configuration and CSV adapter concepts. | Prototype to review and harden later; not application code yet. |
-| [docs/backtest.py](docs/backtest.py) | Sample Python backtesting implementation comparing tactical and passive SIP portfolios with signal generation and rebalancing. | Prototype to review and validate later. |
-| [docs/mutual fund analysis template.pdf](docs/mutual%20fund%20analysis%20template.pdf) | Example SBI Long Term Equity Fund research report template. | Report-design reference. |
-| [docs/Quant_small_cap_analysis.xlsx](docs/Quant_small_cap_analysis.xlsx) | Example Quant Small Cap Fund spreadsheet template for generating a mutual fund research report. | Analysis-template reference. |
-| [docs/Portfolio Analysis.xlsx](docs/Portfolio%20Analysis.xlsx) | Draft example workbook for portfolio analysis. | Portfolio-output reference. |
-| [images/](images/) | Consolidated screenshots and article figures used by Markdown documentation. | Documentation assets only. |
+**Core Features Implemented:**
+- **On-Demand Lazy Loading Architecture:** Fetches years of NAV and Metadata from AMFI, `mfapi.in`, `captnemo`, and `mstarpy` instantly on-demand without requiring a massive pre-loaded database.
+- **Advanced Analytics Engine:** Uses vectorized Pandas operations to calculate Rolling Returns, Sharpe, Sortino, Alpha, Beta, Max Drawdown, and Trailing Returns dynamically.
+- **Screener & Fund Compare:** Real-time HTMX-powered screening and side-by-side comparison.
+- **PDF Reports:** 1-click export of beautifully formatted fund fact sheets.
+
+For a deep-dive into the technical architecture, data flow, and code structure, please read the newly added **[`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md)**.
+
+The legacy research artifacts that guided this implementation remain in the `docs/` and `scripts/` folders for reference.
 
 ## Proposed Product Experience
 

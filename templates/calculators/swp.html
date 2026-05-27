@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}SWP Calculator{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>SWP Calculator</span></div>
+<div class="page-header"><div class="page-title">💸 SWP Calculator</div><div class="page-subtitle">Systematic Withdrawal Plan — how long does your corpus last at a given monthly withdrawal?</div></div>
+<div class="calc-layout">
+  <div class="calc-inputs">
+    <form id="swp-form">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Starting Corpus (₹)</label><input class="form-control" type="number" name="corpus" value="1000000" min="10000" step="10000"></div>
+      <div class="form-group"><label class="form-label">Monthly Withdrawal (₹)</label><input class="form-control" type="number" name="monthly_withdrawal" value="10000" min="500" step="500"></div>
+      <div class="form-group"><label class="form-label">Expected Return Rate (%)</label><div class="range-wrapper"><input type="range" name="expected_rate" id="expected_rate" min="3" max="20" value="8" step="0.5"><span class="range-value" id="expected_rate_display">8%</span></div></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
+  </div>
+  <div class="calc-results">
+    <div id="swp-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div></div>
+    <div id="swp-chart" style="height:280px;margin-top:16px"></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+document.getElementById('swp-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const r = await fetch('{% url "calculators:api_swp" %}', {
+    method:'POST', body: JSON.stringify({corpus:parseFloat(fd.get('corpus')), monthly_withdrawal:parseFloat(fd.get('monthly_withdrawal')), expected_rate:parseFloat(fd.get('expected_rate'))}),
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+  });
+  const d = await r.json();
+  if(d.error){document.getElementById('swp-results').innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
+  document.getElementById('swp-results').innerHTML=`
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight"><div class="label">Corpus Lasts</div><div class="value">${d.years_sustained} years</div><div class="sub">${d.months_sustained} months total</div></div>
+      <div class="calc-result-highlight"><div class="label">Total Withdrawn</div><div class="value positive">₹${(d.total_withdrawn/100000).toFixed(1)}L</div></div>
+    </div>`;
+  if(d.history.length) {
+    Plotly.newPlot('swp-chart',[{
+      x: d.history.map(h=>h.month+' mo'), y: d.history.map(h=>h.balance/100000),
+      type:'scatter', mode:'lines', name:'Corpus', line:{color:'#6366f1',width:2}, fill:'tozeroy', fillcolor:'rgba(99,102,241,0.1)',
+      hovertemplate:'Month %{x}<br>₹%{y:.2f}L<extra></extra>'
+    }], {...MF_PLOTLY_LAYOUT_BASE, yaxis:{ticksuffix:'L'}}, MF_PLOTLY_CONFIG);
+  }
+});
+</script>{% endblock %}

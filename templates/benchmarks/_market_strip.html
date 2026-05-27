@@ -1,0 +1,17 @@
+{% for idx in indices %}
+<div class="market-item">
+  <span class="market-name">{{ idx.label }}</span>
+  {% if idx.value %}
+  <span class="market-val">
+    {% if idx.key == 'usdinr' %}₹{{ idx.value|floatformat:2 }}
+    {% else %}{{ idx.value|floatformat:0 }}{% endif %}
+  </span>
+  <span class="market-chg {% if idx.direction == 'up' %}up{% else %}down{% endif %}">
+    {% if idx.direction == 'up' %}▲{% else %}▼{% endif %}
+    {% if idx.change_pct %}{{ idx.change_pct|floatformat:2 }}%{% endif %}
+  </span>
+  {% else %}
+  <span class="market-val muted">—</span>
+  {% endif %}
+</div>
+{% endfor %}

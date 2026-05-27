@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Sign In{% endblock %}
+{% block hide_layout %}True{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper" style="min-height: calc(100vh - 150px); background: transparent;">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div style="width:48px;height:48px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;margin:0 auto 12px">M</div>
+    </div>
+    <h1 class="auth-title">Welcome back</h1>
+    <p class="auth-sub">Sign in to access your portfolio and tools</p>
+
+    {% if form.errors %}
+    <div class="alert alert-danger">❌ Invalid username or password.</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="form-group">
+        <label class="form-label" for="id_username">Username</label>
+        <input class="form-control" type="text" id="id_username" name="username" required autofocus placeholder="your username">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_password">Password</label>
+        <input class="form-control" type="password" id="id_password" name="password" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">Sign In</button>
+    </form>
+
+    <p style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted)">
+      Don't have an account? <a href="{% url 'core:register' %}" style="color:var(--indigo-400);text-decoration:none">Create one →</a>
+    </p>
+    <p style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-muted)">
+      <a href="{% url 'funds:home' %}" style="color:var(--text-secondary);text-decoration:none">← Back to Home</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

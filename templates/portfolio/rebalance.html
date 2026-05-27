@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Rebalance{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'portfolio:list' %}">Portfolios</a><span class="breadcrumb-sep">›</span>
+  <a href="{% url 'portfolio:dashboard' portfolio.pk %}">{{ portfolio.name }}</a><span class="breadcrumb-sep">›</span>
+  <span>Rebalance</span>
+</div>
+<div class="page-header">
+  <div class="page-title">⚖️ Portfolio Rebalancer</div>
+  <div class="page-subtitle">Coming soon — set target allocations and get rebalancing recommendations.</div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <div class="alert alert-info">
+      🚧 Rebalancing analysis is under development. It will suggest buy/sell amounts to restore your target allocation percentages across equity, debt, and hybrid categories.
+    </div>
+  </div>
+</div>
+{% endblock %}

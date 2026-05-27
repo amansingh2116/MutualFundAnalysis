@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Fund Recommendations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">🎯 Fund Recommendations</div>
+  <div class="page-subtitle">Answer 5 quick questions to get a curated mutual fund portfolio matched to your risk profile.</div>
+</div>
+
+<div style="max-width:640px;margin:0 auto">
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-body">
+      <div class="alert alert-info" style="margin-bottom:20px">
+        🚧 <strong>Draft Implementation</strong> — This feature is currently being developed. The questionnaire is displayed for preview. Full recommendations with backtesting will be added in a future update.
+      </div>
+
+      <form method="post" action="{% url 'recommendations:result' %}">
+        {% csrf_token %}
+        <div class="form-group" style="margin-bottom:24px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">1. What is your investment horizon?</div>
+          <select class="form-control" name="horizon">
+            <option value="short">Less than 3 years</option>
+            <option value="medium" selected>3–7 years</option>
+            <option value="long">More than 7 years</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:24px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">2. How would you react if your portfolio fell 30% in a year?</div>
+          <select class="form-control" name="loss_reaction">
+            <option value="panic">Sell everything immediately</option>
+            <option value="concerned">Be concerned but hold</option>
+            <option value="calm" selected>Stay calm — it's long-term</option>
+            <option value="buy_more">Buy more at lower prices</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:24px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">3. What is your primary investment goal?</div>
+          <select class="form-control" name="goal">
+            <option value="preservation">Capital preservation</option>
+            <option value="income">Regular income</option>
+            <option value="balanced">Balanced growth</option>
+            <option value="growth" selected>Aggressive growth</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:24px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">4. What % of your monthly income are you investing?</div>
+          <select class="form-control" name="savings_rate">
+            <option value="low">Less than 10%</option>
+            <option value="medium" selected>10–30%</option>
+            <option value="high">More than 30%</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:24px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">5. Investment experience</div>
+          <select class="form-control" name="experience">
+            <option value="beginner">Beginner — first MF investment</option>
+            <option value="intermediate" selected>Intermediate — invested 1–3 years</option>
+            <option value="expert">Expert — 3+ years, understand volatility</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Get My Recommendations →</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

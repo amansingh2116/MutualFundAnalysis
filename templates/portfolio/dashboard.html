@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ portfolio.name }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'portfolio:list' %}">My Portfolios</a><span class="breadcrumb-sep">›</span><span>{{ portfolio.name }}</span>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h1 class="page-title">{{ portfolio.name }}</h1>
+    <div class="page-subtitle">{{ tx_count }} transactions · Uploaded {{ portfolio.created_at|date:"d M Y" }}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="{% url 'portfolio:overlap' portfolio.pk %}" class="btn btn-secondary btn-sm">🔄 Overlap Matrix</a>
+    <a href="{% url 'portfolio:benchmark' portfolio.pk %}" class="btn btn-secondary btn-sm">📊 Benchmark</a>
+    <a href="{% url 'portfolio:rebalance' portfolio.pk %}" class="btn btn-secondary btn-sm">⚖️ Rebalance</a>
+    <form method="post" action="{% url 'portfolio:delete' portfolio.pk %}" onsubmit="return confirm('Delete portfolio?')">
+      {% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
+    </form>
+  </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card">
+    <div class="stat-label">Current Value</div>
+    <div class="stat-value" style="font-size:22px">{% if total_current %}₹{{ total_current|floatformat:0 }}{% else %}—{% endif %}</div>
+    <div class="stat-card-icon">💰</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Invested</div>
+    <div class="stat-value" style="font-size:22px">₹{{ total_invested|floatformat:0 }}</div>
+    <div class="stat-card-icon">📥</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Gain/Loss</div>
+    <div class="stat-value" style="font-size:22px;color:{% if total_gain >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
+      {% if total_gain >= 0 %}+{% endif %}₹{{ total_gain|floatformat:0 }}
+    </div>
+    <div class="stat-card-icon">📈</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Absolute Return</div>
+    <div class="stat-value" style="font-size:22px;color:{% if abs_return >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
+      {% if abs_return >= 0 %}+{% endif %}{{ abs_return|floatformat:2 }}%
+    </div>
+    <div class="stat-card-icon">📊</div>
+  </div>
+</div>
+
+{% if not total_current %}
+<div class="alert alert-warning">
+  ⚠️ Current values are unavailable — fund NAV data hasn't been loaded yet. 
+  Run <code style="color:var(--indigo-400)">python manage.py ingest_nav</code> to fetch latest NAVs.
+</div>
+{% endif %}
+
+<!-- Fund-level breakdown -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Fund Holdings</div>
+    <span class="pill pill-gray">{{ fund_summary|length }} funds</span>
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Fund Name</th>
+          <th>Units</th>
+          <th>Invested</th>
+          <th>Latest NAV</th>
+          <th>Current Value</th>
+          <th>Gain/Loss</th>
+          <th>Return %</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in fund_summary %}
+        <tr>
+          <td>
+            {% if f.scheme %}<a href="{% url 'funds:detail' f.scheme.amfi_code %}" class="fund-link">{{ f.scheme_name|truncatechars:50 }}</a>
+            {% else %}<span style="color:var(--text-secondary);font-size:13px">{{ f.scheme_name|truncatechars:50 }}</span>
+            {% if not f.scheme %}<div class="fund-house" style="color:var(--amber-400)">⚠️ Fund not matched in DB</div>{% endif %}
+            {% endif %}
+          </td>
+          <td class="muted">{{ f.units|floatformat:4 }}</td>
+          <td>₹{{ f.invested|floatformat:0 }}</td>
+          <td class="muted">{% if f.nav_latest %}₹{{ f.nav_latest|floatformat:4 }}{% else %}—{% endif %}</td>
+          <td>{% if f.current_value %}₹{{ f.current_value|floatformat:0 }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="{% if f.gain and f.gain >= 0 %}positive{% elif f.gain %}negative{% else %}muted{% endif %}">
+            {% if f.gain %}{% if f.gain >= 0 %}+{% endif %}₹{{ f.gain|floatformat:0 }}{% else %}—{% endif %}
+          </td>
+          <td class="{% if f.gain_pct and f.gain_pct >= 0 %}positive{% elif f.gain_pct %}negative{% else %}muted{% endif %}">
+            {% if f.gain_pct %}{% if f.gain_pct >= 0 %}+{% endif %}{{ f.gain_pct|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+          <td>{% if f.scheme %}<a href="{% url 'funds:detail' f.scheme.amfi_code %}" class="btn btn-secondary btn-sm">View →</a>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px">No holdings found in uploaded file.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

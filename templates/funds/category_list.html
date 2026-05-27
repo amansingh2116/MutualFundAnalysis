@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Browse Funds{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">📂 Browse Mutual Funds</div>
+  <div class="page-subtitle">{{ schemes|length }} funds shown{% if current_category %} · {{ current_category }}{% endif %}</div>
+</div>
+
+<!-- Category Pills -->
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+  <a href="{% url 'funds:category_list' %}" class="filter-chip {% if not current_category %}selected{% endif %}">All Categories</a>
+  {% for cat in categories %}
+  <a href="{% url 'funds:category_list' %}?category={{ cat.scheme_category|urlencode }}"
+     class="filter-chip {% if current_category == cat.scheme_category %}selected{% endif %}">
+    {{ cat.scheme_category|truncatechars:35 }}
+    <span style="opacity:0.5;margin-left:4px">({{ cat.count }})</span>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Fund Cards -->
+{% if schemes %}
+<div class="card">
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Fund Name</th>
+          <th>Category</th>
+          <th>AUM (Cr)</th>
+          <th>Expense %</th>
+          <th>NAV</th>
+          <th>Direct?</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in schemes %}
+        <tr>
+          <td>
+            <a href="{% url 'funds:detail' s.amfi_code %}" class="fund-link">{{ s.scheme_name|truncatechars:60 }}</a>
+            <div class="fund-house">{{ s.fund_house }}</div>
+          </td>
+          <td class="muted" style="font-size:11px;max-width:160px">{{ s.scheme_category|truncatechars:45 }}</td>
+          <td class="muted">{% if s.aum_cr %}₹{{ s.aum_cr|floatformat:0 }}{% else %}—{% endif %}</td>
+          <td class="muted">{% if s.expense_ratio %}{{ s.expense_ratio }}%{% else %}—{% endif %}</td>
+          <td class="muted">{% if s.nav_latest %}₹{{ s.nav_latest }}{% else %}—{% endif %}</td>
+          <td>{% if s.is_direct %}<span class="pill pill-indigo">Direct</span>{% else %}<span class="pill pill-gray">Regular</span>{% endif %}</td>
+          <td><a href="{% url 'funds:detail' s.amfi_code %}" class="btn btn-secondary btn-sm">View →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if schemes|length == 200 %}
+  <div class="card-footer" style="text-align:center;font-size:12px;color:var(--text-muted)">
+    Showing first 200 results. Use the <a href="{% url 'screener:screener' %}" style="color:var(--indigo-400)">screener</a> for more filters.
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body chart-placeholder" style="min-height:200px">
+    <span class="placeholder-icon">📂</span>
+    <span style="font-size:13px;color:var(--text-muted)">
+      No funds loaded yet.<br>
+      Run <code style="color:var(--indigo-400)">python manage.py build_scheme_master</code> to fetch ~14,000 schemes from AMFI.
+    </span>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

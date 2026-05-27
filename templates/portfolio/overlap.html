@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Fund Overlap — {{ portfolio.name }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'portfolio:list' %}">Portfolios</a><span class="breadcrumb-sep">›</span>
+  <a href="{% url 'portfolio:dashboard' portfolio.pk %}">{{ portfolio.name }}</a><span class="breadcrumb-sep">›</span>
+  <span>Overlap Matrix</span>
+</div>
+<div class="page-header">
+  <div class="page-title">🔄 Fund Overlap Matrix</div>
+  <div class="page-subtitle">Percentage of common stock holdings weighted by portfolio weight. Lower is better for diversification.</div>
+</div>
+
+{% if overlap_matrix %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Overlap Heatmap</div></div>
+  <div id="overlap-heatmap" style="height:400px"></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">Overlap Matrix (% common holdings)</div></div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Fund</th>
+          {% for s in schemes %}<th style="font-size:10px;max-width:120px">{{ s.scheme_name|truncatechars:30 }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for i, row in overlap_matrix|enumerate %}
+        <tr>
+          <td style="font-weight:500;font-size:12px;max-width:200px">{{ schemes|index:i|attr:'scheme_name'|truncatechars:40 }}</td>
+          {% for val in row %}
+          <td style="text-align:center;color:{% if val == 100 %}var(--text-muted){% elif val > 50 %}var(--red-400){% elif val > 25 %}var(--amber-400){% else %}var(--emerald-400){% endif %};font-weight:{% if val == 100 %}400{% else %}600{% endif %}">
+            {% if val == 100 %}—{% else %}{{ val }}%{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body chart-placeholder" style="min-height:200px">
+    <span class="placeholder-icon">🔄</span>
+    <span style="font-size:13px;color:var(--text-muted)">
+      Overlap analysis requires holdings data.<br>
+      Run <code style="color:var(--indigo-400)">python manage.py ingest_holdings</code> and ensure at least 2 funds are matched.
+    </span>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{% if overlap_matrix %}
+const matrix = {{ matrix_json }};
+const names = {{ scheme_names_json }};
+Plotly.newPlot('overlap-heatmap', [{
+  z: matrix,
+  x: names, y: names,
+  type: 'heatmap',
+  colorscale: [['0','rgba(52,211,153,0.8)'],['0.5','rgba(251,191,36,0.8)'],['1','rgba(248,113,113,0.8)']],
+  zmin: 0, zmax: 100,
+  hovertemplate: '%{y}<br>vs<br>%{x}<br>Overlap: %{z}%<extra></extra>',
+  showscale: true,
+}], { ...MF_PLOTLY_LAYOUT_BASE, height: 380 }, MF_PLOTLY_CONFIG);
+{% endif %}
+</script>
+{% endblock %}

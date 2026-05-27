@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="{% block meta_description %}Indian Mutual Fund Research, Screener, Portfolio Analysis & Calculators{% endblock %}">
+  <title>{% block title %}MF Analysis{% endblock %} — MutualFundAnalysis</title>
+
+  <!-- Favicons -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+
+  <!-- Design System -->
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+
+  <!-- CDN Dependencies -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" defer></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+{% if not hide_layout %}
+<div class="app-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">M</div>
+      <div>
+        <div class="logo-text">MF Analysis</div>
+        <div class="logo-sub">Indian Mutual Funds</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Explore</div>
+      <a href="{% url 'funds:home' %}" class="nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+        <span class="nav-icon">🏠</span> Home
+      </a>
+      <a href="{% url 'funds:category_list' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+        <span class="nav-icon">📂</span> Browse Funds
+      </a>
+      <a href="{% url 'screener:screener' %}" class="nav-item {% if request.resolver_match.namespace == 'screener' %}active{% endif %}">
+        <span class="nav-icon">🔍</span> Screener
+      </a>
+
+      <div class="nav-section-label" style="margin-top:12px">Tools</div>
+      <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' %}active{% endif %}">
+        <span class="nav-icon">🧮</span> Calculators
+      </a>
+      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' %}active{% endif %}">
+        <span class="nav-icon">📊</span> My Portfolio
+      </a>
+      <a href="{% url 'recommendations:engine' %}" class="nav-item {% if request.resolver_match.namespace == 'recommendations' %}active{% endif %}">
+        <span class="nav-icon">🎯</span> Recommendations
+      </a>
+
+      <div class="nav-section-label" style="margin-top:12px">Admin</div>
+      {% if user.is_staff %}
+      <a href="{% url 'admin:index' %}" class="nav-item" target="_blank">
+        <span class="nav-icon">⚙️</span> Admin Panel
+      </a>
+      {% endif %}
+      <a href="https://github.com/amansingh2116/MutualFundAnalysis" class="nav-item" target="_blank">
+        <span class="nav-icon">📖</span> GitHub
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      {% if user.is_authenticated %}
+      <div class="sidebar-user">
+        <div class="user-avatar">{{ user.username|first|upper }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ user.username }}</div>
+          <div class="user-role">{% if user.is_staff %}Admin{% else %}User{% endif %}</div>
+        </div>
+      </div>
+      <a href="{% url 'logout' %}" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:8px">Sign Out</a>
+      {% else %}
+      <a href="{% url 'login' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center">Sign In</a>
+      {% endif %}
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main-content">
+
+    <!-- Market Strip -->
+    {% block market_strip %}
+    <div class="market-strip" id="market-strip"
+         hx-get="/api/market/strip/"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+      <!-- Placeholders shown while indices load (~1s) -->
+      <div class="market-item"><span class="market-name">NIFTY 50</span><span class="market-val" style="opacity:.4">loading…</span></div>
+      <div class="market-item"><span class="market-name">SENSEX</span><span class="market-val" style="opacity:.4">loading…</span></div>
+      <div class="market-item"><span class="market-name">NIFTY MIDCAP 150</span><span class="market-val" style="opacity:.4">loading…</span></div>
+      <div class="market-item"><span class="market-name">NIFTY SMALLCAP 250</span><span class="market-val" style="opacity:.4">loading…</span></div>
+      <div class="market-item"><span class="market-name">₹/USD</span><span class="market-val" style="opacity:.4">loading…</span></div>
+    </div>
+    {% endblock %}
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <!-- Mobile sidebar toggle -->
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('sidebar').classList.toggle('open')" style="display:none" id="menu-toggle">☰</button>
+
+      <!-- Search -->
+      <div class="topbar-search">
+        <span class="search-icon">🔍</span>
+        <input id="global-search" type="text" placeholder="Search funds by name, AMC, ISIN…" autocomplete="off">
+        <div class="search-results-dropdown" id="search-dropdown"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="topbar-actions">
+        {% if user.is_authenticated %}
+        <a href="{% url 'portfolio:upload' %}" class="topbar-btn topbar-btn-primary">+ Upload Portfolio</a>
+        {% else %}
+        <a href="{% url 'login' %}" class="topbar-btn topbar-btn-secondary">Sign In</a>
+        <a href="{% url 'core:register' %}" class="topbar-btn topbar-btn-primary">Get Started</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <!-- Django Messages -->
+    {% if messages %}
+    <div style="padding: 12px 24px 0;">
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %}">
+        <span>{% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %}</span>
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Page Content -->
+    <main class="page-body">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer style="padding: 16px 24px; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 11px;">
+      MF Analysis Platform — Data from AMFI, mfapi.in, captnemo.in, Morningstar. Not financial advice. 
+      <a href="https://github.com/amansingh2116/MutualFundAnalysis" style="color:var(--indigo-400);text-decoration:none">Open Source on GitHub ↗</a>
+    </footer>
+  </div>
+</div>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Scripts -->
+<script src="{% static 'js/main.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

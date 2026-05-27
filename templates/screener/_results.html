@@ -1,0 +1,64 @@
+{% load static %}
+<!-- HTMX partial: screener results table -->
+{% if schemes %}
+<div class="card">
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Fund Name</th>
+          <th>Category</th>
+          <th>AUM (Cr)</th>
+          <th>Expense %</th>
+          <th>1Y Ret</th>
+          <th>3Y Ret</th>
+          <th>5Y Ret</th>
+          <th>NAV</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in schemes %}
+        <tr>
+          <td>
+            <a href="{% url 'funds:detail' s.amfi_code %}" class="fund-link">{{ s.scheme_name|truncatechars:55 }}</a>
+            <div class="fund-house">{{ s.fund_house }}</div>
+          </td>
+          <td class="muted" style="font-size:11px;max-width:140px">{{ s.scheme_category|truncatechars:40 }}</td>
+          <td class="muted">{% if s.aum_cr %}₹{{ s.aum_cr|floatformat:0 }}{% else %}—{% endif %}</td>
+          <td class="muted">{% if s.expense_ratio %}{{ s.expense_ratio }}%{% else %}—{% endif %}</td>
+          <td class="{% if s.meta.returns_1y and s.meta.returns_1y >= 0 %}positive{% elif s.meta.returns_1y %}negative{% else %}muted{% endif %}">
+            {% if s.meta.returns_1y %}{{ s.meta.returns_1y|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+          <td class="{% if s.meta.returns_3y and s.meta.returns_3y >= 0 %}positive{% elif s.meta.returns_3y %}negative{% else %}muted{% endif %}">
+            {% if s.meta.returns_3y %}{{ s.meta.returns_3y|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+          <td class="{% if s.meta.returns_5y and s.meta.returns_5y >= 0 %}positive{% elif s.meta.returns_5y %}negative{% else %}muted{% endif %}">
+            {% if s.meta.returns_5y %}{{ s.meta.returns_5y|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+          <td class="muted">{% if s.nav_latest %}₹{{ s.nav_latest }}{% else %}—{% endif %}</td>
+          <td>
+            <a href="{% url 'funds:detail' s.amfi_code %}" class="btn btn-secondary btn-sm">View →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if schemes|length == 200 %}
+  <div class="card-footer" style="text-align:center;font-size:12px;color:var(--text-muted)">
+    Showing first 200 results. Add more filters to narrow down.
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body chart-placeholder" style="min-height:200px">
+    <span class="placeholder-icon">🔍</span>
+    <span style="font-size:13px;color:var(--text-muted)">
+      No funds match your filters.<br>
+      {% if not count %}Run <code style="color:var(--indigo-400)">python manage.py build_scheme_master</code> to load funds.{% endif %}
+    </span>
+  </div>
+</div>
+{% endif %}

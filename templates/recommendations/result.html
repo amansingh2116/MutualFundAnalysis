@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Your Recommendations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">🎯 Your Fund Recommendations</div>
+  <div class="page-subtitle">Draft — based on your risk profile</div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <div class="alert alert-info">
+      🚧 <strong>Coming Soon</strong> — Full recommendation engine with fund selection, historical backtesting, and portfolio construction is under development.
+    </div>
+    <p style="color:var(--text-secondary);font-size:13px;margin-top:12px">
+      Based on your inputs, we'll recommend a diversified portfolio of Direct Growth mutual funds tailored to your risk profile, time horizon, and goals.
+    </p>
+    <div style="margin-top:20px">
+      <a href="{% url 'recommendations:engine' %}" class="btn btn-secondary">← Retake Questionnaire</a>
+      <a href="{% url 'screener:screener' %}" class="btn btn-primary" style="margin-left:8px">Browse Funds Instead →</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

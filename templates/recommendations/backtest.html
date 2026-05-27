@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Backtester{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">🔬 Strategy Backtester</div>
+  <div class="page-subtitle">Draft — backtesting mutual fund portfolio strategies</div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <div class="alert alert-info">
+      🚧 <strong>Coming Soon</strong> — Backtest portfolio strategies (equal weight, momentum, quality tilt, etc.) against Nifty 50 benchmark.
+    </div>
+    <p style="color:var(--text-secondary);font-size:13px;margin-top:12px">
+      The backtester will support multiple strategies, rebalancing frequencies, and comparison against benchmarks — all using actual historical NAV data.
+    </p>
+    <div style="margin-top:20px">
+      <a href="{% url 'recommendations:engine' %}" class="btn btn-secondary">← Questionnaire</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Tax Calculator{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Tax Calculator</span></div>
+<div class="page-header"><div class="page-title">🧾 STCG / LTCG Tax Calculator</div><div class="page-subtitle">Estimate capital gains tax on your mutual fund redemptions (FY 2024-25 rules).</div></div>
+<div class="calc-layout">
+  <div class="calc-inputs">
+    <form id="tax-form">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Investment Amount (₹)</label><input class="form-control" type="number" name="invested" value="100000" min="1000"></div>
+      <div class="form-group"><label class="form-label">Current Value (₹)</label><input class="form-control" type="number" name="current_value" value="150000" min="1000"></div>
+      <div class="form-group"><label class="form-label">Holding Period (Days)</label><input class="form-control" type="number" name="holding_days" value="400" min="1"></div>
+      <div class="form-group"><label class="form-label">Fund Type</label><select class="form-control" name="fund_type"><option value="equity">Equity Fund (≥65% equity)</option><option value="debt">Debt / Hybrid Fund</option></select></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate Tax</button>
+    </form>
+    <div class="alert alert-info" style="margin-top:16px">ℹ️ <strong>FY 2024-25 Rules:</strong> Equity LTCG: 12.5% above ₹1.25L. Equity STCG: 20%. Debt: slab rate.</div>
+  </div>
+  <div class="calc-results">
+    <div id="tax-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill in your values and click Calculate.</span></div></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+document.getElementById('tax-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const r = await fetch('{% url "calculators:api_tax" %}', {
+    method:'POST', body: JSON.stringify({invested:parseFloat(fd.get('invested')), current_value:parseFloat(fd.get('current_value')), holding_days:parseInt(fd.get('holding_days')), fund_type:fd.get('fund_type')}),
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+  });
+  const d = await r.json();
+  if(d.error){document.getElementById('tax-results').innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
+  document.getElementById('tax-results').innerHTML=`
+    <div class="alert alert-${d.is_ltcg?'info':'warning'}" style="margin-bottom:16px">${d.tax_type} · Holding: ${d.holding_years} years (${d.is_ltcg?'LTCG':'STCG'})</div>
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight"><div class="label">Estimated Tax</div><div class="value negative" style="font-size:26px">₹${d.estimated_tax.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+      <div class="calc-result-highlight"><div class="label">Post-Tax Gain</div><div class="value">₹${d.post_tax_gain.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+    </div>
+    <div class="metrics-dl">
+      <div><div class="metric-key">Total Gain</div><div class="metric-val positive" style="font-size:14px">₹${d.gain.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+      <div><div class="metric-key">Taxable Gain</div><div class="metric-val" style="font-size:14px">₹${d.taxable_gain.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+      <div><div class="metric-key">Post-Tax Value</div><div class="metric-val" style="font-size:14px">₹${d.post_tax_value.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+      <div><div class="metric-key">Holding Period</div><div class="metric-val" style="font-size:14px">${d.holding_years} years</div></div>
+    </div>`;
+});
+</script>{% endblock %}

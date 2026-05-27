@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Calculators{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">🧮 Financial Calculators</div>
+  <div class="page-subtitle">All computations are done on the server — no data sent to third parties.</div>
+</div>
+
+<div class="grid-3">
+  <a href="{% url 'calculators:sip' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">📈</div>
+    <div class="fund-card-name">SIP Calculator</div>
+    <div class="fund-card-house">Monthly investment → Future Value with XIRR</div>
+  </a>
+  <a href="{% url 'calculators:lumpsum' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">💰</div>
+    <div class="fund-card-name">Lumpsum Calculator</div>
+    <div class="fund-card-house">One-time investment growth projection</div>
+  </a>
+  <a href="{% url 'calculators:swp' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">💸</div>
+    <div class="fund-card-name">SWP Calculator</div>
+    <div class="fund-card-house">Systematic Withdrawal Plan — corpus longevity</div>
+  </a>
+  <a href="{% url 'calculators:goal' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">🎯</div>
+    <div class="fund-card-name">Goal Planner</div>
+    <div class="fund-card-house">Target amount → required SIP amount</div>
+  </a>
+  <a href="{% url 'calculators:tax' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">🧾</div>
+    <div class="fund-card-name">Tax Calculator</div>
+    <div class="fund-card-house">STCG / LTCG on equity & debt funds</div>
+  </a>
+  <a href="{% url 'calculators:overlap' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">🔄</div>
+    <div class="fund-card-name">Fund Overlap Checker</div>
+    <div class="fund-card-house">Stock-level overlap between two funds</div>
+  </a>
+  <a href="{% url 'calculators:step_sip' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">📊</div>
+    <div class="fund-card-name">Step-Up SIP</div>
+    <div class="fund-card-house">Annual SIP increase → accelerated wealth</div>
+  </a>
+  <a href="{% url 'calculators:xirr' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">📐</div>
+    <div class="fund-card-name">XIRR Calculator</div>
+    <div class="fund-card-house">Irregular cashflow returns (IRR)</div>
+  </a>
+</div>
+{% endblock %}

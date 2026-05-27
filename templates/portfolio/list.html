@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}My Portfolios{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+  <div>
+    <h1 class="page-title">📊 My Portfolios</h1>
+    <div class="page-subtitle">Upload your mutual fund transaction data to analyze performance.</div>
+  </div>
+  <a href="{% url 'portfolio:upload' %}" class="btn btn-primary">+ Upload Portfolio</a>
+</div>
+
+{% if portfolios %}
+<div class="grid-auto">
+  {% for p in portfolios %}
+  <a href="{% url 'portfolio:dashboard' p.pk %}" class="fund-card">
+    <div style="font-size:28px;margin-bottom:10px">📁</div>
+    <div class="fund-card-name">{{ p.name }}</div>
+    <div class="fund-card-house">Created {{ p.created_at|date:"d M Y" }}</div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <span class="pill pill-indigo">{{ p.transactions.count }} transactions</span>
+      {% if p.is_private %}<span class="pill pill-gray">Private</span>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body" style="text-align:center;padding:48px">
+    <div style="font-size:48px;margin-bottom:16px">📊</div>
+    <h2 style="font-size:18px;font-weight:700;margin-bottom:8px">No portfolios yet</h2>
+    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px">
+      Upload your mutual fund transaction file (Excel/CSV) to analyze performance, compute XIRR, and check fund overlap.
+    </p>
+    <a href="{% url 'portfolio:upload' %}" class="btn btn-primary">Upload Portfolio →</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

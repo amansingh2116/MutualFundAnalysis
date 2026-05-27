@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load core_tags %}
+{% block title %}Compare Funds{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">⚖️ Fund Comparison</div>
+  <div class="page-subtitle">Side-by-side comparison of up to 4 funds</div>
+</div>
+
+{% if not schemes %}
+<div class="card">
+  <div class="card-body">
+    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">Select funds to compare. Find AMFI codes on fund detail pages.</p>
+    <form method="get">
+      <div class="form-group"><label class="form-label">Fund AMFI Codes (comma-separated, max 4)</label>
+        <input class="form-control" type="text" name="funds_input" placeholder="e.g. 120503,120465,118834">
+      </div>
+      <button type="submit" class="btn btn-primary">Compare</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<!-- Fund Names Header Row -->
+<div class="card" style="margin-bottom:20px">
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:180px">Metric</th>
+          {% for s in schemes %}<th style="min-width:200px">{{ s.scheme_name|truncatechars:50 }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Basic Info -->
+        <tr style="background:var(--bg-elevated)"><td colspan="{{ schemes|length|add:1 }}" style="font-weight:700;font-size:11px;text-transform:uppercase;color:var(--text-muted);padding:8px 16px">FUND INFORMATION</td></tr>
+        <tr><td class="muted">Fund House</td>{% for s in schemes %}<td>{{ s.fund_house }}</td>{% endfor %}</tr>
+        <tr><td class="muted">Category</td>{% for s in schemes %}<td style="font-size:11px">{{ s.scheme_category }}</td>{% endfor %}</tr>
+        <tr><td class="muted">AUM (Cr)</td>{% for s in schemes %}<td>{% if s.aum_cr %}₹{{ s.aum_cr }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Expense Ratio</td>{% for s in schemes %}<td>{% if s.expense_ratio %}<strong>{{ s.expense_ratio }}%</strong>{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Latest NAV</td>{% for s in schemes %}<td>{% if s.nav_latest %}₹{{ s.nav_latest }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Direct?</td>{% for s in schemes %}<td>{% if s.is_direct %}<span class="pill pill-indigo">Direct</span>{% else %}<span class="pill pill-gray">Regular</span>{% endif %}</td>{% endfor %}</tr>
+
+        <!-- Returns -->
+        <tr style="background:var(--bg-elevated)"><td colspan="{{ schemes|length|add:1 }}" style="font-weight:700;font-size:11px;text-transform:uppercase;color:var(--text-muted);padding:8px 16px">TRAILING RETURNS (CAGR %)</td></tr>
+        {% for period in "1Y 3Y 5Y SI"|split:" " %}
+        <tr>
+          <td class="muted">{{ period }}</td>
+          {% for s in schemes %}
+          <td>
+            {% with ret=s._trailing|get_item:period %}
+            {% if ret %}<span class="{% if ret.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{% if ret.cagr_pct >= 0 %}+{% endif %}{{ ret.cagr_pct|floatformat:2 }}%</span>{% else %}<span class="muted">—</span>{% endif %}
+            {% endwith %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+
+        <!-- Risk -->
+        <tr style="background:var(--bg-elevated)"><td colspan="{{ schemes|length|add:1 }}" style="font-weight:700;font-size:11px;text-transform:uppercase;color:var(--text-muted);padding:8px 16px">RISK METRICS (3Y)</td></tr>
+        <tr><td class="muted">Sharpe Ratio</td>{% for s in schemes %}<td>{% if s._risk_3y and s._risk_3y.sharpe_ratio %}{{ s._risk_3y.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Max Drawdown</td>{% for s in schemes %}<td class="negative">{% if s._risk_3y and s._risk_3y.max_drawdown %}{{ s._risk_3y.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Std Dev (Ann)</td>{% for s in schemes %}<td>{% if s._risk_3y and s._risk_3y.std_dev_ann %}{{ s._risk_3y.std_dev_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Beta</td>{% for s in schemes %}<td>{% if s._risk_3y and s._risk_3y.beta %}{{ s._risk_3y.beta|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+        <tr><td class="muted">Alpha (Ann)</td>{% for s in schemes %}<td class="{% if s._risk_3y and s._risk_3y.alpha_ann and s._risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{% if s._risk_3y and s._risk_3y.alpha_ann %}{{ s._risk_3y.alpha_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
+
+        <!-- Actions -->
+        <tr style="background:var(--bg-elevated)">
+          <td></td>
+          {% for s in schemes %}
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0">
+              <a href="{% url 'funds:detail' s.amfi_code %}" class="btn btn-primary btn-sm">View Full Report</a>
+              <a href="{% url 'funds:export_pdf' s.amfi_code %}" class="btn btn-secondary btn-sm">📄 PDF</a>
+            </div>
+          </td>
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

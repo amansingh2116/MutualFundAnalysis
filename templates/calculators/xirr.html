@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}XIRR Calculator{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>XIRR Calculator</span></div>
+<div class="page-header"><div class="page-title">📐 XIRR Calculator</div><div class="page-subtitle">Compute Internal Rate of Return (XIRR) for irregular cashflows — use your actual portfolio transactions.</div></div>
+<div class="grid-2" style="gap:20px">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Enter Cashflows</div></div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Enter each transaction below. Investments are <strong>negative</strong>, redemptions are <strong>positive</strong>. Add a final row for current value.</p>
+      <div id="cashflow-rows">
+        <div class="cashflow-row" style="display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;margin-bottom:8px">
+          <input class="form-control cf-date" type="date" value="2020-01-01">
+          <input class="form-control cf-amount" type="number" placeholder="Amount (e.g. -10000)" value="-10000">
+          <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0;width:32px;height:36px">✕</button>
+        </div>
+        <div class="cashflow-row" style="display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;margin-bottom:8px">
+          <input class="form-control cf-date" type="date" value="2025-01-01">
+          <input class="form-control cf-amount" type="number" placeholder="Amount (e.g. +18000)" value="18000">
+          <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0;width:32px;height:36px">✕</button>
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="addRow()" style="margin-bottom:16px">+ Add Cashflow</button>
+      <button type="button" class="btn btn-primary" onclick="calculateXIRR()" style="width:100%;justify-content:center">Calculate XIRR</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Result</div></div>
+    <div class="card-body" id="xirr-result">
+      <div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Add cashflows and click Calculate.</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+function addRow() {
+  const today = new Date().toISOString().split('T')[0];
+  const row = document.createElement('div');
+  row.className='cashflow-row';
+  row.style.cssText='display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;margin-bottom:8px';
+  row.innerHTML=`<input class="form-control cf-date" type="date" value="${today}"><input class="form-control cf-amount" type="number" placeholder="Amount"><button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0;width:32px;height:36px">✕</button>`;
+  document.getElementById('cashflow-rows').appendChild(row);
+}
+
+async function calculateXIRR() {
+  const rows = document.querySelectorAll('.cashflow-row');
+  const cashflows = [], dates = [];
+  rows.forEach(row => {
+    const date = row.querySelector('.cf-date').value;
+    const amount = parseFloat(row.querySelector('.cf-amount').value);
+    if(date && !isNaN(amount)) { cashflows.push(amount); dates.push(date); }
+  });
+  if(cashflows.length < 2) { showToast('Need at least 2 cashflows','error'); return; }
+  const r = await fetch('/calculators/api/xirr/', {
+    method:'POST',
+    body: JSON.stringify({cashflows, dates}),
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+  });
+  const d = await r.json();
+  const el = document.getElementById('xirr-result');
+  if(d.error) { el.innerHTML=`<div class="alert alert-danger">${d.error}</div>`; return; }
+  el.innerHTML=`<div class="calc-result-highlight"><div class="label">XIRR</div><div class="value ${d.xirr_pct>=0?'':'negative'}">${d.xirr_pct?.toFixed(2)||'—'}%</div><div class="sub">annualised return on your cashflows</div></div>`;
+}
+</script>{% endblock %}

@@ -1,0 +1,43 @@
+databases:
+  - name: mfanalysis-db
+    databaseName: mfanalysis
+    user: mfanalysis
+    plan: free
+
+services:
+  - type: web
+    name: mfanalysis-web
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn config.wsgi:application --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mfanalysis-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
+      - key: DEBUG
+        value: "False"
+      - key: RF_ANNUAL_RATE
+        value: "0.065"
+    autoDeploy: true
+
+  - type: worker
+    name: mfanalysis-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py qcluster
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mfanalysis-db
+          property: connectionString

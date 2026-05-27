@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Upload{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">📊 Upload Your Portfolio</div>
+  <div class="page-subtitle">Import your mutual fund transactions from an Excel or CSV file. Data stays on your device — never shared.</div>
+</div>
+
+<div class="grid-2" style="gap:24px">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Upload Transaction File</div></div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Portfolio Name</label>
+          <input class="form-control" type="text" name="name" placeholder="e.g. My CAMS Portfolio" value="My Portfolio">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Transaction File</label>
+          <div class="drop-zone" id="drop-zone">
+            <div class="dz-icon">📁</div>
+            <div class="dz-title">Drop file here or click to browse</div>
+            <div class="dz-sub">Supports Excel (.xlsx) and CSV files</div>
+            <input type="file" id="portfolio-file" name="portfolio_file" accept=".xlsx,.xls,.csv" style="display:none">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">
+          ↑ Upload & Analyze
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><div class="card-title">Expected Format</div></div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+          Your file should have these columns (flexible naming — we auto-detect):
+        </p>
+        <table>
+          <thead><tr><th>Column</th><th>Example</th><th>Required?</th></tr></thead>
+          <tbody>
+            <tr><td style="font-weight:500">Scheme Name</td><td class="muted">Quant Small Cap Fund</td><td class="positive">Yes</td></tr>
+            <tr><td style="font-weight:500">Date</td><td class="muted">15-Jan-2023</td><td class="positive">Yes</td></tr>
+            <tr><td style="font-weight:500">Type</td><td class="muted">BUY / SIP / SELL</td><td class="muted">Optional</td></tr>
+            <tr><td style="font-weight:500">Units</td><td class="muted">50.234</td><td class="muted">Optional</td></tr>
+            <tr><td style="font-weight:500">NAV</td><td class="muted">123.45</td><td class="muted">Optional</td></tr>
+            <tr><td style="font-weight:500">Amount</td><td class="muted">10000</td><td class="muted">Optional</td></tr>
+            <tr><td style="font-weight:500">Folio</td><td class="muted">1234567</td><td class="muted">Optional</td></tr>
+          </tbody>
+        </table>
+        <div class="alert alert-info" style="margin-top:12px;margin-bottom:0">
+          ℹ️ Column names are flexible. We auto-detect using fuzzy matching. Works with most broker exports.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">How to get your transaction file</div></div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:12px;font-size:13px;color:var(--text-secondary)">
+          <div>
+            <strong style="color:var(--text-primary)">CAMS Online:</strong><br>
+            Login → Mailback Services → Transaction Statement → Excel format
+          </div>
+          <div>
+            <strong style="color:var(--text-primary)">Karvy/KFin:</strong><br>
+            Login → Reports → Account Statement → Export to Excel
+          </div>
+          <div>
+            <strong style="color:var(--text-primary)">Zerodha Coin:</strong><br>
+            Console → Reports → P&L → Export
+          </div>
+          <div>
+            <strong style="color:var(--text-primary)">Any broker:</strong><br>
+            Export transaction history in Excel/CSV format
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initDropZone('drop-zone', 'portfolio-file');
+});
+</script>
+{% endblock %}

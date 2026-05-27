@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ scheme.scheme_name }} — Fund Analysis Report</title>
+  <style>
+    /* ── WeasyPrint PDF Styles ── */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', Arial, sans-serif; font-size: 11px; color: #1e293b; line-height: 1.5; background: white; }
+
+    /* Page setup */
+    @page { size: A4; margin: 15mm 15mm 20mm 15mm; }
+    @page:first { margin-top: 0; }
+
+    /* Cover page */
+    .cover {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1d4ed8 100%);
+      min-height: 120mm;
+      padding: 20mm 18mm;
+      color: white;
+      margin: -15mm -15mm 0 -15mm;
+    }
+    .cover-badge { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6; margin-bottom: 8px; }
+    .cover-title { font-size: 20px; font-weight: 700; line-height: 1.3; margin-bottom: 10px; }
+    .cover-sub { font-size: 12px; opacity: 0.8; margin-bottom: 20px; }
+    .cover-meta { display: flex; gap: 30px; font-size: 10px; opacity: 0.7; }
+    .cover-meta span { display: flex; gap: 6px; }
+
+    /* Sections */
+    .section { margin: 6mm 0; break-inside: avoid; }
+    .section-title {
+      font-size: 13px; font-weight: 700; color: #312e81;
+      border-bottom: 2px solid #4f46e5; padding-bottom: 4px; margin-bottom: 8px;
+      text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px;
+    }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 4px; }
+    th { background: #f1f5f9; padding: 5px 8px; text-align: left; font-weight: 600; color: #475569; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; }
+    td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    tr:last-child td { border-bottom: none; }
+    .positive { color: #059669; font-weight: 600; }
+    .negative { color: #dc2626; font-weight: 600; }
+
+    /* Grid */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+
+    /* Stat cards */
+    .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; }
+    .stat-label { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 3px; }
+    .stat-value { font-size: 16px; font-weight: 700; color: #1e293b; line-height: 1; }
+    .stat-value.positive { color: #059669; }
+    .stat-value.negative { color: #dc2626; }
+    .stat-sub { font-size: 8px; color: #94a3b8; margin-top: 2px; }
+
+    /* Key info box */
+    .info-box { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; }
+    .info-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f5f9; }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { font-size: 9px; color: #64748b; font-weight: 500; }
+    .info-val { font-size: 9px; color: #1e293b; font-weight: 600; text-align: right; max-width: 55%; }
+
+    /* Progress bar */
+    .progress-container { margin: 3px 0; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 9px; color: #64748b; margin-bottom: 2px; }
+    .progress-bar { height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #4f46e5; border-radius: 2px; }
+
+    /* Alert box */
+    .alert { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 4px; padding: 6px 10px; font-size: 9px; color: #92400e; margin-top: 4px; }
+
+    /* Footer */
+    .footer { position: running(footer); font-size: 8px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 4px; }
+    @page { @bottom-center { content: element(footer); } }
+
+    /* Disclaimer */
+    .disclaimer { font-size: 8px; color: #94a3b8; margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e2e8f0; line-height: 1.4; }
+  </style>
+</head>
+<body>
+
+<!-- Footer (appears on all pages) -->
+<div class="footer">
+  {{ scheme.scheme_name|truncatechars:80 }} · MF Analysis Report · Generated {{ report_date }} · Not Financial Advice
+</div>
+
+<!-- ══ COVER ══ -->
+<div class="cover">
+  <div class="cover-badge">Mutual Fund Analysis Report</div>
+  <div class="cover-title">{{ scheme.scheme_name }}</div>
+  <div class="cover-sub">{{ scheme.fund_house }} &bull; {{ scheme.scheme_category }}</div>
+  <div class="cover-meta">
+    <span>Report Date: {{ report_date }}</span>
+    <span>AMFI Code: {{ scheme.amfi_code }}</span>
+    {% if scheme.isin_growth %}<span>ISIN: {{ scheme.isin_growth }}</span>{% endif %}
+    {% if scheme.nav_latest %}<span>NAV: ₹{{ scheme.nav_latest }}</span>{% endif %}
+  </div>
+</div>
+
+<!-- ══ SECTION 1: Fund Information ══ -->
+<div class="section">
+  <div class="section-title">1. Fund Information</div>
+  <div class="grid-2">
+    <div class="info-box">
+      <div class="info-row"><span class="info-key">Fund House</span><span class="info-val">{{ scheme.fund_house }}</span></div>
+      <div class="info-row"><span class="info-key">Category (SEBI)</span><span class="info-val">{{ scheme.scheme_category }}</span></div>
+      <div class="info-row"><span class="info-key">Plan</span><span class="info-val">{{ scheme.plan }}{% if scheme.is_direct %} (Direct){% endif %}</span></div>
+      <div class="info-row"><span class="info-key">AMFI Code</span><span class="info-val">{{ scheme.amfi_code }}</span></div>
+      {% if scheme.isin_growth %}<div class="info-row"><span class="info-key">ISIN</span><span class="info-val">{{ scheme.isin_growth }}</span></div>{% endif %}
+      {% if meta %}<div class="info-row"><span class="info-key">Fund Start Date</span><span class="info-val">{% if meta.start_date %}{{ meta.start_date|date:"d M Y" }}{% else %}—{% endif %}</span></div>{% endif %}
+    </div>
+    <div class="info-box">
+      <div class="info-row"><span class="info-key">Latest NAV</span><span class="info-val">{% if scheme.nav_latest %}₹{{ scheme.nav_latest }}{% else %}—{% endif %}</span></div>
+      {% if scheme.nav_date %}<div class="info-row"><span class="info-key">NAV Date</span><span class="info-val">{{ scheme.nav_date }}</span></div>{% endif %}
+      <div class="info-row"><span class="info-key">AUM</span><span class="info-val">{% if scheme.aum_cr %}₹{{ scheme.aum_cr }} Cr{% else %}—{% endif %}</span></div>
+      <div class="info-row"><span class="info-key">Expense Ratio</span><span class="info-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% else %}—{% endif %}</span></div>
+      {% if meta %}<div class="info-row"><span class="info-key">Min SIP</span><span class="info-val">{% if meta.sip_min %}₹{{ meta.sip_min|floatformat:0 }}{% else %}—{% endif %}</span></div>{% endif %}
+      {% if meta %}<div class="info-row"><span class="info-key">Lock-in</span><span class="info-val">{% if meta.lock_in_period %}{{ meta.lock_in_period }} days{% else %}None{% endif %}</span></div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ SECTION 2: Key Performance Metrics ══ -->
+<div class="section">
+  <div class="section-title">2. Trailing Returns (CAGR %)</div>
+  {% if trailing_returns %}
+  <table>
+    <thead>
+      <tr>
+        <th>Period</th>
+        <th>Fund Return</th>
+        <th>Benchmark</th>
+        <th>Excess Alpha</th>
+        <th>Years</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in trailing_returns %}
+      <tr>
+        <td><strong>{{ r.period }}</strong></td>
+        <td class="{% if r.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.cagr_pct|floatformat:2 }}%</td>
+        <td>{% if r.bm_cagr %}{{ r.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
+        <td class="{% if r.excess and r.excess >= 0 %}positive{% else %}negative{% endif %}">{% if r.excess %}{% if r.excess >= 0 %}+{% endif %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}</td>
+        <td style="color:#94a3b8">{{ r.years|floatformat:1 }} yrs</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#94a3b8;font-size:10px;padding:8px">No return data computed. Run compute_analytics.</p>
+  {% endif %}
+</div>
+
+<!-- ══ SECTION 3: Calendar Year Returns ══ -->
+{% if calendar_returns %}
+<div class="section">
+  <div class="section-title">3. Calendar Year Returns</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Year</th>
+        <th>Fund Return</th>
+        <th>Benchmark</th>
+        <th>Outperformed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in calendar_returns %}
+      <tr>
+        <td><strong>{{ r.year }}</strong></td>
+        <td class="{% if r.return_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.return_pct|floatformat:2 }}%</td>
+        <td>{% if r.bm_return %}{{ r.bm_return|floatformat:2 }}%{% else %}—{% endif %}</td>
+        <td>{% if r.outperformed is not None %}{% if r.outperformed %}✅{% else %}❌{% endif %}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ══ SECTION 4: Risk Metrics ══ -->
+<div class="section">
+  <div class="section-title">4. Risk Metrics</div>
+  <div class="grid-2">
+    {% if risk_3y %}
+    <div>
+      <div style="font-size:9px;font-weight:600;color:#4f46e5;margin-bottom:6px">3-YEAR RISK</div>
+      <div class="info-box">
+        <div class="info-row"><span class="info-key">Std Dev (Ann)</span><span class="info-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Sharpe Ratio</span><span class="info-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Sortino Ratio</span><span class="info-val">{{ risk_3y.sortino_ratio|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Max Drawdown</span><span class="info-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Beta</span><span class="info-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Alpha (Ann)</span><span class="info-val {% if risk_3y.alpha_ann and risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_3y.alpha_ann|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">R-Squared</span><span class="info-val">{{ risk_3y.r_squared|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Tracking Error</span><span class="info-val">{{ risk_3y.tracking_error|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Info Ratio</span><span class="info-val">{{ risk_3y.info_ratio|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Upside Capture</span><span class="info-val">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Downside Capture</span><span class="info-val">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}%</span></div>
+      </div>
+    </div>
+    {% endif %}
+    {% if risk_5y %}
+    <div>
+      <div style="font-size:9px;font-weight:600;color:#4f46e5;margin-bottom:6px">5-YEAR RISK</div>
+      <div class="info-box">
+        <div class="info-row"><span class="info-key">Std Dev (Ann)</span><span class="info-val">{{ risk_5y.std_dev_ann|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Sharpe Ratio</span><span class="info-val">{{ risk_5y.sharpe_ratio|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Sortino Ratio</span><span class="info-val">{{ risk_5y.sortino_ratio|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Max Drawdown</span><span class="info-val negative">{{ risk_5y.max_drawdown|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Beta</span><span class="info-val">{{ risk_5y.beta|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Alpha (Ann)</span><span class="info-val {% if risk_5y.alpha_ann and risk_5y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_5y.alpha_ann|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">R-Squared</span><span class="info-val">{{ risk_5y.r_squared|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Tracking Error</span><span class="info-val">{{ risk_5y.tracking_error|floatformat:2|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Info Ratio</span><span class="info-val">{{ risk_5y.info_ratio|floatformat:2|default:"—" }}</span></div>
+        <div class="info-row"><span class="info-key">Upside Capture</span><span class="info-val">{{ risk_5y.upside_capture|floatformat:1|default:"—" }}%</span></div>
+        <div class="info-row"><span class="info-key">Downside Capture</span><span class="info-val">{{ risk_5y.downside_capture|floatformat:1|default:"—" }}%</span></div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="alert" style="margin-top:6px">
+    ⚠️ Benchmark data is Price Index only (not TRI). Actual benchmark CAGR including dividends is typically 1–2% higher.
+  </div>
+</div>
+
+<!-- ══ SECTION 5: Top Holdings ══ -->
+{% if top_holdings %}
+<div class="section">
+  <div class="section-title">5. Top Holdings</div>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Security</th><th>Sector</th><th>Weight %</th></tr>
+    </thead>
+    <tbody>
+      {% for h in top_holdings %}
+      <tr>
+        <td style="color:#94a3b8;width:24px">{{ forloop.counter }}</td>
+        <td><strong>{{ h.security_name }}</strong>{% if h.isin %}<br><span style="color:#94a3b8;font-size:8px">{{ h.isin }}</span>{% endif %}</td>
+        <td style="color:#64748b">{{ h.sector|default:"—" }}</td>
+        <td>
+          <div class="progress-container">
+            <div class="progress-label"><span></span><strong>{{ h.weight_pct|floatformat:2 }}%</strong></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:{{ h.weight_pct|floatformat:0 }}%"></div></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ══ SECTION 6: Sector Allocation ══ -->
+{% if sector_alloc %}
+<div class="section">
+  <div class="section-title">6. Sector Allocation</div>
+  <table>
+    <thead>
+      <tr><th>Sector</th><th>Weight %</th></tr>
+    </thead>
+    <tbody>
+      {% for s in sector_alloc %}
+      <tr>
+        <td>{{ s.sector }}</td>
+        <td>
+          <div class="progress-container">
+            <div class="progress-label"><span></span><strong>{{ s.weight_pct|floatformat:2 }}%</strong></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:{{ s.weight_pct|floatformat:0 }}%"></div></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ══ SECTION 7: Cost Summary ══ -->
+<div class="section">
+  <div class="section-title">7. Cost & Investment Rules Summary</div>
+  <div class="grid-4">
+    <div class="stat-card">
+      <div class="stat-label">Expense Ratio</div>
+      <div class="stat-value">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% else %}—{% endif %}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">AUM</div>
+      <div class="stat-value" style="font-size:12px">{% if scheme.aum_cr %}₹{{ scheme.aum_cr }} Cr{% else %}—{% endif %}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Min SIP</div>
+      <div class="stat-value" style="font-size:12px">{% if meta and meta.sip_min %}₹{{ meta.sip_min|floatformat:0 }}{% else %}—{% endif %}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Lock-in</div>
+      <div class="stat-value" style="font-size:12px">{% if meta and meta.lock_in_period %}{{ meta.lock_in_period }}d{% else %}None{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DISCLAIMER ══ -->
+<div class="disclaimer">
+  <strong>Disclaimer:</strong> This report is generated automatically by MF Analysis Platform using data from AMFI, mfapi.in, captnemo.in, and Morningstar. 
+  It is for informational and educational purposes only and does not constitute financial advice or a recommendation to buy, sell, or hold any securities.
+  Past performance is not indicative of future results. Returns are subject to market risk. Please consult a SEBI-registered financial advisor before investing.
+  Data accuracy depends on third-party sources and is not guaranteed.
+</div>
+
+</body>
+</html>

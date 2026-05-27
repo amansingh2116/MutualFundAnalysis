@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Lumpsum Calculator{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Lumpsum Calculator</span></div>
+<div class="page-header"><div class="page-title">💰 Lumpsum Calculator</div><div class="page-subtitle">Calculate future value of a one-time mutual fund investment.</div></div>
+<div class="calc-layout">
+  <div class="calc-inputs">
+    <form id="lumpsum-form">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Investment Amount (₹)</label><input class="form-control" type="number" name="principal" value="100000" min="1000" step="1000"></div>
+      <div class="form-group"><label class="form-label">Investment Period (Years)</label><div class="range-wrapper"><input type="range" name="years" id="years" min="1" max="40" value="10"><span class="range-value" id="years_display">10 yrs</span></div></div>
+      <div class="form-group"><label class="form-label">Expected Return Rate (% p.a.)</label><div class="range-wrapper"><input type="range" name="expected_rate" id="expected_rate" min="5" max="30" value="12" step="0.5"><span class="range-value" id="expected_rate_display">12%</span></div></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
+  </div>
+  <div class="calc-results">
+    <div id="lumpsum-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div></div>
+    <div id="lumpsum-chart" style="height:280px;margin-top:16px"></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+document.getElementById('lumpsum-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const principal = parseFloat(fd.get('principal')), years = parseFloat(fd.get('years')), rate = parseFloat(fd.get('expected_rate'));
+  const r = await fetch('{% url "calculators:api_lumpsum" %}', {
+    method:'POST', body: JSON.stringify({principal, years, expected_rate: rate}),
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+  });
+  const d = await r.json();
+  if(d.error){document.getElementById('lumpsum-results').innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
+  document.getElementById('lumpsum-results').innerHTML=`
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight"><div class="label">Future Value</div><div class="value">₹${(d.future_value/100000).toFixed(2)}L</div><div class="sub">after ${d.years} years</div></div>
+      <div class="calc-result-highlight"><div class="label">Absolute Gain</div><div class="value positive">₹${(d.gain/100000).toFixed(2)}L</div><div class="sub">${d.return_pct.toFixed(1)}% total</div></div>
+    </div>
+    <div class="metrics-dl">
+      <div><div class="metric-key">Invested</div><div class="metric-val" style="font-size:14px">₹${d.principal.toLocaleString('en-IN')}</div></div>
+      <div><div class="metric-key">Growth Multiple</div><div class="metric-val" style="font-size:14px">${(d.future_value/d.principal).toFixed(2)}x</div></div>
+    </div>`;
+  renderSIPChart(document.getElementById('lumpsum-chart'), {invested: d.principal, current_value: d.future_value});
+});
+</script>{% endblock %}

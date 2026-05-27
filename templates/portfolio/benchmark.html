@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Benchmark Comparison{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'portfolio:list' %}">Portfolios</a><span class="breadcrumb-sep">›</span>
+  <a href="{% url 'portfolio:dashboard' portfolio.pk %}">{{ portfolio.name }}</a><span class="breadcrumb-sep">›</span>
+  <span>Benchmark</span>
+</div>
+<div class="page-header">
+  <div class="page-title">📊 Benchmark Comparison</div>
+  <div class="page-subtitle">How your portfolio performed vs {{ benchmark }}</div>
+</div>
+<div class="card">
+  <div class="card-body chart-placeholder" style="min-height:300px">
+    <span class="placeholder-icon">📊</span>
+    <span style="font-size:13px;color:var(--text-muted)">{{ note }}</span>
+  </div>
+</div>
+{% endblock %}
