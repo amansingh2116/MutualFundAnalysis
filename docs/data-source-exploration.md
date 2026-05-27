@@ -800,7 +800,7 @@ Current NAV: 271.4398 (as of N/A)
 1 2025-05-27  272.24180
 0 2025-05-28  271.43980
 
-### mstartpy
+### mstarpy
 
 <https://github.com/Mael-J/mstarpy>
 
