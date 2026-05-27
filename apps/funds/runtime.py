@@ -13,9 +13,11 @@ import re
 import json
 import subprocess
 import sys
+import tempfile
 from hashlib import md5
 from datetime import date, datetime, timedelta
 from difflib import SequenceMatcher
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -65,32 +67,49 @@ def ns(**kwargs):
 
 
 def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
-    cache_key = f"fund:snapshot:v3:{scheme.amfi_code}"
+    cache_key = f"fund:snapshot:v4:{scheme.amfi_code}"
     cached = cache.get(cache_key)
     if cached:
         return cached
 
+    db_nav_rows = fetch_db_nav_rows(scheme)
     nav_rows, mfapi_meta = fetch_nav_and_meta(scheme.amfi_code)
+    if not nav_rows:
+        nav_rows = db_nav_rows
+    elif db_nav_rows and len(db_nav_rows) > len(nav_rows):
+        nav_rows = db_nav_rows
     nav_series = nav_rows_to_series(nav_rows)
 
     latest_nav = float(nav_series.iloc[-1]) if not nav_series.empty else _float(scheme.nav_latest)
     latest_date = nav_series.index[-1].date() if not nav_series.empty else scheme.nav_date
 
-    category = mfapi_meta.get("scheme_category") or scheme.scheme_category or infer_category(scheme.scheme_name)
+    db_meta = scheme_meta_dict(scheme)
+    category = mfapi_meta.get("scheme_category") or db_meta.get("scheme_category") or scheme.scheme_category or infer_category(scheme.scheme_name)
     benchmark_name = benchmark_for(category, scheme.scheme_name)
     benchmark_series = fetch_benchmark_series(benchmark_name, nav_series) if benchmark_name else pd.Series(dtype=float)
 
     captnemo = fetch_captnemo_meta(scheme)
-    mstar = fetch_mstarpy_data(scheme)
     yahoo = fetch_yahoo_data(scheme, latest_nav)
+    mstar = {}
+    if not yahoo.get("holdings") and not yahoo.get("sectors"):
+        mstar = fetch_mstarpy_data(scheme)
     portfolio = merge_portfolio_data(mstar, yahoo)
+    if not portfolio.get("holdings") and not portfolio.get("sectors"):
+        portfolio = fetch_db_portfolio(scheme)
 
-    meta = build_meta(scheme, mfapi_meta, captnemo, yahoo, nav_series)
-    trailing = compute_trailing_returns(nav_series, benchmark_series)
-    calendar = compute_calendar_returns(nav_series, benchmark_series)
-    rolling = compute_rolling_returns(nav_series)
-    risk = compute_risk_metrics(nav_series, benchmark_series)
+    meta = build_meta(scheme, mfapi_meta, db_meta, captnemo, yahoo, nav_series)
+    trailing = compute_trailing_returns(nav_series, benchmark_series) or fetch_db_trailing_returns(scheme)
+    calendar = compute_calendar_returns(nav_series, benchmark_series) or fetch_db_calendar_returns(scheme)
+    rolling = compute_rolling_returns(nav_series) or fetch_db_rolling_returns(scheme)
+    risk = compute_risk_metrics(nav_series, benchmark_series) or fetch_db_risk_metrics(scheme)
     drawdown = compute_drawdown(nav_series)
+
+    managers = split_manager_names(str(getattr(meta, "fund_manager", "") or ""))
+    manager_source = ""
+    if captnemo.get("fund_manager"):
+        manager_source = "captnemo"
+    elif yahoo.get("fund_manager"):
+        manager_source = "yahooquery"
 
     snapshot = ns(
         scheme=scheme,
@@ -113,17 +132,233 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         sector_alloc=portfolio.get("sectors", []),
         asset_alloc=portfolio.get("asset_alloc"),
         holdings_month=portfolio.get("as_of"),
-        managers=[m.strip() for m in str(getattr(meta, "fund_manager", "") or "").split(";") if m.strip()],
+        managers=managers,
+        manager_cards=[
+            ns(
+                name=manager,
+                role="Fund Manager",
+                fund_house=scheme.fund_house,
+                source=manager_source or meta.fetch_source,
+            )
+            for manager in managers
+        ],
+        manager_context=ns(
+            source=manager_source or meta.fetch_source,
+            start_date=meta.start_date,
+            aum=meta.aum,
+            expense_ratio=meta.expense_ratio,
+            fund_rating=meta.fund_rating,
+            crisil_rating=meta.crisil_rating,
+            portfolio_turnover=meta.portfolio_turnover,
+            investment_objective=meta.investment_objective,
+            benchmark_name=benchmark_name,
+            risk_3y=risk.get("3Y"),
+            top_holdings_count=len(portfolio.get("holdings", [])),
+            sector_count=len(portfolio.get("sectors", [])),
+            portfolio_source=portfolio.get("source") or "unavailable",
+        ),
         yahoo_ticker=yahoo.get("ticker"),
         sources=ns(
-            nav="mfapi.in / AMFI",
+            nav="mfapi.in / AMFI" if nav_rows != db_nav_rows else "database",
             meta=meta.fetch_source,
             portfolio=portfolio.get("source") or "unavailable",
             benchmark="yfinance" if not benchmark_series.empty else "unavailable",
         ),
     )
-    cache.set(cache_key, snapshot, SNAPSHOT_TTL)
+    has_data = bool(snapshot.nav_rows or snapshot.trailing_returns or snapshot.top_holdings or snapshot.sector_alloc or snapshot.meta.fetch_source != "computed + mfapi.in")
+    cache.set(cache_key, snapshot, SNAPSHOT_TTL if has_data else 60)
     return snapshot
+
+
+def split_manager_names(value: str) -> list[str]:
+    """Split manager strings from providers without breaking initials."""
+    if not value:
+        return []
+    parts = re.split(r"\s*(?:;|/|\band\b|\+)\s*", value, flags=re.I)
+    managers = []
+    for part in parts:
+        cleaned = " ".join(str(part).strip(" ,").split())
+        if cleaned and cleaned.lower() not in {"na", "n/a", "none", "not available"}:
+            managers.append(cleaned)
+    return list(dict.fromkeys(managers))
+
+
+def fetch_db_nav_rows(scheme: Scheme) -> list[dict]:
+    try:
+        from apps.funds.models import NAVHistory
+
+        return [
+            {"date": row.date.isoformat(), "nav": float(row.nav)}
+            for row in NAVHistory.objects.filter(scheme=scheme).order_by("date").only("date", "nav")
+        ]
+    except Exception as exc:
+        logger.info("[%s] DB NAV fallback unavailable: %s", scheme.amfi_code, exc)
+        return []
+
+
+def scheme_meta_dict(scheme: Scheme) -> dict:
+    try:
+        meta = scheme.meta
+    except Exception:
+        return {}
+    keys = [
+        "expense_ratio", "expense_ratio_date", "aum", "fund_rating", "fund_rating_date",
+        "crisil_rating", "portfolio_turnover", "start_date", "investment_objective",
+        "fund_manager", "lump_min", "lump_min_additional", "sip_min", "sip_available",
+        "lump_available", "redemption_allowed", "switch_allowed", "stp_flag", "swp_flag",
+        "lock_in_period", "tax_period", "returns_1w", "returns_1m", "returns_3m",
+        "returns_1y", "returns_3y", "returns_5y", "returns_inception",
+        "comparison_peers", "fetch_source",
+    ]
+    data = {key: getattr(meta, key, None) for key in keys}
+    data["scheme_category"] = getattr(meta, "ms_category", "") or scheme.scheme_category
+    data["fetch_source"] = data.get("fetch_source") or "database"
+    return data
+
+
+def fetch_db_portfolio(scheme: Scheme) -> dict:
+    try:
+        from apps.holdings.models import Holding, SectorAllocation
+
+        latest_holding_month = (
+            Holding.objects.filter(scheme=scheme).order_by("-as_of_month").values_list("as_of_month", flat=True).first()
+        )
+        holdings = []
+        if latest_holding_month:
+            holdings = [
+                ns(
+                    security_name=row.security_name,
+                    ticker=row.ticker,
+                    isin=row.isin,
+                    sector=row.sector,
+                    weight_pct=float(row.weight_pct),
+                    forward_pe=_float(row.forward_pe),
+                    holding_type=row.holding_type,
+                )
+                for row in Holding.objects.filter(scheme=scheme, as_of_month=latest_holding_month).order_by("-weight_pct")[:80]
+            ]
+
+        latest_sector_month = (
+            SectorAllocation.objects.filter(scheme=scheme).order_by("-as_of_month").values_list("as_of_month", flat=True).first()
+        )
+        sectors = []
+        if latest_sector_month:
+            sectors = [
+                ns(sector=row.sector, weight_pct=float(row.weight_pct))
+                for row in SectorAllocation.objects.filter(scheme=scheme, as_of_month=latest_sector_month).order_by("-weight_pct")
+            ]
+
+        return {
+            "source": "database" if holdings or sectors else None,
+            "holdings": holdings,
+            "sectors": sectors,
+            "asset_alloc": None,
+            "as_of": latest_holding_month or latest_sector_month,
+        }
+    except Exception as exc:
+        logger.info("[%s] DB portfolio fallback unavailable: %s", scheme.amfi_code, exc)
+        return {"source": None, "holdings": [], "sectors": [], "asset_alloc": None, "as_of": None}
+
+
+def fetch_db_trailing_returns(scheme: Scheme) -> list[SimpleNamespace]:
+    try:
+        from apps.analytics.models import TrailingReturn
+
+        latest = TrailingReturn.objects.filter(scheme=scheme).order_by("-as_of").values_list("as_of", flat=True).first()
+        if not latest:
+            return []
+        return [
+            ns(
+                period=row.period,
+                years=float(row.years) if row.years is not None else None,
+                cagr_pct=float(row.cagr_pct) if row.cagr_pct is not None else None,
+                bm_cagr=float(row.bm_cagr) if row.bm_cagr is not None else None,
+                excess=float(row.excess) if row.excess is not None else None,
+                as_of=row.as_of,
+            )
+            for row in TrailingReturn.objects.filter(scheme=scheme, as_of=latest).order_by("years")
+        ]
+    except Exception as exc:
+        logger.info("[%s] DB trailing fallback unavailable: %s", scheme.amfi_code, exc)
+        return []
+
+
+def fetch_db_calendar_returns(scheme: Scheme) -> list[SimpleNamespace]:
+    try:
+        from apps.analytics.models import CalendarReturn
+
+        return [
+            ns(
+                year=row.year,
+                return_pct=float(row.return_pct) if row.return_pct is not None else None,
+                bm_return=float(row.bm_return) if row.bm_return is not None else None,
+                outperformed=row.outperformed,
+            )
+            for row in CalendarReturn.objects.filter(scheme=scheme).order_by("-year")[:15]
+        ]
+    except Exception as exc:
+        logger.info("[%s] DB calendar fallback unavailable: %s", scheme.amfi_code, exc)
+        return []
+
+
+def fetch_db_rolling_returns(scheme: Scheme) -> dict[str, SimpleNamespace]:
+    try:
+        from apps.analytics.models import RollingReturn
+
+        rows = RollingReturn.objects.filter(scheme=scheme).order_by("window", "-as_of")
+        result = {}
+        for row in rows:
+            if row.window in result:
+                continue
+            result[row.window] = ns(
+                window=row.window,
+                window_days=row.window_days,
+                min_pct=float(row.min_pct) if row.min_pct is not None else None,
+                max_pct=float(row.max_pct) if row.max_pct is not None else None,
+                mean_pct=float(row.mean_pct) if row.mean_pct is not None else None,
+                std_dev=float(row.std_dev) if row.std_dev is not None else None,
+                win_rate_0=float(row.win_rate_0) if row.win_rate_0 is not None else None,
+                win_rate_12=float(row.win_rate_12) if row.win_rate_12 is not None else None,
+                as_of=row.as_of,
+            )
+        return result
+    except Exception as exc:
+        logger.info("[%s] DB rolling fallback unavailable: %s", scheme.amfi_code, exc)
+        return {}
+
+
+def fetch_db_risk_metrics(scheme: Scheme) -> dict[str, SimpleNamespace]:
+    try:
+        from apps.analytics.models import RiskMetrics
+
+        rows = RiskMetrics.objects.filter(scheme=scheme).order_by("period", "-as_of")
+        result = {}
+        for row in rows:
+            if row.period in result:
+                continue
+            result[row.period] = ns(
+                period=row.period,
+                period_days=row.period_days,
+                std_dev_ann=float(row.std_dev_ann) if row.std_dev_ann is not None else None,
+                sharpe_ratio=float(row.sharpe_ratio) if row.sharpe_ratio is not None else None,
+                sortino_ratio=float(row.sortino_ratio) if row.sortino_ratio is not None else None,
+                max_drawdown=float(row.max_drawdown) if row.max_drawdown is not None else None,
+                beta=float(row.beta) if row.beta is not None else None,
+                alpha_ann=float(row.alpha_ann) if row.alpha_ann is not None else None,
+                r_squared=float(row.r_squared) if row.r_squared is not None else None,
+                upside_capture=float(row.upside_capture) if row.upside_capture is not None else None,
+                downside_capture=float(row.downside_capture) if row.downside_capture is not None else None,
+                tracking_error=float(row.tracking_error) if row.tracking_error is not None else None,
+                info_ratio=float(row.info_ratio) if row.info_ratio is not None else None,
+                rf_rate_used=float(row.rf_rate_used) if row.rf_rate_used is not None else None,
+                rf_rate_pct=float(row.rf_rate_used) * 100 if row.rf_rate_used is not None else None,
+                benchmark=row.benchmark,
+                as_of=row.as_of,
+            )
+        return result
+    except Exception as exc:
+        logger.info("[%s] DB risk fallback unavailable: %s", scheme.amfi_code, exc)
+        return {}
 
 
 def fetch_nav_and_meta(amfi_code: str) -> tuple[list[dict], dict]:
@@ -258,7 +493,11 @@ def normalise_captnemo_fields(info: dict) -> dict:
 
 
 def fetch_mstarpy_data(scheme: Scheme) -> dict:
-    terms = [scheme.isin_growth, scheme.morningstar_id, clean_fund_name(scheme.scheme_name)]
+    # Morningstar startup is expensive and unreliable without a verified SecId.
+    # Run it only for funds that have been explicitly mapped during ingestion.
+    if not scheme.morningstar_id:
+        return {}
+    terms = [scheme.morningstar_id, scheme.isin_growth, clean_fund_name(scheme.scheme_name)]
     terms = [term for term in dict.fromkeys(str(t).strip() for t in terms if t)]
     if not terms:
         return {}
@@ -390,6 +629,8 @@ def resolve_yahoo_ticker(scheme: Scheme, latest_nav: float | None) -> str:
     try:
         import yfinance as yf
         from yahooquery import Ticker
+
+        configure_yfinance_cache(yf)
 
         quote_by_symbol = {}
         for query in yahoo_search_queries(scheme):
@@ -636,7 +877,7 @@ def yahoo_asset_alloc(holding_info: dict):
     return rows or None
 
 
-def build_meta(scheme: Scheme, mfapi_meta: dict, captnemo: dict, yahoo: dict, nav_series: pd.Series) -> SimpleNamespace:
+def build_meta(scheme: Scheme, mfapi_meta: dict, db_meta: dict, captnemo: dict, yahoo: dict, nav_series: pd.Series) -> SimpleNamespace:
     first_nav_date = nav_series.index[0].date() if not nav_series.empty else None
     now = timezone.now()
     data = {
@@ -675,6 +916,7 @@ def build_meta(scheme: Scheme, mfapi_meta: dict, captnemo: dict, yahoo: dict, na
         "fetch_source": "computed + mfapi.in",
         "last_fetched": now,
     }
+    data.update({k: v for k, v in db_meta.items() if v not in (None, "", [])})
     data.update({k: v for k, v in captnemo.items() if v not in (None, "", [])})
     if captnemo.get("_plan_fallback"):
         for key in [
@@ -768,6 +1010,8 @@ def compute_calendar_returns(nav: pd.Series, bm: pd.Series) -> list[SimpleNamesp
 
 def compute_rolling_returns(nav: pd.Series) -> dict[str, SimpleNamespace]:
     result = {}
+    if nav.empty or not isinstance(nav.index, pd.DatetimeIndex):
+        return result
     daily = nav.resample("B").ffill().dropna()
     for window, days in [("1Y", 252), ("3Y", 756), ("5Y", 1260)]:
         if len(daily) <= days:
@@ -792,6 +1036,8 @@ def compute_rolling_returns(nav: pd.Series) -> dict[str, SimpleNamespace]:
 
 def compute_risk_metrics(nav: pd.Series, bm: pd.Series) -> dict[str, SimpleNamespace]:
     result = {}
+    if nav.empty or not isinstance(nav.index, pd.DatetimeIndex):
+        return result
     rf = float(getattr(settings, "RF_ANNUAL_RATE", 0.065))
     for period, days in [("3Y", 1095), ("5Y", 1826)]:
         cutoff = nav.index[-1] - pd.Timedelta(days=days) if not nav.empty else pd.Timestamp.today()
@@ -866,6 +1112,8 @@ def fetch_benchmark_series(name: str, nav: pd.Series) -> pd.Series:
     try:
         import yfinance as yf
 
+        configure_yfinance_cache(yf)
+
         start = (nav.index[0] - pd.Timedelta(days=10)).date().isoformat()
         hist = yf.Ticker(ticker).history(start=start, auto_adjust=False)
         if hist.empty or "Close" not in hist:
@@ -877,6 +1125,22 @@ def fetch_benchmark_series(name: str, nav: pd.Series) -> pd.Series:
     except Exception as exc:
         logger.info("Benchmark fetch failed for %s/%s: %s", name, ticker, exc)
         return pd.Series(dtype=float)
+
+
+def configure_yfinance_cache(yf_module) -> None:
+    try:
+        cache_dir = Path(tempfile.gettempdir()) / "mfanalysis-yfinance-cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        if hasattr(yf_module, "set_tz_cache_location"):
+            yf_module.set_tz_cache_location(str(cache_dir))
+        try:
+            import yfinance.cache as yf_cache
+
+            yf_cache.set_cache_location(str(cache_dir))
+        except Exception:
+            pass
+    except Exception as exc:
+        logger.info("Could not configure yfinance cache directory: %s", exc)
 
 
 def benchmark_for(category: str, name: str = "") -> str | None:

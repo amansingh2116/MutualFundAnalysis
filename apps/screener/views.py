@@ -64,17 +64,17 @@ def compare_view(request):
     amfi_codes = request.GET.getlist('funds')
     if request.GET.get('funds_input'):
         amfi_codes += [c.strip() for c in request.GET['funds_input'].split(',') if c.strip()]
-    amfi_codes = amfi_codes[:4]
+    amfi_codes = list(dict.fromkeys(c.strip() for c in amfi_codes if c.strip()))[:4]
     schemes = []
+    missing_codes = []
     if amfi_codes:
         from apps.funds.runtime import get_runtime_snapshot
-
-        schemes_qs = Scheme.objects.filter(amfi_code__in=amfi_codes).select_related('meta')
-        schemes_map = {s.amfi_code: s for s in schemes_qs}
+        from apps.funds.services import get_or_fetch_scheme
 
         for code in amfi_codes:
-            s = schemes_map.get(code)
+            s = get_or_fetch_scheme(code)
             if not s:
+                missing_codes.append(code)
                 continue
             runtime = get_runtime_snapshot(s)
             if runtime.nav_latest:
@@ -89,9 +89,13 @@ def compare_view(request):
                 s.expense_ratio = runtime.meta.expense_ratio
             s.trailing_map = runtime.trailing_map
             s.risk_3y_runtime = runtime.risk_3y
+            s.runtime_meta = runtime.meta
+            s.runtime_sources = runtime.sources
+            s.manager_names = runtime.managers
             schemes.append(s)
 
     return render(request, 'screener/compare.html', {
         'schemes': schemes,
-        'amfi_codes': ','.join(amfi_codes),
+        'amfi_codes': amfi_codes,
+        'missing_codes': missing_codes,
     })

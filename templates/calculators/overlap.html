@@ -2,39 +2,160 @@
 {% block title %}Fund Overlap Checker{% endblock %}
 {% block content %}
 <div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">&rsaquo;</span><span>Overlap Checker</span></div>
-<div class="page-header"><div class="page-title">Fund Overlap Checker</div><div class="page-subtitle">Find common stock holdings between two funds using on-demand portfolio data.</div></div>
+<div class="page-header">
+  <div class="page-title">Fund Overlap Checker</div>
+  <div class="page-subtitle">Search and compare stock-level overlap for 2 to 3 funds.</div>
+</div>
+
 <div class="calc-layout">
   <div class="calc-inputs">
     <form id="overlap-form">{% csrf_token %}
-      <div class="form-group"><label class="form-label">Fund 1 AMFI Code</label><input class="form-control" type="text" name="fund1" placeholder="e.g. 120503" pattern="[0-9]+"></div>
-      <div class="form-group"><label class="form-label">Fund 2 AMFI Code</label><input class="form-control" type="text" name="fund2" placeholder="e.g. 120465" pattern="[0-9]+"></div>
-      <div class="form-hint" style="margin-bottom:12px">Find AMFI codes on fund detail pages or use the Screener.</div>
+      <div class="form-group" style="position:relative">
+        <label class="form-label">Search funds</label>
+        <input class="form-control" id="overlap-search" type="text" placeholder="Type fund name, AMC, AMFI code, or ISIN" autocomplete="off">
+        <div class="search-results-dropdown" id="overlap-search-dropdown"></div>
+      </div>
+      <div id="selected-overlap-funds" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+      <div class="form-hint" style="margin-bottom:12px">Select at least 2 funds. Maximum 3 funds can be compared at once.</div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Check Overlap</button>
     </form>
     <div class="alert alert-info" style="margin-top:16px">Portfolio data is fetched live from available providers and may be unavailable for some schemes.</div>
   </div>
+
   <div class="calc-results">
-    <div id="overlap-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Enter two AMFI codes and click Check Overlap.</span></div></div>
+    <div id="overlap-results">
+      <div class="chart-placeholder" style="min-height:200px">
+        <span style="font-size:13px;color:var(--text-muted)">Search and select two or three funds to check overlap.</span>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
-{% block extra_js %}<script>
+
+{% block extra_js %}
+<script>
+const overlapSelected = [];
+const overlapInput = document.getElementById('overlap-search');
+const overlapDropdown = document.getElementById('overlap-search-dropdown');
+const selectedBox = document.getElementById('selected-overlap-funds');
+let overlapTimer = null;
+
+overlapInput.addEventListener('input', () => {
+  clearTimeout(overlapTimer);
+  const q = overlapInput.value.trim();
+  if (q.length < 2) {
+    overlapDropdown.classList.remove('open');
+    return;
+  }
+  overlapTimer = setTimeout(() => searchOverlapFunds(q), 250);
+});
+
+async function searchOverlapFunds(q) {
+  const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+  const data = await r.json();
+  overlapDropdown.innerHTML = (data.results || []).map(f => `
+    <div class="search-result-item" data-code="${f.amfi_code}" data-name="${escapeHtml(f.scheme_name)}" data-house="${escapeHtml(f.fund_house || '')}">
+      <div class="sri-name">${escapeHtml(f.scheme_name)}</div>
+      <div class="sri-meta">${escapeHtml(f.fund_house || '')} &middot; AMFI ${f.amfi_code}</div>
+    </div>
+  `).join('');
+  overlapDropdown.classList.toggle('open', Boolean(data.results && data.results.length));
+}
+
+overlapDropdown.addEventListener('click', (e) => {
+  const item = e.target.closest('.search-result-item');
+  if (!item) return;
+  if (overlapSelected.length >= 3) return;
+  if (overlapSelected.some(f => f.code === item.dataset.code)) return;
+  overlapSelected.push({ code: item.dataset.code, name: item.dataset.name, house: item.dataset.house });
+  overlapInput.value = '';
+  overlapDropdown.classList.remove('open');
+  renderOverlapSelected();
+});
+
+function renderOverlapSelected() {
+  selectedBox.innerHTML = overlapSelected.map((f, idx) => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px">
+      <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0">${idx + 1}</div>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(f.name)}</div>
+        <div style="font-size:10px;color:var(--text-muted)">AMFI ${f.code}</div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="removeOverlapFund(${idx})">Remove</button>
+    </div>
+  `).join('');
+}
+
+function removeOverlapFund(idx) {
+  overlapSelected.splice(idx, 1);
+  renderOverlapSelected();
+}
+
 document.getElementById('overlap-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const fd = new FormData(e.target);
+  const el = document.getElementById('overlap-results');
+  if (overlapSelected.length < 2) {
+    el.innerHTML = `<div class="alert alert-warning">Select at least two funds first.</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fetching holdings and calculating overlap...</span></div>`;
   const r = await fetch('{% url "calculators:api_overlap" %}', {
-    method:'POST', body: JSON.stringify({fund1:fd.get('fund1'), fund2:fd.get('fund2')}),
-    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+    method: 'POST',
+    body: JSON.stringify({ funds: overlapSelected.map(f => f.code) }),
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')}
   });
   const d = await r.json();
-  const el = document.getElementById('overlap-results');
-  if(d.error){el.innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
-  const rows = d.overlap.map((h,i) => `<tr><td>${i+1}</td><td>${h.security_name}</td><td class="positive">${h.weight_fund1.toFixed(2)}%</td><td class="positive">${h.weight_fund2.toFixed(2)}%</td></tr>`).join('');
-  el.innerHTML=`
-    <div class="grid-2" style="gap:12px;margin-bottom:16px">
-      <div class="calc-result-highlight"><div class="label">Overlap Score</div><div class="value ${d.overlap_score>50?'negative':d.overlap_score>25?'':'positive'}">${d.overlap_score.toFixed(1)}%</div><div class="sub">${d.overlap_score>50?'High overlap':'Low overlap'}</div></div>
-      <div class="calc-result-highlight"><div class="label">Common Holdings</div><div class="value">${d.common_holdings}</div><div class="sub">Across ${d.fund1_total_holdings} and ${d.fund2_total_holdings} holdings</div></div>
-    </div>
-    <div class="table-container"><table class="data-table"><thead><tr><th>#</th><th>Security</th><th>${d.fund1_name}</th><th>${d.fund2_name}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  if (d.error) {
+    el.innerHTML = `<div class="alert alert-danger">${escapeHtml(d.error)}</div>`;
+    return;
+  }
+  el.innerHTML = renderOverlapResults(d);
 });
-</script>{% endblock %}
+
+function renderOverlapResults(d) {
+  const pairCards = d.pairs.map(pair => {
+    const tone = pair.overlap_score > 50 ? 'negative' : pair.overlap_score > 25 ? '' : 'positive';
+    return `
+      <div class="calc-result-highlight">
+        <div class="label">${escapeHtml(shortFund(pair.fund1_name))} vs ${escapeHtml(shortFund(pair.fund2_name))}</div>
+        <div class="value ${tone}">${pair.overlap_score.toFixed(1)}%</div>
+        <div class="sub">${pair.common_holdings} common holdings</div>
+      </div>
+    `;
+  }).join('');
+  const fundSummary = d.funds.map(f => `
+    <tr><td>${escapeHtml(f.name)}</td><td>${f.total_holdings}</td><td>${escapeHtml(f.source || 'unavailable')}</td></tr>
+  `).join('');
+  const rows = d.overlap.map((h, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(h.security_name)}</td>
+      ${h.weights.map(w => `<td>${w == null ? '<span class="muted">-</span>' : `<span class="positive">${w.toFixed(2)}%</span>`}</td>`).join('')}
+      <td>${h.present_count}/${d.funds.length}</td>
+    </tr>
+  `).join('');
+  const fundHeads = d.funds.map(f => `<th>${escapeHtml(shortFund(f.name))}</th>`).join('');
+  return `
+    <div class="grid-3" style="gap:12px;margin-bottom:16px">${pairCards}</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><div class="card-title">Fund Coverage</div><span class="muted" style="font-size:11px">All-common holdings: ${d.all_common_holdings}</span></div>
+      <div class="table-wrapper"><table><thead><tr><th>Fund</th><th>Holdings Used</th><th>Source</th></tr></thead><tbody>${fundSummary}</tbody></table></div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>#</th><th>Security</th>${fundHeads}<th>Present</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="${d.funds.length + 3}" class="muted">No common holdings found in the available top holdings data.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function shortFund(name) {
+  return String(name || '').replace(/ - Direct.*$/i, '').replace(/ - Growth.*$/i, '').slice(0, 34);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+</script>
+{% endblock %}

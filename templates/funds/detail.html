@@ -517,26 +517,70 @@
 <!-- TAB 6: MANAGERS -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div class="tab-panel" id="tab-managers">
-  {% if managers %}
-  <div class="grid-3" style="gap:16px">
-    {% for manager in managers %}
-    <div class="card" style="padding:20px;text-align:center">
-      <div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:white;margin:0 auto 12px">
-        {{ manager|first|upper }}
+  <div class="grid-3" style="gap:16px;margin-bottom:16px">
+    {% if manager_cards %}
+      {% for manager in manager_cards %}
+      <div class="card" style="padding:18px">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
+          <div style="width:48px;height:48px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:white;flex-shrink:0">
+            {{ manager.name|first|upper }}
+          </div>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:700">{{ manager.name }}</div>
+            <div style="font-size:11px;color:var(--text-muted)">{{ manager.role }} · {{ manager.source|default:"provider data" }}</div>
+          </div>
+        </div>
+        <div style="display:grid;gap:8px;font-size:12px">
+          <div><span class="muted">AMC</span><br>{{ manager.fund_house|default:"-" }}</div>
+          <div><span class="muted">Manager tenure/profile</span><br><span class="muted">Not exposed by current APIs</span></div>
+        </div>
       </div>
-      <div style="font-size:14px;font-weight:600">{{ manager }}</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Fund Manager</div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">{{ scheme.fund_house }}</div>
-    </div>
-    {% endfor %}
+      {% endfor %}
+    {% else %}
+      <div class="card" style="padding:18px">
+        <div style="font-size:13px;color:var(--text-muted)">Named manager data is not exposed by the available on-demand sources for this fund.</div>
+      </div>
+    {% endif %}
   </div>
-  {% else %}
-  <div class="card">
-    <div class="card-body chart-placeholder">
-      <span style="font-size:12px;color:var(--text-muted)">Manager data is not exposed by the available on-demand sources for this fund.</span>
+
+  <div class="grid-2" style="gap:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Management Context</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table>
+            <tbody>
+              <tr><td class="muted">Fund House</td><td>{{ scheme.fund_house|default:"-" }}</td></tr>
+              <tr><td class="muted">Inception / First NAV</td><td>{{ manager_context.start_date|default:"-" }}</td></tr>
+              <tr><td class="muted">AUM</td><td>{% if manager_context.aum %}Rs {{ manager_context.aum|floatformat:0 }} Cr{% else %}<span class="muted">-</span>{% endif %}</td></tr>
+              <tr><td class="muted">Expense Ratio</td><td>{% if manager_context.expense_ratio %}{{ manager_context.expense_ratio }}%{% else %}<span class="muted">-</span>{% endif %}</td></tr>
+              <tr><td class="muted">Portfolio Turnover</td><td>{% if manager_context.portfolio_turnover %}{{ manager_context.portfolio_turnover|floatformat:2 }}%{% else %}<span class="muted">-</span>{% endif %}</td></tr>
+              <tr><td class="muted">Rating</td><td>{% if manager_context.fund_rating %}{{ manager_context.fund_rating }}/5{% elif manager_context.crisil_rating %}{{ manager_context.crisil_rating }}{% else %}<span class="muted">-</span>{% endif %}</td></tr>
+              <tr><td class="muted">Benchmark</td><td>{{ manager_context.benchmark_name|default:"-" }}</td></tr>
+              <tr><td class="muted">Data Source</td><td>{{ manager_context.source|default:"-" }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Portfolio Managed</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px">
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px"><div class="stat-label">Holdings Used</div><div class="stat-value" style="font-size:22px">{{ manager_context.top_holdings_count }}</div><div class="stat-change">{{ manager_context.portfolio_source }}</div></div>
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px"><div class="stat-label">Sectors</div><div class="stat-value" style="font-size:22px">{{ manager_context.sector_count }}</div><div class="stat-change">Portfolio view</div></div>
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px"><div class="stat-label">3Y Sharpe</div><div class="stat-value" style="font-size:22px">{% if manager_context.risk_3y and manager_context.risk_3y.sharpe_ratio %}{{ manager_context.risk_3y.sharpe_ratio|floatformat:2 }}{% else %}-{% endif %}</div><div class="stat-change">NAV computed</div></div>
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px"><div class="stat-label">3Y Drawdown</div><div class="stat-value negative" style="font-size:22px">{% if manager_context.risk_3y and manager_context.risk_3y.max_drawdown %}{{ manager_context.risk_3y.max_drawdown|floatformat:1 }}%{% else %}-{% endif %}</div><div class="stat-change">NAV computed</div></div>
+        </div>
+        {% if manager_context.investment_objective %}
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">{{ manager_context.investment_objective|truncatechars:420 }}</div>
+        {% else %}
+        <div style="font-size:12px;color:var(--text-muted)">Investment objective is not exposed by the current metadata provider for this fund.</div>
+        {% endif %}
+      </div>
     </div>
   </div>
-  {% endif %}
 </div>
 
 {% endblock %}

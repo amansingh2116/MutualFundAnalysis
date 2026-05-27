@@ -210,59 +210,103 @@ def calc_tax_api(request):
         return JsonResponse({'error': str(e)}, status=400)
 
 
+def holding_key(holding) -> str:
+    isin = str(getattr(holding, 'isin', '') or '').strip().upper()
+    if isin:
+        return f'isin:{isin}'
+    name = str(getattr(holding, 'security_name', '') or '').strip().lower()
+    if not name:
+        return ''
+    return 'name:' + ' '.join(name.replace('&', 'and').split())
+
+
 @require_http_methods(["POST"])
 def calc_overlap_api(request):
-    """Fund Overlap: two AMFI codes → overlapping holdings list."""
+    """Fund Overlap: 2-3 AMFI codes -> pairwise scores and shared holdings."""
     d = _parse_body(request)
+    from apps.funds.models import Scheme
     try:
-        code1 = d.get('fund1')
-        code2 = d.get('fund2')
-        from apps.funds.models import Scheme
+        raw_codes = d.get('funds') or [d.get('fund1'), d.get('fund2'), d.get('fund3')]
+        codes = list(dict.fromkeys(str(code).strip() for code in raw_codes if str(code or '').strip()))[:3]
+        if len(codes) < 2:
+            return JsonResponse({'error': 'Select at least two funds to compare overlap.'}, status=400)
+
         from apps.funds.runtime import get_runtime_snapshot
+        from apps.funds.services import get_or_fetch_scheme
 
-        s1 = Scheme.objects.get(amfi_code=code1)
-        s2 = Scheme.objects.get(amfi_code=code2)
+        fund_rows = []
+        holding_maps = []
+        for code in codes:
+            scheme = get_or_fetch_scheme(code)
+            if not scheme:
+                return JsonResponse({'error': f'AMFI code {code} was not found.'}, status=404)
+            snap = get_runtime_snapshot(scheme)
+            holdings = {
+                holding_key(h): h
+                for h in snap.top_holdings
+                if holding_key(h) and h.weight_pct is not None
+            }
+            if not holdings:
+                return JsonResponse({'error': f'Holdings data is not available for {scheme.scheme_name} from the on-demand providers.'})
+            fund_rows.append({
+                'code': scheme.amfi_code,
+                'name': scheme.scheme_name,
+                'short_name': scheme.scheme_name[:55],
+                'total_holdings': len(holdings),
+                'source': snap.sources.portfolio,
+            })
+            holding_maps.append(holdings)
 
-        snap1 = get_runtime_snapshot(s1)
-        snap2 = get_runtime_snapshot(s2)
+        pairs = []
+        for i in range(len(holding_maps)):
+            for j in range(i + 1, len(holding_maps)):
+                common = set(holding_maps[i]) & set(holding_maps[j])
+                overlap_score = sum(
+                    min(float(holding_maps[i][key].weight_pct), float(holding_maps[j][key].weight_pct))
+                    for key in common
+                )
+                pairs.append({
+                    'i': i,
+                    'j': j,
+                    'fund1_code': fund_rows[i]['code'],
+                    'fund2_code': fund_rows[j]['code'],
+                    'fund1_name': fund_rows[i]['name'],
+                    'fund2_name': fund_rows[j]['name'],
+                    'common_holdings': len(common),
+                    'overlap_score': round(overlap_score, 2),
+                })
 
-        if not snap1.top_holdings or not snap2.top_holdings:
-            return JsonResponse({'error': 'Holdings data is not available for one or both funds from the on-demand providers.'})
-
-        h1 = {
-            h.security_name.strip().lower(): h
-            for h in snap1.top_holdings
-            if h.security_name and h.weight_pct is not None
-        }
-        h2 = {
-            h.security_name.strip().lower(): h
-            for h in snap2.top_holdings
-            if h.security_name and h.weight_pct is not None
-        }
-
-        common = set(h1.keys()) & set(h2.keys())
-        overlap = [{
-            'security_name': h1[key].security_name,
-            'weight_fund1': float(h1[key].weight_pct),
-            'weight_fund2': float(h2[key].weight_pct),
-        } for key in sorted(common, key=lambda x: -float(h1[x].weight_pct))]
-
-        # Overlap score: sum of min(w1, w2) for common stocks
-        overlap_score = sum(min(float(h1[n].weight_pct), float(h2[n].weight_pct)) for n in common)
+        all_keys = set().union(*(set(hmap) for hmap in holding_maps))
+        overlap = []
+        for key in all_keys:
+            weights = []
+            names = []
+            present_count = 0
+            for hmap in holding_maps:
+                holding = hmap.get(key)
+                if holding:
+                    present_count += 1
+                    names.append(holding.security_name)
+                    weights.append(round(float(holding.weight_pct), 2))
+                else:
+                    weights.append(None)
+            if present_count >= 2:
+                overlap.append({
+                    'security_name': names[0],
+                    'weights': weights,
+                    'present_count': present_count,
+                    'shared_weight': round(sum(w for w in weights if w is not None), 2),
+                })
+        overlap.sort(key=lambda row: (-row['present_count'], -row['shared_weight'], row['security_name']))
 
         return JsonResponse({
-            'fund1_name': s1.scheme_name,
-            'fund2_name': s2.scheme_name,
-            'common_holdings': len(common),
-            'fund1_total_holdings': len(h1),
-            'fund2_total_holdings': len(h2),
-            'overlap_score': round(overlap_score, 2),
-            'overlap': overlap[:30],
-            'source_1': snap1.portfolio_source,
-            'source_2': snap2.portfolio_source,
+            'funds': fund_rows,
+            'pairs': pairs,
+            'all_common_holdings': len([row for row in overlap if row['present_count'] == len(fund_rows)]),
+            'overlap': overlap[:60],
         })
     except Scheme.DoesNotExist:
-        return JsonResponse({'error': 'One or both AMFI codes not found.'}, status=404)
+        return JsonResponse({'error': 'One or more AMFI codes were not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 

@@ -51,6 +51,7 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+.cache/
 
 # MyPy
 .mypy_cache/

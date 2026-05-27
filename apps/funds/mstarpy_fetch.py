@@ -7,12 +7,18 @@ views call this helper in a separate Python process.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from difflib import SequenceMatcher
 from typing import Any
 
 
 def main() -> int:
+    os.environ.setdefault(
+        "SELENIUM_CHROME_FLAGS",
+        "--headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage",
+    )
+    os.environ.setdefault("SELENIUM_DRIVER_WAIT_TIME", "1")
     request = json.loads(sys.argv[1])
     terms = request.get("terms") or []
     expected_isin = str(request.get("expected_isin") or "").upper()

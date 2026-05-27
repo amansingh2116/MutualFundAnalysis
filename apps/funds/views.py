@@ -7,7 +7,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import DetailView, ListView, TemplateView
@@ -133,6 +133,8 @@ class FundDetailView(DetailView):
             'asset_alloc': runtime.asset_alloc,
             'benchmark_name': runtime.benchmark_name,
             'managers': runtime.managers,
+            'manager_cards': runtime.manager_cards,
+            'manager_context': runtime.manager_context,
             'nav_range_options': NAV_RANGE_OPTIONS,
         })
         return ctx
@@ -154,8 +156,15 @@ def fund_search_api(request):
 
     # Try DB first (fast when populated)
     db_schemes = (
-        Scheme.objects.filter(scheme_name__icontains=q, is_active=True)
-        .order_by('is_direct', 'scheme_name')[:limit]
+        Scheme.objects.filter(
+            Q(scheme_name__icontains=q)
+            | Q(fund_house__icontains=q)
+            | Q(isin_growth__icontains=q)
+            | Q(isin_idcw__icontains=q)
+            | Q(amfi_code__icontains=q),
+            is_active=True,
+        )
+        .order_by('-is_direct', 'scheme_name')[:limit]
     )
     if db_schemes.exists():
         results = [
