@@ -1,23 +1,221 @@
 {% extends "base.html" %}
 {% block title %}Your Recommendations{% endblock %}
 
+{% block extra_head %}
+<style>
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .profile-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  
+  .fund-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .fund-info h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    color: var(--text-primary);
+  }
+  .fund-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  
+  .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-core { background: rgba(59,130,246,0.1); color: var(--blue-500); }
+  .badge-satellite { background: rgba(168,85,247,0.1); color: var(--purple-500); }
+  
+  .analysis-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .analysis-card p {
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    line-height: 1.6;
+    font-size: 14.5px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
-  <div class="page-title">🎯 Your Fund Recommendations</div>
-  <div class="page-subtitle">Draft — based on your risk profile</div>
+  <div class="page-title">🎯 Your Mutual Fund Portfolio</div>
+  <div class="page-subtitle">Customized for a {{ profile.investor_archetype }}</div>
 </div>
-<div class="card">
+
+{% if red_flags %}
+<div class="card" style="margin-bottom:24px; border-left: 4px solid var(--red-500);">
   <div class="card-body">
-    <div class="alert alert-info">
-      🚧 <strong>Coming Soon</strong> — Full recommendation engine with fund selection, historical backtesting, and portfolio construction is under development.
+    <h3 style="color:var(--red-500); margin:0 0 12px 0;">⚠️ Red Flags Detected</h3>
+    <ul style="margin:0; padding-left:20px; color:var(--text-primary);">
+      {% for flag in red_flags %}
+      <li style="margin-bottom:4px;">{{ flag }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+{% if warnings %}
+<div class="card" style="margin-bottom:24px; border-left: 4px solid var(--yellow-500);">
+  <div class="card-body">
+    <h3 style="color:var(--yellow-500); margin:0 0 12px 0;">⚠️ Considerations</h3>
+    <ul style="margin:0; padding-left:20px; color:var(--text-primary);">
+      {% for w in warnings %}
+      <li style="margin-bottom:4px;">{{ w }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="profile-grid">
+  <div class="profile-stat">
+    <div class="stat-label">Risk Profile</div>
+    <div class="stat-value" style="text-transform: capitalize;">{{ profile.final_risk_profile }}</div>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Capacity: {{ profile.risk_capacity }} | Tolerance: {{ profile.risk_tolerance }}</div>
+  </div>
+  <div class="profile-stat">
+    <div class="stat-label">Recommended Strategy</div>
+    <div class="stat-value" style="text-transform: uppercase;">{{ profile.recommended_strategy }}</div>
+  </div>
+  <div class="profile-stat">
+    <div class="stat-label">Plan Style</div>
+    <div class="stat-value" style="text-transform: capitalize;">{{ profile.plan_style }} - {{ profile.option_style }}</div>
+  </div>
+  <div class="profile-stat">
+    <div class="stat-label">Review Frequency</div>
+    <div class="stat-value" style="text-transform: capitalize;">{{ profile.rebalance_frequency }}</div>
+  </div>
+</div>
+
+<div class="analysis-card">
+  <h3 style="margin: 0 0 16px 0; font-size: 18px;">💡 Why this portfolio?</h3>
+  <p>
+    Based on your inputs, your financial situation indicates a <strong>{{ profile.risk_capacity }}</strong> capacity to take risk, and your behavioral responses show a <strong>{{ profile.risk_tolerance }}</strong> tolerance for market volatility. We aligned your final risk profile to <strong>{{ profile.final_risk_profile }}</strong>.
+  </p>
+  <p>
+    Since your primary goal is <strong>{{ profile.get_goal_type_display }}</strong> over a horizon of <strong>{{ profile.get_goal_horizon_display }}</strong>, we designed an asset allocation of <strong>{{ profile.core_equity_pct }}% Core Equity</strong> for stable growth, <strong>{{ profile.satellite_pct }}% Satellite Equity</strong> for alpha generation, and <strong>{{ profile.core_debt_pct }}% Debt</strong> for downside protection.
+  </p>
+  <p style="margin-bottom: 0;">
+    The funds below were selected by our quantitative engine, scoring top decile funds in their respective categories based on consistent 3-year performance, risk-adjusted returns (Sharpe Ratio), and low expense ratios.
+  </p>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 2fr; gap:24px; align-items: start; margin-bottom: 24px;">
+  <div class="card">
+    <div class="card-header"><h3 style="margin:0;font-size:16px;">Target Allocation</h3></div>
+    <div class="card-body">
+      <div id="allocation-chart" style="width:100%; height:250px;"></div>
     </div>
-    <p style="color:var(--text-secondary);font-size:13px;margin-top:12px">
-      Based on your inputs, we'll recommend a diversified portfolio of Direct Growth mutual funds tailored to your risk profile, time horizon, and goals.
-    </p>
-    <div style="margin-top:20px">
-      <a href="{% url 'recommendations:engine' %}" class="btn btn-secondary">← Retake Questionnaire</a>
-      <a href="{% url 'funds:category_list' %}" class="btn btn-primary" style="margin-left:8px">Browse Funds Instead →</a>
+  </div>
+  
+  <div class="card">
+    <div class="card-header"><h3 style="margin:0;font-size:16px;">Recommended Funds</h3></div>
+    <div class="card-body" style="padding: 12px;">
+      {% if recommendations %}
+        {% for rec in recommendations %}
+        <div class="fund-card">
+          <div class="fund-info">
+            <h4><a href="{% url 'funds:detail' rec.scheme.amfi_code %}" style="color:var(--text-primary); text-decoration:none;">{{ rec.scheme.scheme_name }}</a></h4>
+            <div class="fund-meta">{{ rec.category }}</div>
+            <div class="fund-meta" style="margin-top:4px; font-size:12px; color:var(--text-primary)"><em>Why?</em> {{ rec.reason }}</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="badge {% if rec.role == 'core' %}badge-core{% else %}badge-satellite{% endif %}">{{ rec.role }}</div>
+            {% if rec.score %}
+            <div style="margin-top:8px; font-size:12px; font-weight:bold; color:var(--green-500);">Score: {{ rec.score }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="alert alert-warning">No funds found matching your exact criteria.</div>
+      {% endif %}
     </div>
   </div>
 </div>
+
+<div style="text-align:center; margin-bottom: 40px;">
+  <a href="{% url 'recommendations:backtest' %}" class="btn btn-primary" style="padding: 12px 24px; font-size: 16px;">Run 5-Year Backtest →</a>
+  <br>
+  <a href="{% url 'recommendations:engine' %}?edit=1" style="display:inline-block; margin-top:16px; color:var(--text-muted); text-decoration:underline;">Edit Profile & Regenerate Recommendations</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function renderChart() {
+    if (typeof Plotly === 'undefined') {
+        setTimeout(renderChart, 100);
+        return;
+    }
+    const data = [{
+      values: [{{ profile.core_equity_pct }}, {{ profile.core_debt_pct }}, {{ profile.satellite_pct }}],
+      labels: ['Core Equity', 'Core Debt', 'Satellite'],
+      type: 'pie',
+      hole: .6,
+      textinfo: 'label+percent',
+      textposition: 'inside',
+      marker: {
+        colors: ['#3b82f6', '#10b981', '#a855f7']
+      },
+      showlegend: false
+    }];
+
+    const layout = {
+      margin: { t: 10, b: 10, l: 10, r: 10 },
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: getComputedStyle(document.body).getPropertyValue('--text-primary') }
+    };
+
+    Plotly.newPlot('allocation-chart', data, layout, {displayModeBar: false, responsive: true});
+  }
+
+  // Ensure Plotly is ready before trying to plot
+  if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', renderChart);
+  } else {
+      renderChart();
+  }
+</script>
 {% endblock %}

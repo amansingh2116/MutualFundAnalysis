@@ -1,66 +1,289 @@
 {% extends "base.html" %}
 {% block title %}Fund Recommendations{% endblock %}
 
+{% block extra_head %}
+<style>
+  .step-container {
+    display: none;
+    animation: fadeIn 0.4s;
+  }
+  .step-container.active {
+    display: block;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .wizard-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    position: relative;
+  }
+  .wizard-progress::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+  }
+  .progress-step {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    z-index: 1;
+    transition: all 0.3s ease;
+  }
+  .progress-step.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+  .progress-step.completed {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+  .form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+    color: var(--text-primary);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
-  <div class="page-title">🎯 Fund Recommendations</div>
-  <div class="page-subtitle">Answer 5 quick questions to get a curated mutual fund portfolio matched to your risk profile.</div>
+  <div class="page-title">🎯 Mutual Fund Recommendations</div>
+  <div class="page-subtitle">Build your custom portfolio in 3 easy steps.</div>
 </div>
 
 <div style="max-width:640px;margin:0 auto">
-  <div class="card" style="margin-bottom:20px">
-    <div class="card-body">
-      <div class="alert alert-info" style="margin-bottom:20px">
-        🚧 <strong>Draft Implementation</strong> — This feature is currently being developed. The questionnaire is displayed for preview. Full recommendations with backtesting will be added in a future update.
+  <div class="card" style="margin-bottom:20px; padding: 24px;">
+    
+    <div class="wizard-progress">
+      <div class="progress-step active" id="indicator-1">1</div>
+      <div class="progress-step" id="indicator-2">2</div>
+      <div class="progress-step" id="indicator-3">3</div>
+    </div>
+
+    <form method="post" action="{% url 'recommendations:engine' %}" id="rec-form">
+      {% csrf_token %}
+      
+      <!-- STEP 1 -->
+      <div class="step-container active" id="step-1">
+        <h3 style="margin-bottom: 20px;">Step 1: About You</h3>
+        
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Your Age</label>
+          <input type="number" class="form-control" name="age" placeholder="e.g. 30" value="{{ profile.age|default_if_none:'' }}" required>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Number of Dependents</label>
+          <input type="number" class="form-control" name="dependents" value="{{ profile.dependents|default:0 }}" required>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Income Stability</label>
+          <select class="form-control" name="income_stability">
+            <option value="stable" {% if profile.income_stability == 'stable' or not profile %}selected{% endif %}>Stable Salary (Corporate / Govt)</option>
+            <option value="variable" {% if profile.income_stability == 'variable' %}selected{% endif %}>Variable (Business owner)</option>
+            <option value="irregular" {% if profile.income_stability == 'irregular' %}selected{% endif %}>Irregular (Freelancer)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Monthly Income (₹)</label>
+          <input type="number" class="form-control" name="monthly_income" placeholder="e.g. 100000" value="{{ profile.monthly_income|default_if_none:'' }}" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Emergency Fund Saved (Months of Expenses)</label>
+          <input type="number" class="form-control" name="emergency_fund_months" value="{{ profile.emergency_fund_months|default:3 }}" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:24px">
+          <label>Current Debt Load</label>
+          <select class="form-control" name="debt_load">
+            <option value="none" {% if profile.debt_load == 'none' %}selected{% endif %}>No Debt</option>
+            <option value="low" {% if profile.debt_load == 'low' or not profile %}selected{% endif %}>Low (Standard EMI, Home Loan)</option>
+            <option value="moderate" {% if profile.debt_load == 'moderate' %}selected{% endif %}>Moderate</option>
+            <option value="high" {% if profile.debt_load == 'high' %}selected{% endif %}>High Burden (Personal Loans / Credit Card)</option>
+          </select>
+        </div>
+
+        <button type="button" class="btn btn-primary next-btn" data-next="2" style="width:100%;justify-content:center">Next →</button>
       </div>
 
-      <form method="post" action="{% url 'recommendations:result' %}">
-        {% csrf_token %}
-        <div class="form-group" style="margin-bottom:24px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">1. What is your investment horizon?</div>
-          <select class="form-control" name="horizon">
-            <option value="short">Less than 3 years</option>
-            <option value="medium" selected>3–7 years</option>
-            <option value="long">More than 7 years</option>
+      <!-- STEP 2 -->
+      <div class="step-container" id="step-2">
+        <h3 style="margin-bottom: 20px;">Step 2: Your Goal</h3>
+        
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Primary Goal</label>
+          <select class="form-control" name="goal_type">
+            <option value="wealth" {% if profile.goal_type == 'wealth' or not profile %}selected{% endif %}>Wealth Creation</option>
+            <option value="retirement" {% if profile.goal_type == 'retirement' %}selected{% endif %}>Retirement</option>
+            <option value="house" {% if profile.goal_type == 'house' %}selected{% endif %}>Buying a House</option>
+            <option value="education" {% if profile.goal_type == 'education' %}selected{% endif %}>Child Education</option>
+            <option value="emergency" {% if profile.goal_type == 'emergency' %}selected{% endif %}>Emergency Fund</option>
+            <option value="tax_saving" {% if profile.goal_type == 'tax_saving' %}selected{% endif %}>Tax Saving</option>
+            <option value="income" {% if profile.goal_type == 'income' %}selected{% endif %}>Regular Income</option>
           </select>
         </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Investment Horizon</label>
+          <select class="form-control" name="goal_horizon">
+            <option value="1y" {% if profile.goal_horizon == '1y' %}selected{% endif %}>Less than 1 Year</option>
+            <option value="1_3y" {% if profile.goal_horizon == '1_3y' %}selected{% endif %}>1-3 Years</option>
+            <option value="3_5y" {% if profile.goal_horizon == '3_5y' %}selected{% endif %}>3-5 Years</option>
+            <option value="5_10y" {% if profile.goal_horizon == '5_10y' or not profile %}selected{% endif %}>5-10 Years</option>
+            <option value="10y_plus" {% if profile.goal_horizon == '10y_plus' %}selected{% endif %}>10+ Years</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Liquidity Need (Might you need the money early?)</label>
+          <select class="form-control" name="liquidity_need">
+            <option value="low" {% if profile.liquidity_need == 'low' or not profile %}selected{% endif %}>Low (I will not touch this money)</option>
+            <option value="medium" {% if profile.liquidity_need == 'medium' %}selected{% endif %}>Medium</option>
+            <option value="high" {% if profile.liquidity_need == 'high' %}selected{% endif %}>High (Might need to withdraw anytime)</option>
+          </select>
+        </div>
+
         <div class="form-group" style="margin-bottom:24px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">2. How would you react if your portfolio fell 30% in a year?</div>
+          <label>Tax Sensitivity</label>
+          <select class="form-control" name="tax_sensitivity">
+            <option value="low" {% if profile.tax_sensitivity == 'low' %}selected{% endif %}>Low</option>
+            <option value="medium" {% if profile.tax_sensitivity == 'medium' or not profile %}selected{% endif %}>Medium</option>
+            <option value="high" {% if profile.tax_sensitivity == 'high' %}selected{% endif %}>High (Need to save taxes)</option>
+          </select>
+        </div>
+
+        <div style="display:flex; gap:12px;">
+          <button type="button" class="btn btn-secondary prev-btn" data-prev="1" style="flex:1;justify-content:center">← Back</button>
+          <button type="button" class="btn btn-primary next-btn" data-next="3" style="flex:2;justify-content:center">Next →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="step-container" id="step-3">
+        <h3 style="margin-bottom: 20px;">Step 3: Your Style</h3>
+        
+        <div class="form-group" style="margin-bottom:20px">
+          <label>If your portfolio falls 30% in a year, you would:</label>
           <select class="form-control" name="loss_reaction">
-            <option value="panic">Sell everything immediately</option>
-            <option value="concerned">Be concerned but hold</option>
-            <option value="calm" selected>Stay calm — it's long-term</option>
-            <option value="buy_more">Buy more at lower prices</option>
+            <option value="sell" {% if profile.loss_reaction == 'sell' %}selected{% endif %}>Panic and Sell</option>
+            <option value="concerned" {% if profile.loss_reaction == 'concerned' %}selected{% endif %}>Be concerned but hold</option>
+            <option value="calm" {% if profile.loss_reaction == 'calm' or not profile %}selected{% endif %}>Stay calm — it's long-term</option>
+            <option value="buy_more" {% if profile.loss_reaction == 'buy_more' %}selected{% endif %}>Buy more at lower prices</option>
           </select>
         </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Investing Experience</label>
+          <select class="form-control" name="investing_experience">
+            <option value="beginner" {% if profile.investing_experience == 'beginner' %}selected{% endif %}>Beginner</option>
+            <option value="intermediate" {% if profile.investing_experience == 'intermediate' or not profile %}selected{% endif %}>Intermediate</option>
+            <option value="expert" {% if profile.investing_experience == 'expert' %}selected{% endif %}>Expert</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>How will you invest?</label>
+          <select class="form-control" name="income_type">
+            <option value="salary" {% if profile.income_type == 'salary' or not profile %}selected{% endif %}>Monthly out of salary</option>
+            <option value="variable" {% if profile.income_type == 'variable' %}selected{% endif %}>Whenever I have surplus</option>
+            <option value="lumpsum" {% if profile.income_type == 'lumpsum' %}selected{% endif %}>I have a lump sum right now</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Payout Preference</label>
+          <select class="form-control" name="payout_preference">
+            <option value="growth" {% if profile.payout_preference == 'growth' or not profile %}selected{% endif %}>Growth (Reinvest profits - Recommended)</option>
+            <option value="idcw" {% if profile.payout_preference == 'idcw' %}selected{% endif %}>IDCW (Pay out dividends)</option>
+          </select>
+        </div>
+
         <div class="form-group" style="margin-bottom:24px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">3. What is your primary investment goal?</div>
-          <select class="form-control" name="goal">
-            <option value="preservation">Capital preservation</option>
-            <option value="income">Regular income</option>
-            <option value="balanced">Balanced growth</option>
-            <option value="growth" selected>Aggressive growth</option>
+          <label>Investment Approach</label>
+          <select class="form-control" name="hands_on">
+            <option value="simple" {% if profile.hands_on == 'simple' or not profile %}selected{% endif %}>Keep it simple (Core funds only)</option>
+            <option value="active" {% if profile.hands_on == 'active' %}selected{% endif %}>I'm okay with some thematic/active bets</option>
           </select>
         </div>
-        <div class="form-group" style="margin-bottom:24px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">4. What % of your monthly income are you investing?</div>
-          <select class="form-control" name="savings_rate">
-            <option value="low">Less than 10%</option>
-            <option value="medium" selected>10–30%</option>
-            <option value="high">More than 30%</option>
-          </select>
+
+        <div style="display:flex; gap:12px;">
+          <button type="button" class="btn btn-secondary prev-btn" data-prev="2" style="flex:1;justify-content:center">← Back</button>
+          <button type="submit" class="btn btn-primary" style="flex:2;justify-content:center">Get My Portfolio →</button>
         </div>
-        <div class="form-group" style="margin-bottom:24px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">5. Investment experience</div>
-          <select class="form-control" name="experience">
-            <option value="beginner">Beginner — first MF investment</option>
-            <option value="intermediate" selected>Intermediate — invested 1–3 years</option>
-            <option value="expert">Expert — 3+ years, understand volatility</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Get My Recommendations →</button>
-      </form>
-    </div>
+      </div>
+      
+    </form>
   </div>
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const nextBtns = document.querySelectorAll('.next-btn');
+    const prevBtns = document.querySelectorAll('.prev-btn');
+    
+    function showStep(stepNum) {
+      document.querySelectorAll('.step-container').forEach(el => el.classList.remove('active'));
+      document.getElementById('step-' + stepNum).classList.add('active');
+      
+      // Update indicators
+      document.querySelectorAll('.progress-step').forEach(el => {
+        el.classList.remove('active', 'completed');
+        const num = parseInt(el.textContent);
+        if (num < stepNum) {
+          el.classList.add('completed');
+        } else if (num == stepNum) {
+          el.classList.add('active');
+        }
+      });
+    }
+
+    nextBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        // Simple HTML5 validation check
+        const currentStep = btn.closest('.step-container');
+        const inputs = currentStep.querySelectorAll('input[required]');
+        let valid = true;
+        inputs.forEach(i => {
+          if(!i.checkValidity()) {
+            i.reportValidity();
+            valid = false;
+          }
+        });
+        if(valid) {
+          showStep(btn.dataset.next);
+        }
+      });
+    });
+
+    prevBtns.forEach(btn => {
+      btn.addEventListener('click', () => showStep(btn.dataset.prev));
+    });
+  });
+</script>
 {% endblock %}
