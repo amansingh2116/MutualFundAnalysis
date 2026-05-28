@@ -15,6 +15,7 @@ urlpatterns = [
     path('overlap/', views.overlap_view, name='overlap'),
     path('rolling/', views.rolling_view, name='rolling'),
     path('step-sip/', views.step_sip_view, name='step_sip'),
+    path('compare/', views.compare_view, name='compare'),
     # API endpoints
     path('api/sip/', views.calc_sip_api, name='api_sip'),
     path('api/lumpsum/', views.calc_lumpsum_api, name='api_lumpsum'),
@@ -24,4 +25,9 @@ urlpatterns = [
     path('api/overlap/', views.calc_overlap_api, name='api_overlap'),
     path('api/xirr/', views.calc_xirr_api, name='api_xirr'),
     path('api/step-sip/', views.calc_step_sip_api, name='api_step_sip'),
+    # Historical NAV-based endpoints
+    path('api/nav-sip/',      views.calc_nav_sip_api,      name='api_nav_sip'),
+    path('api/nav-swp/',      views.calc_nav_swp_api,      name='api_nav_swp'),
+    path('api/nav-lumpsum/',  views.calc_nav_lumpsum_api,  name='api_nav_lumpsum'),
+    path('api/nav-step-sip/', views.calc_nav_step_sip_api, name='api_nav_step_sip'),
 ]

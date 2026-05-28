@@ -160,29 +160,42 @@ def fund_search_api(request):
         .order_by('-is_direct', 'scheme_name')[:limit]
     )
     if db_schemes.exists():
-        results = [
-            {
-                'amfi_code':      s.amfi_code,
-                'scheme_name':    s.scheme_name,
-                'fund_house':     s.fund_house,
+        results = []
+        for s in db_schemes:
+            inception = None
+            try:
+                # 1. Try SchemeMeta start_date
+                if hasattr(s, 'meta') and s.meta and s.meta.start_date:
+                    inception = s.meta.start_date.isoformat()
+                else:
+                    # 2. Fallback to the very first NAV record date
+                    first_nav = s.nav_history.order_by('date').first()
+                    if first_nav:
+                        inception = first_nav.date.isoformat()
+            except Exception:
+                pass
+            results.append({
+                'amfi_code':       s.amfi_code,
+                'scheme_name':     s.scheme_name,
+                'fund_house':      s.fund_house,
                 'scheme_category': s.scheme_category,
-                'nav_latest':     str(s.nav_latest) if s.nav_latest else None,
-                'source':         'db',
-            }
-            for s in db_schemes
-        ]
+                'nav_latest':      str(s.nav_latest) if s.nav_latest else None,
+                'inception_date':  inception,
+                'source':          'db',
+            })
         return JsonResponse({'results': results})
 
     # Fallback: AMFI cache (works with empty DB)
     cache_results = search_amfi_cache(q, limit=limit)
     results = [
         {
-            'amfi_code':      r['amfi_code'],
-            'scheme_name':    r['scheme_name'],
-            'fund_house':     r['amc_name'],
+            'amfi_code':       r['amfi_code'],
+            'scheme_name':     r['scheme_name'],
+            'fund_house':      r['amc_name'],
             'scheme_category': '',
-            'nav_latest':     r.get('nav') or None,
-            'source':         'cache',
+            'nav_latest':      r.get('nav') or None,
+            'inception_date':  None,  # not available in AMFI cache
+            'source':          'cache',
         }
         for r in cache_results
     ]

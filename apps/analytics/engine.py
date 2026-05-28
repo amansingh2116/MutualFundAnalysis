@@ -408,16 +408,6 @@ def simulate_sip(
 ) -> Optional[dict]:
     """
     Simulate a monthly SIP investment and compute XIRR.
-
-    Args:
-        nav_series: pd.Series indexed by date, values are NAV
-        monthly_amount: monthly investment in rupees
-        start_date: start of SIP (defaults to series start)
-
-    Returns:
-        dict with total_invested, current_value, absolute_gain,
-        absolute_return_pct, xirr_pct, units_held, sip_instalments,
-        avg_cost, current_nav
     """
     if start_date is None:
         start_date = nav_series.index[0]
@@ -434,6 +424,8 @@ def simulate_sip(
     invested   = 0.0
     cashflows  = []
     dates      = []
+    history    = []
+    instalment_count = 0
 
     for ts, nav_val in monthly.items():
         if nav_val <= 0:
@@ -442,27 +434,200 @@ def simulate_sip(
         invested   += monthly_amount
         cashflows.append(-monthly_amount)
         dates.append(ts.to_pydatetime())
+        instalment_count += 1
+        
+        if instalment_count % 12 == 0:
+            current_value = units_held * float(nav_val)
+            history.append({
+                'year': instalment_count // 12,
+                'invested': round(invested, 2),
+                'value': round(current_value, 2),
+                'gain': round(current_value - invested, 2)
+            })
 
     final_nav   = float(nav_series.iloc[-1])
     final_value = units_held * final_nav
     cashflows.append(final_value)
     dates.append(nav_series.index[-1].to_pydatetime())
+    
+    if instalment_count % 12 != 0 and instalment_count > 0:
+        history.append({
+            'year': (instalment_count // 12) + 1,
+            'invested': round(invested, 2),
+            'value': round(final_value, 2),
+            'gain': round(final_value - invested, 2)
+        })
 
     xirr = _compute_xirr(cashflows, dates)
+    years = (nav_series.index[-1] - nav_series.index[0]).days / 365.25
 
     return {
         'total_invested':      round(invested, 2),
         'current_value':       round(final_value, 2),
         'absolute_gain':       round(final_value - invested, 2),
         'absolute_return_pct': round((final_value / invested - 1) * 100, 2) if invested > 0 else None,
-        'xirr_pct':            round(xirr * 100, 2) if xirr is not None else None,
+        'cagr':                round(xirr * 100, 2) if xirr is not None else None,
         'units_held':          round(units_held, 4),
-        'sip_instalments':     len(monthly),
+        'sip_instalments':     instalment_count,
         'avg_cost':            round(invested / units_held, 4) if units_held > 0 else None,
         'current_nav':         final_nav,
+        'history':             history,
     }
 
 
+# ── Lumpsum Simulation ─────────────────────────────────────────────────────────
+
+def simulate_lumpsum(
+    nav_series: pd.Series,
+    principal: float = 100000,
+    start_date=None,
+) -> Optional[dict]:
+    """
+    Simulate a lump sum investment.
+    """
+    if start_date is None:
+        start_date = nav_series.index[0]
+
+    nav_series = nav_series.copy()
+    nav_series = nav_series[nav_series.index >= pd.Timestamp(start_date)]
+
+    if len(nav_series) < 2:
+        return None
+
+    start_nav = float(nav_series.iloc[0])
+    end_nav = float(nav_series.iloc[-1])
+    
+    if start_nav <= 0:
+        return None
+
+    units = principal / start_nav
+    current_value = units * end_nav
+    days = (nav_series.index[-1] - nav_series.index[0]).days
+    years = days / 365.25
+    cagr = _cagr(principal, current_value, years) if years > 0 else None
+
+    history = []
+    start_ts = nav_series.index[0]
+    for yr in range(1, int(math.ceil(years)) + 1):
+        target_date = start_ts + pd.DateOffset(years=yr)
+        if target_date > nav_series.index[-1]:
+            target_date = nav_series.index[-1]
+        
+        subset = nav_series[nav_series.index <= target_date]
+        if len(subset) > 0:
+            val = units * float(subset.iloc[-1])
+            history.append({
+                'year': yr,
+                'invested': round(principal, 2),
+                'value': round(val, 2),
+                'gain': round(val - principal, 2)
+            })
+        if target_date == nav_series.index[-1]:
+            break
+
+    return {
+        'principal': principal,
+        'current_value': round(current_value, 2),
+        'gain': round(current_value - principal, 2),
+        'absolute_gain': round(current_value - principal, 2),
+        'return_pct': round((current_value / principal - 1) * 100, 2),
+        'absolute_return_pct': round((current_value / principal - 1) * 100, 2),
+        'cagr': cagr,
+        'duration_days': days,
+        'years': round(years, 2),
+        'units_held': round(units, 4),
+        'start_nav': start_nav,
+        'end_nav': end_nav,
+        'history': history,
+    }
+
+
+# ── SWP Simulation ─────────────────────────────────────────────────────────────
+
+def simulate_swp(
+    nav_series: pd.Series,
+    corpus: float = 1000000,
+    monthly_withdrawal: float = 10000,
+    start_date=None,
+) -> Optional[dict]:
+    """
+    Simulate a Systematic Withdrawal Plan.
+    Assumes corpus is invested at start_date, and withdrawals happen monthly.
+    """
+    if start_date is None:
+        start_date = nav_series.index[0]
+
+    nav_series = nav_series.copy()
+    nav_series.index = pd.to_datetime(nav_series.index)
+    
+    nav_series = nav_series[nav_series.index >= pd.Timestamp(start_date)]
+    if len(nav_series) < 2:
+        return None
+
+    initial_nav = float(nav_series.iloc[0])
+    if initial_nav <= 0:
+        return None
+
+    units_held = corpus / initial_nav
+    
+    monthly = nav_series.resample('MS').first().dropna()
+    
+    months = 0
+    total_withdrawn = 0
+    history = []
+    
+    # Record initial state
+    history.append({'month': 0, 'balance': round(corpus, 2), 'withdrawn_cumulative': 0, 'interest_cumulative': 0})
+    
+    for ts, nav_val in monthly.items():
+        if nav_val <= 0:
+            continue
+            
+        current_value = units_held * float(nav_val)
+        if current_value <= 0:
+            break
+            
+        # Withdraw
+        withdrawal_amount = min(monthly_withdrawal, current_value)
+        units_to_sell = withdrawal_amount / float(nav_val)
+        
+        units_held -= units_to_sell
+        total_withdrawn += withdrawal_amount
+        months += 1
+        
+        new_value = units_held * float(nav_val) # after withdrawal
+        current_gains = new_value + total_withdrawn - corpus
+        
+        history.append({
+            'month': months,
+            'balance': max(0, round(new_value, 2)),
+            'withdrawn_cumulative': round(total_withdrawn, 2),
+            'interest_cumulative': round(current_gains, 2)
+        })
+        
+        if units_held <= 1e-6:
+            units_held = 0
+            break
+
+    final_nav = float(nav_series.iloc[-1]) if units_held > 0 else 0
+    remaining_corpus = units_held * final_nav
+    total_interest_earned = remaining_corpus + total_withdrawn - corpus
+    
+    fund_years = (nav_series.index[-1] - nav_series.index[0]).days / 365.25
+    fund_cagr = _cagr(initial_nav, nav_series.iloc[-1], fund_years) if fund_years > 0 else 0
+
+    return {
+        'months_sustained': months,
+        'years_sustained': round(months / 12, 1),
+        'total_withdrawn': round(total_withdrawn, 2),
+        'remaining_corpus': round(remaining_corpus, 2),
+        'total_interest_earned': round(total_interest_earned, 2),
+        'gain_from_corpus': round(total_interest_earned, 2),
+        'corpus': corpus,
+        'monthly_withdrawal': monthly_withdrawal,
+        'fund_cagr': fund_cagr,
+        'history': history,
+    }
 # ── Helper functions ───────────────────────────────────────────────────────────
 
 def _cagr(start_val, end_val, years: float) -> Optional[float]:

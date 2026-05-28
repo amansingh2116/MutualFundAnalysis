@@ -71,6 +71,7 @@
       {% endif %}
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
+      <a href="{% url 'calculators:compare' %}?funds={{ scheme.amfi_code }}" class="btn btn-secondary btn-sm">⚖️ Compare</a>
       <a href="{% url 'funds:export_pdf' scheme.amfi_code %}" class="btn btn-secondary btn-sm">📄 Export Report</a>
     </div>
   </div>

@@ -47,7 +47,12 @@
           <td class="muted">{% if s.expense_ratio %}{{ s.expense_ratio }}%{% else %}—{% endif %}</td>
           <td class="muted">{% if s.nav_latest %}₹{{ s.nav_latest }}{% else %}—{% endif %}</td>
           <td>{% if s.is_direct %}<span class="pill pill-indigo">Direct</span>{% else %}<span class="pill pill-gray">Regular</span>{% endif %}</td>
-          <td><a href="{% url 'funds:detail' s.amfi_code %}" class="btn btn-secondary btn-sm">View →</a></td>
+          <td>
+            <div style="display: flex; gap: 4px;">
+              <a href="{% url 'calculators:compare' %}?funds={{ s.amfi_code }}" class="btn btn-secondary btn-sm" title="Compare Fund">⚖️</a>
+              <a href="{% url 'funds:detail' s.amfi_code %}" class="btn btn-secondary btn-sm">View →</a>
+            </div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

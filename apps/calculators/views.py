@@ -55,6 +55,56 @@ def step_sip_view(request):
     return render(request, 'calculators/step_sip.html')
 
 
+def compare_view(request):
+    """
+    Side-by-side fund comparison view.
+    Accepts ?funds=120503,118285 (up to 4 funds).
+    """
+    from apps.funds.runtime import get_runtime_snapshot
+    from apps.funds.services import get_or_fetch_scheme
+    
+    funds_param = request.GET.get('funds', '')
+    amfi_codes = [c.strip() for c in funds_param.split(',') if c.strip()][:4]
+    
+    compare_data = []
+    
+    for code in amfi_codes:
+        scheme = get_or_fetch_scheme(code)
+        if not scheme:
+            continue
+            
+        snap = get_runtime_snapshot(scheme)
+        
+        # Calculate some PE ratio if holding data has forward_pe
+        pe_ratios = [h.forward_pe for h in snap.top_holdings if getattr(h, 'forward_pe', None)]
+        avg_pe = sum(pe_ratios)/len(pe_ratios) if pe_ratios else None
+        
+        fund_data = {
+            'amfi_code': scheme.amfi_code,
+            'scheme_name': scheme.scheme_name,
+            'fund_house': scheme.fund_house,
+            'category': getattr(snap, 'category', None),
+            'aum': getattr(snap.meta, 'aum', None),
+            'expense_ratio': getattr(snap.meta, 'expense_ratio', None),
+            'exit_load': 'See KIM', # Not explicitly in meta model easily available
+            'lock_in_period': getattr(snap.meta, 'lock_in_period', None),
+            'tax_period': getattr(snap.meta, 'tax_period', None),
+            'min_lumpsum': getattr(snap.meta, 'lump_min', None),
+            'min_sip': getattr(snap.meta, 'sip_min', None),
+            'inception_date': getattr(snap.meta, 'start_date', None),
+            'objective': getattr(snap.meta, 'investment_objective', None),
+            'crisil_rating': getattr(snap.meta, 'crisil_rating', None),
+            'ms_rating': getattr(snap.meta, 'ms_rating', None),
+            'pe_ratio': avg_pe,
+            'trailing': {r.period: r.cagr_pct for r in snap.trailing_returns} if snap.trailing_returns else {},
+            'rolling': snap.rolling_returns.get('3Y') if snap.rolling_returns else None,
+            'risk': snap.risk_3y, # Default to 3Y risk metrics
+        }
+        compare_data.append(fund_data)
+        
+    return render(request, 'calculators/compare.html', {'compare_data': compare_data, 'amfi_codes_str': ','.join(amfi_codes)})
+
+
 # ── Calculator API Endpoints ──────────────────────────────────
 
 def _parse_body(request):
@@ -66,27 +116,48 @@ def _parse_body(request):
 
 @require_http_methods(["POST"])
 def calc_sip_api(request):
-    """SIP Calculator: monthly_amount, years, expected_rate (%) → results."""
+    """SIP Calculator: monthly_amount, years, expected_rate (%) → results + year-by-year history."""
     d = _parse_body(request)
     try:
         monthly = float(d.get('monthly_amount', 10000))
         years = float(d.get('years', 10))
-        rate = float(d.get('expected_rate', 12)) / 100 / 12  # monthly rate
+        annual_rate = float(d.get('expected_rate', 12))
+        rate = annual_rate / 100 / 12  # monthly rate
         n = int(years * 12)
-        if rate == 0:
-            future_value = monthly * n
-        else:
-            future_value = monthly * ((((1 + rate) ** n) - 1) / rate) * (1 + rate)
+
+        # Build year-by-year history for the growth chart
+        history = []
+        total_value = 0
+        total_invested_running = 0
+        for yr in range(1, int(years) + 1):
+            for _ in range(12):
+                total_invested_running += monthly
+                if rate == 0:
+                    total_value += monthly
+                else:
+                    total_value = (total_value + monthly) * (1 + rate)
+            gain_yr = total_value - total_invested_running
+            history.append({
+                'year': yr,
+                'invested': round(total_invested_running, 2),
+                'value': round(total_value, 2),
+                'gain': round(gain_yr, 2),
+            })
+
         invested = monthly * n
+        future_value = total_value
         gain = future_value - invested
+        cagr = ((future_value / invested) ** (1 / years) - 1) * 100 if invested > 0 and years > 0 else 0
         return JsonResponse({
             'total_invested': round(invested, 2),
             'future_value': round(future_value, 2),
             'gain': round(gain, 2),
-            'return_pct': round((gain / invested) * 100, 2),
+            'return_pct': round((gain / invested) * 100, 2) if invested else 0,
+            'cagr': round(cagr, 2),
             'monthly_amount': monthly,
             'years': years,
             'n_instalments': n,
+            'history': history,
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
@@ -99,6 +170,16 @@ def calc_lumpsum_api(request):
         principal = float(d.get('principal', 100000))
         years = float(d.get('years', 10))
         rate = float(d.get('expected_rate', 12)) / 100
+        # Year-by-year history
+        history = []
+        for yr in range(1, int(years) + 1):
+            val = principal * ((1 + rate) ** yr)
+            history.append({
+                'year': yr,
+                'invested': round(principal, 2),
+                'value': round(val, 2),
+                'gain': round(val - principal, 2),
+            })
         future_value = principal * ((1 + rate) ** years)
         gain = future_value - principal
         return JsonResponse({
@@ -106,7 +187,9 @@ def calc_lumpsum_api(request):
             'future_value': round(future_value, 2),
             'gain': round(gain, 2),
             'return_pct': round((gain / principal) * 100, 2),
+            'cagr': round(rate * 100, 2),
             'years': years,
+            'history': history,
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
@@ -114,7 +197,7 @@ def calc_lumpsum_api(request):
 
 @require_http_methods(["POST"])
 def calc_swp_api(request):
-    """SWP: corpus, monthly_withdrawal, expected_rate → months until exhausted."""
+    """SWP: corpus, monthly_withdrawal, expected_rate → months until exhausted + full monthly history."""
     d = _parse_body(request)
     try:
         corpus = float(d.get('corpus', 1000000))
@@ -123,18 +206,39 @@ def calc_swp_api(request):
         balance = corpus
         months = 0
         history = []
+        total_interest_earned = 0
+
+        # Record initial state
+        history.append({'month': 0, 'balance': round(corpus, 2), 'withdrawn_cumulative': 0, 'interest_cumulative': 0})
+
         while balance > 0 and months < 600:
-            balance = balance * (1 + rate) - withdrawal
+            interest = balance * rate
+            total_interest_earned += interest
+            balance = balance + interest - withdrawal
             months += 1
-            if months % 12 == 0:
-                history.append({'month': months, 'balance': max(0, round(balance, 2))})
+            # Record every month for smooth charts (cap at 600 points)
+            history.append({
+                'month': months,
+                'balance': max(0, round(balance, 2)),
+                'withdrawn_cumulative': round(withdrawal * months, 2),
+                'interest_cumulative': round(total_interest_earned, 2),
+            })
+            if balance <= 0:
+                break
+
         total_withdrawn = withdrawal * months
+        remaining = max(0, balance)
+        gain_from_corpus = total_withdrawn + remaining - corpus
+
         return JsonResponse({
             'months_sustained': months,
             'years_sustained': round(months / 12, 1),
             'total_withdrawn': round(total_withdrawn, 2),
             'corpus': corpus,
             'monthly_withdrawal': withdrawal,
+            'remaining_corpus': round(remaining, 2),
+            'total_interest_earned': round(total_interest_earned, 2),
+            'gain_from_corpus': round(gain_from_corpus, 2),
             'history': history,
         })
     except Exception as e:
@@ -381,3 +485,352 @@ def calc_xirr_api(request):
         return JsonResponse({'xirr_pct': round(xirr * 100, 4)})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+# ── NAV-based Historical Calculator Endpoints ─────────────────────────────────
+# These use *actual* daily NAV data to simulate real investments and compute
+# accurate XIRR / cash-flow tables.
+
+def _get_nav_series(amfi_code: str):
+    """Return (nav_series, inception_date_str, latest_nav, latest_date) for a fund."""
+    from apps.funds.runtime import fetch_nav_and_meta, nav_rows_to_series
+    nav_rows, meta = fetch_nav_and_meta(amfi_code)
+    if not nav_rows:
+        return None, None, None, None
+    series = nav_rows_to_series(nav_rows)
+    if series.empty:
+        return None, None, None, None
+    inception = series.index[0].date().isoformat()
+    latest_nav = float(series.iloc[-1])
+    latest_date = series.index[-1].date().isoformat()
+    return series, inception, latest_nav, latest_date
+
+
+def _sip_dates_in_range(start: pd.Timestamp, end: pd.Timestamp, frequency: str) -> list:
+    """Generate SIP instalment dates (first of month or quarter) within [start, end]."""
+    dates = []
+    months_step = 3 if frequency == 'quarterly' else 1
+    current = start.replace(day=1)
+    while current <= end:
+        dates.append(current)
+        month = current.month + months_step
+        year = current.year + (month - 1) // 12
+        month = (month - 1) % 12 + 1
+        current = current.replace(year=year, month=month)
+    return dates
+
+
+def _compute_xirr_safe(cashflows, dates):
+    """Compute XIRR; return None on failure."""
+    try:
+        from apps.analytics.engine import _compute_xirr
+        xirr = _compute_xirr(cashflows, dates)
+        return round(xirr * 100, 2) if xirr is not None else None
+    except Exception:
+        return None
+
+
+@require_http_methods(["POST"])
+def calc_nav_sip_api(request):
+    """Historical SIP: buy units at actual NAV on each instalment date."""
+    d = _parse_body(request)
+    try:
+        amfi_code   = str(d.get('amfi_code', '')).strip()
+        start_str   = d.get('start_date', '')
+        end_str     = d.get('end_date', '')
+        amount      = float(d.get('amount', 1000))
+        frequency   = d.get('frequency', 'monthly').lower()
+        step_up_pct = float(d.get('step_up_pct', 0)) / 100
+
+        if not amfi_code:
+            return JsonResponse({'error': 'amfi_code is required.'}, status=400)
+
+        nav_series, inception, latest_nav, latest_date = _get_nav_series(amfi_code)
+        if nav_series is None:
+            return JsonResponse({'error': 'NAV data not available for this fund.'}, status=404)
+
+        start_ts = pd.Timestamp(start_str) if start_str else nav_series.index[0]
+        end_ts   = pd.Timestamp(end_str)   if end_str   else nav_series.index[-1]
+
+        if start_ts < nav_series.index[0]:
+            start_ts = nav_series.index[0]
+        if end_ts > nav_series.index[-1]:
+            end_ts = nav_series.index[-1]
+
+        instalment_dates = _sip_dates_in_range(start_ts, end_ts, frequency)
+        if not instalment_dates:
+            return JsonResponse({'error': 'No valid instalment dates in the selected range.'}, status=400)
+
+        cashflows = []
+        cf_dates  = []
+        cashflow_table    = []
+        cumulative_units  = 0.0
+        cumulative_invested = 0.0
+        current_amount    = amount
+        last_step_year    = start_ts.year
+
+        for i, sip_date in enumerate(instalment_dates):
+            if step_up_pct > 0 and i > 0 and sip_date.year > last_step_year:
+                current_amount *= (1 + step_up_pct)
+                last_step_year  = sip_date.year
+
+            nav_val = nav_series.asof(sip_date)
+            if pd.isna(nav_val) or nav_val <= 0:
+                continue
+
+            units_bought = current_amount / float(nav_val)
+            cumulative_units    += units_bought
+            cumulative_invested += current_amount
+            market_value = cumulative_units * float(nav_val)
+
+            cashflows.append(-current_amount)
+            cf_dates.append(sip_date.to_pydatetime())
+
+            cashflow_table.append({
+                'nav_date':            sip_date.date().isoformat(),
+                'nav':                 round(float(nav_val), 4),
+                'units_bought':        round(units_bought, 4),
+                'cumulative_units':    round(cumulative_units, 4),
+                'cumulative_invested': round(cumulative_invested, 2),
+                'market_value':        round(market_value, 2),
+                'sip_amount':          round(current_amount, 2),
+            })
+
+        if not cashflow_table:
+            return JsonResponse({'error': 'Could not match any NAV data for the selected dates.'}, status=400)
+
+        final_nav     = float(nav_series.asof(end_ts))
+        current_value = cumulative_units * final_nav
+        cashflows.append(current_value)
+        cf_dates.append(end_ts.to_pydatetime())
+
+        absolute_gain       = current_value - cumulative_invested
+        absolute_return_pct = (absolute_gain / cumulative_invested * 100) if cumulative_invested > 0 else 0
+        xirr_pct = _compute_xirr_safe(cashflows, cf_dates)
+
+        from apps.funds.services import get_or_fetch_scheme
+        scheme = get_or_fetch_scheme(amfi_code)
+
+        return JsonResponse({
+            'scheme_name':         scheme.scheme_name if scheme else amfi_code,
+            'fund_house':          scheme.fund_house  if scheme else '',
+            'amfi_code':           amfi_code,
+            'inception_date':      inception,
+            'nav_date':            latest_date,
+            'nav':                 round(latest_nav, 4),
+            'current_value':       round(current_value, 2),
+            'total_invested':      round(cumulative_invested, 2),
+            'absolute_gain':       round(absolute_gain, 2),
+            'absolute_return_pct': round(absolute_return_pct, 2),
+            'xirr_pct':            xirr_pct,
+            'total_units':         round(cumulative_units, 4),
+            'sip_instalments':     len(cashflow_table),
+            'start_date':          start_ts.date().isoformat(),
+            'end_date':            end_ts.date().isoformat(),
+            'cashflow_table':      cashflow_table,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@require_http_methods(["POST"])
+def calc_nav_swp_api(request):
+    """Historical SWP: redeem fixed amount each period at actual NAV."""
+    d = _parse_body(request)
+    try:
+        amfi_code        = str(d.get('amfi_code', '')).strip()
+        lumpsum_amount   = float(d.get('lumpsum_amount', 1000000))
+        lumpsum_date_str = d.get('lumpsum_date', '')
+        withdrawal       = float(d.get('withdrawal_amount', 10000))
+        frequency        = d.get('frequency', 'monthly').lower()
+        start_str        = d.get('start_date', lumpsum_date_str)
+        end_str          = d.get('end_date', '')
+
+        if not amfi_code:
+            return JsonResponse({'error': 'amfi_code is required.'}, status=400)
+
+        nav_series, inception, latest_nav, latest_date = _get_nav_series(amfi_code)
+        if nav_series is None:
+            return JsonResponse({'error': 'NAV data not available for this fund.'}, status=404)
+
+        lumpsum_ts = pd.Timestamp(lumpsum_date_str) if lumpsum_date_str else nav_series.index[0]
+        start_ts   = pd.Timestamp(start_str) if start_str else (lumpsum_ts + pd.DateOffset(months=1))
+        end_ts     = pd.Timestamp(end_str)   if end_str   else nav_series.index[-1]
+
+        if lumpsum_ts < nav_series.index[0]:
+            lumpsum_ts = nav_series.index[0]
+        if end_ts > nav_series.index[-1]:
+            end_ts = nav_series.index[-1]
+
+        entry_nav   = float(nav_series.asof(lumpsum_ts))
+        if entry_nav <= 0:
+            return JsonResponse({'error': 'No valid NAV on lumpsum investment date.'}, status=400)
+        total_units = lumpsum_amount / entry_nav
+
+        cashflows = [lumpsum_amount]
+        cf_dates  = [lumpsum_ts.to_pydatetime()]
+        swp_table = []
+        total_withdrawn = 0.0
+        exhausted_date  = None
+
+        for swp_date in _sip_dates_in_range(start_ts, end_ts, frequency):
+            nav_val = nav_series.asof(swp_date)
+            if pd.isna(nav_val) or nav_val <= 0 or total_units <= 0:
+                break
+
+            units_redeemed    = min(withdrawal / float(nav_val), total_units)
+            actual_withdrawal = units_redeemed * float(nav_val)
+            total_units      -= units_redeemed
+            total_withdrawn  += actual_withdrawal
+            portfolio_value   = total_units * float(nav_val)
+
+            cashflows.append(-actual_withdrawal)
+            cf_dates.append(swp_date.to_pydatetime())
+
+            swp_table.append({
+                'date':              swp_date.date().isoformat(),
+                'nav':               round(float(nav_val), 4),
+                'units_redeemed':    round(units_redeemed, 4),
+                'remaining_units':   round(total_units, 4),
+                'withdrawal_amount': round(actual_withdrawal, 2),
+                'portfolio_value':   round(portfolio_value, 2),
+            })
+
+            if total_units <= 0.001:
+                exhausted_date = swp_date.date().isoformat()
+                break
+
+        final_nav     = float(nav_series.asof(end_ts))
+        current_value = total_units * final_nav
+        if current_value > 0:
+            cashflows.append(-current_value)
+            cf_dates.append(end_ts.to_pydatetime())
+
+        total_return_pct = ((total_withdrawn + current_value - lumpsum_amount) / lumpsum_amount * 100) if lumpsum_amount > 0 else 0
+        xirr_pct = _compute_xirr_safe(cashflows, cf_dates)
+
+        from apps.funds.services import get_or_fetch_scheme
+        scheme = get_or_fetch_scheme(amfi_code)
+
+        return JsonResponse({
+            'scheme_name':       scheme.scheme_name if scheme else amfi_code,
+            'fund_house':        scheme.fund_house  if scheme else '',
+            'amfi_code':         amfi_code,
+            'inception_date':    inception,
+            'lumpsum_amount':    lumpsum_amount,
+            'lumpsum_date':      lumpsum_ts.date().isoformat(),
+            'withdrawal_amount': withdrawal,
+            'withdrawal_count':  len(swp_table),
+            'total_withdrawn':   round(total_withdrawn, 2),
+            'current_value':     round(current_value, 2),
+            'remaining_units':   round(total_units, 4),
+            'total_return_pct':  round(total_return_pct, 2),
+            'xirr_pct':          xirr_pct,
+            'start_date':        start_ts.date().isoformat(),
+            'end_date':          end_ts.date().isoformat(),
+            'exhausted_date':    exhausted_date,
+            'swp_table':         swp_table,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@require_http_methods(["POST"])
+def calc_nav_lumpsum_api(request):
+    """Historical Lumpsum: invest once at start NAV, redeem at end NAV (up to 4 funds)."""
+    d = _parse_body(request)
+    try:
+        amfi_codes_raw = d.get('amfi_codes', [])
+        if isinstance(amfi_codes_raw, str):
+            amfi_codes_raw = [c.strip() for c in amfi_codes_raw.split(',') if c.strip()]
+        amfi_codes = list(dict.fromkeys(str(c).strip() for c in amfi_codes_raw if c))[:4]
+
+        if not amfi_codes:
+            return JsonResponse({'error': 'At least one amfi_code is required.'}, status=400)
+
+        amount    = float(d.get('amount', 100000))
+        start_str = d.get('start_date', '')
+        end_str   = d.get('end_date', '')
+
+        results      = []
+        chart_series = []
+
+        from apps.funds.services import get_or_fetch_scheme
+        from apps.funds.runtime import fetch_nav_and_meta, nav_rows_to_series
+
+        for code in amfi_codes:
+            nav_rows, _ = fetch_nav_and_meta(code)
+            if not nav_rows:
+                results.append({'amfi_code': code, 'error': 'NAV data not available'})
+                continue
+            nav_series = nav_rows_to_series(nav_rows)
+            if nav_series.empty:
+                results.append({'amfi_code': code, 'error': 'Empty NAV series'})
+                continue
+
+            scheme       = get_or_fetch_scheme(code)
+            inception_ts = nav_series.index[0]
+
+            start_ts = pd.Timestamp(start_str) if start_str else inception_ts
+            end_ts   = pd.Timestamp(end_str)   if end_str   else nav_series.index[-1]
+
+            if start_ts < inception_ts:
+                start_ts = inception_ts
+            if end_ts > nav_series.index[-1]:
+                end_ts = nav_series.index[-1]
+
+            entry_nav = float(nav_series.asof(start_ts))
+            exit_nav  = float(nav_series.asof(end_ts))
+
+            if entry_nav <= 0:
+                results.append({'amfi_code': code, 'error': 'Invalid entry NAV'})
+                continue
+
+            units         = amount / entry_nav
+            current_value = units * exit_nav
+            profit        = current_value - amount
+            abs_return    = (profit / amount * 100) if amount > 0 else 0
+            years         = max((end_ts - start_ts).days / 365.25, 1 / 365.25)
+            cagr_ret      = ((exit_nav / entry_nav) ** (1 / years) - 1) * 100
+            xirr_pct      = _compute_xirr_safe(
+                [-amount, current_value],
+                [start_ts.to_pydatetime(), end_ts.to_pydatetime()]
+            )
+
+            # Build normalised chart (portfolio value over time)
+            window      = nav_series[(nav_series.index >= start_ts) & (nav_series.index <= end_ts)]
+            chart_dates  = [di.date().isoformat() for di in window.index]
+            chart_values = [round(amount * (v / entry_nav), 2) for v in window.values]
+
+            results.append({
+                'amfi_code':       code,
+                'scheme_name':     scheme.scheme_name if scheme else code,
+                'fund_house':      scheme.fund_house  if scheme else '',
+                'category':        scheme.scheme_category if scheme else '',
+                'inception_date':  inception_ts.date().isoformat(),
+                'start_date':      start_ts.date().isoformat(),
+                'end_date':        end_ts.date().isoformat(),
+                'entry_nav':       round(entry_nav, 4),
+                'exit_nav':        round(exit_nav, 4),
+                'amount_invested': amount,
+                'current_value':   round(current_value, 2),
+                'profit':          round(profit, 2),
+                'absolute_return': round(abs_return, 2),
+                'cagr':            round(cagr_ret, 2),
+                'xirr_pct':        xirr_pct,
+            })
+            chart_series.append({
+                'name':   scheme.scheme_name if scheme else code,
+                'dates':  chart_dates,
+                'values': chart_values,
+            })
+
+        return JsonResponse({'funds': results, 'chart_series': chart_series, 'amount': amount})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@require_http_methods(["POST"])
+def calc_nav_step_sip_api(request):
+    """Historical Step-Up SIP: same as calc_nav_sip_api; step_up_pct applies each year."""
+    return calc_nav_sip_api(request)

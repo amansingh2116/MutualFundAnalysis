@@ -1,44 +1,350 @@
 {% extends "base.html" %}
 {% block title %}SWP Calculator{% endblock %}
+
 {% block content %}
-<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>SWP Calculator</span></div>
-<div class="page-header"><div class="page-title">💸 SWP Calculator</div><div class="page-subtitle">Systematic Withdrawal Plan — how long does your corpus last at a given monthly withdrawal?</div></div>
+<div class="breadcrumb">
+  <a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>SWP Calculator</span>
+</div>
+<div class="page-header">
+  <div class="page-title">💸 SWP Calculator</div>
+  <div class="page-subtitle">Systematic Withdrawal Plan — how long does your corpus last? Use real historical NAV data for accurate results.</div>
+</div>
+
 <div class="calc-layout">
   <div class="calc-inputs">
-    <form id="swp-form">{% csrf_token %}
-      <div class="form-group"><label class="form-label">Starting Corpus (₹)</label><input class="form-control" type="number" name="corpus" value="1000000" min="10000" step="10000"></div>
-      <div class="form-group"><label class="form-label">Monthly Withdrawal (₹)</label><input class="form-control" type="number" name="monthly_withdrawal" value="10000" min="500" step="500"></div>
-      <div class="form-group"><label class="form-label">Expected Return Rate (%)</label><div class="range-wrapper"><input type="range" name="expected_rate" id="expected_rate" min="3" max="20" value="8" step="0.5"><span class="range-value" id="expected_rate_display">8%</span></div></div>
+    <div class="calc-mode-toggle" style="display:flex;gap:10px;margin-bottom:20px;background:var(--bg-elevated);padding:4px;border-radius:8px">
+      <button type="button" class="btn btn-sm" id="mode-generic"    onclick="setMode('generic')"    style="flex:1;background:var(--indigo-500);color:white;border:none">Generic Projection</button>
+      <button type="button" class="btn btn-sm" id="mode-historical" onclick="setMode('historical')" style="flex:1;background:transparent;color:var(--text-secondary);border:none">Historical (Fund NAV)</button>
+    </div>
+
+    <!-- Generic mode -->
+    <form id="swp-form-generic">
+      {% csrf_token %}
+      <div class="form-group"><label class="form-label">Starting Corpus (₹)</label><input class="form-control" type="number" name="corpus" value="1000000" min="10000" step="1"></div>
+      <div class="form-group"><label class="form-label">Monthly Withdrawal (₹)</label><input class="form-control" type="number" name="monthly_withdrawal" value="10000" min="500" step="1"></div>
+      <div class="form-group"><label class="form-label">Expected Return Rate (%)</label>
+        <div class="range-wrapper">
+          <input type="range" name="expected_rate" id="expected_rate" min="3" max="20" value="8" step="0.5">
+          <span class="range-value" id="expected_rate_display">8%</span>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
+
+    <!-- Historical mode -->
+    <form id="swp-form-historical" style="display:none">
+      {% csrf_token %}
+      <!-- Fund search -->
+      <div class="form-group" style="position:relative">
+        <label class="form-label" style="color:var(--indigo-400)">Select Mutual Fund</label>
+        <input type="text" class="form-control" id="hist-fund-search" placeholder="Type to search fund…" autocomplete="off" style="border-color:var(--indigo-500)">
+        <input type="hidden" id="hist-amfi-code" name="amfi_code">
+        <input type="hidden" id="hist-inception" name="inception_date">
+        <div id="hist-fund-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-top:4px"></div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="form-group">
+          <label class="form-label">Lumpsum Amount (₹)</label>
+          <input class="form-control" type="number" name="lumpsum_amount" id="hist-lumpsum" value="1000000" min="1000" step="1000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Investment Date</label>
+          <input type="date" class="form-control" id="hist-lumpsum-date" name="lumpsum_date">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Defaults to fund inception date if available.</div>
+        </div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="form-group">
+          <label class="form-label">Withdrawal Amount (₹)</label>
+          <input class="form-control" type="number" name="withdrawal_amount" id="hist-withdrawal" value="10000" min="100" step="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frequency</label>
+          <select class="form-control" name="frequency">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="form-group">
+          <label class="form-label">SWP Start Date</label>
+          <input type="date" class="form-control" id="hist-start-date" name="start_date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">SWP End Date</label>
+          <input type="date" class="form-control" id="hist-end-date" name="end_date">
+        </div>
+      </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
     </form>
   </div>
+
   <div class="calc-results">
     <div id="swp-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div></div>
-    <div id="swp-chart" style="height:280px;margin-top:16px"></div>
+    <div id="swp-balance-chart"    style="height:340px;margin-top:20px"></div>
+    <div id="swp-breakdown-chart"  style="height:280px;margin-top:16px"></div>
+    <div id="swp-table-container"  style="margin-top:20px"></div>
   </div>
 </div>
 {% endblock %}
-{% block extra_js %}<script>
-document.getElementById('swp-form').addEventListener('submit', async (e) => {
+
+{% block extra_js %}
+<script>
+document.getElementById('hist-end-date').value = new Date().toISOString().slice(0,10);
+
+let currentMode = 'generic';
+
+function setMode(mode) {
+  currentMode = mode;
+  const g = document.getElementById('mode-generic');
+  const h = document.getElementById('mode-historical');
+  if (mode === 'generic') {
+    g.style.background = 'var(--indigo-500)'; g.style.color = 'white';
+    h.style.background = 'transparent';       h.style.color = 'var(--text-secondary)';
+    document.getElementById('swp-form-generic').style.display    = 'block';
+    document.getElementById('swp-form-historical').style.display = 'none';
+  } else {
+    h.style.background = 'var(--indigo-500)'; h.style.color = 'white';
+    g.style.background = 'transparent';       g.style.color = 'var(--text-secondary)';
+    document.getElementById('swp-form-generic').style.display    = 'none';
+    document.getElementById('swp-form-historical').style.display = 'block';
+  }
+  clearResults();
+}
+
+function clearResults() {
+  document.getElementById('swp-results').innerHTML = '<div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div>';
+  document.getElementById('swp-balance-chart').innerHTML  = '';
+  document.getElementById('swp-breakdown-chart').innerHTML = '';
+  document.getElementById('swp-table-container').innerHTML = '';
+}
+
+// ── Fund autocomplete ──────────────────────────────────────────────────────
+const histSearch   = document.getElementById('hist-fund-search');
+const histDropdown = document.getElementById('hist-fund-dropdown');
+const histAmfi     = document.getElementById('hist-amfi-code');
+const histInception = document.getElementById('hist-inception');
+let searchTimer;
+
+histSearch.addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { histDropdown.style.display = 'none'; return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+      const data = await r.json();
+      if (!data.results?.length) {
+        histDropdown.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--text-muted)">No funds found.</div>';
+      } else {
+        histDropdown.innerHTML = data.results.map(f => `
+          <div class="fund-search-item" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border-subtle)"
+               onmousedown="selectHistFund('${f.amfi_code}','${f.scheme_name.replace(/'/g,"\\'")}','${f.inception_date||''}')">
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${f.fund_house}${f.inception_date ? ' · Inception: '+f.inception_date : ''}</div>
+          </div>`).join('');
+      }
+      histDropdown.style.display = 'block';
+    } catch(_) {}
+  }, 300);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#swp-form-historical')) histDropdown.style.display = 'none';
+});
+
+window.selectHistFund = function(amfi, name, inception) {
+  histAmfi.value      = amfi;
+  histInception.value = inception;
+  histSearch.value    = name;
+  histDropdown.style.display = 'none';
+  // Update min constraint so users can't pick before inception
+  if (inception) {
+    document.getElementById('hist-lumpsum-date').min = inception;
+    document.getElementById('hist-start-date').min   = inception;
+  }
+};
+
+// ── Format helpers ─────────────────────────────────────────────────────────
+function fmtINR(v) {
+  if (v >= 10000000) return '₹' + (v / 10000000).toFixed(2) + ' Cr';
+  if (v >= 100000)   return '₹' + (v / 100000).toFixed(2) + ' L';
+  return '₹' + Math.round(v).toLocaleString('en-IN');
+}
+function pct(v, dec=2) { return v != null ? v.toFixed(dec) + '%' : '—'; }
+
+// ── Generic submit ─────────────────────────────────────────────────────────
+document.getElementById('swp-form-generic').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd  = new FormData(e.target);
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent = 'Calculating…'; btn.disabled = true;
+  try {
+    const r = await fetch('{% url "calculators:api_swp" %}', {
+      method:'POST',
+      body: JSON.stringify({
+        corpus:             parseFloat(fd.get('corpus')),
+        monthly_withdrawal: parseFloat(fd.get('monthly_withdrawal')),
+        expected_rate:      parseFloat(fd.get('expected_rate')),
+      }),
+      headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+    });
+    const d = await r.json();
+    btn.textContent = 'Calculate'; btn.disabled = false;
+    if (d.error) { showError(d.error); return; }
+    renderGenericResults(d);
+  } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
+});
+
+function renderGenericResults(d) {
+  const sustained = d.months_sustained < 600;
+  document.getElementById('swp-results').innerHTML = `
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight">
+        <div class="label">Corpus Lasts</div>
+        <div class="value">${sustained ? d.years_sustained + ' yrs' : '50+ yrs'}</div>
+        <div class="sub">${sustained ? d.months_sustained + ' months' : 'Corpus never exhausted'}</div>
+      </div>
+      <div class="calc-result-highlight">
+        <div class="label">Total Withdrawn</div>
+        <div class="value" style="color:var(--emerald-400)">${fmtINR(d.total_withdrawn)}</div>
+        <div class="sub">Remaining: ${fmtINR(d.remaining_corpus)}</div>
+      </div>
+    </div>
+    <div class="metrics-dl">
+      <div><div class="metric-key">Starting Corpus</div><div class="metric-val">${fmtINR(d.corpus)}</div></div>
+      <div><div class="metric-key">Monthly Withdrawal</div><div class="metric-val">${fmtINR(d.monthly_withdrawal)}</div></div>
+      <div><div class="metric-key">Interest Earned</div><div class="metric-val" style="color:var(--emerald-400)">${fmtINR(d.total_interest_earned)}</div></div>
+      <div><div class="metric-key">Net Gain</div><div class="metric-val">${fmtINR(d.gain_from_corpus)}</div></div>
+    </div>`;
+
+  if (d.history?.length) {
+    const hist = d.history.filter(h => h.month > 0);
+    Plotly.newPlot('swp-balance-chart', [
+      {x:hist.map(h=>h.month), y:hist.map(h=>h.balance), name:'Balance', type:'scatter', mode:'lines', line:{color:'#34d399',width:2.5}, fill:'tozeroy', fillcolor:'rgba(52,211,153,0.1)'},
+      {x:hist.map(h=>h.month), y:hist.map(h=>h.withdrawn_cumulative), name:'Withdrawn', type:'scatter', mode:'lines', line:{color:'#f59e0b',width:1.5,dash:'dot'}},
+    ], {...MF_PLOTLY_LAYOUT_BASE, title:{text:'Corpus Balance Over Time',font:{size:13,color:'#94a3b8'}}, xaxis:{...MF_PLOTLY_LAYOUT_BASE.xaxis,title:{text:'Month',font:{size:11}}}, yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}, height:340, margin:{l:70,r:16,t:40,b:50}}, MF_PLOTLY_CONFIG);
+
+    Plotly.newPlot('swp-breakdown-chart', [{
+      values:[d.total_withdrawn, Math.max(0,d.remaining_corpus), d.total_interest_earned],
+      labels:['Total Withdrawn','Remaining Corpus','Interest Earned'],
+      type:'pie', hole:0.45,
+      marker:{colors:['#f59e0b','#6366f1','#34d399']},
+    }], {...MF_PLOTLY_LAYOUT_BASE, showlegend:true, height:280, margin:{l:20,r:20,t:20,b:20}}, MF_PLOTLY_CONFIG);
+  }
+}
+
+// ── Historical submit ──────────────────────────────────────────────────
+document.getElementById('swp-form-historical').addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.target);
-  const r = await fetch('{% url "calculators:api_swp" %}', {
-    method:'POST', body: JSON.stringify({corpus:parseFloat(fd.get('corpus')), monthly_withdrawal:parseFloat(fd.get('monthly_withdrawal')), expected_rate:parseFloat(fd.get('expected_rate'))}),
-    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
-  });
-  const d = await r.json();
-  if(d.error){document.getElementById('swp-results').innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
-  document.getElementById('swp-results').innerHTML=`
-    <div class="grid-2" style="gap:12px;margin-bottom:16px">
-      <div class="calc-result-highlight"><div class="label">Corpus Lasts</div><div class="value">${d.years_sustained} years</div><div class="sub">${d.months_sustained} months total</div></div>
-      <div class="calc-result-highlight"><div class="label">Total Withdrawn</div><div class="value positive">₹${(d.total_withdrawn/100000).toFixed(1)}L</div></div>
-    </div>`;
-  if(d.history.length) {
-    Plotly.newPlot('swp-chart',[{
-      x: d.history.map(h=>h.month+' mo'), y: d.history.map(h=>h.balance/100000),
-      type:'scatter', mode:'lines', name:'Corpus', line:{color:'#6366f1',width:2}, fill:'tozeroy', fillcolor:'rgba(99,102,241,0.1)',
-      hovertemplate:'Month %{x}<br>₹%{y:.2f}L<extra></extra>'
-    }], {...MF_PLOTLY_LAYOUT_BASE, yaxis:{ticksuffix:'L'}}, MF_PLOTLY_CONFIG);
-  }
+  if (!fd.get('amfi_code')) { alert('Please select a mutual fund first.'); return; }
+
+  // Auto-fill dates logic REMOVED. Let backend handle empty dates to discover true inception.
+
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent = 'Fetching NAV data…'; btn.disabled = true;
+  try {
+    const r = await fetch('{% url "calculators:api_nav_swp" %}', {
+      method:'POST',
+      body: JSON.stringify({
+        amfi_code:        fd.get('amfi_code'),
+        lumpsum_amount:   parseFloat(fd.get('lumpsum_amount')),
+        lumpsum_date:     fd.get('lumpsum_date'),
+        withdrawal_amount:parseFloat(fd.get('withdrawal_amount')),
+        frequency:        fd.get('frequency'),
+        start_date:       fd.get('start_date'),
+        end_date:         fd.get('end_date'),
+      }),
+      headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+    });
+    const d = await r.json();
+    btn.textContent='Calculate'; btn.disabled=false;
+    if (d.error) { showError(d.error); return; }
+
+    // Auto-populate UI with true calculated dates from backend
+    if (d.lumpsum_date) document.getElementById('hist-lumpsum-date').value = d.lumpsum_date;
+    if (d.start_date)   document.getElementById('hist-start-date').value   = d.start_date;
+    if (d.end_date)     document.getElementById('hist-end-date').value     = d.end_date;
+
+    renderHistResults(d);
+  } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
 });
-</script>{% endblock %}
+
+function renderHistResults(d) {
+  const xirr = d.xirr_pct != null ? d.xirr_pct.toFixed(2)+'%' : '—';
+  const exhaustedNote = d.exhausted_date
+    ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border-radius:6px;color:var(--rose-400);font-size:12px">⚠️ Corpus exhausted on ${d.exhausted_date}</div>`
+    : '';
+
+  document.getElementById('swp-results').innerHTML = `
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--indigo-400);margin-bottom:10px">📋 Summary</div>
+      <div style="overflow-x:auto">
+      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
+        <thead><tr>
+          <th>Scheme</th><th>AMC</th><th>Withdrawal Period</th><th style="text-align:right">No. Instalments</th>
+          <th style="text-align:right">Total Withdrawn</th><th style="text-align:right">Current Value</th><th style="text-align:right">Return (%)</th>
+        </tr></thead>
+        <tbody><tr>
+          <td><span style="color:var(--indigo-400);font-weight:600">${d.scheme_name}</span></td>
+          <td>${d.fund_house}</td>
+          <td>${d.start_date} to ${d.end_date}</td>
+          <td style="text-align:right">${d.withdrawal_count}</td>
+          <td style="text-align:right">${fmtINR(d.total_withdrawn)}</td>
+          <td style="text-align:right;font-weight:700;color:var(--emerald-400)">${fmtINR(d.current_value)}</td>
+          <td style="text-align:right;font-weight:700;color:${d.total_return_pct>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(d.total_return_pct)}</td>
+        </tr></tbody>
+      </table></div>
+    </div>
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight"><div class="label">Lumpsum Invested</div><div class="value">${fmtINR(d.lumpsum_amount)}</div><div class="sub">on ${d.lumpsum_date}</div></div>
+      <div class="calc-result-highlight"><div class="label">XIRR</div><div class="value" style="color:${d.xirr_pct>=0?'var(--emerald-400)':'var(--rose-400)'}">${xirr}</div><div class="sub">annualised return</div></div>
+    </div>
+    ${exhaustedNote}`;
+
+  if (d.swp_table?.length) {
+    // Area chart — portfolio value over time
+    Plotly.newPlot('swp-balance-chart', [{
+      x: d.swp_table.map(r=>r.date),
+      y: d.swp_table.map(r=>r.portfolio_value),
+      name:'Portfolio Value', type:'scatter', mode:'lines',
+      line:{color:'#34d399',width:2.5},
+      fill:'tozeroy', fillcolor:'rgba(52,211,153,0.1)',
+    }], {...MF_PLOTLY_LAYOUT_BASE,
+      title:{text:`Regular Withdrawal Plan — ${d.scheme_name}`,font:{size:13,color:'#94a3b8'}},
+      yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'},
+      height:340, margin:{l:70,r:16,t:40,b:50}
+    }, MF_PLOTLY_CONFIG);
+
+    // SWP table
+    const rows = d.swp_table.map(r => `
+      <tr>
+        <td>${r.date}</td>
+        <td style="text-align:right">₹${r.nav}</td>
+        <td style="text-align:right">${r.units_redeemed}</td>
+        <td style="text-align:right;color:var(--rose-400)">${fmtINR(r.withdrawal_amount)}</td>
+        <td style="text-align:right">${r.remaining_units}</td>
+        <td style="text-align:right;color:var(--emerald-400);font-weight:600">${fmtINR(r.portfolio_value)}</td>
+      </tr>`).join('');
+    document.getElementById('swp-table-container').innerHTML = `
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">💼 Withdrawal Schedule — ${d.scheme_name}</div>
+      <div style="max-height:380px;overflow-y:auto;border-radius:8px;border:1px solid var(--border-subtle)">
+      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
+        <thead><tr>
+          <th>Date</th><th style="text-align:right">NAV</th><th style="text-align:right">Units Redeemed</th>
+          <th style="text-align:right">Withdrawn</th><th style="text-align:right">Remaining Units</th><th style="text-align:right">Portfolio Value</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  }
+}
+
+function showError(msg) {
+  document.getElementById('swp-results').innerHTML = `<div class="alert alert-danger">${msg}</div>`;
+}
+
+document.getElementById('expected_rate').addEventListener('input', e => document.getElementById('expected_rate_display').textContent = e.target.value + '%');
+</script>
+{% endblock %}

@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.funds.models import NAVHistory, Scheme
-from apps.analytics.engine import simulate_sip
+from apps.analytics.engine import simulate_sip, simulate_lumpsum, simulate_swp
 
 logger = logging.getLogger('mfanalysis')
 
@@ -228,6 +228,77 @@ def sip_simulate_api(request, amfi_code):
 
     # Convert numpy types for JSON serialization
     return JsonResponse({k: float(v) if hasattr(v, '__float__') else v for k, v in result.items()})
+
+
+@require_http_methods(["POST"])
+def lumpsum_simulate_api(request, amfi_code):
+    """Lumpsum simulation endpoint. POST {amount, years} → returns simulation results."""
+    scheme = get_scheme_or_404(amfi_code)
+    try:
+        body = json.loads(request.body)
+        amount = float(body.get('amount', 100000))
+        years = float(body.get('years', 10))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid input parameters.'}, status=400)
+
+    from apps.funds.runtime import get_runtime_snapshot
+    snapshot = get_runtime_snapshot(scheme)
+    nav_series = snapshot.nav_series
+    if nav_series.empty:
+        return JsonResponse({'error': 'No NAV data available from mfapi.in right now.'})
+
+    # Trim to requested years
+    from_date = nav_series.index[-1] - pd.DateOffset(days=int(years * 365.25))
+    nav_series = nav_series[nav_series.index >= from_date]
+
+    if len(nav_series) < 2:
+        return JsonResponse({'error': f'Insufficient NAV history for {years}-year simulation.'})
+
+    result = simulate_lumpsum(nav_series, principal=amount)
+    if result is None:
+        return JsonResponse({'error': 'Lumpsum simulation returned no result.'})
+
+    return JsonResponse({k: float(v) if hasattr(v, '__float__') else v for k, v in result.items()})
+
+
+@require_http_methods(["POST"])
+def swp_simulate_api(request, amfi_code):
+    """SWP simulation endpoint. POST {corpus, withdrawal, years} → returns simulation results."""
+    scheme = get_scheme_or_404(amfi_code)
+    try:
+        body = json.loads(request.body)
+        corpus = float(body.get('corpus', 1000000))
+        withdrawal = float(body.get('withdrawal', 10000))
+        years = float(body.get('years', 10))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid input parameters.'}, status=400)
+
+    from apps.funds.runtime import get_runtime_snapshot
+    snapshot = get_runtime_snapshot(scheme)
+    nav_series = snapshot.nav_series
+    if nav_series.empty:
+        return JsonResponse({'error': 'No NAV data available from mfapi.in right now.'})
+
+    # Trim to requested years
+    from_date = nav_series.index[-1] - pd.DateOffset(days=int(years * 365.25))
+    nav_series = nav_series[nav_series.index >= from_date]
+
+    if len(nav_series) < 2:
+        return JsonResponse({'error': f'Insufficient NAV history for {years}-year simulation.'})
+
+    result = simulate_swp(nav_series, corpus=corpus, monthly_withdrawal=withdrawal)
+    if result is None:
+        return JsonResponse({'error': 'SWP simulation returned no result.'})
+
+    # Ensure nested objects like 'history' lists are clean
+    clean_result = {}
+    for k, v in result.items():
+        if isinstance(v, list):
+            clean_result[k] = v
+        else:
+            clean_result[k] = float(v) if hasattr(v, '__float__') else v
+    
+    return JsonResponse(clean_result)
 
 
 @require_GET

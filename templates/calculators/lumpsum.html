@@ -1,43 +1,333 @@
 {% extends "base.html" %}
 {% block title %}Lumpsum Calculator{% endblock %}
+
 {% block content %}
-<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Lumpsum Calculator</span></div>
-<div class="page-header"><div class="page-title">💰 Lumpsum Calculator</div><div class="page-subtitle">Calculate future value of a one-time mutual fund investment.</div></div>
+<div class="breadcrumb">
+  <a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Lumpsum Calculator</span>
+</div>
+<div class="page-header">
+  <div class="page-title">💰 Lumpsum Calculator</div>
+  <div class="page-subtitle">Calculate returns on a one-time investment using expected rate or actual historical NAV data. Compare up to 4 funds.</div>
+</div>
+
 <div class="calc-layout">
   <div class="calc-inputs">
-    <form id="lumpsum-form">{% csrf_token %}
-      <div class="form-group"><label class="form-label">Investment Amount (₹)</label><input class="form-control" type="number" name="principal" value="100000" min="1000" step="1000"></div>
-      <div class="form-group"><label class="form-label">Investment Period (Years)</label><div class="range-wrapper"><input type="range" name="years" id="years" min="1" max="40" value="10"><span class="range-value" id="years_display">10 yrs</span></div></div>
-      <div class="form-group"><label class="form-label">Expected Return Rate (% p.a.)</label><div class="range-wrapper"><input type="range" name="expected_rate" id="expected_rate" min="5" max="30" value="12" step="0.5"><span class="range-value" id="expected_rate_display">12%</span></div></div>
+    <div class="calc-mode-toggle" style="display:flex;gap:10px;margin-bottom:20px;background:var(--bg-elevated);padding:4px;border-radius:8px">
+      <button type="button" class="btn btn-sm" id="mode-generic"    onclick="setMode('generic')"    style="flex:1;background:var(--indigo-500);color:white;border:none">Generic (Expected Rate)</button>
+      <button type="button" class="btn btn-sm" id="mode-historical" onclick="setMode('historical')" style="flex:1;background:transparent;color:var(--text-secondary);border:none">Historical (Fund NAV)</button>
+    </div>
+
+    <!-- Generic form -->
+    <form id="lumpsum-form-generic">
+      {% csrf_token %}
+      <div class="form-group"><label class="form-label">Principal Amount (₹)</label><input class="form-control" type="number" name="principal" value="100000" min="1000" step="1"></div>
+      <div class="form-group"><label class="form-label">Investment Period</label>
+        <div class="range-wrapper">
+          <input type="range" name="years" id="years" min="1" max="40" value="10">
+          <span class="range-value" id="years_display">10 yrs</span>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Expected Return Rate (% p.a.)</label>
+        <div class="range-wrapper">
+          <input type="range" name="expected_rate" id="expected_rate" min="4" max="30" value="12" step="0.5">
+          <span class="range-value" id="expected_rate_display">12%</span>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
+
+    <!-- Historical form -->
+    <form id="lumpsum-form-historical" style="display:none">
+      {% csrf_token %}
+      <div id="fund-slots">
+        <!-- Fund 1 (required) -->
+        <div class="fund-slot" id="slot-0" style="margin-bottom:14px">
+          <label class="form-label" style="color:var(--indigo-400)">Fund 1</label>
+          <div style="position:relative">
+            <input type="text" class="form-control fund-search-input" data-slot="0" placeholder="Type to search fund…" autocomplete="off" style="border-color:var(--indigo-500)">
+            <input type="hidden" class="fund-amfi-input" data-slot="0">
+            <input type="hidden" class="fund-inception-input" data-slot="0">
+            <div class="fund-search-dropdown" data-slot="0" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-top:4px"></div>
+          </div>
+        </div>
+      </div>
+      <button type="button" id="add-fund-btn" onclick="addFundSlot()" style="font-size:12px;color:var(--indigo-400);background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px">＋ Add another fund (up to 4)</button>
+
+      <div class="form-group"><label class="form-label">Enter Amount (₹)</label><input class="form-control" type="number" name="amount" id="hist-amount" value="100000" min="1000" step="1000"></div>
+      <div class="grid-2" style="gap:12px">
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input type="date" class="form-control" id="hist-start-date" name="start_date">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Defaults to first fund's inception date if available.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Date</label>
+          <input type="date" class="form-control" id="hist-end-date" name="end_date">
+        </div>
+      </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
     </form>
   </div>
+
   <div class="calc-results">
-    <div id="lumpsum-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div></div>
-    <div id="lumpsum-chart" style="height:280px;margin-top:16px"></div>
+    <div id="lumpsum-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Enter values and click Calculate.</span></div></div>
+    <div id="lumpsum-chart" style="height:380px;margin-top:20px"></div>
+    <div id="lumpsum-donut" style="height:240px;margin-top:16px"></div>
   </div>
 </div>
 {% endblock %}
-{% block extra_js %}<script>
-document.getElementById('lumpsum-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const principal = parseFloat(fd.get('principal')), years = parseFloat(fd.get('years')), rate = parseFloat(fd.get('expected_rate'));
-  const r = await fetch('{% url "calculators:api_lumpsum" %}', {
-    method:'POST', body: JSON.stringify({principal, years, expected_rate: rate}),
-    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
-  });
-  const d = await r.json();
-  if(d.error){document.getElementById('lumpsum-results').innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
-  document.getElementById('lumpsum-results').innerHTML=`
-    <div class="grid-2" style="gap:12px;margin-bottom:16px">
-      <div class="calc-result-highlight"><div class="label">Future Value</div><div class="value">₹${(d.future_value/100000).toFixed(2)}L</div><div class="sub">after ${d.years} years</div></div>
-      <div class="calc-result-highlight"><div class="label">Absolute Gain</div><div class="value positive">₹${(d.gain/100000).toFixed(2)}L</div><div class="sub">${d.return_pct.toFixed(1)}% total</div></div>
-    </div>
-    <div class="metrics-dl">
-      <div><div class="metric-key">Invested</div><div class="metric-val" style="font-size:14px">₹${d.principal.toLocaleString('en-IN')}</div></div>
-      <div><div class="metric-key">Growth Multiple</div><div class="metric-val" style="font-size:14px">${(d.future_value/d.principal).toFixed(2)}x</div></div>
+
+{% block extra_js %}
+<script>
+document.getElementById('hist-end-date').value = new Date().toISOString().slice(0,10);
+
+let currentMode = 'generic';
+let numSlots = 1;
+const MAX_FUNDS = 4;
+// Map slot index -> {amfi, inception}
+const slotData = {0: {amfi:'', inception:''}};
+
+function setMode(mode) {
+  currentMode = mode;
+  const g = document.getElementById('mode-generic');
+  const h = document.getElementById('mode-historical');
+  if (mode === 'generic') {
+    g.style.background='var(--indigo-500)'; g.style.color='white';
+    h.style.background='transparent';       h.style.color='var(--text-secondary)';
+    document.getElementById('lumpsum-form-generic').style.display    = 'block';
+    document.getElementById('lumpsum-form-historical').style.display = 'none';
+  } else {
+    h.style.background='var(--indigo-500)'; h.style.color='white';
+    g.style.background='transparent';       g.style.color='var(--text-secondary)';
+    document.getElementById('lumpsum-form-generic').style.display    = 'none';
+    document.getElementById('lumpsum-form-historical').style.display = 'block';
+  }
+  clearResults();
+}
+
+function clearResults() {
+  document.getElementById('lumpsum-results').innerHTML = '<div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Enter values and click Calculate.</span></div>';
+  document.getElementById('lumpsum-chart').innerHTML = '';
+  document.getElementById('lumpsum-donut').innerHTML = '';
+}
+
+// ── Multi-fund search ──────────────────────────────────────────────────────
+function addFundSlot() {
+  if (numSlots >= MAX_FUNDS) { document.getElementById('add-fund-btn').style.display='none'; return; }
+  const idx = numSlots++;
+  slotData[idx] = {amfi:'', inception:''};
+  const html = `
+    <div class="fund-slot" id="slot-${idx}" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <label class="form-label" style="color:var(--indigo-400);margin:0">Fund ${idx+1}</label>
+        <button type="button" onclick="removeFundSlot(${idx})" style="font-size:11px;color:var(--rose-400);background:none;border:none;cursor:pointer">✕ Remove</button>
+      </div>
+      <div style="position:relative">
+        <input type="text" class="form-control fund-search-input" data-slot="${idx}" placeholder="Type to search fund…" autocomplete="off" style="border-color:var(--indigo-500)">
+        <input type="hidden" class="fund-amfi-input" data-slot="${idx}">
+        <input type="hidden" class="fund-inception-input" data-slot="${idx}">
+        <div class="fund-search-dropdown" data-slot="${idx}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-top:4px"></div>
+      </div>
     </div>`;
-  renderSIPChart(document.getElementById('lumpsum-chart'), {invested: d.principal, current_value: d.future_value});
+  document.getElementById('fund-slots').insertAdjacentHTML('beforeend', html);
+  attachSearchListeners(idx);
+  if (numSlots >= MAX_FUNDS) document.getElementById('add-fund-btn').style.display = 'none';
+}
+
+function removeFundSlot(idx) {
+  document.getElementById('slot-'+idx).remove();
+  delete slotData[idx];
+  numSlots--;
+  document.getElementById('add-fund-btn').style.display = '';
+}
+
+let searchTimers = {};
+function attachSearchListeners(idx) {
+  const input    = document.querySelector(`.fund-search-input[data-slot="${idx}"]`);
+  const dropdown = document.querySelector(`.fund-search-dropdown[data-slot="${idx}"]`);
+  if (!input) return;
+
+  input.addEventListener('input', e => {
+    clearTimeout(searchTimers[idx]);
+    const q = e.target.value.trim();
+    if (q.length < 2) { dropdown.style.display='none'; return; }
+    searchTimers[idx] = setTimeout(async () => {
+      try {
+        const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=6`);
+        const data = await r.json();
+        if (!data.results?.length) {
+          dropdown.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--text-muted)">No funds found.</div>';
+        } else {
+          dropdown.innerHTML = data.results.map(f => `
+            <div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border-subtle)"
+                 onmousedown="selectFund(${idx},'${f.amfi_code}','${f.scheme_name.replace(/'/g,"\\'")}','${f.inception_date||''}')">
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${f.fund_house}</div>
+            </div>`).join('');
+        }
+        dropdown.style.display = 'block';
+      } catch(_) {}
+    }, 300);
+  });
+}
+
+window.selectFund = function(idx, amfi, name, inception) {
+  slotData[idx] = {amfi, inception};
+  document.querySelector(`.fund-search-input[data-slot="${idx}"]`).value = name;
+  document.querySelector(`.fund-amfi-input[data-slot="${idx}"]`).value   = amfi;
+  document.querySelector(`.fund-inception-input[data-slot="${idx}"]`).value = inception;
+  document.querySelector(`.fund-search-dropdown[data-slot="${idx}"]`).style.display = 'none';
+  // Update min constraint for first fund only — don't auto-fill dates
+  if (idx === 0 && inception) {
+    document.getElementById('hist-start-date').min = inception;
+  }
+};
+
+attachSearchListeners(0); // attach for slot 0
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.fund-slot')) {
+    document.querySelectorAll('.fund-search-dropdown').forEach(d=>d.style.display='none');
+  }
 });
-</script>{% endblock %}
+
+// ── Format helpers ─────────────────────────────────────────────────────────
+function fmtINR(v) {
+  if (v >= 10000000) return '₹' + (v/10000000).toFixed(2) + ' Cr';
+  if (v >= 100000)   return '₹' + (v/100000).toFixed(2) + ' L';
+  return '₹' + Math.round(v).toLocaleString('en-IN');
+}
+function pct(v, dec=2) { return v != null ? v.toFixed(dec)+'%' : '—'; }
+
+// ── Generic submit ─────────────────────────────────────────────────────────
+document.getElementById('lumpsum-form-generic').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd  = new FormData(e.target);
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent='Calculating…'; btn.disabled=true;
+  try {
+    const r = await fetch('{% url "calculators:api_lumpsum" %}', {
+      method:'POST',
+      body: JSON.stringify({principal:parseFloat(fd.get('principal')), years:parseFloat(fd.get('years')), expected_rate:parseFloat(fd.get('expected_rate'))}),
+      headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+    });
+    const d = await r.json();
+    btn.textContent='Calculate'; btn.disabled=false;
+    if (d.error) { showError(d.error); return; }
+    document.getElementById('lumpsum-results').innerHTML = `
+      <div class="grid-2" style="gap:12px;margin-bottom:16px">
+        <div class="calc-result-highlight"><div class="label">Future Value</div><div class="value">${fmtINR(d.future_value)}</div><div class="sub">after ${d.years} years</div></div>
+        <div class="calc-result-highlight"><div class="label">Gain</div><div class="value" style="color:var(--emerald-400)">${fmtINR(d.gain)}</div><div class="sub">${pct(d.return_pct)} absolute return</div></div>
+      </div>
+      <div class="metrics-dl">
+        <div><div class="metric-key">Principal</div><div class="metric-val">${fmtINR(d.principal)}</div></div>
+        <div><div class="metric-key">CAGR</div><div class="metric-val" style="color:var(--emerald-400)">${pct(d.cagr)}</div></div>
+      </div>`;
+    if (d.history?.length) {
+      Plotly.newPlot('lumpsum-chart',[
+        {x:d.history.map(h=>'Year '+h.year), y:d.history.map(h=>h.value), name:'Value', type:'scatter', mode:'lines', line:{color:'#34d399',width:2.5}, fill:'tozeroy', fillcolor:'rgba(52,211,153,0.1)'},
+        {x:d.history.map(h=>'Year '+h.year), y:d.history.map(h=>h.invested), name:'Principal', type:'scatter', mode:'lines', line:{color:'#6366f1',width:1.5,dash:'dot'}},
+      ], {...MF_PLOTLY_LAYOUT_BASE, title:{text:'Investment Growth',font:{size:13,color:'#94a3b8'}}, yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}, height:380, margin:{l:70,r:16,t:40,b:50}}, MF_PLOTLY_CONFIG);
+    }
+  } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
+});
+
+// ── Historical submit ──────────────────────────────────────────────────────
+document.getElementById('lumpsum-form-historical').addEventListener('submit', async e => {
+  e.preventDefault();
+  const codes = Object.values(slotData).map(s=>s.amfi).filter(Boolean);
+  if (!codes.length) { alert('Please select at least one fund.'); return; }
+
+  // Auto-fill dates logic REMOVED. Let backend handle empty dates to discover true inception.
+  const startDate = document.getElementById('hist-start-date').value;
+  const endDate   = document.getElementById('hist-end-date').value;
+
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent='Fetching NAV data…'; btn.disabled=true;
+  try {
+    const r = await fetch('{% url "calculators:api_nav_lumpsum" %}', {
+      method:'POST',
+      body: JSON.stringify({
+        amfi_codes: codes,
+        amount:     parseFloat(document.getElementById('hist-amount').value),
+        start_date: startDate,
+        end_date:   endDate,
+      }),
+      headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+    });
+    const d = await r.json();
+    btn.textContent='Calculate'; btn.disabled=false;
+    if (d.error) { showError(d.error); return; }
+
+    // Auto-populate UI with true calculated dates from backend (using the first fund's start/end dates)
+    if (d.funds && d.funds.length > 0) {
+      if (d.funds[0].start_date) document.getElementById('hist-start-date').value = d.funds[0].start_date;
+      if (d.funds[0].end_date)   document.getElementById('hist-end-date').value   = d.funds[0].end_date;
+    }
+
+    renderHistResults(d);
+  } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
+});
+
+const CHART_COLORS = ['#34d399','#6366f1','#f59e0b','#f43f5e'];
+
+function renderHistResults(d) {
+  const funds = d.funds;
+  if (!funds?.length) { showError('No results returned.'); return; }
+
+  const rows = funds.map(f => f.error
+    ? `<tr><td>${f.amfi_code}</td><td colspan="8" style="color:var(--rose-400)">${f.error}</td></tr>`
+    : `<tr>
+        <td><span style="color:var(--indigo-400);font-weight:600">${f.scheme_name}</span></td>
+        <td>${f.fund_house}</td>
+        <td>${f.category || '—'}</td>
+        <td>${f.inception_date}</td>
+        <td style="text-align:right">${fmtINR(f.amount_invested)}</td>
+        <td style="text-align:right;font-weight:700">${fmtINR(f.current_value)}</td>
+        <td style="text-align:right;color:${f.profit>=0?'var(--emerald-400)':'var(--rose-400)'}">${fmtINR(Math.abs(f.profit))}</td>
+        <td style="text-align:right;font-weight:700;color:${f.cagr>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(f.cagr)}</td>
+        <td style="text-align:right;color:${f.absolute_return>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(f.absolute_return)}</td>
+      </tr>`
+  ).join('');
+
+  document.getElementById('lumpsum-results').innerHTML = `
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--indigo-400);margin-bottom:10px">📋 Summary</div>
+      <div style="overflow-x:auto">
+      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
+        <thead><tr>
+          <th>Scheme Name</th><th>AMC</th><th>Category</th><th>Launch Date</th>
+          <th style="text-align:right">Amount Invested</th><th style="text-align:right">Value as on ${funds[0]?.end_date||''}</th>
+          <th style="text-align:right">Profit</th><th style="text-align:right">CAGR (%)</th><th style="text-align:right">Absolute (%)</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+
+  // Multi-fund area chart
+  if (d.chart_series?.length) {
+    const traces = d.chart_series.map((s, i) => ({
+      x: s.dates, y: s.values, name: s.name,
+      type:'scatter', mode:'lines',
+      line:{color:CHART_COLORS[i%CHART_COLORS.length], width:2},
+      fill: i===0 ? 'tozeroy' : 'none',
+      fillcolor:'rgba(52,211,153,0.05)',
+    }));
+    Plotly.newPlot('lumpsum-chart', traces, {
+      ...MF_PLOTLY_LAYOUT_BASE,
+      title:{text:`Return on ₹${fmtINR(d.amount)} Investment`,font:{size:13,color:'#94a3b8'}},
+      yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'},
+      height:380, margin:{l:70,r:16,t:40,b:60},
+      legend:{orientation:'h',y:-0.15},
+    }, MF_PLOTLY_CONFIG);
+  }
+}
+
+function showError(msg) {
+  document.getElementById('lumpsum-results').innerHTML = `<div class="alert alert-danger">${msg}</div>`;
+}
+
+document.getElementById('years').addEventListener('input', e => document.getElementById('years_display').textContent = e.target.value + ' yrs');
+document.getElementById('expected_rate').addEventListener('input', e => document.getElementById('expected_rate_display').textContent = e.target.value + '%');
+</script>
+{% endblock %}

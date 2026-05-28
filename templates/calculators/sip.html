@@ -7,18 +7,23 @@
 </div>
 <div class="page-header">
   <div class="page-title">📈 SIP Calculator</div>
-  <div class="page-subtitle">Calculate future value of monthly SIP investments with projected CAGR.</div>
+  <div class="page-subtitle">Calculate SIP returns using projected rates or actual historical NAV data.</div>
 </div>
 
 <div class="calc-layout">
   <!-- Inputs -->
   <div class="calc-inputs">
-    <h3 style="font-size:14px;font-weight:600;margin-bottom:20px">Investment Parameters</h3>
-    <form id="sip-form">
+    <div class="calc-mode-toggle" style="display:flex;gap:10px;margin-bottom:20px;background:var(--bg-elevated);padding:4px;border-radius:8px">
+      <button type="button" class="btn btn-sm" id="mode-generic"    onclick="setMode('generic')"    style="flex:1;background:var(--indigo-500);color:white;border:none">Generic (Expected Rate)</button>
+      <button type="button" class="btn btn-sm" id="mode-historical" onclick="setMode('historical')" style="flex:1;background:transparent;color:var(--text-secondary);border:none">Historical (Fund NAV)</button>
+    </div>
+
+    <!-- Generic mode form -->
+    <form id="sip-form-generic">
       {% csrf_token %}
       <div class="form-group">
         <label class="form-label">Monthly SIP Amount (₹)</label>
-        <input class="form-control" type="number" name="monthly_amount" id="monthly_amount" value="10000" min="100" step="500">
+        <input class="form-control" type="number" name="monthly_amount" id="monthly_amount" value="10000" min="100" step="1">
       </div>
       <div class="form-group">
         <label class="form-label">Investment Period</label>
@@ -36,6 +41,45 @@
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
     </form>
+
+    <!-- Historical mode form -->
+    <form id="sip-form-historical" style="display:none">
+      {% csrf_token %}
+      <!-- Fund search -->
+      <div class="form-group" style="position:relative">
+        <label class="form-label" style="color:var(--indigo-400)">Select Mutual Fund</label>
+        <input type="text" class="form-control" id="hist-fund-search" placeholder="Type to search fund…" autocomplete="off" style="border-color:var(--indigo-500)">
+        <input type="hidden" id="hist-amfi-code" name="amfi_code">
+        <input type="hidden" id="hist-inception" name="inception_date">
+        <div id="hist-fund-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-top:4px"></div>
+      </div>
+      <!-- Dates -->
+      <div class="grid-2" style="gap:12px">
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input type="date" class="form-control" id="hist-start-date" name="start_date">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Defaults to fund inception date if available.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Date</label>
+          <input type="date" class="form-control" id="hist-end-date" name="end_date" value="{{ today }}">
+        </div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="form-group">
+          <label class="form-label">Instalment Amount (₹)</label>
+          <input class="form-control" type="number" name="amount" id="hist-amount" value="5000" min="100" step="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frequency</label>
+          <select class="form-control" name="frequency" id="hist-frequency">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
   </div>
 
   <!-- Results -->
@@ -43,47 +87,255 @@
     <div id="sip-results">
       <div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Enter values and click Calculate.</span></div>
     </div>
-    <div id="sip-chart" style="height:320px;margin-top:16px"></div>
+    <div id="sip-growth-chart" style="height:340px;margin-top:20px"></div>
+    <div id="sip-donut-chart" style="height:240px;margin-top:16px"></div>
+    <div id="sip-table-container" style="margin-top:20px"></div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.getElementById('sip-form').addEventListener('submit', async (e) => {
+// ── Set today as default end-date ──────────────────────────────────────────
+document.getElementById('hist-end-date').value = new Date().toISOString().slice(0, 10);
+
+let currentMode = 'generic';
+
+function setMode(mode) {
+  currentMode = mode;
+  const g = document.getElementById('mode-generic');
+  const h = document.getElementById('mode-historical');
+  if (mode === 'generic') {
+    g.style.background = 'var(--indigo-500)'; g.style.color = 'white';
+    h.style.background = 'transparent';       h.style.color = 'var(--text-secondary)';
+    document.getElementById('sip-form-generic').style.display    = 'block';
+    document.getElementById('sip-form-historical').style.display = 'none';
+  } else {
+    h.style.background = 'var(--indigo-500)'; h.style.color = 'white';
+    g.style.background = 'transparent';       g.style.color = 'var(--text-secondary)';
+    document.getElementById('sip-form-generic').style.display    = 'none';
+    document.getElementById('sip-form-historical').style.display = 'block';
+  }
+  clearResults();
+}
+
+function clearResults() {
+  document.getElementById('sip-results').innerHTML = '<div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Enter values and click Calculate.</span></div>';
+  document.getElementById('sip-growth-chart').innerHTML = '';
+  document.getElementById('sip-donut-chart').innerHTML  = '';
+  document.getElementById('sip-table-container').innerHTML = '';
+}
+
+// ── Fund autocomplete (historical mode) ───────────────────────────────────
+const histSearch   = document.getElementById('hist-fund-search');
+const histDropdown = document.getElementById('hist-fund-dropdown');
+const histAmfi     = document.getElementById('hist-amfi-code');
+const histInception = document.getElementById('hist-inception');
+let searchTimer;
+
+histSearch.addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { histDropdown.style.display = 'none'; return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+      const data = await r.json();
+      if (!data.results?.length) {
+        histDropdown.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--text-muted)">No funds found.</div>';
+      } else {
+        histDropdown.innerHTML = data.results.map(f => `
+          <div class="fund-search-item" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border-subtle)"
+               onmousedown="selectHistFund('${f.amfi_code}','${f.scheme_name.replace(/'/g,"\\'")}','${f.inception_date||''}')">
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${f.fund_house}${f.inception_date ? ' · Inception: '+f.inception_date : ''}</div>
+          </div>`).join('');
+      }
+      histDropdown.style.display = 'block';
+    } catch(_) {}
+  }, 300);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#sip-form-historical')) histDropdown.style.display = 'none';
+});
+
+window.selectHistFund = function(amfi, name, inception) {
+  histAmfi.value      = amfi;
+  histInception.value = inception;
+  histSearch.value    = name;
+  histDropdown.style.display = 'none';
+  // Update the min constraint so users can't pick before inception
+  if (inception) document.getElementById('hist-start-date').min = inception;
+};
+
+// ── Formatting helpers ─────────────────────────────────────────────────────
+function fmtINR(v) {
+  if (v >= 10000000) return '₹' + (v / 10000000).toFixed(2) + ' Cr';
+  if (v >= 100000)   return '₹' + (v / 100000).toFixed(2) + ' L';
+  return '₹' + Math.round(v).toLocaleString('en-IN');
+}
+function pct(v, dec=2) { return v != null ? v.toFixed(dec) + '%' : '—'; }
+
+// ── Generic mode submit ────────────────────────────────────────────────────
+document.getElementById('sip-form-generic').addEventListener('submit', async e => {
   e.preventDefault();
-  const fd = new FormData(e.target);
+  const fd  = new FormData(e.target);
   const btn = e.target.querySelector('[type=submit]');
   btn.textContent = 'Calculating…'; btn.disabled = true;
-  const r = await fetch('{% url "calculators:api_sip" %}', {
-    method: 'POST',
-    body: JSON.stringify({ monthly_amount: parseFloat(fd.get('monthly_amount')), years: parseFloat(fd.get('years')), expected_rate: parseFloat(fd.get('expected_rate')) }),
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }
-  });
-  const d = await r.json();
-  btn.textContent = 'Calculate'; btn.disabled = false;
-  if (d.error) { document.getElementById('sip-results').innerHTML = `<div class="alert alert-danger">${d.error}</div>`; return; }
+
+  try {
+    const r = await fetch('{% url "calculators:api_sip" %}', {
+      method: 'POST',
+      body: JSON.stringify({
+        monthly_amount: parseFloat(fd.get('monthly_amount')),
+        years:          parseFloat(fd.get('years')),
+        expected_rate:  parseFloat(fd.get('expected_rate')),
+      }),
+      headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+    });
+    const d = await r.json();
+    btn.textContent = 'Calculate'; btn.disabled = false;
+    if (d.error) { showError(d.error); return; }
+    renderGenericResults(d, parseFloat(fd.get('monthly_amount')));
+  } catch(err) { btn.textContent = 'Calculate'; btn.disabled = false; showError('Calculation failed.'); }
+});
+
+function renderGenericResults(d, monthly) {
   document.getElementById('sip-results').innerHTML = `
     <div class="grid-2" style="gap:12px;margin-bottom:16px">
-      <div class="calc-result-highlight">
-        <div class="label">Future Value</div>
-        <div class="value">₹${(d.future_value/100000).toFixed(2)}L</div>
-        <div class="sub">after ${d.years} years</div>
-      </div>
-      <div class="calc-result-highlight">
-        <div class="label">Total Gain</div>
-        <div class="value" style="color:var(--emerald-400)">₹${(d.gain/100000).toFixed(2)}L</div>
-        <div class="sub">${d.return_pct.toFixed(1)}% absolute return</div>
-      </div>
+      <div class="calc-result-highlight"><div class="label">Future Value</div><div class="value">${fmtINR(d.future_value)}</div><div class="sub">after ${d.years} years</div></div>
+      <div class="calc-result-highlight"><div class="label">Wealth Gain</div><div class="value" style="color:var(--emerald-400)">${fmtINR(d.gain)}</div><div class="sub">${pct(d.return_pct)} absolute</div></div>
     </div>
     <div class="metrics-dl">
-      <div><div class="metric-key">Total Invested</div><div class="metric-val" style="font-size:14px">₹${d.total_invested.toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
-      <div><div class="metric-key">Monthly SIP</div><div class="metric-val" style="font-size:14px">₹${d.monthly_amount.toLocaleString('en-IN')}</div></div>
-      <div><div class="metric-key">Instalments</div><div class="metric-val" style="font-size:14px">${d.n_instalments}</div></div>
-      <div><div class="metric-key">Duration</div><div class="metric-val" style="font-size:14px">${d.years} years</div></div>
+      <div><div class="metric-key">Total Invested</div><div class="metric-val">${fmtINR(d.total_invested)}</div></div>
+      <div><div class="metric-key">Monthly SIP</div><div class="metric-val">${fmtINR(monthly)}</div></div>
+      <div><div class="metric-key">CAGR</div><div class="metric-val" style="color:var(--emerald-400)">${pct(d.cagr)}</div></div>
     </div>`;
-  // Donut chart
-  renderSIPChart(document.getElementById('sip-chart'), d);
+
+  if (d.history?.length) {
+    Plotly.newPlot('sip-growth-chart', [
+      {x:d.history.map(h=>'Year '+h.year), y:d.history.map(h=>h.invested), name:'Invested', type:'scatter', mode:'lines', line:{color:'#6366f1',width:2}, fill:'tozeroy', fillcolor:'rgba(99,102,241,0.15)'},
+      {x:d.history.map(h=>'Year '+h.year), y:d.history.map(h=>h.value),   name:'Value',    type:'scatter', mode:'lines', line:{color:'#34d399',width:2.5}, fill:'tonexty', fillcolor:'rgba(52,211,153,0.12)'},
+    ], {...MF_PLOTLY_LAYOUT_BASE, title:{text:'Investment Growth',font:{size:13,color:'#94a3b8'}}, yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}, margin:{l:70,r:16,t:40,b:50}, height:340}, MF_PLOTLY_CONFIG);
+    renderSIPChart(document.getElementById('sip-donut-chart'), {invested: d.total_invested, current_value: d.future_value});
+    let rows = d.history.map(h => `<tr><td style="text-align:center">Year ${h.year}</td><td style="text-align:right">${fmtINR(h.invested)}</td><td style="text-align:right">${fmtINR(h.value)}</td><td style="text-align:right;color:var(--emerald-400)">${fmtINR(h.gain)}</td></tr>`).join('');
+    document.getElementById('sip-table-container').innerHTML = `
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">Year-by-Year Breakdown</div>
+      <div style="max-height:300px;overflow-y:auto;border-radius:8px;border:1px solid var(--border-subtle)">
+      <table class="data-table" style="width:100%;font-size:12px">
+        <thead><tr><th style="text-align:center">Period</th><th style="text-align:right">Invested</th><th style="text-align:right">Value</th><th style="text-align:right">Gain</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  }
+}
+
+// ── Historical mode submit ─────────────────────────────────────────────────
+document.getElementById('sip-form-historical').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  if (!fd.get('amfi_code')) { alert('Please select a mutual fund first.'); return; }
+
+  // Auto-fill dates logic REMOVED. Let backend handle empty dates to discover true inception.
+
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent = 'Fetching NAV data…'; btn.disabled = true;
+
+  try {
+    const r = await fetch('{% url "calculators:api_nav_sip" %}', {
+      method: 'POST',
+      body: JSON.stringify({
+        amfi_code:  fd.get('amfi_code'),
+        start_date: fd.get('start_date'),
+        end_date:   fd.get('end_date'),
+        amount:     parseFloat(fd.get('amount')),
+        frequency:  fd.get('frequency'),
+      }),
+      headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
+    });
+    const d = await r.json();
+    btn.textContent = 'Calculate'; btn.disabled = false;
+    if (d.error) { showError(d.error); return; }
+    
+    // Auto-populate UI with true calculated dates from backend
+    if (d.start_date) document.getElementById('hist-start-date').value = d.start_date;
+    if (d.end_date)   document.getElementById('hist-end-date').value   = d.end_date;
+    
+    renderHistoricalResults(d);
+  } catch(err) { btn.textContent = 'Calculate'; btn.disabled = false; showError('Calculation failed — please try again.'); }
 });
+
+function renderHistoricalResults(d) {
+  const xirr = d.xirr_pct != null ? d.xirr_pct.toFixed(2) + '%' : '—';
+  // Summary card
+  document.getElementById('sip-results').innerHTML = `
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--indigo-400);margin-bottom:10px">📋 Summary</div>
+      <div style="overflow-x:auto">
+      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
+        <thead><tr>
+          <th>Fund Name</th><th>AMC</th><th>Inception</th><th>NAV Date</th><th>NAV</th>
+          <th style="text-align:right">Units</th><th style="text-align:right">Instalments</th>
+          <th style="text-align:right">Invested</th><th style="text-align:right">Current Value</th><th style="text-align:right">XIRR (%)</th>
+        </tr></thead>
+        <tbody><tr>
+          <td><span style="color:var(--indigo-400);font-weight:600">${d.scheme_name}</span></td>
+          <td>${d.fund_house}</td>
+          <td>${d.inception_date || '—'}</td>
+          <td>${d.nav_date}</td>
+          <td>₹${d.nav}</td>
+          <td style="text-align:right">${d.total_units}</td>
+          <td style="text-align:right">${d.sip_instalments}</td>
+          <td style="text-align:right">${fmtINR(d.total_invested)}</td>
+          <td style="text-align:right;font-weight:700;color:var(--emerald-400)">${fmtINR(d.current_value)}</td>
+          <td style="text-align:right;font-weight:700;color:${d.xirr_pct >= 0 ? 'var(--emerald-400)' : 'var(--rose-400)'}">${xirr}</td>
+        </tr></tbody>
+      </table></div>
+    </div>
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div class="calc-result-highlight"><div class="label">Absolute Gain</div><div class="value" style="color:${d.absolute_gain>=0?'var(--emerald-400)':'var(--rose-400)'}">${fmtINR(Math.abs(d.absolute_gain))}</div><div class="sub">${pct(d.absolute_return_pct)} absolute</div></div>
+      <div class="calc-result-highlight"><div class="label">XIRR</div><div class="value" style="color:${d.xirr_pct>=0?'var(--emerald-400)':'var(--rose-400)'}">${xirr}</div><div class="sub">${d.start_date} → ${d.end_date}</div></div>
+    </div>`;
+
+  // Portfolio chart
+  if (d.cashflow_table?.length) {
+    Plotly.newPlot('sip-growth-chart', [
+      {x:d.cashflow_table.map(r=>r.nav_date), y:d.cashflow_table.map(r=>r.cumulative_invested), name:'Invested', type:'scatter', mode:'lines', line:{color:'#6366f1',width:1.5,dash:'dot'}},
+      {x:d.cashflow_table.map(r=>r.nav_date), y:d.cashflow_table.map(r=>r.market_value),        name:'Portfolio Value', type:'scatter', mode:'lines', line:{color:'#34d399',width:2.5}, fill:'tonexty', fillcolor:'rgba(52,211,153,0.1)'},
+    ], {...MF_PLOTLY_LAYOUT_BASE, title:{text:'Portfolio Growth (Actual NAV)',font:{size:13,color:'#94a3b8'}}, yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}, margin:{l:70,r:16,t:40,b:50}, height:340}, MF_PLOTLY_CONFIG);
+    renderSIPChart(document.getElementById('sip-donut-chart'), {invested: d.total_invested, current_value: d.current_value});
+
+    // Cash-flow table
+    const rows = d.cashflow_table.map(r => `
+      <tr>
+        <td>${r.nav_date}</td>
+        <td style="text-align:right">₹${r.nav}</td>
+        <td style="text-align:right">${r.sip_amount ? fmtINR(r.sip_amount) : '—'}</td>
+        <td style="text-align:right">${r.units_bought}</td>
+        <td style="text-align:right;color:var(--indigo-400)">${r.cumulative_units}</td>
+        <td style="text-align:right">${fmtINR(r.cumulative_invested)}</td>
+        <td style="text-align:right;color:var(--emerald-400);font-weight:600">${fmtINR(r.market_value)}</td>
+      </tr>`).join('');
+    document.getElementById('sip-table-container').innerHTML = `
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">💼 Cash Flow — ${d.scheme_name}</div>
+      <div style="max-height:380px;overflow-y:auto;border-radius:8px;border:1px solid var(--border-subtle)">
+      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
+        <thead><tr>
+          <th>NAV Date</th><th style="text-align:right">NAV</th><th style="text-align:right">SIP Amount</th>
+          <th style="text-align:right">Units Bought</th><th style="text-align:right">Cum. Units</th>
+          <th style="text-align:right">Cum. Invested</th><th style="text-align:right">Market Value</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  }
+}
+
+function showError(msg) {
+  document.getElementById('sip-results').innerHTML = `<div class="alert alert-danger">${msg}</div>`;
+}
+
+// Range sliders
+document.getElementById('years').addEventListener('input', e => document.getElementById('years_display').textContent = e.target.value + ' yrs');
+document.getElementById('expected_rate').addEventListener('input', e => document.getElementById('expected_rate_display').textContent = e.target.value + '%');
 </script>
 {% endblock %}
