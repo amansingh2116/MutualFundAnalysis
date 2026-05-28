@@ -465,3 +465,234 @@ def portfolio_forecast_api(request, pk):
     })
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# BACKTESTER VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def portfolio_backtester_view(request):
+    """Render the portfolio plan builder + backtester."""
+    from apps.benchmarks.models import BenchmarkIndex
+
+    indices = list(
+        BenchmarkIndex.objects.filter(is_active=True).order_by('name').values('name', 'id')
+    )
+    return render(request, 'portfolio/backtester.html', {'indices': indices})
+
+
+@login_required
+def portfolio_fund_search_api(request):
+    """
+    AJAX fund search — returns matching MF schemes and indices.
+    GET ?q=parag+parikh&type=all|scheme|index
+    """
+    q = request.GET.get('q', '').strip()
+    src_type = request.GET.get('type', 'all')
+    results = []
+
+    if len(q) >= 2:
+        if src_type in ('all', 'scheme'):
+            from apps.funds.models import Scheme
+            schemes = (
+                Scheme.objects
+                .filter(scheme_name__icontains=q, is_active=True, plan='GROWTH')
+                .exclude(nav_latest__isnull=True)
+                .order_by('-aum_cr')[:15]
+                .values('amfi_code', 'scheme_name', 'fund_house', 'scheme_category',
+                        'nav_latest', 'aum_cr', 'is_direct')
+            )
+            for s in schemes:
+                results.append({
+                    'type': 'scheme',
+                    'id': s['amfi_code'],
+                    'name': s['scheme_name'],
+                    'sub': f"{s['fund_house']} · {s['scheme_category'][:45]}",
+                    'nav': float(s['nav_latest']) if s['nav_latest'] else None,
+                    'aum': float(s['aum_cr']) if s['aum_cr'] else None,
+                    'is_direct': s['is_direct'],
+                })
+
+        if src_type in ('all', 'index'):
+            from apps.benchmarks.models import BenchmarkIndex
+            indices = (
+                BenchmarkIndex.objects
+                .filter(name__icontains=q, is_active=True)
+                .order_by('name')[:10]
+                .values('name', 'description')
+            )
+            for idx in indices:
+                results.append({
+                    'type': 'index',
+                    'id': idx['name'],
+                    'name': idx['name'],
+                    'sub': idx.get('description', 'Index') or 'Index',
+                    'nav': None,
+                    'aum': None,
+                    'is_direct': None,
+                })
+
+    return JsonResponse({'results': results})
+
+
+@login_required
+def portfolio_backtester_api(request):
+    """
+    POST endpoint — runs the plan simulation.
+
+    Expected JSON body:
+    {
+      "funds": [
+        {
+          "label": "Parag Parikh Flexi Cap",
+          "source_type": "scheme",     // "scheme" | "index"
+          "source_id": "122639",        // amfi_code or index name
+          "rules": [
+            {
+              "rule_type": "sip",
+              "amount": 5000,
+              "frequency": "monthly",
+              "start_date": "2019-01-01",
+              "end_date": null,
+              "step_up_pct": 10
+            },
+            {
+              "rule_type": "lumpsum",
+              "amount": 50000,
+              "lumpsum_date": "2020-03-23"
+            }
+          ]
+        }
+      ],
+      "rebalance_mode": "annual",      // "none"|"annual"|"threshold"
+      "rebalance_threshold": 5.0,
+      "rebalance_anchor_month": 1,
+      "debt_park_source_type": "index",
+      "debt_park_id": "NIFTY LIQUID INDEX",
+      "vol_threshold": 20,             // percent
+      "start_date": null,
+      "end_date": null
+    }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    try:
+        from apps.portfolio.services.backtester import (
+            InvestmentRule, FundPlan, PortfolioPlan, run_plan_simulation
+        )
+
+        raw_funds = data.get('funds', [])
+        if not raw_funds:
+            return JsonResponse({'error': 'Add at least one fund to your plan.'}, status=400)
+
+        funds = []
+        for fp in raw_funds:
+            rules = []
+            for r in fp.get('rules', []):
+                def _parse_date(s):
+                    if not s:
+                        return None
+                    try:
+                        return date.fromisoformat(str(s))
+                    except ValueError:
+                        return None
+
+                rules.append(InvestmentRule(
+                    rule_type=str(r.get('rule_type', 'sip')),
+                    amount=float(r.get('amount', 0)),
+                    frequency=str(r.get('frequency', 'monthly')),
+                    start_date=_parse_date(r.get('start_date')),
+                    end_date=_parse_date(r.get('end_date')),
+                    step_up_pct=float(r.get('step_up_pct', 0)),
+                    lumpsum_date=_parse_date(r.get('lumpsum_date')),
+                    sell_pct=float(r.get('sell_pct', 100)),
+                    trigger=r.get('trigger') or None,
+                    trigger_value=float(r['trigger_value']) if r.get('trigger_value') else None,
+                ))
+
+            if not rules:
+                continue
+
+            funds.append(FundPlan(
+                label=str(fp.get('label', fp.get('source_id', 'Fund'))),
+                source_type=str(fp.get('source_type', 'scheme')),
+                source_id=str(fp.get('source_id', '')),
+                rules=rules,
+            ))
+
+        if not funds:
+            return JsonResponse({'error': 'No valid funds with rules found.'}, status=400)
+
+        def _pd(s):
+            if not s:
+                return None
+            try:
+                return date.fromisoformat(str(s))
+            except ValueError:
+                return None
+
+        plan = PortfolioPlan(
+            funds=funds,
+            rebalance_mode=str(data.get('rebalance_mode', 'none')),
+            rebalance_threshold=float(data.get('rebalance_threshold', 5.0)),
+            rebalance_anchor_month=int(data.get('rebalance_anchor_month', 1)),
+            debt_park_source_type=str(data.get('debt_park_source_type', 'scheme')),
+            debt_park_id=str(data.get('debt_park_id', '')),
+            vol_threshold=float(data.get('vol_threshold', 20)) / 100.0,
+            start_date=_pd(data.get('start_date')),
+            end_date=_pd(data.get('end_date')),
+            debt_return_pct=float(data.get('debt_return_pct', 7.0)),
+        )
+
+
+        result = run_plan_simulation(plan)
+
+        def ser(s):
+            return {
+                'strategy_key': s.strategy_key,
+                'name': s.strategy_name,
+                'description': s.description,
+                'final_corpus': s.final_corpus,
+                'total_invested': s.total_invested,
+                'absolute_gain': s.absolute_gain,
+                'absolute_return_pct': s.absolute_return_pct,
+                'cagr': s.cagr,
+                'xirr': s.xirr,
+                'trailing_1y': s.trailing_1y,
+                'trailing_3y': s.trailing_3y,
+                'trailing_5y': s.trailing_5y,
+                'rolling_5y_min': s.rolling_5y_min,
+                'rolling_5y_max': s.rolling_5y_max,
+                'rolling_5y_avg': s.rolling_5y_avg,
+                'volatility_ann': s.volatility_ann,
+                'max_drawdown': s.max_drawdown,
+                'sharpe': s.sharpe,
+                'sortino': s.sortino,
+                'calendar_returns': s.calendar_returns,
+                'downside_quarters': s.downside_quarters,
+                'dates': s.dates,
+                'portfolio_values': s.portfolio_values,
+                'invested_cumulative': s.invested_cumulative,
+                'equity_ratios': s.equity_ratios,
+                'transactions': s.transactions if s.strategy_key == 'base' else [],
+                'interpretation': s.interpretation,
+            }
+
+        return JsonResponse({
+            'status': 'success',
+            'start_date': result.start_date,
+            'end_date': result.end_date,
+            'plan_summary': result.plan_summary,
+            'strategies': [ser(s) for s in result.strategies],
+            'data_warnings': result.data_warnings,
+            'conclusion': result.conclusion,
+        })
+
+    except Exception as exc:
+        logger.exception("Backtester API error")
+        return JsonResponse({'error': str(exc)}, status=400)

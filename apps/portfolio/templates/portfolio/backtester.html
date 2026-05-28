@@ -1,0 +1,1353 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Backtester{% endblock %}
+{% block meta_description %}Backtest a hypothetical index fund or mutual fund portfolio with 5 tactical rebalancing strategies over 10 years. Analyze CAGR, rolling returns, drawdowns, SIP XIRR, and downside behavior.{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.bt-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .bt-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Input Panel ──────────────────────────────────────────────────────────── */
+.bt-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  position: sticky;
+  top: 16px;
+}
+.bt-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+.bt-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-muted);
+  margin: 16px 0 8px;
+}
+.bt-input, .bt-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color .15s;
+}
+.bt-input:focus, .bt-select:focus {
+  outline: none;
+  border-color: var(--indigo-500);
+}
+.bt-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bt-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* ── Fund Rows ────────────────────────────────────────────────────────────── */
+.fund-row {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  position: relative;
+  transition: border-color .15s;
+}
+.fund-row:hover { border-color: var(--indigo-500); }
+.fund-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.fund-label-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(99,102,241,.15);
+  color: var(--indigo-400);
+}
+.sleeve-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+.sleeve-equity { background: rgba(16,185,129,.12); color: #10b981; }
+.sleeve-debt { background: rgba(245,158,11,.12); color: #f59e0b; }
+.remove-fund {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.remove-fund:hover { color: var(--danger); }
+.weight-display {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--indigo-400);
+  text-align: center;
+}
+
+/* ── Run Button ───────────────────────────────────────────────────────────── */
+.bt-run-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: opacity .2s, transform .1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.bt-run-btn:hover { opacity: .9; }
+.bt-run-btn:active { transform: scale(.98); }
+.bt-run-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Results Area ─────────────────────────────────────────────────────────── */
+.bt-results { min-height: 400px; }
+.bt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 12px;
+}
+.bt-empty-icon { font-size: 64px; opacity: .4; }
+
+/* ── Loading Spinner ──────────────────────────────────────────────────────── */
+.bt-loading {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+  color: var(--text-muted);
+}
+.spinner {
+  width: 48px; height: 48px;
+  border: 4px solid var(--border);
+  border-top-color: var(--indigo-500);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Strategy Summary ─────────────────────────────────────────────────────── */
+.strategy-summary {
+  background: linear-gradient(135deg, rgba(99,102,241,.08) 0%, rgba(139,92,246,.08) 100%);
+  border: 1px solid rgba(99,102,241,.2);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+.strategy-summary h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--indigo-400);
+}
+.fund-tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.fund-tag {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Metric Cards Grid ────────────────────────────────────────────────────── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: transform .15s, box-shadow .15s;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+.metric-val {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.metric-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+.positive { color: var(--success); }
+.negative { color: var(--danger); }
+.neutral  { color: var(--text); }
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.bt-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.bt-tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.bt-tab.active {
+  color: var(--indigo-400);
+  border-bottom-color: var(--indigo-400);
+}
+.bt-tab-content { display: none; }
+.bt-tab-content.active { display: block; }
+
+/* ── Strategy Compare Table ───────────────────────────────────────────────── */
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.compare-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-bottom: 2px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.compare-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table tr:hover td { background: rgba(99,102,241,.04); }
+.strategy-name-cell {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.strategy-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Calendar Returns Bar ─────────────────────────────────────────────────── */
+.cal-year-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.cal-bar-container {
+  flex: 1;
+  height: 20px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.cal-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .4s ease;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+}
+.cal-bar.pos { background: linear-gradient(90deg, #10b981, #34d399); }
+.cal-bar.neg { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+/* ── Rolling Returns ──────────────────────────────────────────────────────── */
+.rolling-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.rolling-stat {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+.rolling-stat-val { font-size: 18px; font-weight: 700; }
+.rolling-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+
+/* ── Downside Table ───────────────────────────────────────────────────────── */
+.downside-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.downside-table th {
+  padding: 8px 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.downside-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.downside-table tr:hover td { background: rgba(239,68,68,.04); }
+
+/* ── Warnings ─────────────────────────────────────────────────────────────── */
+.bt-warning {
+  background: rgba(245,158,11,.08);
+  border: 1px solid rgba(245,158,11,.2);
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #f59e0b;
+  margin-bottom: 8px;
+}
+.bt-note {
+  background: rgba(99,102,241,.06);
+  border: 1px solid rgba(99,102,241,.15);
+  border-left: 4px solid var(--indigo-500);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+/* ── Conclusion ───────────────────────────────────────────────────────────── */
+.conclusion-box {
+  background: linear-gradient(135deg, rgba(99,102,241,.06), rgba(139,92,246,.06));
+  border: 1px solid rgba(99,102,241,.2);
+  border-radius: 14px;
+  padding: 20px 24px;
+  line-height: 1.7;
+  font-size: 14px;
+}
+.conclusion-box h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--indigo-400);
+}
+
+/* ── Strategy selector (for chart) ───────────────────────────────────────── */
+.strategy-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.strategy-pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all .15s;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+.strategy-pill.active {
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ── Chart containers ─────────────────────────────────────────────────────── */
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+/* ── Strategy interpretation ──────────────────────────────────────────────── */
+.interp-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'portfolio:list' %}">Portfolios</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>Portfolio Backtester</span>
+</div>
+<div class="page-header">
+  <div class="page-title">⚗️ Portfolio Backtester</div>
+  <div class="page-subtitle">Simulate a hypothetical index fund or mutual fund portfolio with 5 tactical rebalancing strategies</div>
+</div>
+
+<div class="bt-layout">
+
+  <!-- ── LEFT: Input Panel ────────────────────────────────────────────────── -->
+  <div class="bt-panel">
+    <div class="bt-panel-title">⚙️ Portfolio Configuration</div>
+
+    <!-- Fund Rows -->
+    <div class="bt-section-label">Funds / Indices</div>
+    <div id="fund-rows"></div>
+
+    <!-- Add Fund Controls -->
+    <div style="margin-bottom:12px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="add-source-type" class="bt-select" style="flex:1">
+          <option value="index">📈 Index</option>
+          <option value="scheme">🏦 Mutual Fund</option>
+        </select>
+      </div>
+      <div id="add-index-row">
+        <select id="add-index-select" class="bt-select" style="margin-bottom:6px">
+          <option value="">-- Select Index --</option>
+          {% for idx in indices %}
+          <option value="{{ idx.name }}">{{ idx.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="add-scheme-row" style="display:none">
+        <input type="text" id="scheme-search" class="bt-input" placeholder="Search mutual funds..." autocomplete="off" style="margin-bottom:4px">
+        <select id="add-scheme-select" class="bt-select" style="margin-bottom:6px;max-height:200px" size="5">
+          {% for s in schemes %}
+          <option value="{{ s.amfi_code }}" data-name="{{ s.scheme_name }}" data-house="{{ s.fund_house }}">{{ s.scheme_name|truncatechars:55 }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+        <input type="number" id="add-weight" class="bt-input" placeholder="Weight %" value="25" min="1" max="100">
+        <select id="add-sleeve" class="bt-select">
+          <option value="equity">Equity</option>
+          <option value="debt">Debt</option>
+        </select>
+        <button class="btn btn-primary" onclick="addFundRow()" style="font-size:13px;padding:9px">+ Add</button>
+      </div>
+      <!-- Quick Presets -->
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">
+        <span style="font-size:11px;color:var(--text-muted);width:100%;margin-bottom:2px">Quick add:</span>
+        {% for p in preset_indices %}
+        <button class="btn btn-secondary" style="font-size:11px;padding:3px 8px" onclick="quickAdd('{{ p }}')">{{ p }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="weight-total-bar" style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+      Total weight: <span id="weight-total">0</span>% 
+      <span id="weight-warning" style="color:var(--danger);display:none"> ⚠ Must equal 100%</span>
+    </div>
+
+    <!-- Investment Parameters -->
+    <div class="bt-section-label">Investment</div>
+    <div class="bt-row" style="margin-bottom:8px">
+      <select id="inv-type" class="bt-select">
+        <option value="sip">SIP</option>
+        <option value="lumpsum">Lump Sum</option>
+      </select>
+      <input type="number" id="inv-amount" class="bt-input" value="10000" min="500" placeholder="Amount (₹)">
+    </div>
+    <div class="bt-row">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">SIP Frequency</div>
+        <select id="sip-freq" class="bt-select">
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Start Date</div>
+        <input type="date" id="start-date" class="bt-input" value="2014-01-01">
+      </div>
+    </div>
+
+    <!-- Rebalancing -->
+    <div class="bt-section-label">Rebalancing</div>
+    <div class="bt-row">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Frequency</div>
+        <select id="rebal-freq" class="bt-select">
+          <option value="annual" selected>Annual</option>
+          <option value="semi-annual">Semi-Annual</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Rebalance Day</div>
+        <input type="number" id="rebal-day" class="bt-input" value="1" min="1" max="28" placeholder="Day of month">
+      </div>
+    </div>
+
+    <!-- Tactical Settings -->
+    <div class="bt-section-label">Tactical Settings</div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Debt Parking Index (for equity-OFF periods)</div>
+      <select id="debt-index" class="bt-select">
+        {% for idx in indices %}
+        <option value="{{ idx.name }}" {% if idx.name == 'NIFTY LIQUID INDEX' %}selected{% endif %}>{{ idx.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Volatility Threshold — Strategy 3 (%)</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="vol-threshold" min="5" max="50" value="20" style="flex:1">
+        <span id="vol-threshold-display" style="font-weight:700;min-width:32px">20%</span>
+      </div>
+    </div>
+
+    <button class="bt-run-btn" id="run-btn" onclick="runBacktest()">
+      <span id="run-icon">▶</span> Run Backtest
+    </button>
+    <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px">
+      ⚠ Strategy 4 (PE filter) is disabled — PE time-series data not yet available
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Results ────────────────────────────────────────────────────── -->
+  <div class="bt-results" id="bt-results">
+    <!-- Empty State -->
+    <div class="bt-empty" id="empty-state">
+      <div class="bt-empty-icon">⚗️</div>
+      <div style="font-size:20px;font-weight:700">Configure & Run Your Backtest</div>
+      <div style="max-width:380px;line-height:1.6">
+        Add funds or indices, set weights, choose investment parameters and click <strong>Run Backtest</strong>.
+        Results will include 5 tactical strategies, rolling returns, drawdowns, and SIP XIRR.
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="bt-loading" id="loading-state">
+      <div class="spinner"></div>
+      <div style="font-size:16px;font-weight:600">Running backtest…</div>
+      <div style="font-size:13px;color:var(--text-muted)">Fetching data and simulating all strategies</div>
+    </div>
+
+    <!-- Results (hidden until run) -->
+    <div id="results-content" style="display:none">
+      <!-- Warnings -->
+      <div id="warnings-container"></div>
+
+      <!-- Strategy Summary -->
+      <div class="strategy-summary" id="strategy-summary-box"></div>
+
+      <!-- Key Metrics Grid -->
+      <div class="metrics-grid" id="metrics-grid"></div>
+
+      <!-- Result Tabs -->
+      <div class="bt-tabs" id="result-tabs">
+        <button class="bt-tab active" onclick="switchTab('returns')">📈 Returns</button>
+        <button class="bt-tab" onclick="switchTab('risk')">🛡️ Risk</button>
+        <button class="bt-tab" onclick="switchTab('sip')">💰 SIP Analysis</button>
+        <button class="bt-tab" onclick="switchTab('compare')">⚖️ Compare</button>
+        <button class="bt-tab" onclick="switchTab('strategies')">🔍 Strategies</button>
+        <button class="bt-tab" onclick="switchTab('conclusion')">📝 Conclusion</button>
+      </div>
+
+      <!-- Returns Tab -->
+      <div class="bt-tab-content active" id="tab-returns">
+        <div class="chart-box">
+          <div class="chart-title">Portfolio Growth — All Strategies</div>
+          <div class="strategy-pills" id="growth-chart-pills"></div>
+          <div id="growth-chart" style="height:340px"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">5-Year Rolling CAGR</div>
+          <div id="rolling-chart" style="height:280px"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Calendar Year Returns — Passive Strategy</div>
+          <div id="calendar-bars"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Trailing Returns Summary</div>
+          <table class="compare-table" id="trailing-table">
+            <thead><tr>
+              <th>Strategy</th><th>1Y CAGR</th><th>3Y CAGR</th><th>5Y CAGR</th><th>XIRR</th>
+            </tr></thead>
+            <tbody id="trailing-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Risk Tab -->
+      <div class="bt-tab-content" id="tab-risk">
+        <div class="chart-box">
+          <div class="chart-title">Maximum Drawdown — All Strategies</div>
+          <div id="drawdown-chart" style="height:280px"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">5-Year Rolling Returns — Min / Max / Avg</div>
+          <div class="rolling-stat-grid" id="rolling-stats"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Risk Metrics Summary</div>
+          <table class="compare-table" id="risk-table">
+            <thead><tr>
+              <th>Strategy</th><th>Volatility</th><th>Max DD</th><th>Sharpe</th><th>Sortino</th>
+            </tr></thead>
+            <tbody id="risk-tbody"></tbody>
+          </table>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">📉 Downside Quarters — Passive Strategy</div>
+          <div id="downside-container"></div>
+        </div>
+      </div>
+
+      <!-- SIP Analysis Tab -->
+      <div class="bt-tab-content" id="tab-sip">
+        <div class="chart-box">
+          <div class="chart-title">Invested vs Corpus — All Strategies</div>
+          <div id="corpus-chart" style="height:320px"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Equity Deployment Ratio Over Time</div>
+          <div id="equity-ratio-chart" style="height:220px"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">SIP XIRR Comparison</div>
+          <div id="xirr-bars" style="padding:8px"></div>
+        </div>
+      </div>
+
+      <!-- Compare Tab -->
+      <div class="bt-tab-content" id="tab-compare">
+        <div class="chart-box">
+          <div class="chart-title">Strategy Comparison — Radar Chart</div>
+          <div id="radar-chart" style="height:360px"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Side-by-Side Strategy Results</div>
+          <table class="compare-table" id="full-compare-table">
+            <thead><tr>
+              <th>Strategy</th>
+              <th>Final Corpus</th><th>Invested</th><th>Gain</th>
+              <th>CAGR</th><th>XIRR</th><th>Volatility</th><th>Max DD</th><th>Sharpe</th>
+            </tr></thead>
+            <tbody id="full-compare-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Strategies Tab -->
+      <div class="bt-tab-content" id="tab-strategies">
+        <div id="strategy-interpretations"></div>
+      </div>
+
+      <!-- Conclusion Tab -->
+      <div class="bt-tab-content" id="tab-conclusion">
+        <div class="conclusion-box" id="conclusion-text"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- bt-layout -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+let fundRows = [];
+let backtestData = null;
+
+const STRATEGY_COLORS = [
+  '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'
+];
+
+// ── Fund Row Management ─────────────────────────────────────────────────────
+function addFundRow(srcType, srcId, label, weight, sleeve) {
+  srcType  = srcType  || document.getElementById('add-source-type').value;
+  sleeve   = sleeve   || document.getElementById('add-sleeve').value;
+  weight   = weight   || parseFloat(document.getElementById('add-weight').value) || 25;
+
+  if (srcType === 'index') {
+    srcId = srcId || document.getElementById('add-index-select').value;
+    label = label || srcId;
+  } else {
+    const sel = document.getElementById('add-scheme-select');
+    srcId = srcId || sel.value;
+    label = label || (sel.selectedOptions[0]?.dataset?.name || srcId).substring(0, 35);
+  }
+  if (!srcId) { alert('Please select a fund or index first.'); return; }
+
+  const id = Date.now();
+  fundRows.push({ id, srcType, srcId, label, weight, sleeve, benchmark: srcId });
+  renderFundRows();
+  updateWeightTotal();
+}
+
+function quickAdd(indexName) {
+  addFundRow('index', indexName, indexName, 25, 'equity');
+}
+
+function removeFund(id) {
+  fundRows = fundRows.filter(f => f.id !== id);
+  renderFundRows();
+  updateWeightTotal();
+}
+
+function renderFundRows() {
+  const container = document.getElementById('fund-rows');
+  if (fundRows.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;margin-bottom:8px">No funds added yet. Use the controls below.</div>';
+    return;
+  }
+  container.innerHTML = fundRows.map(f => `
+    <div class="fund-row" id="fr-${f.id}">
+      <div class="fund-row-header">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="fund-label-badge">${f.srcType === 'index' ? '📈' : '🏦'}</span>
+          <span style="font-size:13px;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.label}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="sleeve-badge sleeve-${f.sleeve}">${f.sleeve}</span>
+          <button class="remove-fund" onclick="removeFund(${f.id})">×</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 80px 80px;gap:6px;align-items:center">
+        <input type="text" class="bt-input" value="${f.label}" style="font-size:12px"
+          onchange="fundRows.find(x=>x.id===${f.id}).label=this.value">
+        <input type="number" class="bt-input" value="${f.weight}" min="1" max="100" style="font-size:12px;text-align:center"
+          onchange="fundRows.find(x=>x.id===${f.id}).weight=parseFloat(this.value)||0;updateWeightTotal()">
+        <select class="bt-select" style="font-size:12px" onchange="fundRows.find(x=>x.id===${f.id}).sleeve=this.value;renderFundRows()">
+          <option value="equity" ${f.sleeve==='equity'?'selected':''}>Equity</option>
+          <option value="debt" ${f.sleeve==='debt'?'selected':''}>Debt</option>
+        </select>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+        ${f.srcType} · ${f.srcId} &nbsp;|&nbsp; Benchmark: 
+        <input type="text" value="${f.benchmark}" style="background:none;border:none;color:var(--text-muted);font-size:11px;width:160px"
+          onchange="fundRows.find(x=>x.id===${f.id}).benchmark=this.value">
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateWeightTotal() {
+  const total = fundRows.reduce((s, f) => s + (parseFloat(f.weight) || 0), 0);
+  document.getElementById('weight-total').textContent = total.toFixed(1);
+  const warn = document.getElementById('weight-warning');
+  warn.style.display = Math.abs(total - 100) > 0.5 ? 'inline' : 'none';
+}
+
+// ── Source type toggle ─────────────────────────────────────────────────────
+document.getElementById('add-source-type').addEventListener('change', function() {
+  document.getElementById('add-index-row').style.display = this.value === 'index' ? 'block' : 'none';
+  document.getElementById('add-scheme-row').style.display = this.value === 'scheme' ? 'block' : 'none';
+});
+
+// ── Scheme search filter ───────────────────────────────────────────────────
+document.getElementById('scheme-search').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  const opts = document.getElementById('add-scheme-select').options;
+  for (let o of opts) {
+    const match = o.text.toLowerCase().includes(q) || o.dataset.house?.toLowerCase().includes(q);
+    o.style.display = match ? '' : 'none';
+  }
+});
+
+// ── Volatility slider ──────────────────────────────────────────────────────
+document.getElementById('vol-threshold').addEventListener('input', function() {
+  document.getElementById('vol-threshold-display').textContent = this.value + '%';
+});
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.bt-tab').forEach((t, i) => {
+    const tabNames = ['returns','risk','sip','compare','strategies','conclusion'];
+    t.classList.toggle('active', tabNames[i] === name);
+  });
+  document.querySelectorAll('.bt-tab-content').forEach(c => {
+    c.classList.remove('active');
+  });
+  document.getElementById('tab-' + name)?.classList.add('active');
+}
+
+// ── Run Backtest ────────────────────────────────────────────────────────────
+async function runBacktest() {
+  const total = fundRows.reduce((s, f) => s + (parseFloat(f.weight) || 0), 0);
+  if (fundRows.length === 0) { alert('Add at least one fund.'); return; }
+  if (Math.abs(total - 100) > 1) { alert(`Weights must sum to 100% (currently ${total.toFixed(1)}%)`); return; }
+
+  // UI: show loading
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('loading-state').style.display = 'flex';
+  document.getElementById('results-content').style.display = 'none';
+  document.getElementById('run-btn').disabled = true;
+
+  const payload = {
+    funds: fundRows.map(f => ({
+      label: f.label,
+      source_type: f.srcType,
+      source_id: f.srcId,
+      benchmark_name: f.benchmark,
+      weight: parseFloat(f.weight) || 0,
+      sleeve: f.sleeve,
+    })),
+    investment_amount: parseFloat(document.getElementById('inv-amount').value) || 10000,
+    investment_type: document.getElementById('inv-type').value,
+    sip_frequency: document.getElementById('sip-freq').value,
+    rebalance_frequency: document.getElementById('rebal-freq').value,
+    rebalance_day: parseInt(document.getElementById('rebal-day').value) || 1,
+    debt_index_name: document.getElementById('debt-index').value,
+    vol_threshold: parseFloat(document.getElementById('vol-threshold').value) || 20,
+    start_date: document.getElementById('start-date').value || null,
+    end_date: null,
+  };
+
+  try {
+    const resp = await fetch("{% url 'portfolio:backtester_api' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    backtestData = data;
+    renderResults(data);
+  } catch(err) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'flex';
+    alert('Backtest error: ' + err.message);
+  } finally {
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+// ── Render Results ─────────────────────────────────────────────────────────
+function renderResults(data) {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('results-content').style.display = 'block';
+
+  renderWarnings(data.data_warnings || []);
+  renderStrategySummary(data);
+  renderMetricsGrid(data.strategies);
+  renderGrowthChart(data.strategies);
+  renderRollingChart(data.strategies);
+  renderCalendarBars(data.strategies[0]);
+  renderTrailingTable(data.strategies);
+  renderDrawdownChart(data.strategies);
+  renderRollingStats(data.strategies[0]);
+  renderRiskTable(data.strategies);
+  renderDownsideTable(data.strategies[0]);
+  renderCorpusChart(data.strategies);
+  renderEquityRatioChart(data.strategies);
+  renderXirrBars(data.strategies);
+  renderRadarChart(data.strategies);
+  renderFullCompare(data.strategies);
+  renderInterpretations(data.strategies);
+  renderConclusion(data.conclusion);
+  switchTab('returns');
+}
+
+function renderWarnings(warnings) {
+  const c = document.getElementById('warnings-container');
+  c.innerHTML = warnings.map(w => `<div class="bt-warning">⚠ ${w}</div>`).join('');
+}
+
+function renderStrategySummary(data) {
+  const box = document.getElementById('strategy-summary-box');
+  const funds = data.fund_configs || [];
+  const startY = data.start_date?.substring(0,4);
+  const endY = data.end_date?.substring(0,4);
+  box.innerHTML = `
+    <h3>📋 Portfolio Strategy Summary</h3>
+    <div class="fund-tag-grid">
+      ${funds.map(f => `
+        <div class="fund-tag">
+          <span class="sleeve-badge sleeve-${f.sleeve}">${f.sleeve}</span>
+          <strong>${f.label}</strong>
+          <span style="color:var(--text-muted)">${f.weight_pct}%</span>
+          <span style="color:var(--text-muted);font-size:10px">[${f.source_id}]</span>
+        </div>
+      `).join('')}
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);line-height:1.7">
+      <strong>Period:</strong> ${startY} – ${endY} &nbsp;|&nbsp;
+      <strong>Investment:</strong> ₹${fmt(data.strategies[0]?.total_invested||0)} total &nbsp;|&nbsp;
+      <strong>Rebalancing:</strong> Periodic drift correction &nbsp;|&nbsp;
+      <strong>Strategies:</strong> 5 variants tested (Passive, Trend, MA, Volatility, Composite)<br>
+      <strong>Debt parking index:</strong> ${document.getElementById('debt-index').value} (used when equity signals are OFF)
+    </div>
+  `;
+}
+
+function renderMetricsGrid(strategies) {
+  const passive = strategies[0] || {};
+  const best = strategies.reduce((a,b) => (b.cagr||0) > (a.cagr||0) ? b : a, passive);
+  const grid = document.getElementById('metrics-grid');
+  grid.innerHTML = `
+    ${metricCard('₹' + fmtCr(best.final_corpus), 'Best Final Corpus', best.name, 'positive')}
+    ${metricCard((best.cagr||0).toFixed(1)+'%', 'Best CAGR', best.name, 'positive')}
+    ${metricCard((best.xirr||0).toFixed(1)+'%', 'Best XIRR', best.name, 'positive')}
+    ${metricCard((passive.cagr||0).toFixed(1)+'%', 'Passive CAGR', '', 'neutral')}
+    ${metricCard((best.rolling_5y_avg||0).toFixed(1)+'%', '5Y Rolling Avg', 'Best Strategy', 'neutral')}
+    ${metricCard((strategies.reduce((a,b)=>(b.max_drawdown||0)>(a.max_drawdown||0)?a:b, strategies[0]||{}).max_drawdown||0).toFixed(1)+'%', 'Best Max Drawdown', '', 'neutral')}
+  `;
+}
+
+function metricCard(val, label, sub, cls) {
+  return `<div class="metric-card">
+    <div class="metric-val ${cls}">${val}</div>
+    <div class="metric-label">${label}</div>
+    ${sub ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${sub}</div>` : ''}
+  </div>`;
+}
+
+// Growth Chart (Plotly)
+function renderGrowthChart(strategies) {
+  const traces = strategies.map((s, i) => ({
+    x: s.dates, y: s.portfolio_values,
+    name: s.name, type: 'scatter', mode: 'lines',
+    line: { color: STRATEGY_COLORS[i % STRATEGY_COLORS.length], width: i === 0 ? 3 : 1.5 },
+    hovertemplate: '%{fullData.name}<br>₹%{y:,.0f}<extra></extra>',
+  }));
+  // Add invested line from first strategy
+  if (strategies[0]) {
+    traces.push({
+      x: strategies[0].dates, y: strategies[0].invested_values,
+      name: 'Total Invested', type: 'scatter', mode: 'lines',
+      line: { color: '#94a3b8', width: 1.5, dash: 'dot' },
+      hovertemplate: 'Invested<br>₹%{y:,.0f}<extra></extra>',
+    });
+  }
+  Plotly.react('growth-chart', traces, darkLayout('Portfolio Value (₹)'), plotConf());
+}
+
+// Rolling Chart
+function renderRollingChart(strategies) {
+  // Compute rolling 5Y CAGR from weekly data for each strategy
+  const traces = strategies.map((s, i) => {
+    const vals = s.portfolio_values;
+    const dates = s.dates;
+    const w5y = Math.round(52 * 5);
+    if (vals.length < w5y + 10) return null;
+    const rollingCagrs = [];
+    const rollingDates = [];
+    for (let j = w5y; j < vals.length; j++) {
+      const start = vals[j - w5y], end = vals[j];
+      if (start > 0 && end > 0) {
+        const cagr = (Math.pow(end / start, 1/5) - 1) * 100;
+        if (isFinite(cagr)) {
+          rollingCagrs.push(cagr);
+          rollingDates.push(dates[j]);
+        }
+      }
+    }
+    return {
+      x: rollingDates, y: rollingCagrs, name: s.name,
+      type: 'scatter', mode: 'lines',
+      line: { color: STRATEGY_COLORS[i % STRATEGY_COLORS.length], width: 1.5 },
+      hovertemplate: '%{fullData.name}<br>5Y CAGR: %{y:.2f}%<extra></extra>',
+    };
+  }).filter(Boolean);
+  if (!traces.length) {
+    document.getElementById('rolling-chart').innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">Insufficient data for 5-year rolling returns (need 5+ years)</div>';
+    return;
+  }
+  Plotly.react('rolling-chart', traces, darkLayout('5-Year Rolling CAGR (%)'), plotConf());
+}
+
+// Calendar Bars (for passive strategy)
+function renderCalendarBars(strategy) {
+  const cal = strategy?.calendar_returns || {};
+  const years = Object.keys(cal).sort();
+  const maxAbs = Math.max(...Object.values(cal).map(Math.abs), 1);
+  document.getElementById('calendar-bars').innerHTML = years.map(yr => {
+    const v = cal[yr];
+    const w = Math.abs(v) / maxAbs * 100;
+    const pos = v >= 0;
+    return `
+      <div class="cal-year-row">
+        <span style="min-width:36px;font-size:12px;font-weight:600">${yr}</span>
+        <div class="cal-bar-container">
+          <div class="cal-bar ${pos?'pos':'neg'}" style="width:${w}%">
+            ${Math.abs(v) > 3 ? v.toFixed(1)+'%' : ''}
+          </div>
+        </div>
+        <span style="min-width:50px;font-size:12px;font-weight:600;color:${pos?'var(--success)':'var(--danger)'};text-align:right">${v.toFixed(1)}%</span>
+      </div>`;
+  }).join('');
+}
+
+// Trailing Returns Table
+function renderTrailingTable(strategies) {
+  const body = document.getElementById('trailing-tbody');
+  body.innerHTML = strategies.map((s, i) => `
+    <tr>
+      <td><div class="strategy-name-cell">
+        <div class="strategy-dot" style="background:${STRATEGY_COLORS[i]}"></div>
+        ${s.name}
+      </div></td>
+      <td>${fmtRet(s.trailing_1y)}</td>
+      <td>${fmtRet(s.trailing_3y)}</td>
+      <td>${fmtRet(s.trailing_5y)}</td>
+      <td>${fmtRet(s.xirr)}</td>
+    </tr>
+  `).join('');
+}
+
+// Drawdown Chart
+function renderDrawdownChart(strategies) {
+  const traces = strategies.map((s, i) => {
+    // Compute drawdown series
+    const vals = s.portfolio_values;
+    const dd = [];
+    let peak = 0;
+    for (const v of vals) {
+      if (v > peak) peak = v;
+      dd.push(peak > 0 ? (v - peak) / peak * 100 : 0);
+    }
+    return {
+      x: s.dates, y: dd, name: s.name,
+      type: 'scatter', mode: 'lines', fill: i === 0 ? 'tozeroy' : 'none',
+      fillcolor: 'rgba(239,68,68,0.08)',
+      line: { color: STRATEGY_COLORS[i], width: i === 0 ? 2 : 1 },
+      hovertemplate: '%{fullData.name}<br>DD: %{y:.2f}%<extra></extra>',
+    };
+  });
+  Plotly.react('drawdown-chart', traces, darkLayout('Drawdown (%)'), plotConf());
+}
+
+// Rolling Stats Cards
+function renderRollingStats(strategy) {
+  if (!strategy) return;
+  document.getElementById('rolling-stats').innerHTML = `
+    <div class="rolling-stat">
+      <div class="rolling-stat-val negative">${strategy.rolling_5y_min != null ? strategy.rolling_5y_min.toFixed(1)+'%' : '—'}</div>
+      <div class="rolling-stat-label">5Y Min</div>
+    </div>
+    <div class="rolling-stat">
+      <div class="rolling-stat-val">${strategy.rolling_5y_avg != null ? strategy.rolling_5y_avg.toFixed(1)+'%' : '—'}</div>
+      <div class="rolling-stat-label">5Y Avg</div>
+    </div>
+    <div class="rolling-stat">
+      <div class="rolling-stat-val positive">${strategy.rolling_5y_max != null ? strategy.rolling_5y_max.toFixed(1)+'%' : '—'}</div>
+      <div class="rolling-stat-label">5Y Max</div>
+    </div>
+  `;
+}
+
+// Risk Table
+function renderRiskTable(strategies) {
+  document.getElementById('risk-tbody').innerHTML = strategies.map((s, i) => `
+    <tr>
+      <td><div class="strategy-name-cell">
+        <div class="strategy-dot" style="background:${STRATEGY_COLORS[i]}"></div>${s.name}
+      </div></td>
+      <td>${s.volatility_ann != null ? s.volatility_ann.toFixed(1)+'%' : '—'}</td>
+      <td style="color:var(--danger)">${s.max_drawdown != null ? s.max_drawdown.toFixed(1)+'%' : '—'}</td>
+      <td>${s.sharpe != null ? s.sharpe.toFixed(2) : '—'}</td>
+      <td>${s.sortino != null ? s.sortino.toFixed(2) : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// Downside Quarters Table
+function renderDownsideTable(strategy) {
+  const quarters = strategy?.downside_quarters || [];
+  const c = document.getElementById('downside-container');
+  if (!quarters.length) {
+    c.innerHTML = '<div style="color:var(--text-muted);padding:12px">No downside quarters recorded. 🎉</div>';
+    return;
+  }
+  const fundLabels = quarters.length ? Object.keys(quarters[0].fund_returns || {}) : [];
+  c.innerHTML = `
+    <table class="downside-table">
+      <thead><tr>
+        <th>Quarter</th>
+        <th>Portfolio Return</th>
+        ${fundLabels.map(l => `<th>${l}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${quarters.map(q => `
+          <tr>
+            <td>${q.quarter}</td>
+            <td style="color:var(--danger);font-weight:700">${q.portfolio_return.toFixed(2)}%</td>
+            ${fundLabels.map(l => {
+              const v = q.fund_returns[l];
+              return `<td style="color:${v!=null&&v<0?'var(--danger)':'var(--success)'}">${v!=null?v.toFixed(2)+'%':'—'}</td>`;
+            }).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">${quarters.length} downside quarter(s) in the backtest period</div>
+  `;
+}
+
+// Corpus Chart
+function renderCorpusChart(strategies) {
+  const traces = [];
+  strategies.forEach((s, i) => {
+    traces.push({
+      x: s.dates, y: s.portfolio_values, name: s.name,
+      type: 'scatter', mode: 'lines',
+      line: { color: STRATEGY_COLORS[i], width: 2 },
+      hovertemplate: '%{fullData.name}<br>₹%{y:,.0f}<extra></extra>',
+    });
+  });
+  if (strategies[0]) {
+    traces.push({
+      x: strategies[0].dates, y: strategies[0].invested_values, name: 'Invested',
+      type: 'scatter', mode: 'lines',
+      line: { color: '#94a3b8', width: 1.5, dash: 'dot' },
+    });
+  }
+  Plotly.react('corpus-chart', traces, darkLayout('Value (₹)'), plotConf());
+}
+
+// Equity Ratio Chart
+function renderEquityRatioChart(strategies) {
+  const traces = strategies.map((s, i) => ({
+    x: s.dates, y: s.equity_ratios, name: s.name,
+    type: 'scatter', mode: 'lines', stackgroup: null,
+    line: { color: STRATEGY_COLORS[i], width: 1.5 },
+    hovertemplate: '%{fullData.name}<br>Equity: %{y:.1f}%<extra></extra>',
+  }));
+  Plotly.react('equity-ratio-chart', traces, {...darkLayout('Equity Allocation (%)'), yaxis: {range: [0, 105], ...darkYaxis()}}, plotConf());
+}
+
+// XIRR Bars
+function renderXirrBars(strategies) {
+  const c = document.getElementById('xirr-bars');
+  const max = Math.max(...strategies.map(s => Math.abs(s.xirr||0)), 1);
+  c.innerHTML = strategies.map((s, i) => {
+    const v = s.xirr || 0;
+    const w = Math.abs(v) / max * 100;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="min-width:160px;font-size:12px;font-weight:600;color:${STRATEGY_COLORS[i]}">${s.name}</div>
+        <div style="flex:1;height:24px;background:var(--bg);border-radius:6px;overflow:hidden">
+          <div style="width:${w}%;height:100%;background:${STRATEGY_COLORS[i]};border-radius:6px;display:flex;align-items:center;padding:0 8px">
+            <span style="color:#fff;font-size:11px;font-weight:700">${v > 0 ? v.toFixed(1)+'%' : ''}</span>
+          </div>
+        </div>
+        <span style="min-width:50px;text-align:right;font-weight:700;font-size:13px;color:${v>=0?'var(--success)':'var(--danger)'}">${v.toFixed(1)}%</span>
+      </div>`;
+  }).join('');
+}
+
+// Radar Chart
+function renderRadarChart(strategies) {
+  const dims = ['CAGR', 'XIRR', 'Sharpe', '−Volatility', '−Max DD'];
+  const traces = strategies.map((s, i) => {
+    // Normalise each dimension 0-100 for radar
+    const rawVals = [s.cagr||0, s.xirr||0, (s.sharpe||0)*10, -(s.volatility_ann||30), -(Math.abs(s.max_drawdown||30))];
+    return {
+      type: 'scatterpolar',
+      r: rawVals, theta: dims, name: s.name, fill: 'toself',
+      fillcolor: STRATEGY_COLORS[i] + '22',
+      line: { color: STRATEGY_COLORS[i], width: 2 },
+      hovertemplate: '%{theta}: %{r:.2f}<extra>' + s.name + '</extra>',
+    };
+  });
+  Plotly.react('radar-chart', traces, {
+    polar: {
+      radialaxis: { visible: true, showticklabels: false },
+      bgcolor: 'transparent',
+    },
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    showlegend: true,
+    legend: { font: { color: '#94a3b8', size: 11 } },
+    font: { color: '#94a3b8' },
+    margin: { t: 20, l: 40, r: 40, b: 20 },
+  }, plotConf());
+}
+
+// Full Compare Table
+function renderFullCompare(strategies) {
+  document.getElementById('full-compare-tbody').innerHTML = strategies.map((s, i) => `
+    <tr>
+      <td><div class="strategy-name-cell">
+        <div class="strategy-dot" style="background:${STRATEGY_COLORS[i]}"></div>
+        <span>${s.name}</span>
+      </div></td>
+      <td style="font-weight:700">₹${fmt(s.final_corpus)}</td>
+      <td>₹${fmt(s.total_invested)}</td>
+      <td style="color:${s.absolute_gain>=0?'var(--success)':'var(--danger)'}">₹${fmt(s.absolute_gain)}</td>
+      <td style="font-weight:700;color:${(s.cagr||0)>=0?'var(--success)':'var(--danger)'}">${s.cagr != null ? s.cagr.toFixed(2)+'%' : '—'}</td>
+      <td>${s.xirr != null ? s.xirr.toFixed(2)+'%' : '—'}</td>
+      <td>${s.volatility_ann != null ? s.volatility_ann.toFixed(1)+'%' : '—'}</td>
+      <td style="color:var(--danger)">${s.max_drawdown != null ? s.max_drawdown.toFixed(1)+'%' : '—'}</td>
+      <td>${s.sharpe != null ? s.sharpe.toFixed(2) : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// Strategy Interpretations
+function renderInterpretations(strategies) {
+  const colors = STRATEGY_COLORS;
+  document.getElementById('strategy-interpretations').innerHTML = strategies.map((s, i) => `
+    <div class="interp-card" style="border-left-color:${colors[i]}">
+      <div style="font-weight:700;font-size:14px;color:${colors[i]};margin-bottom:6px">
+        ${['①','②','③','④','⑤'][i] || '•'} ${s.name}
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-style:italic">${s.description}</div>
+      <div>${s.interpretation || 'No interpretation available.'}</div>
+    </div>
+  `).join('');
+}
+
+// Conclusion
+function renderConclusion(text) {
+  const box = document.getElementById('conclusion-text');
+  // Convert basic markdown to HTML
+  box.innerHTML = text
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n> \[!NOTE\]\n> (.+)/g, '<div class="bt-note">ℹ️ $1</div>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── Plotly Helpers ─────────────────────────────────────────────────────────
+function darkLayout(ytitle) {
+  return {
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    font: { color: '#94a3b8', size: 11 },
+    xaxis: { gridcolor: 'rgba(148,163,184,.1)', zerolinecolor: 'rgba(148,163,184,.1)' },
+    yaxis: { gridcolor: 'rgba(148,163,184,.1)', zerolinecolor: 'rgba(148,163,184,.1)', title: ytitle || '' },
+    legend: { orientation: 'h', y: -0.2, font: { size: 10 } },
+    margin: { t: 10, l: 50, r: 10, b: 60 },
+    hovermode: 'x unified',
+  };
+}
+function darkYaxis() {
+  return { gridcolor: 'rgba(148,163,184,.1)', zerolinecolor: 'rgba(148,163,184,.1)' };
+}
+function plotConf() {
+  return { responsive: true, displayModeBar: false };
+}
+
+// ── Formatting Helpers ─────────────────────────────────────────────────────
+function fmt(v) {
+  if (v == null) return '—';
+  if (Math.abs(v) >= 1e7) return (v/1e7).toFixed(2) + 'Cr';
+  if (Math.abs(v) >= 1e5) return (v/1e5).toFixed(1) + 'L';
+  return v.toLocaleString('en-IN', {maximumFractionDigits: 0});
+}
+function fmtCr(v) {
+  if (v == null) return '—';
+  if (v >= 1e7) return (v/1e7).toFixed(2) + 'Cr';
+  if (v >= 1e5) return (v/1e5).toFixed(1) + 'L';
+  return v.toLocaleString('en-IN', {maximumFractionDigits: 0});
+}
+function fmtRet(v) {
+  if (v == null) return '<span style="color:var(--text-muted)">—</span>';
+  const col = v >= 0 ? 'var(--success)' : 'var(--danger)';
+  return `<span style="color:${col};font-weight:600">${v.toFixed(2)}%</span>`;
+}
+function getCookie(name) {
+  return document.cookie.split(';').reduce((v, c) => {
+    const [k, val] = c.trim().split('=');
+    return k === name ? decodeURIComponent(val) : v;
+  }, '');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+// Load a default portfolio preset
+quickAdd('NIFTY MIDCAP 150');
+fundRows[fundRows.length-1].weight = 40;
+quickAdd('NIFTY NEXT 50');
+fundRows[fundRows.length-1].weight = 30;
+addFundRow('index', 'NIFTY LIQUID INDEX', 'NIFTY LIQUID INDEX', 30, 'debt');
+renderFundRows();
+updateWeightTotal();
+</script>
+{% endblock %}

@@ -51,6 +51,9 @@
       <a href="{% url 'recommendations:engine' %}" class="nav-item {% if request.resolver_match.namespace == 'recommendations' %}active{% endif %}">
         <span class="nav-icon">🎯</span> Recommendations
       </a>
+      <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name == 'backtester' %}active{% endif %}">
+        <span class="nav-icon">⚗️</span> Backtester
+      </a>
 
       <div class="nav-section-label" style="margin-top:12px">Admin</div>
       {% if user.is_staff %}

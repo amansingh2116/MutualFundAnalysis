@@ -1,0 +1,1391 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Backtester{% endblock %}
+{% block meta_description %}Build a mutual fund investment plan fund by fund — define SIPs, lumpsums and triggers — then replay it against actual NAV history for full portfolio analysis.{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Page Layout ─────────────────────────────────────────────────────────── */
+.bt-wrap { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: start; }
+@media(max-width:1140px){ .bt-wrap{ grid-template-columns:1fr; } }
+
+/* ── Builder Panel ───────────────────────────────────────────────────────── */
+.builder-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius:16px;
+  padding:20px; position:sticky; top:16px; max-height:calc(100vh - 80px); overflow-y:auto;
+}
+.builder-panel::-webkit-scrollbar{ width:4px; }
+.builder-panel::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+
+.panel-title { font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+.section-label {
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.9px;
+  color:var(--text-muted); margin:14px 0 6px;
+}
+
+/* ── Search Box ──────────────────────────────────────────────────────────── */
+.search-wrap { position:relative; margin-bottom:8px; }
+.search-wrap input {
+  width:100%; padding:10px 14px 10px 38px;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px;
+  color:var(--text); font-size:13px; box-sizing:border-box; transition:border-color .15s;
+}
+.search-wrap input:focus{ outline:none; border-color:var(--indigo-500); }
+.search-wrap .search-icon {
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  color:var(--text-muted); font-size:14px; pointer-events:none;
+}
+.search-type-toggle {
+  display:flex; gap:4px; margin-bottom:8px;
+}
+.type-btn {
+  flex:1; padding:5px 8px; border:1px solid var(--border); border-radius:6px;
+  background:var(--bg); color:var(--text-muted); font-size:11px; font-weight:600;
+  cursor:pointer; text-align:center; transition:all .15s;
+}
+.type-btn.active{ background:var(--indigo-600); color:#fff; border-color:var(--indigo-600); }
+
+/* ── Search Results Dropdown ─────────────────────────────────────────────── */
+.search-results {
+  position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:100;
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.3); max-height:280px; overflow-y:auto; display:none;
+}
+.search-result-item {
+  padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border);
+  transition:background .1s; display:flex; align-items:center; gap:10px;
+}
+.search-result-item:last-child{ border-bottom:none; }
+.search-result-item:hover{ background:rgba(99,102,241,.08); }
+.sri-icon {
+  width:32px; height:32px; border-radius:8px; display:flex; align-items:center;
+  justify-content:center; font-size:14px; flex-shrink:0;
+}
+.sri-scheme{ background:rgba(99,102,241,.12); }
+.sri-index { background:rgba(16,185,129,.12); }
+.sri-name { font-size:13px; font-weight:600; line-height:1.2; }
+.sri-sub  { font-size:11px; color:var(--text-muted); margin-top:1px; }
+.sri-nav  { margin-left:auto; font-size:12px; font-weight:700; color:var(--indigo-400); white-space:nowrap; }
+.search-loading{ padding:12px; text-align:center; color:var(--text-muted); font-size:13px; }
+
+/* ── Fund Cards ──────────────────────────────────────────────────────────── */
+.fund-cards{ margin-bottom:12px; }
+.fund-card {
+  background:var(--bg); border:1px solid var(--border); border-radius:12px;
+  margin-bottom:8px; overflow:hidden; transition:border-color .15s;
+}
+.fund-card:hover{ border-color:rgba(99,102,241,.4); }
+.fund-card-header {
+  padding:12px 14px; display:flex; align-items:center; gap:10px; cursor:pointer;
+}
+.fund-card-icon {
+  width:36px; height:36px; border-radius:8px; display:flex; align-items:center;
+  justify-content:center; font-size:16px; flex-shrink:0;
+}
+.fci-scheme{ background:rgba(99,102,241,.12); }
+.fci-index { background:rgba(16,185,129,.12); }
+.fund-card-name { flex:1; font-size:13px; font-weight:600; line-height:1.3; }
+.fund-card-sub  { font-size:11px; color:var(--text-muted); }
+.fund-card-actions{ display:flex; align-items:center; gap:4px; }
+.expand-btn, .remove-btn {
+  width:28px; height:28px; border-radius:6px; border:none; background:transparent;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:14px; color:var(--text-muted); transition:all .1s;
+}
+.expand-btn:hover{ background:var(--surface); }
+.remove-btn:hover{ background:rgba(239,68,68,.12); color:var(--danger); }
+
+.fund-card-body { padding:0 14px 14px; display:none; }
+.fund-card-body.open{ display:block; }
+
+/* ── Rules ───────────────────────────────────────────────────────────────── */
+.rule-item {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; margin-bottom:6px; position:relative;
+}
+.rule-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.rule-type-badge {
+  padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.5px;
+}
+.rb-sip     { background:rgba(99,102,241,.15); color:var(--indigo-400); }
+.rb-lumpsum { background:rgba(245,158,11,.15); color:#f59e0b; }
+.rb-sell    { background:rgba(239,68,68,.12); color:var(--danger); }
+.rule-remove{
+  margin-left:auto; width:22px; height:22px; border-radius:4px; border:none;
+  background:transparent; cursor:pointer; font-size:13px; color:var(--text-muted);
+  display:flex; align-items:center; justify-content:center;
+}
+.rule-remove:hover{ background:rgba(239,68,68,.12); color:var(--danger); }
+.rule-fields { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.rule-fields.three { grid-template-columns:1fr 1fr 1fr; }
+.rule-field label { font-size:10px; color:var(--text-muted); display:block; margin-bottom:2px; }
+.rule-input, .rule-select {
+  width:100%; padding:6px 8px; background:var(--bg); border:1px solid var(--border);
+  border-radius:6px; color:var(--text); font-size:12px; box-sizing:border-box;
+}
+.rule-input:focus, .rule-select:focus{ outline:none; border-color:var(--indigo-500); }
+.add-rule-row {
+  display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;
+}
+.add-rule-btn {
+  padding:5px 12px; border-radius:6px; border:1px dashed var(--border);
+  background:transparent; color:var(--text-muted); font-size:11px; font-weight:600;
+  cursor:pointer; transition:all .15s;
+}
+.add-rule-btn:hover{ border-color:var(--indigo-500); color:var(--indigo-400); }
+
+/* ── Portfolio Settings ──────────────────────────────────────────────────── */
+.setting-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+.setting-field label { font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px; }
+.bt-input, .bt-select {
+  width:100%; padding:8px 10px; background:var(--bg); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-size:13px; box-sizing:border-box;
+}
+.bt-input:focus, .bt-select:focus{ outline:none; border-color:var(--indigo-500); }
+
+/* ── Run Button ──────────────────────────────────────────────────────────── */
+.run-btn {
+  width:100%; padding:13px; border-radius:10px;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff;
+  font-size:14px; font-weight:700; border:none; cursor:pointer; margin-top:14px;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  transition:opacity .2s, transform .1s;
+}
+.run-btn:hover{ opacity:.9; }
+.run-btn:active{ transform:scale(.98); }
+.run-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* ── Right: Results ──────────────────────────────────────────────────────── */
+.results-area{ min-height:500px; }
+.empty-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:500px; text-align:center; color:var(--text-muted); gap:14px; padding:40px;
+}
+.empty-state .es-icon{ font-size:72px; opacity:.3; }
+.empty-state h2{ font-size:22px; font-weight:700; color:var(--text); }
+.empty-state p{ max-width:400px; line-height:1.7; }
+
+.loading-state {
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  min-height:500px; gap:16px; color:var(--text-muted);
+}
+.spinner {
+  width:48px; height:48px; border:4px solid var(--border);
+  border-top-color:var(--indigo-500); border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+/* ── Warning / Note banners ──────────────────────────────────────────────── */
+.bt-warn {
+  background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.2);
+  border-left:4px solid #f59e0b; border-radius:8px; padding:10px 14px;
+  font-size:13px; color:#f59e0b; margin-bottom:8px;
+}
+.bt-note {
+  background:rgba(99,102,241,.06); border-left:4px solid var(--indigo-500);
+  border-radius:8px; padding:12px 16px; font-size:13px; margin-bottom:16px; line-height:1.6;
+}
+
+/* ── Overview Cards ──────────────────────────────────────────────────────── */
+.overview-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;
+  margin-bottom:20px;
+}
+.ov-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:14px; text-align:center; transition:transform .15s,box-shadow .15s;
+}
+.ov-card:hover{ transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,.15); }
+.ov-val { font-size:22px; font-weight:800; line-height:1; margin-bottom:3px; }
+.ov-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.6px; }
+.ov-sub   { font-size:10px; color:var(--text-muted); margin-top:2px; }
+.positive{ color:var(--success); }
+.negative{ color:var(--danger); }
+.neutral { color:var(--text); }
+
+/* ── Plan Summary ────────────────────────────────────────────────────────── */
+.plan-summary-box {
+  background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(139,92,246,.06));
+  border:1px solid rgba(99,102,241,.15); border-radius:14px;
+  padding:16px 20px; margin-bottom:20px;
+}
+.psb-title{ font-size:14px; font-weight:700; color:var(--indigo-400); margin-bottom:10px; }
+.psb-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.psb-tag {
+  background:var(--surface); border:1px solid var(--border); border-radius:20px;
+  padding:4px 12px; font-size:12px; display:flex; align-items:center; gap:6px;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.bt-tabs {
+  display:flex; gap:2px; border-bottom:2px solid var(--border); margin-bottom:20px; overflow-x:auto;
+}
+.bt-tab {
+  padding:10px 16px; font-size:12px; font-weight:600; color:var(--text-muted);
+  cursor:pointer; border:none; background:none; border-bottom:3px solid transparent;
+  margin-bottom:-2px; white-space:nowrap; transition:all .15s;
+}
+.bt-tab.active{ color:var(--indigo-400); border-bottom-color:var(--indigo-400); }
+.bt-pane{ display:none; }
+.bt-pane.active{ display:block; }
+
+/* ── Chart Boxes ─────────────────────────────────────────────────────────── */
+.chart-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:16px; margin-bottom:18px;
+}
+.chart-box-title{
+  font-size:13px; font-weight:700; margin-bottom:12px; display:flex;
+  align-items:center; justify-content:space-between;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+.bt-table{ width:100%; border-collapse:collapse; font-size:12px; }
+.bt-table th{
+  padding:9px 12px; background:var(--bg); border-bottom:2px solid var(--border);
+  text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.6px;
+  color:var(--text-muted); white-space:nowrap;
+}
+.bt-table td{ padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.bt-table tr:last-child td{ border-bottom:none; }
+.bt-table tr:hover td{ background:rgba(99,102,241,.04); }
+.strat-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:6px; }
+
+/* ── Cal year bars ───────────────────────────────────────────────────────── */
+.cal-row{ display:flex; align-items:center; gap:10px; margin-bottom:5px; font-size:12px; }
+.cal-bar-bg{
+  flex:1; height:20px; background:var(--bg); border-radius:4px; overflow:hidden;
+}
+.cal-bar{
+  height:100%; border-radius:4px; display:flex; align-items:center; padding:0 6px;
+  font-size:10px; font-weight:600; color:#fff; transition:width .4s ease;
+}
+.cb-pos{ background:linear-gradient(90deg,#10b981,#34d399); }
+.cb-neg{ background:linear-gradient(90deg,#ef4444,#f87171); }
+
+/* ── Rebalancing overlay pills ───────────────────────────────────────────── */
+.overlay-pills{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.overlay-pill{
+  padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+  cursor:pointer; border:2px solid var(--border); background:var(--bg);
+  color:var(--text-muted); transition:all .15s;
+}
+.overlay-pill.active{ color:#fff; border-color:transparent; }
+
+/* ── Conclusion ──────────────────────────────────────────────────────────── */
+.conclusion-box{
+  background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(139,92,246,.06));
+  border:1px solid rgba(99,102,241,.2); border-radius:14px;
+  padding:20px 24px; line-height:1.8; font-size:14px;
+}
+
+/* ── Tx Ledger type badge ────────────────────────────────────────────────── */
+.tx-type{
+  padding:2px 7px; border-radius:10px; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.4px;
+}
+.tx-sip    { background:rgba(99,102,241,.12); color:var(--indigo-400); }
+.tx-buy    { background:rgba(16,185,129,.12); color:#10b981; }
+.tx-sell   { background:rgba(239,68,68,.12); color:var(--danger); }
+.tx-debt   { background:rgba(245,158,11,.12); color:#f59e0b; }
+.tx-rebal  { background:rgba(148,163,184,.12); color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'portfolio:list' %}">Portfolios</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>Portfolio Backtester</span>
+</div>
+<div class="page-header">
+  <div class="page-title">⚗️ Portfolio Backtester</div>
+  <div class="page-subtitle">Build your investment plan fund by fund — then replay it against actual historical NAV data</div>
+</div>
+
+<div class="bt-wrap">
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     LEFT: PLAN BUILDER
+══════════════════════════════════════════════════════════════════════════ -->
+<div class="builder-panel">
+  <div class="panel-title">📋 Investment Plan Builder</div>
+
+  <!-- Search -->
+  <div class="section-label">Add Fund or Index</div>
+  <div class="search-type-toggle">
+    <button class="type-btn active" data-type="all" onclick="setSearchType('all',this)">All</button>
+    <button class="type-btn" data-type="scheme" onclick="setSearchType('scheme',this)">🏦 MF</button>
+    <button class="type-btn" data-type="index" onclick="setSearchType('index',this)">📈 Index</button>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="fund-search" placeholder="Search mutual funds or indices…" autocomplete="off">
+    <div class="search-results" id="search-results"></div>
+  </div>
+
+  <!-- Fund Cards -->
+  <div class="section-label">Your Portfolio Plan</div>
+  <div class="fund-cards" id="fund-cards">
+    <div id="empty-plan-hint" style="color:var(--text-muted);font-size:13px;padding:8px 0;margin-bottom:4px">
+      Search and add funds above to begin building your plan.
+    </div>
+  </div>
+
+  <!-- Portfolio Settings -->
+  <div class="section-label">Rebalancing</div>
+  <div class="setting-grid">
+    <div class="setting-field">
+      <label>Mode</label>
+      <select id="rebal-mode" class="bt-select" onchange="toggleRebalFields()">
+        <option value="none">No rebalancing</option>
+        <option value="annual" selected>Annual</option>
+        <option value="threshold">Drift threshold</option>
+      </select>
+    </div>
+    <div class="setting-field" id="rebal-month-wrap">
+      <label>Anchor Month</label>
+      <select id="rebal-month" class="bt-select">
+        <option value="1" selected>January</option><option value="4">April</option>
+        <option value="7">July</option><option value="10">October</option>
+      </select>
+    </div>
+    <div class="setting-field" id="rebal-thresh-wrap" style="display:none">
+      <label>Drift Threshold (%)</label>
+      <input type="number" id="rebal-threshold" class="bt-input" value="5" min="1" max="30">
+    </div>
+  </div>
+
+  <div class="section-label">Tactical Overlay (What-If)</div>
+  <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.5">
+    Runs your base plan 4 more times with different equity signals. When signal is OFF, SIPs
+    are redirected to your debt parking fund. Parked capital earns the synthetic return rate if no fund is chosen.
+  </div>
+
+  <!-- Debt parking fund search -->
+  <div class="section-label" style="margin-top:6px">Debt Parking Fund
+    <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0">
+      — optional; use a Liquid / Short Duration fund
+    </span>
+  </div>
+  <div style="position:relative;margin-bottom:8px">
+    <div class="search-wrap" style="margin-bottom:4px">
+      <span class="search-icon">🏦</span>
+      <input type="text" id="debt-search" placeholder="Search debt/liquid fund (optional)…" autocomplete="off"
+        style="padding-left:38px">
+      <div class="search-results" id="debt-search-results"></div>
+    </div>
+    <div id="debt-selected" style="display:none;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);
+      border-radius:8px;padding:8px 12px;font-size:12px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">🏦</span>
+      <span id="debt-selected-name" style="flex:1;font-weight:600"></span>
+      <button onclick="clearDebtFund()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px">✕</button>
+    </div>
+    <input type="hidden" id="debt-park-id" value="">
+    <input type="hidden" id="debt-park-type" value="scheme">
+  </div>
+  
+  <!-- Synthetic Debt Return Slider -->
+  <div class="setting-field" style="margin-top:8px;margin-bottom:12px">
+    <label style="font-size:10px;color:var(--text-muted)">Synthetic Debt Return Rate (p.a.)</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+      <input type="range" id="debt-return-rate" min="2" max="15" step="0.5" value="7.0" style="flex:1"
+        oninput="document.getElementById('debt-return-val').textContent=this.value+'%'">
+      <span id="debt-return-val" style="font-weight:700;min-width:32px;font-size:12px">7%</span>
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
+      Applies only when no debt parking fund is selected.
+    </div>
+  </div>
+
+  <div class="setting-field">
+    <label style="font-size:10px;color:var(--text-muted)">Vol Threshold — Strategy 3</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+      <input type="range" id="vol-thresh" min="5" max="50" value="20" style="flex:1"
+        oninput="document.getElementById('vol-thresh-val').textContent=this.value+'%'">
+      <span id="vol-thresh-val" style="font-weight:700;min-width:32px;font-size:12px">20%</span>
+    </div>
+  </div>
+
+  <button class="run-btn" id="run-btn" onclick="runBacktest()">
+    ▶ Run Backtest
+  </button>
+  <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">
+    Strategy 4 (PE-based) disabled — PE data not yet ingested
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     RIGHT: RESULTS
+══════════════════════════════════════════════════════════════════════════ -->
+<div class="results-area">
+
+  <!-- Empty State -->
+  <div class="empty-state" id="empty-state">
+    <div class="es-icon">📊</div>
+    <h2>Build Your Investment Plan</h2>
+    <p>Search for a mutual fund or index on the left. Add SIP rules, lumpsum events, and sell triggers for each fund. Then click <strong>Run Backtest</strong> to see full portfolio analysis.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:12px;max-width:180px;text-align:left">
+        <div style="font-weight:700;margin-bottom:4px">1. Search &amp; Add</div>
+        <div style="color:var(--text-muted)">Find any MF or index and click to add it to your plan</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:12px;max-width:180px;text-align:left">
+        <div style="font-weight:700;margin-bottom:4px">2. Configure Rules</div>
+        <div style="color:var(--text-muted)">Set SIP schedules, lumpsum buys, and sell triggers per fund</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:12px;max-width:180px;text-align:left">
+        <div style="font-weight:700;margin-bottom:4px">3. Run &amp; Analyse</div>
+        <div style="color:var(--text-muted)">See CAGR, XIRR, drawdowns, ledger, and rebalancing overlays</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" id="loading-state">
+    <div class="spinner"></div>
+    <div style="font-size:16px;font-weight:600">Running simulation…</div>
+    <div style="font-size:12px">Fetching NAV data and replaying all transactions</div>
+  </div>
+
+  <!-- Results -->
+  <div id="results-panel" style="display:none">
+    <div id="warnings-box"></div>
+
+    <!-- Plan Summary -->
+    <div class="plan-summary-box" id="plan-summary-box"></div>
+
+    <!-- Key Metrics -->
+    <div class="overview-grid" id="overview-grid"></div>
+
+    <!-- Tabs -->
+    <div class="bt-tabs">
+      <button class="bt-tab active" onclick="showTab('overview')">📈 Overview</button>
+      <button class="bt-tab" onclick="showTab('returns')">📊 Returns</button>
+      <button class="bt-tab" onclick="showTab('risk')">🛡️ Risk</button>
+      <button class="bt-tab" onclick="showTab('ledger')">📒 Ledger</button>
+      <button class="bt-tab" onclick="showTab('rebalancing')">⚖️ Rebalancing</button>
+      <button class="bt-tab" onclick="showTab('conclusion')">📝 Conclusion</button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div class="bt-pane active" id="pane-overview">
+      <div class="chart-box">
+        <div class="chart-box-title">Portfolio Growth — Base Plan</div>
+        <div id="chart-growth" style="height:320px"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Calendar Year Returns</div>
+        <div id="cal-bars"></div>
+      </div>
+    </div>
+
+    <!-- Returns Tab -->
+    <div class="bt-pane" id="pane-returns">
+      <div class="chart-box">
+        <div class="chart-box-title">5-Year Rolling CAGR — Base Plan</div>
+        <div id="chart-rolling" style="height:260px"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Trailing Returns</div>
+        <table class="bt-table">
+          <thead><tr><th>Period</th><th>Base Plan CAGR</th></tr></thead>
+          <tbody id="trailing-tbody"></tbody>
+        </table>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">5-Year Rolling Stats — Base Plan</div>
+        <div id="rolling-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+      </div>
+    </div>
+
+    <!-- Risk Tab -->
+    <div class="bt-pane" id="pane-risk">
+      <div class="chart-box">
+        <div class="chart-box-title">Portfolio Drawdown — Base Plan</div>
+        <div id="chart-drawdown" style="height:260px"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Risk Metrics — Base Plan</div>
+        <table class="bt-table" id="risk-table">
+          <tbody>
+            <tr><td style="color:var(--text-muted)">Annualised Volatility</td><td id="rm-vol">—</td></tr>
+            <tr><td style="color:var(--text-muted)">Max Drawdown</td><td id="rm-dd">—</td></tr>
+            <tr><td style="color:var(--text-muted)">Sharpe Ratio</td><td id="rm-sharpe">—</td></tr>
+            <tr><td style="color:var(--text-muted)">Sortino Ratio</td><td id="rm-sortino">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">📉 Downside Quarters</div>
+        <div id="downside-table-wrap"></div>
+      </div>
+    </div>
+
+    <!-- Ledger Tab -->
+    <div class="bt-pane" id="pane-ledger">
+      <div class="chart-box">
+        <div class="chart-box-title">
+          Transaction Ledger — Base Plan
+          <span style="font-size:11px;color:var(--text-muted)" id="tx-count"></span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="bt-table" id="ledger-table">
+            <thead><tr>
+              <th>Date</th><th>Fund</th><th>Type</th>
+              <th>NAV (₹)</th><th>Units</th><th>Amount (₹)</th><th>Trigger</th>
+            </tr></thead>
+            <tbody id="ledger-tbody"></tbody>
+          </table>
+        </div>
+        <div id="ledger-pagination" style="display:flex;gap:6px;margin-top:10px;justify-content:center"></div>
+      </div>
+    </div>
+
+    <!-- Rebalancing Overlay Tab -->
+    <div class="bt-pane" id="pane-rebalancing">
+      <div class="bt-note">
+        Each overlay below replays your <em>exact same investment plan</em> but with a tactical signal applied.
+        When the signal is <strong>OFF</strong> for a fund, its SIP is redirected to your debt parking fund instead.
+        This shows how different rebalancing strategies would have impacted your portfolio.
+      </div>
+      <div class="overlay-pills" id="overlay-pills"></div>
+      <div class="chart-box">
+        <div class="chart-box-title">Portfolio Growth — All Overlays</div>
+        <div id="chart-overlays" style="height:300px"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Overlay Comparison</div>
+        <table class="bt-table">
+          <thead><tr>
+            <th>Strategy</th><th>Final Corpus</th><th>CAGR</th><th>XIRR</th>
+            <th>Max DD</th><th>Sharpe</th><th>Vol</th>
+          </tr></thead>
+          <tbody id="overlay-tbody"></tbody>
+        </table>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Equity Deployment — Overlays</div>
+        <div id="chart-equity-ratio" style="height:220px"></div>
+      </div>
+    </div>
+
+    <!-- Conclusion Tab -->
+    <div class="bt-pane" id="pane-conclusion">
+      <div class="conclusion-box" id="conclusion-text"></div>
+      <div style="margin-top:16px">
+        <div class="chart-box">
+          <div class="chart-box-title">Strategy Interpretations</div>
+          <div id="interpretations"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+</div><!-- /results-area -->
+</div><!-- /bt-wrap -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let fundPlans = [];
+let backtestResult = null;
+let searchType = 'all';
+let ledgerPage = 0;
+const PAGE_SIZE = 50;
+
+const S_COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6'];
+
+// ════════════════════════════════════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════════════════════════════════════
+function setSearchType(t, el) {
+  searchType = t;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+let searchTimer;
+document.getElementById('fund-search').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  const q = this.value.trim();
+  const box = document.getElementById('search-results');
+  if (q.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="search-loading">Searching…</div>';
+  searchTimer = setTimeout(() => doSearch(q), 280);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap'))
+    document.getElementById('search-results').style.display = 'none';
+});
+
+async function doSearch(q) {
+  const box = document.getElementById('search-results');
+  try {
+    const r = await fetch(`{% url 'portfolio:backtester_fund_search' %}?q=${encodeURIComponent(q)}&type=${searchType}`);
+    const data = await r.json();
+    if (!data.results.length) {
+      box.innerHTML = '<div class="search-loading">No results found</div>'; return;
+    }
+    box.innerHTML = data.results.map(item => `
+      <div class="search-result-item" onclick="addFund(${JSON.stringify(item).replace(/"/g,'&quot;')})">
+        <div class="sri-icon ${item.type==='scheme'?'sri-scheme':'sri-index'}">
+          ${item.type==='scheme'?'🏦':'📈'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="sri-name">${item.name}</div>
+          <div class="sri-sub">${item.sub}</div>
+        </div>
+        ${item.nav ? `<div class="sri-nav">₹${item.nav.toFixed(2)}</div>` : ''}
+      </div>`).join('');
+  } catch(e) {
+    box.innerHTML = '<div class="search-loading">Search failed</div>';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// FUND PLAN MANAGEMENT
+// ════════════════════════════════════════════════════════════════════════
+function addFund(item, isDebt) {
+  if (isDebt) {
+    // Set as debt parking fund
+    document.getElementById('debt-park-id').value = item.id;
+    document.getElementById('debt-park-type').value = item.type;
+    document.getElementById('debt-selected-name').textContent = item.name;
+    const sel = document.getElementById('debt-selected');
+    sel.style.display = 'flex';
+    document.getElementById('debt-search').value = '';
+    document.getElementById('debt-search-results').style.display = 'none';
+    return;
+  }
+  document.getElementById('search-results').style.display = 'none';
+  document.getElementById('fund-search').value = '';
+  if (fundPlans.find(f => f.source_id === item.id)) {
+    alert(`${item.name} is already in your plan.`); return;
+  }
+  const fp = {
+    id: Date.now(),
+    label: item.name,
+    source_type: item.type,
+    source_id: item.id,
+    rules: [],
+  };
+  // Default rule: monthly SIP, no explicit start (engine uses fund inception)
+  fp.rules.push({
+    id: Date.now() + 1,
+    rule_type: 'sip', amount: 5000, frequency: 'monthly',
+    start_date: '', end_date: '', step_up_pct: 0,
+    lumpsum_date: '', sell_pct: 100,
+    trigger: '', trigger_value: '',
+  });
+  fundPlans.push(fp);
+  renderFundCards();
+}
+
+function clearDebtFund() {
+  document.getElementById('debt-park-id').value = '';
+  document.getElementById('debt-selected').style.display = 'none';
+  document.getElementById('debt-search').value = '';
+}
+
+function removeFund(id) {
+  fundPlans = fundPlans.filter(f => f.id !== id);
+  renderFundCards();
+}
+
+function toggleCard(id) {
+  const body = document.getElementById(`fc-body-${id}`);
+  const icon = document.getElementById(`fc-expand-${id}`);
+  body.classList.toggle('open');
+  icon.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+function addRule(fundId, type) {
+  const fp = fundPlans.find(f => f.id === fundId);
+  if (!fp) return;
+  const rule = {
+    id: Date.now(),
+    rule_type: type, amount: 5000, frequency: 'monthly',
+    start_date: '', end_date: '', step_up_pct: 0,
+    lumpsum_date: new Date().toISOString().substring(0,10),
+    sell_pct: 100, trigger: '', trigger_value: '',
+  };
+  fp.rules.push(rule);
+  renderFundCards();
+  const body = document.getElementById(`fc-body-${fundId}`);
+  if (body) { body.classList.add('open'); document.getElementById(`fc-expand-${fundId}`).textContent = '▲'; }
+}
+
+function removeRule(fundId, ruleId) {
+  const fp = fundPlans.find(f => f.id === fundId);
+  if (!fp) return;
+  fp.rules = fp.rules.filter(r => r.id !== ruleId);
+  renderFundCards();
+}
+
+function updateRule(fundId, ruleId, field, value) {
+  const fp = fundPlans.find(f => f.id === fundId);
+  if (!fp) return;
+  const rule = fp.rules.find(r => r.id === ruleId);
+  if (rule) rule[field] = value;
+}
+
+function renderFundCards() {
+  const container = document.getElementById('fund-cards');
+  const hint = document.getElementById('empty-plan-hint');
+  if (hint) hint.style.display = fundPlans.length ? 'none' : 'block';
+  // Remove old cards (keep hint)
+  [...container.querySelectorAll('.fund-card')].forEach(el => el.remove());
+  fundPlans.forEach(fp => container.appendChild(buildFundCard(fp)));
+}
+
+function buildFundCard(fp) {
+  const div = document.createElement('div');
+  div.className = 'fund-card';
+  div.id = `fc-${fp.id}`;
+  const rulesHtml = fp.rules.map(r => buildRuleHtml(fp.id, r)).join('');
+  div.innerHTML = `
+    <div class="fund-card-header" onclick="toggleCard(${fp.id})">
+      <div class="fund-card-icon ${fp.source_type==='scheme'?'fci-scheme':'fci-index'}">
+        ${fp.source_type==='scheme'?'🏦':'📈'}
+      </div>
+      <div>
+        <div class="fund-card-name">${fp.label}</div>
+        <div class="fund-card-sub">${fp.source_type} · ${fp.source_id} · ${fp.rules.length} rule${fp.rules.length!==1?'s':''}</div>
+      </div>
+      <div class="fund-card-actions">
+        <button class="expand-btn" id="fc-expand-${fp.id}" onclick="event.stopPropagation();toggleCard(${fp.id})">▼</button>
+        <button class="remove-btn" onclick="event.stopPropagation();removeFund(${fp.id})" title="Remove fund">✕</button>
+      </div>
+    </div>
+    <div class="fund-card-body open" id="fc-body-${fp.id}">
+      <div id="rules-${fp.id}">${rulesHtml}</div>
+      <div class="add-rule-row">
+        <button class="add-rule-btn" onclick="addRule(${fp.id},'sip')">+ SIP</button>
+        <button class="add-rule-btn" onclick="addRule(${fp.id},'lumpsum')">+ Lumpsum</button>
+        <button class="add-rule-btn" onclick="addRule(${fp.id},'sell_pct')">+ Sell Rule</button>
+      </div>
+    </div>`;
+  // Fix: re-render rule field expand-icon
+  const expBtn = div.querySelector(`#fc-expand-${fp.id}`);
+  expBtn.textContent = '▲';
+  return div;
+}
+
+function buildRuleHtml(fundId, r) {
+  if (r.rule_type === 'sip') return `
+    <div class="rule-item" id="rule-${r.id}">
+      <div class="rule-header">
+        <span class="rule-type-badge rb-sip">SIP</span>
+        <button class="rule-remove" onclick="removeRule(${fundId},${r.id})">✕</button>
+      </div>
+      <div class="rule-fields three">
+        <div class="rule-field">
+          <label>Amount (₹)</label>
+          <input class="rule-input" type="number" value="${r.amount}" min="100"
+            onchange="updateRule(${fundId},${r.id},'amount',parseFloat(this.value)||0)">
+        </div>
+        <div class="rule-field">
+          <label>Frequency</label>
+          <select class="rule-select" onchange="updateRule(${fundId},${r.id},'frequency',this.value)">
+            <option value="monthly" ${r.frequency==='monthly'?'selected':''}>Monthly</option>
+            <option value="quarterly" ${r.frequency==='quarterly'?'selected':''}>Quarterly</option>
+            <option value="yearly" ${r.frequency==='yearly'?'selected':''}>Yearly</option>
+          </select>
+        </div>
+        <div class="rule-field">
+          <label>Step-up %/yr</label>
+          <input class="rule-input" type="number" value="${r.step_up_pct}" min="0" max="50"
+            onchange="updateRule(${fundId},${r.id},'step_up_pct',parseFloat(this.value)||0)">
+        </div>
+      </div>
+      <div class="rule-fields">
+        <div class="rule-field">
+          <label>Start Date</label>
+          <input class="rule-input" type="date" value="${r.start_date}"
+            onchange="updateRule(${fundId},${r.id},'start_date',this.value)">
+        </div>
+        <div class="rule-field">
+          <label>End Date (blank = ongoing)</label>
+          <input class="rule-input" type="date" value="${r.end_date}"
+            onchange="updateRule(${fundId},${r.id},'end_date',this.value||null)">
+        </div>
+      </div>
+    </div>`;
+
+  if (r.rule_type === 'lumpsum') return `
+    <div class="rule-item" id="rule-${r.id}">
+      <div class="rule-header">
+        <span class="rule-type-badge rb-lumpsum">LUMPSUM</span>
+        <button class="rule-remove" onclick="removeRule(${fundId},${r.id})">✕</button>
+      </div>
+      <div class="rule-fields">
+        <div class="rule-field">
+          <label>Amount (₹)</label>
+          <input class="rule-input" type="number" value="${r.amount}" min="100"
+            onchange="updateRule(${fundId},${r.id},'amount',parseFloat(this.value)||0)">
+        </div>
+        <div class="rule-field">
+          <label>Date</label>
+          <input class="rule-input" type="date" value="${r.lumpsum_date||''}"
+            onchange="updateRule(${fundId},${r.id},'lumpsum_date',this.value)">
+        </div>
+        <div class="rule-field">
+          <label>Trigger (optional)</label>
+          <select class="rule-select" onchange="updateRule(${fundId},${r.id},'trigger',this.value)">
+            <option value="">None — use date above</option>
+            <option value="nav_drop_pct" ${r.trigger==='nav_drop_pct'?'selected':''}>Buy when NAV drops X%</option>
+          </select>
+        </div>
+        <div class="rule-field">
+          <label>Trigger value (X%)</label>
+          <input class="rule-input" type="number" value="${r.trigger_value||10}" min="1" max="50"
+            onchange="updateRule(${fundId},${r.id},'trigger_value',parseFloat(this.value))">
+        </div>
+      </div>
+    </div>`;
+
+  if (r.rule_type === 'sell_pct') return `
+    <div class="rule-item" id="rule-${r.id}">
+      <div class="rule-header">
+        <span class="rule-type-badge rb-sell">SELL</span>
+        <button class="rule-remove" onclick="removeRule(${fundId},${r.id})">✕</button>
+      </div>
+      <div class="rule-fields">
+        <div class="rule-field">
+          <label>Sell %</label>
+          <input class="rule-input" type="number" value="${r.sell_pct}" min="1" max="100"
+            onchange="updateRule(${fundId},${r.id},'sell_pct',parseFloat(this.value)||100)">
+        </div>
+        <div class="rule-field">
+          <label>Trigger</label>
+          <select class="rule-select" onchange="updateRule(${fundId},${r.id},'trigger',this.value)">
+            <option value="">On end date</option>
+            <option value="trailing_stop_pct" ${r.trigger==='trailing_stop_pct'?'selected':''}>Trailing stop X%</option>
+          </select>
+        </div>
+        <div class="rule-field">
+          <label>Trigger value (X%)</label>
+          <input class="rule-input" type="number" value="${r.trigger_value||15}" min="1" max="50"
+            onchange="updateRule(${fundId},${r.id},'trigger_value',parseFloat(this.value))">
+        </div>
+        <div class="rule-field">
+          <label>End Date</label>
+          <input class="rule-input" type="date" value="${r.end_date||''}"
+            onchange="updateRule(${fundId},${r.id},'end_date',this.value||null)">
+        </div>
+      </div>
+    </div>`;
+  return '';
+}
+
+function toggleRebalFields() {
+  const mode = document.getElementById('rebal-mode').value;
+  document.getElementById('rebal-month-wrap').style.display = mode==='annual'?'':'none';
+  document.getElementById('rebal-thresh-wrap').style.display = mode==='threshold'?'':'none';
+}
+toggleRebalFields();
+
+// Debt parking fund search
+let debtSearchTimer;
+document.getElementById('debt-search').addEventListener('input', function() {
+  clearTimeout(debtSearchTimer);
+  const q = this.value.trim();
+  const box = document.getElementById('debt-search-results');
+  if (q.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="search-loading">Searching…</div>';
+  debtSearchTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`{% url 'portfolio:backtester_fund_search' %}?q=${encodeURIComponent(q)}&type=scheme`);
+      const data = await r.json();
+      if (!data.results.length) { box.innerHTML = '<div class="search-loading">No funds found</div>'; return; }
+      box.innerHTML = data.results.map(item => `
+        <div class="search-result-item" onclick="addFund(${JSON.stringify(item).replace(/"/g,'&quot;')}, true)">
+          <div class="sri-icon sri-scheme">🏦</div>
+          <div style="flex:1;min-width:0">
+            <div class="sri-name">${item.name}</div>
+            <div class="sri-sub">${item.sub}</div>
+          </div>
+        </div>`).join('');
+    } catch(e) { box.innerHTML = '<div class="search-loading">Search failed</div>'; }
+  }, 280);
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap'))
+    ['search-results','debt-search-results'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; });
+});
+
+
+// ════════════════════════════════════════════════════════════════════════
+// RUN BACKTEST
+// ════════════════════════════════════════════════════════════════════════
+async function runBacktest() {
+  if (!fundPlans.length) { alert('Add at least one fund to your plan.'); return; }
+  const invalidFund = fundPlans.find(fp => !fp.rules.length);
+  if (invalidFund) { alert(`"${invalidFund.label}" has no rules. Add at least one SIP or lumpsum.`); return; }
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('loading-state').style.display = 'flex';
+  document.getElementById('results-panel').style.display = 'none';
+  document.getElementById('run-btn').disabled = true;
+
+  const debtId   = document.getElementById('debt-park-id').value.trim();
+  const debtType = document.getElementById('debt-park-type').value;
+
+  const payload = {
+    funds: fundPlans.map(fp => ({
+      label: fp.label,
+      source_type: fp.source_type,
+      source_id: fp.source_id,
+      rules: fp.rules.map(r => ({
+        rule_type: r.rule_type,
+        amount: r.amount || 0,
+        frequency: r.frequency,
+        start_date: r.start_date || null,
+        end_date: r.end_date || null,
+        step_up_pct: r.step_up_pct || 0,
+        lumpsum_date: r.lumpsum_date || null,
+        sell_pct: r.sell_pct || 100,
+        trigger: r.trigger || null,
+        trigger_value: r.trigger_value ? parseFloat(r.trigger_value) : null,
+      })),
+    })),
+    rebalance_mode: document.getElementById('rebal-mode').value,
+    rebalance_threshold: parseFloat(document.getElementById('rebal-threshold')?.value || 5),
+    rebalance_anchor_month: parseInt(document.getElementById('rebal-month')?.value || 1),
+    debt_park_source_type: debtId ? debtType : '',
+    debt_park_id: debtId,
+    vol_threshold: parseFloat(document.getElementById('vol-thresh').value || 20),
+    debt_return_pct: parseFloat(document.getElementById('debt-return-rate')?.value || 7),
+  };
+
+  try {
+    const resp = await fetch("{% url 'portfolio:backtester_api' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    backtestResult = data;
+    renderResults(data);
+  } catch(err) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'flex';
+    alert('Backtest failed: ' + err.message);
+  } finally {
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER RESULTS
+// ════════════════════════════════════════════════════════════════════════
+function renderResults(data) {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('results-panel').style.display = 'block';
+  showTab('overview');
+
+  const strategies = data.strategies || [];
+  if (!strategies.length) {
+    document.getElementById('warnings-box').innerHTML =
+      (data.data_warnings||[]).map(w => `<div class="bt-warn">⚠ ${w}</div>`).join('') +
+      '<div class="bt-warn">⚠ All strategies failed to compute. Check warnings above.</div>';
+    return;
+  }
+
+  renderWarnings(data.data_warnings || []);
+  renderPlanSummary(data);
+  const base = strategies.find(s => s.strategy_key === 'base') || strategies[0];
+  if (!base) return;
+  renderOverviewGrid(base);
+  renderGrowthChart(base);
+  renderCalBars(base);
+  renderRollingChart(base);
+  renderTrailingTable(base);
+  renderRollingStats(base);
+  renderDrawdownChart(base);
+  renderRiskMetrics(base);
+  renderDownsideTable(base);
+  renderLedger(base.transactions || []);
+  renderOverlayTab(strategies);
+  renderConclusion(data.conclusion, strategies);
+}
+
+function renderWarnings(warnings) {
+  document.getElementById('warnings-box').innerHTML =
+    warnings.map(w => `<div class="bt-warn">⚠ ${w}</div>`).join('');
+}
+
+function renderPlanSummary(data) {
+  const ps = data.plan_summary || [];
+  const base = data.strategies.find(s => s.strategy_key === 'base');
+  document.getElementById('plan-summary-box').innerHTML = `
+    <div class="psb-title">📋 Portfolio Plan — ${data.start_date} → ${data.end_date}</div>
+    <div class="psb-row">
+      ${ps.map(f => `
+        <div class="psb-tag">
+          ${f.source_type==='scheme'?'🏦':'📈'}
+          <strong>${f.label}</strong>
+          ${f.sip_count ? `<span style="color:var(--text-muted)">${f.sip_count} SIP</span>` : ''}
+          ${f.lump_count ? `<span style="color:var(--text-muted)">${f.lump_count} Lump</span>` : ''}
+          ${f.monthly_sip ? `<span style="color:var(--indigo-400)">₹${fmtNum(f.monthly_sip)}/mo</span>` : ''}
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderOverviewGrid(s) {
+  if (!s) return;
+  document.getElementById('overview-grid').innerHTML = `
+    ${ovCard(fmtCr(s.final_corpus), 'Final Corpus', '', 'positive')}
+    ${ovCard(fmtPct(s.cagr), 'CAGR', '', s.cagr >= 0 ? 'positive' : 'negative')}
+    ${ovCard(fmtPct(s.xirr), 'XIRR', 'Actual investor return', s.xirr >= 0 ? 'positive' : 'negative')}
+    ${ovCard(fmtCr(s.total_invested), 'Total Invested', '', 'neutral')}
+    ${ovCard(fmtCr(s.absolute_gain), 'Absolute Gain', '', s.absolute_gain >= 0 ? 'positive' : 'negative')}
+    ${ovCard(fmtPct(s.absolute_return_pct), 'Total Return %', '', s.absolute_return_pct >= 0 ? 'positive' : 'negative')}
+  `;
+}
+function ovCard(val, label, sub, cls) {
+  return `<div class="ov-card">
+    <div class="ov-val ${cls}">${val}</div>
+    <div class="ov-label">${label}</div>
+    ${sub ? `<div class="ov-sub">${sub}</div>` : ''}
+  </div>`;
+}
+
+function renderGrowthChart(s) {
+  if (!s || !s.dates.length) return;
+  const traces = [
+    { x: s.dates, y: s.portfolio_values, name: 'Portfolio Value', type: 'scatter', mode: 'lines',
+      line: { color: '#6366f1', width: 2.5 }, fill: 'tozeroy', fillcolor: 'rgba(99,102,241,0.07)',
+      hovertemplate: '₹%{y:,.0f}<extra>Portfolio</extra>' },
+    { x: s.dates, y: s.invested_cumulative, name: 'Invested', type: 'scatter', mode: 'lines',
+      line: { color: '#94a3b8', width: 1.5, dash: 'dot' },
+      hovertemplate: '₹%{y:,.0f}<extra>Invested</extra>' },
+  ];
+  Plotly.react('chart-growth', traces, dkLayout('Value (₹)'), plotCfg());
+}
+
+function renderCalBars(s) {
+  const cal = s?.calendar_returns || {};
+  const years = Object.keys(cal).sort();
+  const maxAbs = Math.max(...Object.values(cal).map(Math.abs), 1);
+  document.getElementById('cal-bars').innerHTML = years.map(yr => {
+    const v = cal[yr]; const pos = v >= 0; const w = Math.abs(v) / maxAbs * 100;
+    return `<div class="cal-row">
+      <span style="min-width:34px;font-weight:700;font-size:11px">${yr}</span>
+      <div class="cal-bar-bg">
+        <div class="cal-bar ${pos?'cb-pos':'cb-neg'}" style="width:${w}%">
+          ${Math.abs(v) > 4 ? v.toFixed(1)+'%' : ''}
+        </div>
+      </div>
+      <span style="min-width:48px;text-align:right;font-size:12px;font-weight:700;color:${pos?'var(--success)':'var(--danger)'}">${v.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function renderRollingChart(s) {
+  if (!s || !s.dates.length) return;
+  const vals = s.portfolio_values, dates = s.dates, w5 = 52 * 5;
+  if (vals.length < w5 + 10) {
+    document.getElementById('chart-rolling').innerHTML =
+      '<div style="color:var(--text-muted);padding:20px;text-align:center">Need 5+ years of data for rolling returns</div>';
+    return;
+  }
+  const cagrs = [], rdates = [];
+  for (let j = w5; j < vals.length; j++) {
+    const sv = vals[j - w5], ev = vals[j];
+    if (sv > 0 && ev > 0) {
+      const c = (Math.pow(ev/sv, 1/5) - 1) * 100;
+      if (isFinite(c)) { cagrs.push(c); rdates.push(dates[j]); }
+    }
+  }
+  Plotly.react('chart-rolling', [
+    { x: rdates, y: cagrs, type: 'scatter', mode: 'lines', name: '5Y Rolling CAGR',
+      line: { color: '#10b981', width: 2 }, fill: 'tozeroy', fillcolor: 'rgba(16,185,129,0.07)',
+      hovertemplate: '%{y:.2f}%<extra>5Y Rolling CAGR</extra>' }
+  ], dkLayout('5Y CAGR (%)'), plotCfg());
+}
+
+function renderTrailingTable(s) {
+  if (!s) return;
+  const rows = [
+    ['1Y', s.trailing_1y], ['3Y', s.trailing_3y], ['5Y', s.trailing_5y],
+    ['XIRR', s.xirr], ['CAGR', s.cagr],
+  ];
+  document.getElementById('trailing-tbody').innerHTML = rows.map(([p, v]) =>
+    `<tr><td>${p}</td><td>${fmtRetCell(v)}</td></tr>`).join('');
+}
+
+function renderRollingStats(s) {
+  if (!s) return;
+  document.getElementById('rolling-stats-grid').innerHTML = `
+    ${statCard(fmtPct(s.rolling_5y_min), '5Y Min CAGR', 'negative')}
+    ${statCard(fmtPct(s.rolling_5y_avg), '5Y Avg CAGR', 'neutral')}
+    ${statCard(fmtPct(s.rolling_5y_max), '5Y Max CAGR', 'positive')}`;
+}
+function statCard(v, label, cls) {
+  return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+    <div style="font-size:18px;font-weight:700" class="${cls}">${v}</div>
+    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">${label}</div>
+  </div>`;
+}
+
+function renderDrawdownChart(s) {
+  if (!s || !s.dates.length) return;
+  const dd = [], vals = s.portfolio_values;
+  let peak = 0;
+  for (const v of vals) {
+    if (v > peak) peak = v;
+    dd.push(peak > 0 ? (v - peak) / peak * 100 : 0);
+  }
+  Plotly.react('chart-drawdown', [
+    { x: s.dates, y: dd, name: 'Drawdown', type: 'scatter', mode: 'lines',
+      line: { color: '#ef4444', width: 2 }, fill: 'tozeroy', fillcolor: 'rgba(239,68,68,0.08)',
+      hovertemplate: '%{y:.2f}%<extra>Drawdown</extra>' }
+  ], dkLayout('Drawdown (%)'), plotCfg());
+}
+
+function renderRiskMetrics(s) {
+  if (!s) return;
+  document.getElementById('rm-vol').innerHTML = fmtRetCell(s.volatility_ann, '%');
+  document.getElementById('rm-dd').innerHTML = fmtRetCell(s.max_drawdown, '%');
+  document.getElementById('rm-sharpe').innerHTML = s.sharpe != null
+    ? `<span class="${s.sharpe >= 1 ? 'positive' : 'neutral'}">${s.sharpe.toFixed(2)}</span>` : '—';
+  document.getElementById('rm-sortino').innerHTML = s.sortino != null
+    ? `<span class="${s.sortino >= 1 ? 'positive' : 'neutral'}">${s.sortino.toFixed(2)}</span>` : '—';
+}
+
+function renderDownsideTable(s) {
+  const q = s?.downside_quarters || [];
+  const c = document.getElementById('downside-table-wrap');
+  if (!q.length) { c.innerHTML = '<div style="color:var(--text-muted);padding:12px">No downside quarters 🎉</div>'; return; }
+  c.innerHTML = `
+    <table class="bt-table">
+      <thead><tr><th>Quarter</th><th>Portfolio Return</th></tr></thead>
+      <tbody>${q.map(dq => `
+        <tr>
+          <td>${dq.quarter}</td>
+          <td style="color:var(--danger);font-weight:700">${dq.portfolio_return.toFixed(2)}%</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${q.length} downside quarter(s)</div>`;
+}
+
+// ── Ledger ────────────────────────────────────────────────────────────
+let allTxs = [];
+function renderLedger(txs) {
+  allTxs = txs || [];
+  ledgerPage = 0;
+  document.getElementById('tx-count').textContent = `${allTxs.length} transactions`;
+  renderLedgerPage();
+}
+function renderLedgerPage() {
+  const start = ledgerPage * PAGE_SIZE;
+  const page = allTxs.slice(start, start + PAGE_SIZE);
+  document.getElementById('ledger-tbody').innerHTML = page.map(t => `
+    <tr>
+      <td>${t.date}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.fund}</td>
+      <td><span class="tx-type tx-${t.type.toLowerCase().replace('_','')}">${t.type}</span></td>
+      <td>${t.nav.toFixed(4)}</td>
+      <td>${t.units.toFixed(4)}</td>
+      <td>₹${fmtNum(t.amount)}</td>
+      <td style="color:var(--text-muted);font-size:11px">${t.trigger||''}</td>
+    </tr>`).join('');
+  const totalPages = Math.ceil(allTxs.length / PAGE_SIZE);
+  const pg = document.getElementById('ledger-pagination');
+  if (totalPages <= 1) { pg.innerHTML = ''; return; }
+  pg.innerHTML = Array.from({length:totalPages},(_,i) =>
+    `<button onclick="goLedgerPage(${i})"
+      style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);
+             background:${i===ledgerPage?'var(--indigo-600)':'var(--bg)'};
+             color:${i===ledgerPage?'#fff':'var(--text-muted)'};cursor:pointer;font-size:12px">
+      ${i+1}
+    </button>`).join('');
+}
+function goLedgerPage(n) { ledgerPage = n; renderLedgerPage(); }
+
+// ── Overlay Tab ───────────────────────────────────────────────────────
+function renderOverlayTab(strategies) {
+  // Overlay growth chart — all strategies
+  const traces = strategies.map((s, i) => ({
+    x: s.dates, y: s.portfolio_values, name: s.name, type: 'scatter', mode: 'lines',
+    line: { color: S_COLORS[i % S_COLORS.length], width: i === 0 ? 2.5 : 1.5 },
+    hovertemplate: `${s.name}<br>₹%{y:,.0f}<extra></extra>`,
+  }));
+  // Add invested line
+  const base = strategies.find(s => s.strategy_key === 'base');
+  if (base) traces.push({
+    x: base.dates, y: base.invested_cumulative, name: 'Invested',
+    type: 'scatter', mode: 'lines',
+    line: { color: '#94a3b8', width: 1, dash: 'dot' },
+  });
+  Plotly.react('chart-overlays', traces, dkLayout('Value (₹)'), plotCfg());
+
+  // Equity ratio chart
+  const eTraces = strategies.map((s, i) => ({
+    x: s.dates, y: s.equity_ratios, name: s.name, type: 'scatter', mode: 'lines',
+    line: { color: S_COLORS[i % S_COLORS.length], width: 1.5 },
+    hovertemplate: `%{y:.1f}%<extra>${s.name}</extra>`,
+  }));
+  Plotly.react('chart-equity-ratio', eTraces, {...dkLayout('Equity %'), yaxis:{range:[0,105],...dkYax()}}, plotCfg());
+
+  // Pills
+  document.getElementById('overlay-pills').innerHTML = strategies.map((s, i) =>
+    `<div class="overlay-pill active" style="background:${S_COLORS[i]};color:#fff;border-color:${S_COLORS[i]}"
+      data-key="${s.strategy_key}">${s.name}</div>`).join('');
+
+  // Table
+  document.getElementById('overlay-tbody').innerHTML = strategies.map((s, i) => `
+    <tr>
+      <td>
+        <span class="strat-dot" style="background:${S_COLORS[i]}"></span>
+        <strong>${s.name}</strong>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${s.description}</div>
+      </td>
+      <td style="font-weight:700">${fmtCr(s.final_corpus)}</td>
+      <td>${fmtRetCell(s.cagr)}</td>
+      <td>${fmtRetCell(s.xirr)}</td>
+      <td style="color:var(--danger)">${s.max_drawdown != null ? s.max_drawdown.toFixed(1)+'%' : '—'}</td>
+      <td>${s.sharpe != null ? s.sharpe.toFixed(2) : '—'}</td>
+      <td>${s.volatility_ann != null ? s.volatility_ann.toFixed(1)+'%' : '—'}</td>
+    </tr>`).join('');
+}
+
+function renderConclusion(text, strategies) {
+  document.getElementById('conclusion-text').innerHTML = (text || '')
+    .replace(/### (.+)/g, '<h3 style="font-size:16px;font-weight:700;margin-bottom:10px;color:var(--indigo-400)">$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/> (.+)/g, '<div class="bt-note">ℹ️ $1</div>')
+    .replace(/\n/g, '<br>');
+
+  document.getElementById('interpretations').innerHTML = strategies.map((s, i) => `
+    <div style="border-left:4px solid ${S_COLORS[i]};border-radius:8px;padding:12px 16px;
+                background:var(--bg);margin-bottom:10px;font-size:13px;line-height:1.7">
+      <div style="font-weight:700;color:${S_COLORS[i]};margin-bottom:4px">${s.name}</div>
+      <div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-bottom:6px">${s.description}</div>
+      ${s.interpretation}
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function showTab(name) {
+  const names = ['overview','returns','risk','ledger','rebalancing','conclusion'];
+  document.querySelectorAll('.bt-tab').forEach((t, i) =>
+    t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.bt-pane').forEach(p =>
+    p.classList.toggle('active', p.id === `pane-${name}`));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PLOTLY HELPERS
+// ════════════════════════════════════════════════════════════════════════
+function dkLayout(ytitle) {
+  return {
+    paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+    font: { color:'#94a3b8', size:11 },
+    xaxis: { gridcolor:'rgba(148,163,184,.08)', zerolinecolor:'rgba(148,163,184,.1)' },
+    yaxis: { gridcolor:'rgba(148,163,184,.08)', zerolinecolor:'rgba(148,163,184,.1)', title:ytitle||'' },
+    legend: { orientation:'h', y:-0.2, font:{ size:10 } },
+    margin: { t:10, l:55, r:10, b:60 },
+    hovermode:'x unified',
+  };
+}
+function dkYax() {
+  return { gridcolor:'rgba(148,163,184,.08)', zerolinecolor:'rgba(148,163,184,.1)' };
+}
+function plotCfg() { return { responsive:true, displayModeBar:false }; }
+
+// ════════════════════════════════════════════════════════════════════════
+// FORMATTING
+// ════════════════════════════════════════════════════════════════════════
+function fmtNum(v) {
+  if (v == null) return '—';
+  return v.toLocaleString('en-IN', { maximumFractionDigits:0 });
+}
+function fmtCr(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e7) return (v/1e7).toFixed(2)+'Cr';
+  if (abs >= 1e5) return (v/1e5).toFixed(2)+'L';
+  return '₹'+fmtNum(v);
+}
+function fmtPct(v, d=2) {
+  if (v == null) return '—';
+  return v.toFixed(d)+'%';
+}
+function fmtRetCell(v, suffix='%') {
+  if (v == null) return '<span style="color:var(--text-muted)">—</span>';
+  const col = v >= 0 ? 'var(--success)' : 'var(--danger)';
+  return `<span style="color:${col};font-weight:600">${v.toFixed(2)}${suffix}</span>`;
+}
+function getCookie(name) {
+  return document.cookie.split(';').reduce((v, c) => {
+    const [k, val] = c.trim().split('=');
+    return k===name ? decodeURIComponent(val) : v;
+  }, '');
+}
+function showNotification(type, msg) {
+  // Simple alert fallback
+  alert(msg);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PRE-FILL FROM URL PARAMS (for recommendation redirect)
+// ════════════════════════════════════════════════════════════════════════
+(function prefillFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const prefill = params.get('prefill');
+  if (!prefill) return;
+  try {
+    const funds = JSON.parse(decodeURIComponent(prefill));
+    funds.forEach(fp => {
+      const existing = fundPlans.find(f => f.source_id === fp.source_id);
+      if (existing) return;
+      const plan = {
+        id: Date.now() + Math.random(),
+        label: fp.label,
+        source_type: fp.source_type,
+        source_id: fp.source_id,
+        rules: (fp.rules || []).map(r => ({
+          id: Date.now() + Math.random(),
+          rule_type: r.rule_type || 'sip',
+          amount: r.amount || 5000,
+          frequency: r.frequency || 'monthly',
+          start_date: r.start_date || '',
+          end_date: r.end_date || '',
+          step_up_pct: r.step_up_pct || 0,
+          lumpsum_date: r.lumpsum_date || '',
+          sell_pct: r.sell_pct || 100,
+          trigger: r.trigger || '',
+          trigger_value: r.trigger_value || '',
+        })),
+      };
+      fundPlans.push(plan);
+    });
+    if (params.get('rebalance_mode'))
+      document.getElementById('rebal-mode').value = params.get('rebalance_mode');
+    if (params.get('debt_park_id')) {
+      const sel = document.getElementById('debt-index-select');
+      [...sel.options].forEach(o => { if (o.value === params.get('debt_park_id')) o.selected = true; });
+    }
+    renderFundCards();
+    // Show notification
+    if (fundPlans.length)
+      setTimeout(() => showNotification('info',
+        `${fundPlans.length} recommended funds loaded — review the plan and click Run Backtest`), 400);
+  } catch(e) { console.warn('prefill parse error', e); }
+})();
+</script>
+{% endblock %}

@@ -96,49 +96,50 @@ def result_view(request):
 
 @login_required
 def backtest_view(request):
+    """
+    Redirect to the Portfolio Backtester with recommended funds pre-populated.
+    Encodes the recommended fund plan as URL query params so the backtester
+    can render the plan builder pre-filled and ready to run.
+    """
     profile = getattr(request.user, 'rec_profile', None)
     if not profile or not profile.recommendations.exists():
         return redirect('recommendations:engine')
-        
-    # Simulate SIP across all recommended funds
+
     recommendations = list(profile.recommendations.select_related('scheme').all())
+
+    # Determine SIP amount per fund
     monthly_sip = 10000
     if profile.monthly_income and profile.monthly_income > 0:
-        # Default SIP to 20% of monthly income if provided
-        monthly_sip = float(profile.monthly_income) * 0.2
-        
-    sip_per_fund = monthly_sip / len(recommendations)
-    
-    total_invested = 0
-    current_value = 0
-    from apps.analytics.engine import simulate_sip, _load_nav_series
-    
-    results = []
+        monthly_sip = float(profile.monthly_income) * 0.20
+
+    sip_per_fund = round(monthly_sip / len(recommendations), 0) if recommendations else monthly_sip
+
+    # Build pre-population params for the backtester
+    import json as _json
+    from datetime import date, timedelta
+    five_years_ago = (date.today() - timedelta(days=5*365)).strftime('%Y-%m-%d')
+
+    prefill_funds = []
     for rec in recommendations:
-        try:
-            nav = _load_nav_series(rec.scheme)
-            # 5 years backtest
-            import pandas as pd
-            start_date = nav.index[-1] - pd.Timedelta(days=5*365)
-            sim = simulate_sip(nav, monthly_amount=sip_per_fund, start_date=start_date)
-            if sim:
-                total_invested += sim['total_invested']
-                current_value += sim['current_value']
-                sim['scheme_name'] = rec.scheme.scheme_name
-                results.append(sim)
-        except Exception:
-            pass
-            
-    abs_gain = current_value - total_invested
-    abs_pct = (abs_gain / total_invested * 100) if total_invested > 0 else 0
-    
-    return render(request, 'recommendations/backtest.html', {
-        'profile': profile,
-        'results': results,
-        'total_invested': total_invested,
-        'current_value': current_value,
-        'abs_gain': abs_gain,
-        'abs_pct': abs_pct,
-        'monthly_sip': monthly_sip
-    })
+        if not rec.scheme or not rec.scheme.amfi_code:
+            continue
+        prefill_funds.append({
+            'label': rec.scheme.scheme_name[:40],
+            'source_type': 'scheme',
+            'source_id': rec.scheme.amfi_code,
+            'rules': [{
+                'rule_type': 'sip',
+                'amount': sip_per_fund,
+                'frequency': 'monthly',
+                'start_date': five_years_ago,
+                'end_date': None,
+                'step_up_pct': 0,
+            }]
+        })
+
+    # Pass as GET param to backtester
+    import urllib.parse
+    prefill_json = urllib.parse.quote(_json.dumps(prefill_funds))
+    backtester_url = f"{redirect('portfolio:backtester').url}?prefill={prefill_json}&rebalance_mode=annual&debt_park_id=NIFTY+LIQUID+INDEX"
+    return redirect(backtester_url)
 
