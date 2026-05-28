@@ -1,133 +1,218 @@
-# Mutual Fund Analysis Platform - Comprehensive Project Context
+# Mutual Fund Analysis Platform — Project Context
 
-This document provides a deep, comprehensive overview of the Mutual Fund Analysis Platform. It is designed to be passed into an LLM or shared with developers to instantly transfer context regarding the architecture, logic, data science implementations, and feature set of the application.
+This document provides a comprehensive technical overview for developers and AI assistants inheriting this project. It covers architecture, implementation decisions, data science logic, and development patterns.
 
 ---
 
 ## 1. Project Overview & Tech Stack
 
-**Purpose:** A full-featured mutual fund tracking, screening, and analytics platform built for Indian Mutual Funds. It aims to be a free, locally hostable or deployable alternative to commercial platforms like ValueResearch or Morningstar.
+**Purpose:** A full-featured mutual fund research, portfolio analysis, and backtesting platform built for Indian Mutual Funds. It aims to be a free, locally hostable alternative to platforms like ValueResearch or Morningstar.
 
 **Tech Stack:**
-- **Backend:** Django (Python), Pandas, NumPy, SciPy (for financial math).
-- **Frontend:** Django Templates, HTMX (for SPA-like dynamic partial updates without React/Vue), Bootstrap 5 (Styling), Plotly (Interactive Charts).
-- **Database:** SQLite (local development) / PostgreSQL (production-ready via `dj-database-url`).
-- **PDF Generation:** WeasyPrint (HTML to PDF).
+- **Backend:** Django 5.x (Python 3.11+)
+- **Analytics:** Pandas, NumPy, SciPy, statsmodels, scikit-learn
+- **Frontend:** Django Templates, vanilla CSS, Plotly (client-side charts), vanilla JS
+- **Database:** SQLite (dev) / PostgreSQL (prod via `dj-database-url`)
+- **PDF Generation:** WeasyPrint (HTML to PDF, active in `apps/funds/report.py`)
+- **Background Tasks:** django-q2 (ORM-backed, no Redis required)
+- **Deployment:** Render.com (`render.yaml`)
 
 ---
 
 ## 2. Core Architecture: "On-Demand Runtime Loading"
 
-The most crucial architectural decision in this project is the **On-Demand Runtime Data Model**.
-Indian mutual funds comprise over 14,000 active schemes. Downloading and updating NAVs,
-metadata, and portfolios for all of them daily requires unnecessary compute and creates
-local database fragility. Instead, the platform keeps only the lightweight scheme registry
-locally and fetches fund detail data at request time.
+The most crucial architectural decision is the **On-Demand Runtime Data Model**.
 
-1. **Initial State:** The database starts completely empty.
-2. **Search (AMFI Cache):** When a user searches for a fund, the app fetches a lightweight text file (NAVAll.txt, ~300KB) from AMFI, caches it in memory for 6 hours, and uses it to power instant auto-complete suggestions.
-3. **Fund Visit (Runtime Snapshot):** When a user clicks on a fund, `apps.funds.runtime.get_runtime_snapshot(scheme)` builds a short-lived in-memory snapshot:
-   - **NAV:** Fetches current and historical NAV from AMFI/mfapi, with mftool-style fallbacks where available.
-   - **Metadata:** Fetches captnemo data by ISIN and can fall back to a same-fund sibling growth plan when the exact plan is missing.
-   - **Portfolio:** Uses `mstarpy` first for holdings, sectors, and allocation, then falls back to `yahooquery` after resolving a Yahoo ticker.
-   - **Analytics:** Computes trailing, calendar, rolling, drawdown, and risk metrics from the fetched NAV history in memory.
-   - **Serves:** Renders the page and API responses without persisting all detail rows.
-4. **Result:** The system only stores minimal local data needed to identify schemes and power Django workflows. Fund detail data is temporary/runtime data unless a future feature explicitly needs persistence.
+Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV data daily is unnecessary for a browsing-first platform. Instead:
 
-### Runtime Data Rules
+1. **Search (AMFI Cache):** When a user searches for a fund, the app fetches `NAVAll.txt` (~300 KB) from AMFI, caches it in memory for 6 hours, and uses it to power instant autocomplete.
+2. **Fund Visit (Runtime Snapshot):** When a user visits a fund, `apps.funds.runtime.get_runtime_snapshot(scheme)` builds a short-lived in-memory snapshot:
+   - **NAV:** Fetches historical NAV from mfapi.in (primary), mftool (fallback)
+   - **Metadata:** Fetches from captnemo by ISIN; falls back to a same-fund sibling growth plan with a UI label indicating it's a reference value
+   - **Holdings/Sectors:** Uses mstarpy (Morningstar) first, then yahooquery fallback after Yahoo ticker resolution
+   - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, etc.
+3. **Portfolio & Benchmarks** are the only data fully persisted in the database.
 
-- Do not bulk-ingest all schemes, NAV histories, metadata, or holdings for normal fund-detail browsing.
-- Do not fabricate exact-plan values. If a provider only returns a sibling plan, the UI must label it as a reference value.
-- Use ISIN matching first, then normalized fund-name/ticker matching, then NAV/date sanity checks before trusting provider-specific symbols.
-- Keep provider failures visible in logs and degrade the UI with neutral missing-data states rather than asking users to run ingestion commands.
-- `apps/funds/mstarpy_fetch.py` exists because `mstarpy` uses signal handling that is unsafe inside Django request threads; it runs Morningstar fetches in a subprocess main thread.
+### Runtime Data Rules (Never Break These)
+- Do NOT bulk-ingest all schemes' NAV histories for normal browsing
+- Do NOT fabricate exact-plan values. If a provider only has a sibling plan, label it as a reference value in the UI
+- All HTTP calls MUST be wrapped in `try/except` with UI-friendly fallback states
+- `apps/funds/mstarpy_fetch.py` runs mstarpy fetches in a subprocess because mstarpy uses signal handlers unsafe for Django request threads
 
 ---
 
-## 3. Data Sources
+## 3. Data Sources & Provider Priority
 
-The project relies entirely on free, open APIs with built-in fallbacks.
-
-1. **AMFI (Association of Mutual Funds in India):**
-   - **URL:** `https://www.amfiindia.com/spages/NAVAll.txt`
-   - **Use:** Used to build the lightweight search index and get the latest NAVs globally.
-2. **MFAPI.in:**
-   - **URL:** `https://api.mfapi.in/mf/{amfi_code}`
-   - **Use:** The primary source of historical NAV data (often spanning 15-20 years for a single fund).
-3. **Captnemo API (Mutual Fund API):**
-   - **URL:** `https://api.mfapi.in/mf/{amfi_code}` (Note: We use Captnemo's fork/dataset for extended meta).
-   - **Use:** Rich metadata where available (Expense ratio, AUM, Fund Manager, Inception Date). Captnemo can have exact-plan gaps, so runtime code tries current ISIN first and then a clearly labelled sibling-plan fallback.
-4. **mstarpy / Morningstar public data:**
-   - **Use:** Primary on-demand source for portfolio holdings, sector allocation, asset allocation, and selected enrichment fields. The app validates candidates against ISIN and fund family where possible.
-5. **Yahoo Finance (`yfinance`, `yahooquery`) & NSE India:**
-   - **Use:** Fetches daily benchmark index data (Nifty 50, Sensex, etc.) for live market strips and alpha/beta regression baselines.
-   - **Use:** Fund-specific fallback for ticker-based metadata, holdings, and sector fields when Morningstar data is unavailable.
+| Source | Primary Use | Notes |
+|---|---|---|
+| **AMFI** (`amfiindia.com/spages/NAVAll.txt`) | Search index, latest NAVs | Cached 6h in-process |
+| **mfapi.in** | Historical NAV per scheme | Primary NAV source |
+| **captnemo** (`mf.captnemo.in`) | Metadata (expense ratio, AUM, manager, inception) | Try exact ISIN first, sibling plan as fallback |
+| **mstarpy** (Morningstar) | Holdings, sector/asset allocation | Run via subprocess |
+| **NSE India API** | Live and historical benchmark indices | Session warmup required (2 GETs) |
+| **yfinance / yahooquery** | Benchmark fallback, Yahoo ticker resolution | Rate-limited; sleep 2s before yfinance calls |
 
 ---
 
-## 4. Project Structure (Django Apps)
+## 4. Django App Structure
 
-The repository is modularized into specific business domains inside the `apps/` folder:
-
-*   **`apps/core/`**: Base models (UUIDs, timestamps) and shared utilities (HTTP clients, rate limiters).
-*   **`apps/funds/`**: The heart of the app. Contains scheme models, the runtime snapshot layer (`runtime.py`), the mstarpy subprocess helper (`mstarpy_fetch.py`), lightweight services, and the PDF report generator.
-*   **`apps/benchmarks/`**: Fetches and stores index data (Nifty 50). Provides HTMX API endpoints for the live market ticker strip on the homepage.
-*   **`apps/analytics/`**: The Data Science engine. Contains zero views, only mathematical logic (`engine.py`) and models to persist results (CAGR, Risk metrics).
-*   **`apps/holdings/`**: Manages the underlying stocks/bonds a mutual fund holds. (Future capability for parsing monthly portfolios).
-*   **`apps/calculators/`**: Stateless views for financial calculators (SIP, Step-Up, XIRR, Lumpsum, SWP, Tax).
-*   **`apps/screener/`**: Dynamic filtering of funds using Django forms and HTMX partials.
-*   **`apps/portfolio/`**: Uploading and parsing user CAS (Consolidated Account Statement) Excel/CSV files.
-*   **`apps/recommendations/`**: Risk profiling questionnaire and automated fund suggestions with backtesting.
-*   **`apps/tasks/`**: Background Celery/Cron jobs for nightly data refreshes.
+```
+apps/
+├── core/           ← BaseModel (UUID PK, created_at, updated_at), shared utilities
+├── funds/          ← Scheme, NAVHistory, SchemeMeta; runtime snapshot; PDF report
+├── analytics/      ← Analytics engine (engine.py) — pure math, zero views
+├── benchmarks/     ← BenchmarkIndex, BenchmarkNAV, management commands, live market API
+├── holdings/       ← Holding model (fund's underlying stocks/bonds by month)
+├── calculators/    ← Stateless calculator views (SIP, SWP, XIRR, Tax, Goal)
+├── recommendations/← Risk questionnaire + fund recommendation engine
+└── portfolio/      ← Portfolio upload, analysis dashboard, overlap, benchmark, backtester
+    └── services/
+        ├── analytics.py    ← XIRR, benchmark simulation, portfolio journey
+        ├── backtester.py   ← Full SIP/lumpsum plan simulation engine
+        └── forecasting.py  ← Monte Carlo, ARIMA, ML forecasting
+```
 
 ---
 
-## 5. Feature Deep-Dive & Implementation Logic
+## 5. Feature Deep-Dive
 
-### A. The Analytics Engine (`apps/analytics/engine.py`)
-This is the quantitative core of the platform. It strictly uses Pandas/NumPy and avoids Django ORM inside hot loops.
-
-*   **Trailing Returns (CAGR):** Uses standard Compounded Annual Growth Rate formula `((End Value / Start Value) ^ (1 / Years)) - 1`. Calculated for 1M, 3M, 6M, 1Y, 3Y, 5Y, and Since Inception.
-*   **Rolling Returns:** Computes 1Y, 3Y, 5Y rolling windows by shifting the Pandas series. Calculates minimum, maximum, average returns, and Win Rates (e.g., % of time returns were > 12%).
-*   **Risk Metrics (Modern Portfolio Theory):**
-    *   **Standard Deviation:** Annualized volatility `nav.pct_change().std() * sqrt(252)`.
-    *   **Sharpe Ratio:** `(Return - RiskFreeRate) / StdDev`. Uses a dynamic Risk-Free Rate (default 6.5%).
-    *   **Sortino Ratio:** Similar to Sharpe, but only penalizes downside volatility (returns below risk-free rate).
-    *   **Max Drawdown:** Calculates the deepest peak-to-trough drop in NAV history using `nav.cummax()`.
-    *   **Alpha & Beta:** Uses `scipy.stats.linregress` to run a linear regression of the Fund's daily returns against the Benchmark's daily returns. Slope = Beta, Intercept = Alpha.
+### A. Analytics Engine (`apps/analytics/engine.py`)
+Pure pandas/numpy — no Django ORM in hot loops. Key computations:
+- **Trailing CAGR:** `((end/start)^(1/years)) - 1` for 1M, 3M, 6M, 1Y, 3Y, 5Y, MAX
+- **Rolling Returns:** Pandas `rolling().apply()` over 1Y, 3Y, 5Y windows with win rates
+- **Volatility:** `pct_change().std() * sqrt(252)` (annualised from daily returns)
+- **Sharpe:** `(CAGR - RF_RATE) / volatility`; `RF_ANNUAL_RATE` is configurable via `.env`
+- **Beta/Alpha:** `scipy.stats.linregress(fund_returns, benchmark_returns)`
+- **Max Drawdown:** `nav / nav.cummax() - 1` minimum
 
 ### B. Portfolio Analyzer (`apps/portfolio/`)
-Users can upload their CAMS/KFintech CAS (exported as Excel/CSV).
-1.  **Parsing:** `apps/portfolio/parsers.py` reads the file using Pandas and standardizes columns via heuristic dictionary mapping (e.g., mapping 'txn date', 'transaction date' to `tx_date`).
-2.  **Fuzzy Matching:** Because user CAS files have slightly different fund names than AMFI (e.g., "Parag Parikh Flexi Cap Regular Growth" vs "Parag Parikh Flexi Cap Fund - Direct Plan"), we use the `rapidfuzz` library to fuzzy-match strings and link the transaction to the correct `Scheme` UUID in the DB.
-3.  **XIRR Calculation:** Uses SciPy's `brentq` root-finding algorithm to solve the NPV equation to exactly 0, giving the exact annualized Internal Rate of Return across irregular cash flows.
+1. **Parsing** (`parsers.py`): Reads Excel/CSV using Pandas with heuristic column detection
+2. **Fuzzy Matching**: Uses `rapidfuzz.WRatio` with a 75-point score cutoff to link CAS fund names to `Scheme` records
+3. **XIRR** (`services/analytics.py`): `scipy.optimize.newton` on NPV equation; falls back to `None` on convergence failure
+4. **Portfolio Journey**: Weekly-frequency NAV reconstruction with `bisect` binary search for O(log n) NAV lookups per date
+5. **Benchmark Simulation**: Replays same cash flows into a blended index benchmark
 
-### C. Recommendations & Backtester (`apps/recommendations/`)
-1.  **Risk Profiling:** Users answer a questionnaire to determine their profile (Conservative, Moderate, Aggressive) and horizon.
-2.  **Asset Allocation Engine:** `apps/recommendations/engine.py` maps the profile to an Equity/Debt/Gold ratio (e.g., Conservative = 30/60/10).
-3.  **Fund Selection:** The engine fetches the top-ranked funds in the required SEBI categories (e.g., Flexi Cap for Equity, Liquid for Debt). To bypass the "Lazy Loading" cold start problem, the engine has a hardcoded list of historically strong AMFI codes to pre-fetch on-demand.
-4.  **Backtesting:** The app uses historical NAV data to simulate a standard ₹10,000 monthly SIP into the newly recommended portfolio over the last 5 years, plotting the exact historical trajectory.
+### C. Backtester (`apps/portfolio/services/backtester.py`)
+The most complex service. Key design decisions:
+- **Dataclasses for I/O**: `InvestmentRule`, `FundPlan`, `PortfolioPlan` for input; `StrategyResult`, `SimulationResult` for output
+- **NAV data fetched once** at the start of simulation, then accessed via in-memory `pandas.Series` with date indexing
+- **Five strategies** share the same base investment plan but differ in when equity SIPs are paused:
+  - `base`: No overlay, runs as configured
+  - `trend`: Pause if 12-month return is negative
+  - `ma`: Pause if NAV < 10-month SMA
+  - `volatility`: Pause if 6-month realised vol > `vol_threshold`
+  - `composite`: Pause if BOTH trend AND MA are off
+- When a strategy pauses equity SIPs, the amount is redirected to the `debt_park_id` fund/index
+- Supports synthetic debt return via configurable `debt_return_pct` (simulates debt fund returns without real NAV data)
+- **Rebalancing**: Annual (on `rebalance_anchor_month`) or drift-threshold (when any fund drifts > `rebalance_threshold` from its target weight)
+- XIRR uses `scipy.optimize.brentq` for reliability over `newton`
+- AI narrative (`conclusion`) is generated by the `interpret_simulation()` function using rule-based text
 
-### D. Screener & HTMX Integration
-*   The Screener (`apps/screener/views.py`) uses standard Django filters.
-*   Instead of reloading the page on every filter change, the HTML form has `hx-get="/screener/results/" hx-target="#results-table"`. Django returns just the `_results.html` fragment, making the screener feel like a fast React Single Page Application.
+### D. Recommendations Engine (`apps/recommendations/engine.py`)
+1. User answers a questionnaire → `risk_score` is computed
+2. `risk_score` maps to a profile (Conservative/Moderate/Aggressive) and target allocation (equity/debt/gold %)
+3. Engine fetches top-ranked direct-growth funds in each required SEBI category from the local DB
+4. "Run 5-Year Backtest" button builds a `prefill` URL parameter and navigates to the backtester, which auto-populates and runs the simulation
 
-### E. Financial Calculators (`apps/calculators/`)
-*   **SIP / Step-Up SIP:** Future value of annuities formulas.
-*   **SWP (Systematic Withdrawal Plan):** Calculates depletion over time by adding monthly expected return and subtracting withdrawal amount.
-*   **Tax Calculator:** Implements current Indian Mutual Fund taxation rules (e.g., 12.5% LTCG above ₹1.25 Lakh for Equity, standard income slab for Debt).
+### E. Forecasting (`apps/portfolio/services/forecasting.py`)
+- **Monte Carlo**: Geometric Brownian Motion using Cholesky decomposition of the historical fund covariance matrix. Falls back to independent simulations if Cholesky fails
+- **ARIMA**: `statsmodels.tsa.arima.model.ARIMA` with p/d/q configurable; falls back to linear trend projection on failure
+- **Machine Learning**: Ridge regression or Random Forest on autoregressive lag features; confidence bands widen proportionally over time
 
 ---
 
-## 6. How to Use This Document
+## 6. URL Structure
 
-If you are an AI assistant inheriting this project, follow these guidelines:
-1.  **Never try to pre-load all 14,000 funds.** Stick to the runtime-loading architecture and use `apps.funds.runtime.get_runtime_snapshot(scheme)` for fund detail, chart, compare, and portfolio data.
-2.  **Data Processing:** If editing metrics, edit `apps/analytics/engine.py` and ensure you use vectorized Pandas operations. Do not iterate over Django querysets for math.
-3.  **HTMX Principles:** Keep JavaScript to an absolute minimum. Use HTMX for interactivity (e.g., the market ticker, search bar, and screener).
-4.  **Resilience:** All APIs (`mfapi.in`, `captnemo`) have rate limits or downtime. Ensure all HTTP calls are wrapped in `try/except` with sensible UI fallbacks.
+```
+/                           ← Home (live market strip, fund search)
+/funds/                     ← Browse by category
+/funds/<amfi_code>/         ← Fund detail page
+/funds/<amfi_code>/pdf/     ← WeasyPrint PDF export
 
-## 7. Current Project Status
-- Phase 1 (Lazy Loading Backend, Caching, Core Models) -> **COMPLETED**.
-- Phase 2 (Calculators, Screener, Portfolio Parser, Recommendations Engine, WeasyPrint PDF Reports) -> **COMPLETED**.
-- **Next Steps:** Open source release, containerization (Docker), and deployment (Postgres + Render).
+/calculators/               ← Calculator hub
+/calculators/sip/           ← SIP calculator
+/calculators/xirr/          ← XIRR calculator
+/calculators/tax/           ← Tax calculator
+(etc.)
+
+/recommendations/           ← Risk profiling questionnaire
+/recommendations/results/   ← Fund recommendation results
+
+/portfolio/                 ← Portfolio list
+/portfolio/upload/          ← CAS file upload
+/portfolio/manual/          ← Manual entry form
+/portfolio/<pk>/            ← Portfolio analysis dashboard
+/portfolio/<pk>/overlap/    ← Fund overlap matrix
+/portfolio/<pk>/benchmark/  ← Blended benchmark comparison
+/portfolio/<pk>/forecast/api/ ← Forecasting API
+
+/portfolio/backtester/      ← Portfolio backtester UI
+/portfolio/backtester/api/  ← Backtester simulation API (POST)
+/portfolio/backtester/fund-search/ ← Fund/index search for backtester
+```
+
+---
+
+## 7. Key Conventions
+
+### Tooltip System (`static/js/main.js`)
+- Info buttons use class `info-btn` with `data-t-*` attributes
+- `data-t-title`: Tooltip heading
+- `data-t-what`: What this metric is
+- `data-t-interp`: How to interpret it
+- `data-t-formula`: The formula (optional)
+- `data-t-range`: What values are considered good/bad (optional)
+- `initInfoTooltips(container)` must be called after dynamic JS renders new content
+
+### Logging
+- Logger name: `mfanalysis` for app code, `adapters.*` for adapter code
+- All adapters use structured `logger.debug/warning/error` messages
+- Log format: `[timestamp] LEVEL name: message`
+
+### Error Handling Pattern
+```python
+try:
+    result = some_api_call()
+except Exception as e:
+    logger.warning(f"API call failed: {e}")
+    result = None  # or sensible default
+```
+Never let external API failures propagate to the user with a 500 error.
+
+### Settings Architecture
+- `config/settings/base.py`: All shared settings (apps, middleware, logging, django-q2)
+- `config/settings/dev.py`: `DATABASES = SQLite`, `DEBUG = True`
+- `config/settings/prod.py`: `DATABASE_URL`, security headers, `STATIC_ROOT`
+- `RF_ANNUAL_RATE` is configurable via `.env` (default 6.5%)
+
+---
+
+## 8. Current Status
+
+All five planned phases are substantially implemented:
+- ✅ Phase 1: Data foundation (scheme master, NAV history, benchmark ingestion)
+- ✅ Phase 2: Fund detail page with full analytics
+- ✅ Phase 3: Discovery (browse by category, fund search)
+- ✅ Phase 4: Portfolio analysis (XIRR, benchmark, overlap, blended benchmark, risk metrics)
+- ✅ Phase 5: Backtesting + Recommendations (questionnaire, backtester, 5 strategy overlays)
+
+**Next steps:**
+- Open-source release preparation
+- Docker containerization
+- PostgreSQL production validation
+- Unit test coverage
+
+---
+
+## 9. AI Assistant Guidelines
+
+If you are an AI assistant inheriting this project:
+
+1. **Never bulk-ingest all 14,000 funds.** Use `get_runtime_snapshot(scheme)` for fund detail data.
+2. **Pandas over ORM in hot loops.** If editing analytics, use vectorized operations.
+3. **All HTTP calls need try/except.** External APIs fail silently; handle gracefully.
+4. **Info-btn tooltips for new metrics.** Any new metric shown to users needs a `data-t-*` tooltip.
+5. **`initInfoTooltips(container)`** must be called after any JS re-render of result areas.
+6. **`_parse_date` helpers should NOT be defined inside loops.** Define them once.
+7. **`calendar` and `datetime` are imported at the top of `views.py`.** Do not re-import mid-file.
+8. **Backtester API expects a specific JSON schema.** See `docs/backtester_analysis.md` for the full reference.

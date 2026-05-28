@@ -26,9 +26,10 @@ media/
 # Static files (collected by collectstatic)
 staticfiles/
 
-# Jupyter
+# Jupyter — notebooks may contain sensitive output or API keys
 .ipynb_checkpoints/
 *.ipynb_checkpoints
+notebooks/
 
 # OS
 .DS_Store
@@ -55,3 +56,8 @@ htmlcov/
 
 # MyPy
 .mypy_cache/
+
+# Temporary files
+*.bak
+*.tmp
+*.orig

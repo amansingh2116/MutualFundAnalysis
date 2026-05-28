@@ -6,13 +6,15 @@ python-decouple>=3.8          # .env management
 mftool>=2.0
 mstarpy>=10.0.0
 yfinance>=0.2.55
-yahooquery>=2.3.0
+yahooquery>=2.3.0             # fallback for fund holdings / sector data
 requests>=2.31
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 pandas>=2.2
 numpy>=1.26
 scipy>=1.12
+statsmodels>=0.14             # ARIMA forecasting (portfolio/services/forecasting.py)
+scikit-learn>=1.4             # Ridge / RandomForest ML forecasting
 rapidfuzz>=3.6                # fuzzy scheme name matching for CAS import
 
 # ── Charts ────────────────────────────────────────────────────────────────────
@@ -36,6 +38,6 @@ ipykernel
 gunicorn
 psycopg2-binary               # PostgreSQL adapter
 whitenoise>=6.6               # static file serving
-weasyprint                    # PDF report export (Phase 2)
+weasyprint                    # PDF fund report export (apps/funds/report.py)
 dj-database-url>=2.1          # DATABASE_URL parsing for prod (Render.com)
 openpyxl>=3.1                 # Excel file reading (.xlsx) for portfolio upload

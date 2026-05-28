@@ -1,7 +1,8 @@
 """apps/portfolio/views.py — Portfolio analysis views"""
+import calendar
 import json
 import logging
-from datetime import date
+from datetime import date, datetime
 
 import numpy as np
 import pandas as pd
@@ -178,17 +179,19 @@ def _compute_portfolio_summary(transactions):
         scheme = d['scheme']
         nav_latest = float(scheme.nav_latest) if scheme and scheme.nav_latest else None
         current_value = d['units'] * nav_latest if nav_latest else None
-        gain = (current_value - d['invested']) if current_value is not None else None
+        # Ensure invested is never negative (can happen when proceeds > cost basis)
+        invested = max(round(d['invested'], 2), 0)
+        gain = (current_value - invested) if current_value is not None else None
         result.append({
             'amfi_code': key,
             'scheme_name': d['scheme_name'],
             'scheme': scheme,
-            'invested': round(d['invested'], 2),
+            'invested': invested,
             'units': round(d['units'], 4),
             'nav_latest': nav_latest,
             'current_value': round(current_value, 2) if current_value else None,
             'gain': round(gain, 2) if gain is not None else None,
-            'gain_pct': round(gain / d['invested'] * 100, 2) if gain is not None and d['invested'] else None,
+            'gain_pct': round(gain / invested * 100, 2) if gain is not None and invested > 0 else None,
             'xirr': None,  # Enriched separately
         })
     return sorted(result, key=lambda x: -(x['current_value'] or 0))
@@ -429,10 +432,10 @@ def portfolio_rebalance_view(request, pk):
         'portfolio': portfolio,
     })
 
-import calendar
-from datetime import datetime
+
 
 def _add_months(d, months):
+    """Generate SIP dates by advancing the start date by `months` months at a time."""
     month = d.month - 1 + months
     year = d.year + month // 12
     month = month % 12 + 1
@@ -708,6 +711,15 @@ def portfolio_backtester_api(request):
             InvestmentRule, FundPlan, PortfolioPlan, run_plan_simulation
         )
 
+        # Helper defined once outside the per-fund loop
+        def _parse_date(s):
+            if not s:
+                return None
+            try:
+                return date.fromisoformat(str(s))
+            except ValueError:
+                return None
+
         raw_funds = data.get('funds', [])
         if not raw_funds:
             return JsonResponse({'error': 'Add at least one fund to your plan.'}, status=400)
@@ -716,14 +728,6 @@ def portfolio_backtester_api(request):
         for fp in raw_funds:
             rules = []
             for r in fp.get('rules', []):
-                def _parse_date(s):
-                    if not s:
-                        return None
-                    try:
-                        return date.fromisoformat(str(s))
-                    except ValueError:
-                        return None
-
                 rules.append(InvestmentRule(
                     rule_type=str(r.get('rule_type', 'sip')),
                     amount=float(r.get('amount', 0)),
@@ -751,6 +755,7 @@ def portfolio_backtester_api(request):
             return JsonResponse({'error': 'No valid funds with rules found.'}, status=400)
 
         def _pd(s):
+            """Parse an optional ISO date string."""
             if not s:
                 return None
             try:
