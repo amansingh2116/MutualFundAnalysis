@@ -71,7 +71,9 @@
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>
       <tr>
-        <td>Expense Ratio</td>
+        <td>Expense Ratio
+          <button class="info-btn" aria-label="Expense Ratio" data-t-title="Expense Ratio" data-t-what="The annual fee charged by the fund house. Lower is better, as it directly impacts your final returns.">ⓘ</button>
+        </td>
         {% for fund in compare_data %}<td>{% if fund.expense_ratio %}{{ fund.expense_ratio }}%{% else %}—{% endif %}</td>{% endfor %}
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>
@@ -117,32 +119,44 @@
       <!-- RISK & RATIOS -->
       <tr><td colspan="5" class="section-header">Risk & Ratios (3 Year)</td></tr>
       <tr>
-        <td>Std Deviation</td>
+        <td>Std Deviation
+          <button class="info-btn" aria-label="Standard Deviation" data-t-title="Standard Deviation (Volatility)" data-t-what="Measures how much the fund's returns fluctuate from its average return. Higher = more volatile/risky." data-t-interp="A fund with 15% average return and 20% std dev will swing much wildly than one with 15% return and 10% std dev. Compare only within the same category.">ⓘ</button>
+        </td>
         {% for fund in compare_data %}<td>{% if fund.risk.std_dev_ann %}{{ fund.risk.std_dev_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>
       <tr>
-        <td>Sharpe Ratio</td>
+        <td>Sharpe Ratio
+          <button class="info-btn" aria-label="Sharpe Ratio" data-t-title="Sharpe Ratio" data-t-what="Measures risk-adjusted return (how much excess return you get for the total risk taken)." data-t-interp="<strong>Higher is better.</strong> A Sharpe ratio > 1 is generally considered good. It shows whether a fund's high returns are due to smart decisions or just taking excessive risk.">ⓘ</button>
+        </td>
         {% for fund in compare_data %}<td>{% if fund.risk.sharpe_ratio %}{{ fund.risk.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>
       <tr>
-        <td>Sortino Ratio</td>
+        <td>Sortino Ratio
+          <button class="info-btn" aria-label="Sortino Ratio" data-t-title="Sortino Ratio" data-t-what="Similar to Sharpe ratio, but only penalises downside volatility (returns dropping below risk-free rate) instead of all volatility." data-t-interp="<strong>Higher is better.</strong> It's often a better metric than Sharpe because investors generally don't care about 'upside risk' (prices going up rapidly).">ⓘ</button>
+        </td>
         {% for fund in compare_data %}<td>{% if fund.risk.sortino_ratio %}{{ fund.risk.sortino_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>
       <tr>
-        <td>Max Drawdown</td>
+        <td>Max Drawdown
+          <button class="info-btn" aria-label="Max Drawdown" data-t-title="Maximum Drawdown" data-t-what="The maximum observed loss from a peak to a trough of a portfolio before a new peak is attained." data-t-interp="<strong>Closer to 0% is better.</strong> -20% means the fund lost 20% of its value during its worst historical crash in the period. Indicates the absolute worst-case scenario.">ⓘ</button>
+        </td>
         {% for fund in compare_data %}<td>{% if fund.risk.max_drawdown %}{{ fund.risk.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>
       <tr>
-        <td>Beta</td>
+        <td>Beta
+          <button class="info-btn" aria-label="Beta" data-t-title="Beta" data-t-what="Measures the fund's volatility relative to its benchmark index (which always has a Beta of 1.0)." data-t-interp="<strong>Beta = 1:</strong> Moves exactly with the market.<br><strong>Beta > 1:</strong> More volatile than market (falls harder in crashes, rises faster in rallies).<br><strong>Beta < 1:</strong> Less volatile (cushions falls, but lags in rallies).">ⓘ</button>
+        </td>
         {% for fund in compare_data %}<td>{% if fund.risk.beta %}{{ fund.risk.beta|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>
       <tr>
-        <td>Alpha</td>
+        <td>Alpha
+          <button class="info-btn" aria-label="Alpha" data-t-title="Jensen's Alpha" data-t-what="Measures the extra return generated by the fund manager compared to the benchmark index, given the amount of risk taken." data-t-interp="<strong>Positive Alpha (>0):</strong> The manager added value and beat the market.<br><strong>Negative Alpha (<0):</strong> The manager underperformed the market given the risk taken. Higher is better.">ⓘ</button>
+        </td>
         {% for fund in compare_data %}<td>{% if fund.risk.alpha_ann %}{{ fund.risk.alpha_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
         {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
       </tr>

@@ -109,20 +109,28 @@
 
 <div class="profile-grid">
   <div class="profile-stat">
-    <div class="stat-label">Risk Profile</div>
+    <div class="stat-label">Risk Profile
+      <button class="info-btn" aria-label="Risk Profile" data-t-title="Your Risk Profile" data-t-what="A combination of your financial ability to take risk (Capacity) and your psychological comfort with market drops (Tolerance)." data-t-interp="This determines your equity/debt mix. Conservative = capital preservation. Aggressive = wealth generation via high equity allocation.">ⓘ</button>
+    </div>
     <div class="stat-value" style="text-transform: capitalize;">{{ profile.final_risk_profile }}</div>
     <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Capacity: {{ profile.risk_capacity }} | Tolerance: {{ profile.risk_tolerance }}</div>
   </div>
   <div class="profile-stat">
-    <div class="stat-label">Recommended Strategy</div>
+    <div class="stat-label">Recommended Strategy
+      <button class="info-btn" aria-label="Recommended Strategy" data-t-title="Investment Strategy" data-t-what="The approach we recommend based on your time horizon and risk profile. E.g., Core-Satellite uses stable index funds as the 'core' and active funds as 'satellites' for extra returns.">ⓘ</button>
+    </div>
     <div class="stat-value" style="text-transform: uppercase;">{{ profile.recommended_strategy }}</div>
   </div>
   <div class="profile-stat">
-    <div class="stat-label">Plan Style</div>
+    <div class="stat-label">Plan Style
+      <button class="info-btn" aria-label="Plan Style" data-t-title="Plan &amp; Option Style" data-t-what="Whether to invest in Direct vs Regular plans, and Growth vs IDCW (Dividend) options." data-t-interp="We strongly recommend <strong>Direct Growth</strong> for wealth accumulation, as it avoids agent commissions and reinvests profits automatically.">ⓘ</button>
+    </div>
     <div class="stat-value" style="text-transform: capitalize;">{{ profile.plan_style }} - {{ profile.option_style }}</div>
   </div>
   <div class="profile-stat">
-    <div class="stat-label">Review Frequency</div>
+    <div class="stat-label">Review Frequency
+      <button class="info-btn" aria-label="Review Frequency" data-t-title="Portfolio Review Frequency" data-t-what="How often you should check your portfolio and rebalance it (sell winners to buy losers to restore your target asset allocation). Too frequent trading hurts returns; too infrequent increases risk.">ⓘ</button>
+    </div>
     <div class="stat-value" style="text-transform: capitalize;">{{ profile.rebalance_frequency }}</div>
   </div>
 </div>

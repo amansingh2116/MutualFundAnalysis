@@ -31,24 +31,32 @@
 <div id="content-overview" class="tab-content">
     <div class="stats-grid" style="margin-bottom:24px">
       <div class="stat-card">
-        <div class="stat-label">Current Value</div>
+        <div class="stat-label">Current Value
+          <button class="info-btn" aria-label="Current Value" data-t-title="Current Portfolio Value" data-t-what="The total market value of your portfolio today, based on the latest available NAVs of all your funds.">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px">{% if total_current %}₹{{ total_current|floatformat:0 }}{% else %}—{% endif %}</div>
         <div class="stat-card-icon">💰</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Invested</div>
+        <div class="stat-label">Total Invested
+          <button class="info-btn" aria-label="Total Invested" data-t-title="Total Invested Amount" data-t-what="The total principal amount you have put into these funds, minus any withdrawals you've made.">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px">₹{{ total_invested|floatformat:0 }}</div>
         <div class="stat-card-icon">📥</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Gain/Loss</div>
+        <div class="stat-label">Total Gain/Loss
+          <button class="info-btn" aria-label="Total Gain/Loss" data-t-title="Total Gain / Loss" data-t-what="The absolute difference in Rupees between your Current Value and your Total Invested amount.">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px;color:{% if total_gain >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
           {% if total_gain >= 0 %}+{% endif %}₹{{ total_gain|floatformat:0 }}
         </div>
         <div class="stat-card-icon">📈</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Absolute Return</div>
+        <div class="stat-label">Absolute Return
+          <button class="info-btn" aria-label="Absolute Return" data-t-title="Absolute Return (%)" data-t-what="The simple percentage growth of your portfolio (Total Gain divided by Total Invested). Doesn't account for the time period of your investments. For annualised returns, see XIRR in the Analytics tab.">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px;color:{% if abs_return >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
           {% if abs_return >= 0 %}+{% endif %}{{ abs_return|floatformat:2 }}%
         </div>
@@ -159,19 +167,25 @@
 <div id="content-analysis" class="tab-content" style="display:none;">
     <div class="stats-grid" style="margin-bottom:24px">
       <div class="stat-card">
-        <div class="stat-label">Portfolio XIRR</div>
+        <div class="stat-label">Portfolio XIRR
+          <button class="info-btn" aria-label="Portfolio XIRR" data-t-title="Portfolio XIRR" data-t-what="Extended Internal Rate of Return. This is the true, annualised growth rate of your portfolio, accounting for the exact dates and amounts of all your SIPs and lumpsums." data-t-interp="This is the most accurate way to measure your personal portfolio performance. Indian equity markets historically average ~12-14% long term.">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px;color:{% if portfolio_xirr >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
           {% if portfolio_xirr %}{{ portfolio_xirr|floatformat:2 }}%{% else %}—{% endif %}
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Benchmark XIRR (NIFTY 50)</div>
+        <div class="stat-label">Benchmark XIRR (NIFTY 50)
+          <button class="info-btn" aria-label="Benchmark XIRR" data-t-what="What your XIRR would have been if you had invested the exact same amounts on the exact same dates into the NIFTY 50 Index instead of your current funds.">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px;color:{% if benchmark_xirr >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
           {% if benchmark_xirr %}{{ benchmark_xirr|floatformat:2 }}%{% else %}—{% endif %}
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Alpha Generated</div>
+        <div class="stat-label">Alpha Generated
+          <button class="info-btn" aria-label="Alpha Generated" data-t-title="Portfolio Alpha" data-t-what="The difference between your Portfolio XIRR and the Benchmark XIRR. Positive alpha means your fund selection beat the market." data-t-interp="If you consistently have negative alpha over 3+ years, you might be better off switching to simple Index funds.">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px;color:{% if portfolio_xirr and benchmark_xirr and portfolio_xirr > benchmark_xirr %}var(--emerald-400){% else %}var(--red-400){% endif %}">
           {% if portfolio_xirr and benchmark_xirr %}
              {% if portfolio_xirr > benchmark_xirr %}+{% endif %}{{ portfolio_xirr|add:"-"|add:benchmark_xirr|floatformat:2 }}%
@@ -179,7 +193,9 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Diversification Score</div>
+        <div class="stat-label">Diversification Score
+          <button class="info-btn" aria-label="Diversification Score" data-t-title="Diversification Score (0-100)" data-t-what="A metric evaluating how well-spread your portfolio is. It considers the number of funds, category mix, and stock-level overlap." data-t-interp="<strong>80-100:</strong> Excellent, broad market exposure. <strong>&lt;50:</strong> Poor, either too concentrated (all money in 1 sector/fund) or over-diversified (owning 20 overlapping funds).">ⓘ</button>
+        </div>
         <div class="stat-value" style="font-size:22px">{{ diversification_score }}/100</div>
       </div>
     </div>
@@ -230,7 +246,9 @@
             </div>
             <div class="card-body">
                 <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                    <span class="muted">Weighted Volatility</span>
+                    <span class="muted">Weighted Volatility
+                      <button class="info-btn" aria-label="Weighted Volatility" data-t-title="Portfolio Volatility (Std Dev)" data-t-what="The estimated annualised standard deviation of your entire portfolio, based on the weighted average of your funds' volatilities." data-t-interp="Higher value = sharper ups and downs in your portfolio value. Debt-heavy portfolios will have low volatility (3-5%), aggressive equity portfolios will be high (15-20%+).">ⓘ</button>
+                    </span>
                     <span>{% if ratios.weighted_volatility %}{{ ratios.weighted_volatility|floatformat:2 }}%{% else %}—{% endif %}</span>
                 </div>
             </div>

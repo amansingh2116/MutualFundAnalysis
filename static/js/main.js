@@ -299,4 +299,193 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initSearch();
   initRangeInputs();
+  initInfoTooltips();
 });
+
+// ── Info Tooltip Engine ────────────────────────────────────────
+// Powers all ⓘ buttons. Reads data-t-* attributes and renders
+// a smart positioned popup with structured content.
+(function() {
+  let activeBtn = null;
+  let tooltip = null;
+
+  function buildTooltip(btn) {
+    const title   = btn.dataset.tTitle   || btn.getAttribute('aria-label') || 'Info';
+    const what    = btn.dataset.tWhat;
+    const interp  = btn.dataset.tInterp;
+    const formula = btn.dataset.tFormula;
+    const range   = btn.dataset.tRange;   // JSON string of [{dot,label,text}] or simple string
+    const note    = btn.dataset.tNote;
+
+    let sections = '';
+
+    if (what) {
+      sections += `<div class="tooltip-section">
+        <div class="tooltip-section-label">What is it?</div>
+        <div class="tooltip-section-text">${what}</div>
+      </div>`;
+    }
+    if (interp) {
+      sections += `<div class="tooltip-divider"></div><div class="tooltip-section">
+        <div class="tooltip-section-label">How to interpret</div>
+        <div class="tooltip-section-text">${interp}</div>
+      </div>`;
+    }
+    if (formula) {
+      sections += `<div class="tooltip-divider"></div><div class="tooltip-section">
+        <div class="tooltip-section-label">Formula</div>
+        <div class="tooltip-formula">${formula}</div>
+      </div>`;
+    }
+    if (range) {
+      let rangeHtml = '';
+      try {
+        const items = JSON.parse(range);
+        rangeHtml = items.map(item =>
+          `<div class="tooltip-range-item">
+            <div class="tooltip-range-dot dot-${item.dot || 'neutral'}"></div>
+            <span style="color:var(--text-muted);min-width:60px">${item.label}</span>
+            <span style="color:var(--text-secondary)">${item.text}</span>
+          </div>`
+        ).join('');
+      } catch(e) {
+        // Plain string fallback
+        rangeHtml = `<div style="color:var(--text-secondary);font-size:11px">${range}</div>`;
+      }
+      sections += `<div class="tooltip-divider"></div><div class="tooltip-section">
+        <div class="tooltip-section-label">Good / Bad</div>
+        <div class="tooltip-range">${rangeHtml}</div>
+      </div>`;
+    }
+    if (note) {
+      sections += `<div class="tooltip-divider"></div><div class="tooltip-section">
+        <div class="tooltip-section-text" style="color:var(--amber-400);font-size:11px">⚠️ ${note}</div>
+      </div>`;
+    }
+
+    return `
+      <div class="info-tooltip-header">
+        <div class="info-tooltip-title">${title}</div>
+        <button class="info-tooltip-close" aria-label="Close">✕</button>
+      </div>
+      <div class="info-tooltip-body">${sections || '<div class="tooltip-section-text">No additional information available.</div>'}</div>
+    `;
+  }
+
+  function positionTooltip(btn, tip) {
+    const rect = btn.getBoundingClientRect();
+    const tw = tip.offsetWidth || 300;
+    const th = tip.offsetHeight || 200;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+
+    // Prefer showing below the button, right-aligned to button
+    let left = rect.left;
+    let top  = rect.bottom + margin;
+
+    // Flip right if overflows right edge
+    if (left + tw > vw - margin) {
+      left = Math.max(margin, rect.right - tw);
+    }
+    // Flip up if overflows bottom
+    if (top + th > vh - margin) {
+      top = rect.top - th - margin;
+    }
+    // Clamp left
+    left = Math.max(margin, Math.min(left, vw - tw - margin));
+    // Clamp top
+    top  = Math.max(margin, top);
+
+    tip.style.left = left + 'px';
+    tip.style.top  = top  + 'px';
+  }
+
+  function showTooltipFor(btn) {
+    if (activeBtn === btn && tooltip && tooltip.classList.contains('visible')) {
+      hideTooltip();
+      return;
+    }
+    hideTooltip();
+
+    activeBtn = btn;
+    btn.classList.add('active');
+
+    tooltip = document.createElement('div');
+    tooltip.className = 'info-tooltip';
+    tooltip.innerHTML = buildTooltip(btn);
+    document.body.appendChild(tooltip);
+
+    // Position off-screen first to measure
+    tooltip.style.left = '-9999px';
+    tooltip.style.top  = '-9999px';
+
+    // Close button
+    tooltip.querySelector('.info-tooltip-close')?.addEventListener('click', hideTooltip);
+
+    // Trigger reflow then show
+    requestAnimationFrame(() => {
+      positionTooltip(btn, tooltip);
+      requestAnimationFrame(() => {
+        tooltip.classList.add('visible');
+      });
+    });
+  }
+
+  function hideTooltip() {
+    if (tooltip) {
+      tooltip.classList.remove('visible');
+      tooltip.addEventListener('transitionend', () => tooltip.remove(), { once: true });
+      tooltip = null;
+    }
+    if (activeBtn) {
+      activeBtn.classList.remove('active');
+      activeBtn = null;
+    }
+  }
+
+  window.initInfoTooltips = function(root) {
+    const container = root || document;
+    container.querySelectorAll('.info-btn').forEach(btn => {
+      // Prevent double-binding
+      if (btn._tooltipBound) return;
+      btn._tooltipBound = true;
+
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        showTooltipFor(btn);
+      });
+      btn.addEventListener('mouseenter', () => {
+        if (!('ontouchstart' in window)) showTooltipFor(btn);
+      });
+      btn.addEventListener('mouseleave', () => {
+        if (!('ontouchstart' in window)) {
+          // Delay hide to allow moving into tooltip
+          setTimeout(() => {
+            if (tooltip && !tooltip.matches(':hover')) hideTooltip();
+          }, 120);
+        }
+      });
+      btn.setAttribute('tabindex', '0');
+      btn.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          showTooltipFor(btn);
+        }
+      });
+    });
+  };
+
+  // Global close on outside click / Escape
+  document.addEventListener('click', e => {
+    if (tooltip && !tooltip.contains(e.target)) hideTooltip();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hideTooltip();
+  });
+  // Tooltip mouseleave
+  document.addEventListener('mouseleave', e => {
+    if (tooltip && e.target === tooltip) hideTooltip();
+  }, true);
+})();
+

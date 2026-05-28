@@ -808,3 +808,174 @@ input[type="range"]::-webkit-slider-thumb {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Info Button & Tooltip System ────────────────────────────── */
+/* The ⓘ button that appears inline next to labels */
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 5px;
+  position: relative;
+  transition: all 0.15s ease;
+  font-family: 'Inter', sans-serif;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0;
+  outline: none;
+  text-decoration: none;
+  /* Prevent button from inheriting table/metric styles */
+  font-style: normal;
+  letter-spacing: 0;
+}
+.info-btn:hover,
+.info-btn:focus,
+.info-btn.active {
+  background: rgba(99,102,241,0.15);
+  border-color: var(--indigo-400);
+  color: var(--indigo-400);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+/* The tooltip popup panel */
+.info-tooltip {
+  position: fixed;
+  z-index: 9990;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  background: #1a2035;
+  border: 1px solid rgba(99,102,241,0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1);
+  padding: 0;
+  opacity: 0;
+  transform: scale(0.95) translateY(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+.info-tooltip.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+/* Tooltip header */
+.info-tooltip-header {
+  padding: 12px 14px 10px;
+  background: rgba(99,102,241,0.08);
+  border-bottom: 1px solid rgba(99,102,241,0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.info-tooltip-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--indigo-400);
+  letter-spacing: 0.02em;
+  flex: 1;
+}
+.info-tooltip-close {
+  width: 18px; height: 18px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s;
+  padding: 0;
+}
+.info-tooltip-close:hover { color: var(--text-primary); }
+
+/* Tooltip body */
+.info-tooltip-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Individual sections inside tooltip */
+.tooltip-section {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.tooltip-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+.tooltip-section-text {
+  color: var(--text-secondary);
+}
+.tooltip-section-text strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+/* Formula or code-style section */
+.tooltip-formula {
+  background: rgba(15,21,38,0.7);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--indigo-400);
+  line-height: 1.5;
+}
+/* Range indicator */
+.tooltip-range {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tooltip-range-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.tooltip-range-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-good   { background: var(--emerald-400); }
+.dot-ok     { background: var(--amber-400); }
+.dot-bad    { background: var(--red-400); }
+.dot-info   { background: var(--indigo-400); }
+.dot-neutral{ background: var(--text-muted); }
+
+/* Divider between sections */
+.tooltip-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 2px 0;
+}
+
+/* Mobile responsiveness for tooltips */
+@media (max-width: 640px) {
+  .info-tooltip {
+    width: calc(100vw - 24px);
+    left: 12px !important;
+    right: 12px !important;
+  }
+}
+

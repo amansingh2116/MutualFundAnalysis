@@ -2,10 +2,14 @@
 {% block title %}XIRR Calculator{% endblock %}
 {% block content %}
 <div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>XIRR Calculator</span></div>
-<div class="page-header"><div class="page-title">📐 XIRR Calculator</div><div class="page-subtitle">Compute Internal Rate of Return (XIRR) for irregular cashflows — use your actual portfolio transactions.</div></div>
+<div class="page-header"><div class="page-title">📐 XIRR Calculator
+  <button class="info-btn" aria-label="What is XIRR" data-t-title="XIRR (Extended Internal Rate of Return)" data-t-what="XIRR calculates the actual annualised return on any series of cashflows with irregular dates. Unlike CAGR, it handles multiple SIP investments and partial withdrawals accurately." data-t-formula="Finds rate 'r' where: Sum of CF_i / (1+r)^(days_i/365) = 0" data-t-interp="Use XIRR to know the <strong>true annualised return</strong> of your actual portfolio. Enter all SIP payments as negative values and the current portfolio value as a positive value. Higher XIRR = better returns.">ⓘ</button>
+</div><div class="page-subtitle">Compute Internal Rate of Return (XIRR) for irregular cashflows — use your actual portfolio transactions.</div></div>
 <div class="grid-2" style="gap:20px">
   <div class="card">
-    <div class="card-header"><div class="card-title">Enter Cashflows</div></div>
+    <div class="card-header"><div class="card-title">Enter Cashflows
+      <button class="info-btn" aria-label="Cashflows" data-t-title="How to enter cashflows" data-t-what="Each row is a transaction. Investments you made = <strong>negative</strong> numbers (money out of your pocket). Withdrawals or current value = <strong>positive</strong> numbers (money coming back)." data-t-interp="Example: You invested ₹10,000 on 2020-01-01 → enter -10000. Current value today is ₹18,000 → enter +18000. The XIRR will show your annualised return.">ⓘ</button>
+    </div></div>
     <div class="card-body">
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Enter each transaction below. Investments are <strong>negative</strong>, redemptions are <strong>positive</strong>. Add a final row for current value.</p>
       <div id="cashflow-rows">

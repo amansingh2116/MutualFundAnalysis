@@ -88,9 +88,8 @@ def simulate_benchmark(portfolio, benchmark_ticker="^NSEI"):
     transactions = portfolio.transactions.filter(scheme__isnull=False).order_by('tx_date')
     
     # Need to map the ticker to BenchmarkIndex
-    try:
-        index = BenchmarkIndex.objects.get(yahoo_ticker=benchmark_ticker)
-    except BenchmarkIndex.DoesNotExist:
+    index = BenchmarkIndex.objects.filter(yahoo_ticker=benchmark_ticker).first()
+    if not index:
         # Fallback to the first one available if not found
         index = BenchmarkIndex.objects.first()
         if not index:

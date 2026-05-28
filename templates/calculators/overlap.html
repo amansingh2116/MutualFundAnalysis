@@ -3,7 +3,9 @@
 {% block content %}
 <div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">&rsaquo;</span><span>Overlap Checker</span></div>
 <div class="page-header">
-  <div class="page-title">Fund Overlap Checker</div>
+  <div class="page-title">Fund Overlap Checker
+    <button class="info-btn" aria-label="Fund Overlap" data-t-title="Fund Overlap" data-t-what="Overlap measures how many of the same stocks appear in two different funds' portfolios. High overlap means owning both funds gives you very similar exposure — no real diversification benefit." data-t-interp="<strong>&lt; 25%</strong>: Low overlap, genuinely diversified. <strong>25–50%</strong>: Moderate overlap, acceptable. <strong>&gt; 50%</strong>: High overlap — you're essentially doubling up on the same bets. The heatmap shows individual stock weights in each fund." data-t-note="Overlap is based on portfolio data which may be 1–2 months old.">ⓘ</button>
+  </div>
   <div class="page-subtitle">Search and compare stock-level overlap between two funds.</div>
 </div>
 

@@ -105,12 +105,22 @@
         <div class="metrics-dl">
           <div><div class="metric-key">Fund House</div><div class="metric-val" style="font-size:13px">{{ scheme.fund_house }}</div></div>
           <div><div class="metric-key">Category</div><div class="metric-val" style="font-size:12px">{{ scheme.scheme_category }}</div></div>
-          <div><div class="metric-key">AUM</div><div class="metric-val">{% if meta.aum %}₹{{ meta.aum }} Cr{% elif scheme.aum_cr %}₹{{ scheme.aum_cr }} Cr{% else %}—{% endif %}</div></div>
-          <div><div class="metric-key">Expense Ratio</div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}</div></div>
-          <div><div class="metric-key">Min SIP</div><div class="metric-val">{% if meta.sip_min %}₹{{ meta.sip_min }}{% else %}—{% endif %}</div></div>
-          <div><div class="metric-key">Min Lumpsum</div><div class="metric-val">{% if meta.lump_min %}₹{{ meta.lump_min }}{% else %}—{% endif %}</div></div>
+          <div><div class="metric-key">AUM
+            <button class="info-btn" aria-label="AUM" data-t-title="AUM (Assets Under Management)" data-t-what="The total market value of all investments made by people in this mutual fund. Measured in Crores (₹)." data-t-interp="<strong>Larger AUM</strong> means more investors trust this fund and it's easier to buy/sell. Very large AUM in small-cap funds can hurt returns (fund manager struggles to deploy capital). <strong>Very low AUM</strong> (under ₹50 Cr) is a risk — the fund might be closed.">ⓘ</button>
+          </div><div class="metric-val">{% if meta.aum %}₹{{ meta.aum }} Cr{% elif scheme.aum_cr %}₹{{ scheme.aum_cr }} Cr{% else %}—{% endif %}</div></div>
+          <div><div class="metric-key">Expense Ratio
+            <button class="info-btn" aria-label="Expense Ratio" data-t-title="Expense Ratio" data-t-what="The annual fee the fund house charges to manage your money. Deducted from the fund's NAV daily — you never pay it separately, it's already built in." data-t-interp="<strong>Lower is better.</strong> A 0.5% difference in expense ratio compounds significantly over 20 years. Direct plans always have lower expense ratios than Regular plans — always prefer Direct." data-t-range='[{"dot":"good","label":"Excellent","text":"< 0.5% (index/passive funds)"},{"dot":"good","label":"Good","text":"0.5%–1.0% (active equity)"},{"dot":"ok","label":"Average","text":"1.0%–1.5%"},{"dot":"bad","label":"High","text":"> 1.5% — check if justified"}]'>ⓘ</button>
+          </div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}</div></div>
+          <div><div class="metric-key">Min SIP
+            <button class="info-btn" aria-label="Minimum SIP" data-t-title="Minimum SIP Amount" data-t-what="The smallest amount you can invest monthly via a Systematic Investment Plan (SIP). SIP means you invest a fixed amount every month automatically — like an EMI, but for wealth creation.">ⓘ</button>
+          </div><div class="metric-val">{% if meta.sip_min %}₹{{ meta.sip_min }}{% else %}—{% endif %}</div></div>
+          <div><div class="metric-key">Min Lumpsum
+            <button class="info-btn" aria-label="Minimum Lumpsum" data-t-title="Minimum Lumpsum Investment" data-t-what="The smallest one-time amount you can invest in this fund at once. Useful if you have a bonus, inheritance, or savings to deploy.">ⓘ</button>
+          </div><div class="metric-val">{% if meta.lump_min %}₹{{ meta.lump_min }}{% else %}—{% endif %}</div></div>
           <div><div class="metric-key">Fund Start Date</div><div class="metric-val" style="font-size:13px">{% if meta.start_date %}{{ meta.start_date|date:"d M Y" }}{% else %}—{% endif %}</div></div>
-          <div><div class="metric-key">Lock-in Period</div><div class="metric-val" style="font-size:13px">{{ meta.lock_in_label }}</div></div>
+          <div><div class="metric-key">Lock-in Period
+            <button class="info-btn" aria-label="Lock-in Period" data-t-title="Lock-in Period" data-t-what="The minimum time you must stay invested before you can redeem (withdraw) your money. ELSS funds have a mandatory 3-year lock-in. Most other funds have no lock-in, but may have an exit load if you exit early.">ⓘ</button>
+          </div><div class="metric-val" style="font-size:13px">{{ meta.lock_in_label }}</div></div>
         </div>
       </div>
 
@@ -127,7 +137,9 @@
       <!-- Morningstar -->
       {% if ms_data %}
       <div class="card">
-        <div class="card-header"><div class="card-title">Morningstar Rating</div></div>
+        <div class="card-header"><div class="card-title">Morningstar Rating
+          <button class="info-btn" aria-label="Morningstar Rating" data-t-title="Morningstar Star Rating" data-t-what="An independent rating (1–5 stars) by Morningstar, a global fund research firm. It compares a fund's risk-adjusted returns against similar funds in its category over 3, 5, and 10 years." data-t-interp="<strong>4–5 stars</strong> = top quartile in its peer group. <strong>3 stars</strong> = average. <strong>1–2 stars</strong> = below average. Note: This is a backward-looking metric — high stars don't guarantee future performance.">ⓘ</button>
+        </div></div>
         <div class="card-body" style="text-align:center">
           <div style="font-size:32px;margin-bottom:8px">
             {% for i in "12345" %}{% if forloop.counter <= ms_data.ms_rating %}<span class="star">★</span>{% else %}<span class="star-empty">☆</span>{% endif %}{% endfor %}
@@ -140,13 +152,21 @@
       <!-- Trailing Returns Summary -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Trailing Returns</div>
+          <div class="card-title">Trailing Returns
+            <button class="info-btn" aria-label="Trailing Returns" data-t-title="Trailing Returns (CAGR)" data-t-what="How much the fund has grown per year over the past 1, 3, 5, and 7 years — measured from today going backwards." data-t-interp="These are CAGR figures (Compound Annual Growth Rate). A 15% 3Y return means ₹1 lakh grew to ₹1.52 lakh over 3 years, compounding annually. Compare fund vs its benchmark — if fund &gt; benchmark, it's adding value.">ⓘ</button>
+          </div>
           <a href="#tab-performance" class="btn btn-secondary btn-sm" onclick="document.querySelector('[data-tab=tab-performance]').click()">Full Analysis →</a>
         </div>
         <div class="card-body-tight">
           {% if trailing_returns %}
           <table>
-            <thead><tr><th>Period</th><th>Fund</th><th>Benchmark</th><th>Excess</th></tr></thead>
+            <thead><tr><th>Period</th><th>Fund
+              <button class="info-btn" aria-label="Fund CAGR" data-t-title="Fund CAGR" data-t-what="Compound Annual Growth Rate of this specific fund over the period. Assumes you invested at the start and stayed invested.">ⓘ</button>
+            </th><th>Benchmark
+              <button class="info-btn" aria-label="Benchmark Return" data-t-title="Benchmark Return" data-t-what="Return of the index (like NIFTY 50 or NIFTY 500) that this fund is measured against. SEBI requires each fund to declare a benchmark. Note: This is Price Index, not TRI — actual benchmark with dividends is ~1–2% higher.">ⓘ</button>
+            </th><th>Excess
+              <button class="info-btn" aria-label="Excess Return (Alpha)" data-t-title="Excess Return" data-t-what="Fund return minus benchmark return. Positive = fund beat its index. Negative = index did better than the fund." data-t-interp="If excess is consistently positive across multiple periods, the fund manager is adding value. If consistently negative, you might be better off with an index fund.">ⓘ</button>
+            </th></tr></thead>
             <tbody>
               {% for r in trailing_returns %}
               <tr>
@@ -169,12 +189,22 @@
       <!-- Quick Risk Snapshot -->
       {% if risk_3y %}
       <div class="card">
-        <div class="card-header"><div class="card-title">Risk Snapshot (3Y)</div></div>
+        <div class="card-header"><div class="card-title">Risk Snapshot (3Y)
+          <button class="info-btn" aria-label="Risk Snapshot" data-t-title="Risk Snapshot (3 Year)" data-t-what="A quick summary of key risk metrics computed using the last 3 years of daily NAV data. Higher risk doesn't always mean bad — but you should be aware of what you're taking on.">ⓘ</button>
+        </div></div>
         <div class="metrics-dl">
-          <div><div class="metric-key">Sharpe Ratio</div><div class="metric-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}</div></div>
-          <div><div class="metric-key">Max Drawdown</div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%</div></div>
-          <div><div class="metric-key">Std Dev (Ann)</div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}%</div></div>
-          <div><div class="metric-key">Beta</div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</div></div>
+          <div><div class="metric-key">Sharpe Ratio
+            <button class="info-btn" aria-label="Sharpe Ratio" data-t-title="Sharpe Ratio" data-t-what="Measures how much return you get for each unit of risk you take. Risk here means total volatility (ups and downs)." data-t-formula="(Fund Return − Risk-Free Rate) ÷ Standard Deviation" data-t-range='[{"dot":"bad","label":"< 0","text":"Lost money even after risk"},{"dot":"ok","label":"0–1","text":"Acceptable"},{"dot":"good","label":"1–2","text":"Good"},{"dot":"good","label":"> 2","text":"Excellent"}]'>ⓘ</button>
+          </div><div class="metric-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}</div></div>
+          <div><div class="metric-key">Max Drawdown
+            <button class="info-btn" aria-label="Max Drawdown" data-t-title="Maximum Drawdown" data-t-what="The largest peak-to-trough fall in the fund's value over the period. For example, −25% means the fund fell 25% from its highest point to its lowest." data-t-interp="Tells you the worst loss you would have suffered if you had unluckily invested at the peak. <strong>Lower magnitude = better.</strong> All equity funds have drawdowns — that's normal. What matters is how quickly they recover.">ⓘ</button>
+          </div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%</div></div>
+          <div><div class="metric-key">Std Dev (Ann)
+            <button class="info-btn" aria-label="Standard Deviation" data-t-title="Standard Deviation (Annualised)" data-t-what="Measures how much the fund's returns fluctuate. A high std dev means the fund's value swings a lot — up and down." data-t-interp="<strong>Lower = more stable/predictable.</strong> Large-cap funds typically have 12–18% std dev. Small-cap can be 20–30%. If you hate seeing your portfolio go up and down, prefer funds with lower std dev.">ⓘ</button>
+          </div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}%</div></div>
+          <div><div class="metric-key">Beta
+            <button class="info-btn" aria-label="Beta" data-t-title="Beta" data-t-what="Measures how much the fund moves relative to its benchmark index. A beta of 1.2 means if the market falls 10%, this fund typically falls 12%." data-t-interp="<strong>Beta > 1</strong> = more volatile than market (higher risk, higher potential reward). <strong>Beta < 1</strong> = less volatile (safer). Most well-managed active funds have beta 0.8–1.2.">ⓘ</button>
+          </div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</div></div>
         </div>
       </div>
       {% endif %}
@@ -190,7 +220,9 @@
   <!-- NAV Chart -->
   <div class="card" style="margin-bottom:20px">
     <div class="card-header">
-      <div class="card-title">NAV History</div>
+      <div class="card-title">NAV History
+        <button class="info-btn" aria-label="NAV History" data-t-title="NAV (Net Asset Value) History" data-t-what="A chart showing the fund's NAV (price per unit) over time. Think of NAV as the 'stock price' of a mutual fund." data-t-interp="Rising NAV = your investment is growing. Falling NAV = temporary decline, which is normal for equity funds. The benchmark line (dashed) lets you see whether the fund outperformed or lagged the market.">ⓘ</button>
+      </div>
       <div style="display:flex;gap:8px">
         {% for label, days in nav_range_options %}
         <button class="btn btn-secondary btn-sm nav-range-btn" data-days="{{ days }}">{{ label }}</button>
@@ -205,7 +237,9 @@
   <div class="grid-2" style="gap:20px;margin-bottom:20px">
     <!-- Trailing Returns Table -->
     <div class="card">
-      <div class="card-header"><div class="card-title">Trailing Returns (CAGR)</div></div>
+      <div class="card-header"><div class="card-title">Trailing Returns (CAGR)
+        <button class="info-btn" aria-label="CAGR" data-t-title="CAGR (Compound Annual Growth Rate)" data-t-what="The smoothed annual growth rate assuming compounding. If a fund shows 15% 3Y CAGR, your ₹1 lakh would have become ₹1.52 lakh in 3 years." data-t-interp="Always compare the fund's CAGR against its benchmark and category average. A fund beating its benchmark consistently is a good sign.">ⓘ</button>
+      </div></div>
       <div class="card-body-tight">
         {% if trailing_returns %}
         <table>
@@ -236,14 +270,18 @@
 
   <!-- Calendar Returns -->
   <div class="card" style="margin-bottom:20px">
-    <div class="card-header"><div class="card-title">Calendar Year Returns</div></div>
+    <div class="card-header"><div class="card-title">Calendar Year Returns
+      <button class="info-btn" aria-label="Calendar Year Returns" data-t-title="Calendar Year Returns" data-t-what="Shows how the fund performed in each full calendar year (Jan–Dec). A positive return in 2023 means the fund grew that year; negative means it lost value." data-t-interp="Look for consistency — a good fund should not have too many bad years. Also check if the fund's down years are worse than the benchmark's down years.">ⓘ</button>
+    </div></div>
     <div id="calendar-chart" style="height:260px"></div>
   </div>
 
   <!-- Rolling Returns — Summary Stats Table (all windows, vs benchmark) -->
   <div class="card" style="margin-bottom:20px">
     <div class="card-header">
-      <div class="card-title">Rolling Return Statistics</div>
+      <div class="card-title">Rolling Return Statistics
+        <button class="info-btn" aria-label="Rolling Returns" data-t-title="Rolling Return Statistics" data-t-what="Instead of measuring returns from a fixed date, rolling returns measure performance for every possible investment period of the chosen length (e.g., every 3-year window). This gives a much more complete picture of consistency." data-t-interp="A fund with high median return and high Win Rate is reliable. Win Rate &gt;0% tells you what % of all 1Y/3Y/5Y investment windows made any positive return. Win Rate &gt;8% tells you how often it beat a typical fixed-deposit return.">ⓘ</button>
+      </div>
       <div style="font-size:11px;color:var(--text-muted)">All rolling windows vs benchmark — full history</div>
     </div>
     <div class="card-body-tight">
@@ -252,11 +290,29 @@
         <table style="font-size:12px">
           <thead>
             <tr>
-              <th>Window</th>
-              <th>Min</th><th>Max</th><th>Median</th><th>Mean</th>
-              <th>Win Rate (&gt;0%)</th><th>Win Rate (&gt;8%)</th>
-              <th>BM Median</th><th>BM Mean</th>
-              <th title="% of rolling periods where fund beat benchmark">Outperform %</th>
+              <th>Window
+                <button class="info-btn" aria-label="Rolling Window" data-t-title="Rolling Window" data-t-what="The investment duration being measured. '1Y Rolling' = all possible 1-year investment periods. '5Y Rolling' = all possible 5-year investment periods.">ⓘ</button>
+              </th>
+              <th>Min
+                <button class="info-btn" aria-label="Minimum Return" data-t-what="The worst return earned in any rolling period of this length. This is the worst-case scenario for an investor.">ⓘ</button>
+              </th><th>Max
+                <button class="info-btn" aria-label="Maximum Return" data-t-what="The best return earned in any rolling period of this length.">ⓘ</button>
+              </th><th>Median
+                <button class="info-btn" aria-label="Median Return" data-t-what="The middle return value — 50% of investment windows had better returns, 50% had worse. A good measure of typical performance.">ⓘ</button>
+              </th><th>Mean
+                <button class="info-btn" aria-label="Mean Return" data-t-what="The arithmetic average return across all rolling periods.">ⓘ</button>
+              </th>
+              <th>Win Rate (&gt;0%)
+                <button class="info-btn" aria-label="Win Rate above 0%" data-t-title="Win Rate (>0%)" data-t-what="Percentage of rolling periods where the fund gave positive returns. 100% means in every possible investment window of this length, you made money.">ⓘ</button>
+              </th><th>Win Rate (&gt;8%)
+                <button class="info-btn" aria-label="Win Rate above 8%" data-t-title="Win Rate (>8%)" data-t-what="Percentage of rolling periods where the fund gave more than 8% returns. 8% is roughly the long-run return of a fixed deposit/debt fund — this tells you how reliably equity rewards you.">ⓘ</button>
+              </th>
+              <th>BM Median
+                <button class="info-btn" aria-label="Benchmark Median" data-t-what="Median rolling return of the benchmark index over the same periods. Compare fund's median vs this to see if the fund adds value.">ⓘ</button>
+              </th><th>BM Mean</th>
+              <th title="% of rolling periods where fund beat benchmark">Outperform %
+                <button class="info-btn" aria-label="Outperform Rate" data-t-title="Benchmark Outperformance Rate" data-t-what="The percentage of rolling periods where the fund beat its benchmark. Above 50% = fund wins more often than not against the index." data-t-range='[{"dot":"bad","label":"< 40%","text":"Mostly underperforms"},{"dot":"ok","label":"40\u201360%","text":"Mixed"},{"dot":"good","label":"> 60%","text":"Consistently beats index"}]'>ⓘ</button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -288,7 +344,9 @@
   <!-- Rolling Return Calculator (time-series plot + distribution table) -->
   <div class="card" style="margin-bottom:20px">
     <div class="card-header">
-      <div class="card-title">Rolling Return Calculator</div>
+      <div class="card-title">Rolling Return Calculator
+        <button class="info-btn" aria-label="Rolling Return Calculator" data-t-title="Rolling Return Calculator" data-t-what="An interactive tool to visualise rolling returns for any window size and date range. Select 1Y, 3Y, or 5Y rolling window and date range, then click Calculate to see the chart." data-t-interp="The line chart shows every rolling return over time. A flat, consistently positive line = very reliable fund. Dipping below zero means investors in those periods lost money.">ⓘ</button>
+      </div>
       <div style="font-size:11px;color:var(--text-muted)">
         Inception: <strong id="rrc-inception">{{ meta.start_date|default:"—" }}</strong> &nbsp;·&nbsp; Latest NAV: <strong id="rrc-latest">{{ nav_date|default:"—" }}</strong>
       </div>
@@ -329,7 +387,9 @@
   <!-- Rolling Distribution Bar Chart (all windows) -->
   <div class="card" style="margin-bottom:20px">
     <div class="card-header">
-      <div class="card-title">Rolling Returns Distribution (All Windows)</div>
+      <div class="card-title">Rolling Returns Distribution (All Windows)
+        <button class="info-btn" aria-label="Rolling Returns Distribution" data-t-title="Rolling Returns Distribution" data-t-what="A combined bar chart showing the mean rolling return for each window (1Y, 3Y, 5Y, 7Y, 10Y) with error bars showing min/max. The right axis shows how often the fund beat the benchmark." data-t-interp="A fund where the 5Y and 10Y mean returns are high and the min bar is above 0 is an excellent long-term bet.">ⓘ</button>
+      </div>
       <div style="font-size:11px;color:var(--text-muted)">Bar = mean, error bar = min/max. BM shown beside. Right axis = % of periods beating BM.</div>
     </div>
     <div id="rolling-chart" style="height:320px"></div>
@@ -342,11 +402,15 @@
       <div class="calc-layout">
         <div>
           <div class="form-group">
-            <label class="form-label">Monthly SIP Amount (₹)</label>
+           <label class="form-label">Monthly SIP Amount (₹)
+              <button class="info-btn" aria-label="SIP Amount" data-t-title="Monthly SIP Amount" data-t-what="The fixed amount you invest every month. The simulator uses this fund's actual historical NAV data to show what you would have earned.">ⓘ</button>
+            </label>
             <input class="form-control" type="number" id="sip-amount" value="10000" min="500" step="500">
           </div>
           <div class="form-group">
-            <label class="form-label">Investment Period (Years)</label>
+            <label class="form-label">Investment Period (Years)
+              <button class="info-btn" aria-label="Investment Period" data-t-title="Investment Period" data-t-what="How many years to simulate the SIP. Longer periods benefit from compounding and typically smooth out short-term market volatility." data-t-note="Past performance does not guarantee future results.">ⓘ</button>
+            </label>
             <div class="range-wrapper">
               <input type="range" id="sip-years" min="1" max="30" value="10">
               <span class="range-value" id="sip-years_display">10 yrs</span>
@@ -371,20 +435,46 @@
   <div class="grid-2" style="gap:20px;margin-bottom:20px">
     {% if risk_3y %}
     <div class="card">
-      <div class="card-header"><div class="card-title">Risk Metrics — 3 Years</div></div>
+      <div class="card-header"><div class="card-title">Risk Metrics — 3 Years
+        <button class="info-btn" aria-label="Risk Metrics 3Y" data-t-title="Risk Metrics (3 Year)" data-t-what="All these metrics are calculated from the last 3 years of daily NAV data. They tell you how the fund behaved in terms of volatility, consistency, and market sensitivity over this period.">ⓘ</button>
+      </div></div>
       <div class="metrics-dl">
-        <div><div class="metric-key">Std Dev (Ann %)</div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Sharpe Ratio</div><div class="metric-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Sortino Ratio</div><div class="metric-val">{{ risk_3y.sortino_ratio|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Max Drawdown %</div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Beta</div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Alpha (Ann %)</div><div class="metric-val {% if risk_3y.alpha_ann and risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_3y.alpha_ann|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">R-Squared %</div><div class="metric-val">{{ risk_3y.r_squared|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Tracking Error %</div><div class="metric-val">{{ risk_3y.tracking_error|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Info Ratio</div><div class="metric-val">{{ risk_3y.info_ratio|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Upside Capture %</div><div class="metric-val positive">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}</div></div>
-        <div><div class="metric-key">Downside Capture %</div><div class="metric-val negative">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}</div></div>
-        <div><div class="metric-key">Risk-Free Rate Used</div><div class="metric-val" style="font-size:13px">{{ risk_3y.rf_rate_pct|floatformat:2 }}%</div></div>
+        <div><div class="metric-key">Std Dev (Ann %)
+          <button class="info-btn" aria-label="Standard Deviation" data-t-title="Std Deviation (Annualised)" data-t-what="How much the fund's returns fluctuate from its average. Higher = more volatile, more risk." data-t-interp="Large-cap: 12–18% is normal. Small-cap: 20–30% is normal. Debt funds: 1–5%.">ⓘ</button>
+        </div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Sharpe Ratio
+          <button class="info-btn" aria-label="Sharpe Ratio" data-t-title="Sharpe Ratio" data-t-what="Return earned per unit of total risk. A high Sharpe means you're getting a lot of return for the risk you're taking." data-t-formula="(Return − Risk-Free Rate) ÷ Std Dev" data-t-range='[{"dot":"bad","label":"< 0","text":"Poor"},{"dot":"ok","label":"0–1","text":"Acceptable"},{"dot":"good","label":"1–2","text":"Good"},{"dot":"good","label":"> 2","text":"Excellent"}]'>ⓘ</button>
+        </div><div class="metric-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Sortino Ratio
+          <button class="info-btn" aria-label="Sortino Ratio" data-t-title="Sortino Ratio" data-t-what="Like Sharpe Ratio, but only counts downward volatility as 'risk'. A fund that goes up a lot but rarely falls will have a higher Sortino than Sharpe." data-t-interp="<strong>Higher is better.</strong> Sortino &gt; 2 is excellent. A high Sortino with modest Sharpe means the fund grows steadily but occasionally surges.">ⓘ</button>
+        </div><div class="metric-val">{{ risk_3y.sortino_ratio|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Max Drawdown %
+          <button class="info-btn" aria-label="Max Drawdown" data-t-title="Maximum Drawdown" data-t-what="The biggest fall from any peak to subsequent trough in this period. E.g., −25% means at the worst point the fund was 25% below its recent high." data-t-interp="Lower is better. This tells you the pain you'd have felt if you invested at the worst possible time.">ⓘ</button>
+        </div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Beta
+          <button class="info-btn" aria-label="Beta" data-t-title="Beta" data-t-what="How much the fund moves per unit of market movement. Beta 1.2 = fund moves 20% more than the market." data-t-interp="Beta &gt; 1 = aggressive (amplifies market). Beta &lt; 1 = defensive. Beta 1 = moves exactly with market.">ⓘ</button>
+        </div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Alpha (Ann %)
+          <button class="info-btn" aria-label="Alpha" data-t-title="Alpha (Annualised)" data-t-what="The extra return the fund generates above what you'd expect given the market's return and the fund's beta. Positive alpha = fund manager added real value." data-t-formula="Fund Return − [Risk-Free Rate + Beta × (Market Return − Risk-Free Rate)]" data-t-range='[{"dot":"bad","label":"< 0%","text":"Destroying value vs benchmark"},{"dot":"ok","label":"0–2%","text":"Modest outperformance"},{"dot":"good","label":"> 2%","text":"Meaningful alpha generation"}]'>ⓘ</button>
+        </div><div class="metric-val {% if risk_3y.alpha_ann and risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_3y.alpha_ann|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">R-Squared %
+          <button class="info-btn" aria-label="R-Squared" data-t-title="R-Squared" data-t-what="How much of the fund's movement is explained by the benchmark index. 100% = moves exactly like the index. Lower = more independent of the index." data-t-interp="High R² (90%+) means the fund behaves like an index fund — you might as well buy a cheaper index fund. Low R² means active management is genuinely different.">ⓘ</button>
+        </div><div class="metric-val">{{ risk_3y.r_squared|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Tracking Error %
+          <button class="info-btn" aria-label="Tracking Error" data-t-title="Tracking Error" data-t-what="How much the fund's returns deviate from its benchmark on a day-to-day basis. For index funds, this should be near zero. For active funds, it shows how different the manager's bets are." data-t-interp="<strong>Index funds:</strong> lower is better (&lt;0.5% is excellent). <strong>Active funds:</strong> moderate tracking error is expected and fine.">ⓘ</button>
+        </div><div class="metric-val">{{ risk_3y.tracking_error|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Info Ratio
+          <button class="info-btn" aria-label="Information Ratio" data-t-title="Information Ratio" data-t-what="Measures how consistently the fund beats its benchmark per unit of active risk taken. Combines excess return and tracking error into one score." data-t-formula="Excess Return (Fund − Benchmark) ÷ Tracking Error" data-t-range='[{"dot":"bad","label":"< 0","text":"Underperforming benchmark"},{"dot":"ok","label":"0–0.5","text":"Moderate"},{"dot":"good","label":"> 0.5","text":"Good active management"}]'>ⓘ</button>
+        </div><div class="metric-val">{{ risk_3y.info_ratio|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Upside Capture %
+          <button class="info-btn" aria-label="Upside Capture" data-t-title="Upside Capture Ratio" data-t-what="When the benchmark goes up, how much of that gain does the fund capture? 120% = fund gains 20% more than the market in good months." data-t-interp="<strong>Higher is better for upside.</strong> But don't look at this in isolation — always compare against Downside Capture.">ⓘ</button>
+        </div><div class="metric-val positive">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}</div></div>
+        <div><div class="metric-key">Downside Capture %
+          <button class="info-btn" aria-label="Downside Capture" data-t-title="Downside Capture Ratio" data-t-what="When the benchmark falls, how much of that loss does the fund suffer? 80% = fund loses only 80% as much as the market in bad months." data-t-interp="<strong>Lower is better for downside.</strong> A good fund captures more upside than downside. Upside Capture 110% + Downside Capture 85% = excellent combination.">ⓘ</button>
+        </div><div class="metric-val negative">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}</div></div>
+        <div><div class="metric-key">Risk-Free Rate Used
+          <button class="info-btn" aria-label="Risk-Free Rate" data-t-title="Risk-Free Rate" data-t-what="The benchmark 'safe' return used in Sharpe/Sortino calculations. Typically the 91-day T-Bill yield or repo rate. Risk-adjusted metrics are calculated relative to this baseline.">ⓘ</button>
+        </div><div class="metric-val" style="font-size:13px">{{ risk_3y.rf_rate_pct|floatformat:2 }}%</div></div>
       </div>
     </div>
     {% else %}
@@ -438,15 +528,31 @@
           <thead>
             <tr>
               <th>Year</th>
-              <th>Fund CAGR</th>
-              <th>BM CAGR</th>
-              <th>Alpha</th>
+              <th>Fund CAGR
+                <button class="info-btn" aria-label="Fund CAGR" data-t-what="How much this fund grew (or fell) in this calendar year.">ⓘ</button>
+              </th>
+              <th>BM CAGR
+                <button class="info-btn" aria-label="Benchmark CAGR" data-t-what="How much the benchmark index returned in the same year. Green row = fund beat benchmark.">ⓘ</button>
+              </th>
+              <th>Alpha
+                <button class="info-btn" aria-label="Alpha" data-t-what="Excess return vs benchmark after accounting for beta. Positive = fund manager added value that year.">ⓘ</button>
+              </th>
               <th>Beta</th>
-              <th>Sharpe</th>
-              <th>Sortino</th>
-              <th>Max DD</th>
-              <th>Upside Cap</th>
-              <th>Downside Cap</th>
+              <th>Sharpe
+                <button class="info-btn" aria-label="Sharpe" data-t-what="Risk-adjusted return that year. Higher is better.">ⓘ</button>
+              </th>
+              <th>Sortino
+                <button class="info-btn" aria-label="Sortino" data-t-what="Like Sharpe but only penalises downward moves. Better metric than Sharpe for equity funds.">ⓘ</button>
+              </th>
+              <th>Max DD
+                <button class="info-btn" aria-label="Max Drawdown" data-t-what="Biggest intra-year fall from peak to trough.">ⓘ</button>
+              </th>
+              <th>Upside Cap
+                <button class="info-btn" aria-label="Upside Capture" data-t-what="How much of the benchmark's positive months the fund captured.">ⓘ</button>
+              </th>
+              <th>Downside Cap
+                <button class="info-btn" aria-label="Downside Capture" data-t-what="How much of the benchmark's negative months the fund suffered.">ⓘ</button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -476,13 +582,17 @@
 
   <!-- Drawdown Chart -->
   <div class="card" style="margin-top:20px">
-    <div class="card-header"><div class="card-title">Drawdown Chart</div></div>
+    <div class="card-header"><div class="card-title">Drawdown Chart
+      <button class="info-btn" aria-label="Drawdown Chart" data-t-title="Drawdown Chart" data-t-what="Shows the fund's decline from its most recent peak at every point in time. When the line is at -20%, the fund was 20% below its previous high at that date." data-t-interp="Deep, prolonged drawdowns are stressful. A fund that recovers quickly from drawdowns is resilient. The flatter and quicker the recovery, the better.">ⓘ</button>
+    </div></div>
     <div id="drawdown-chart" style="height:280px"></div>
   </div>
 
   <!-- TRI Disclaimer -->
   <div class="alert alert-warning" style="margin-top:16px">
-    ⚠️ <strong>Benchmark Limitation:</strong> Index data shown is Price Index, not TRI (Total Return Index). TRI includes dividends and is typically 1-2% higher annually. SEBI mandates TRI for official benchmark comparison.
+    ⚠️ <strong>Benchmark Note:</strong> Index data shown is Price Index, not TRI (Total Return Index).
+    <button class="info-btn" aria-label="TRI vs Price Index" data-t-title="TRI vs Price Index" data-t-what="Price Index tracks only the price changes of stocks. TRI (Total Return Index) also includes dividends reinvested. Since most stocks pay dividends, TRI is always higher than Price Index." data-t-interp="SEBI mandates TRI as the official benchmark. This means the benchmark shown here is slightly understated (by ~1–2% per year). The fund's actual alpha vs a proper TRI benchmark is lower than shown.">ⓘ</button>
+    TRI includes dividends and is typically 1-2% higher annually. SEBI mandates TRI for official benchmark comparison.
   </div>
 </div>
 
@@ -493,7 +603,9 @@
   <div class="grid-2" style="gap:20px;margin-bottom:20px">
     <!-- Sector Allocation Donut -->
     <div class="card">
-      <div class="card-header"><div class="card-title">Sector Allocation</div></div>
+      <div class="card-header"><div class="card-title">Sector Allocation
+        <button class="info-btn" aria-label="Sector Allocation" data-t-title="Sector Allocation" data-t-what="How the fund's equity holdings are distributed across different industries/sectors (e.g., Banking, IT, Pharma). Each sector responds differently to economic conditions." data-t-interp="A well-diversified fund doesn't have more than 30–40% in a single sector. High concentration in one sector = higher risk. If you already own funds heavy in IT, avoid adding another IT-heavy fund.">ⓘ</button>
+      </div></div>
       <div id="sector-chart"></div>
       {% if sector_alloc %}
       <div class="card-body-tight">
@@ -512,7 +624,9 @@
 
     <!-- Asset Allocation -->
     <div class="card">
-      <div class="card-header"><div class="card-title">Asset Allocation</div></div>
+      <div class="card-header"><div class="card-title">Asset Allocation
+        <button class="info-btn" aria-label="Asset Allocation" data-t-title="Asset Allocation" data-t-what="The split between equities (stocks), debt (bonds/fixed income), cash, and other instruments in the fund's portfolio. Equity gives growth, debt gives stability." data-t-interp="Pure equity funds should be 95%+ equities. Balanced funds split roughly 65:35. Debt funds should be 90%+ debt. Any surprise allocations (like high cash) may indicate the fund manager is cautious about the market.">ⓘ</button>
+      </div></div>
       <div class="card-body">
         {% if asset_alloc %}
         <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
@@ -530,15 +644,18 @@
     </div>
   </div>
 
-  <!-- Portfolio Summary Stats -->
   <div class="card" style="margin-bottom:20px">
     <div class="card-header"><div class="card-title">Portfolio Summary</div></div>
     <div class="metrics-dl">
       <div><div class="metric-key">Total Holdings</div><div class="metric-val">{{ total_holdings_count|default:"—" }}</div></div>
-      <div><div class="metric-key">Top 10 Weight</div><div class="metric-val">
+      <div><div class="metric-key">Top 10 Weight
+        <button class="info-btn" aria-label="Top 10 Weight" data-t-title="Top 10 Holdings Weight" data-t-what="What percentage of the fund's total portfolio is in its 10 largest stock positions. High concentration = more risk tied to a few companies." data-t-range='[{"dot":"bad","label":"> 60%","text":"Very concentrated"},{"dot":"ok","label":"40\u201360%","text":"Moderate concentration"},{"dot":"good","label":"< 40%","text":"Well diversified"}]'>ⓘ</button>
+      </div><div class="metric-val">
         {% if top10_weight %}{{ top10_weight|floatformat:2 }}%{% else %}—{% endif %}
       </div></div>
-      <div><div class="metric-key">Portfolio Turnover</div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:2 }}%{% else %}—{% endif %}</div></div>
+      <div><div class="metric-key">Portfolio Turnover
+        <button class="info-btn" aria-label="Portfolio Turnover" data-t-title="Portfolio Turnover" data-t-what="How frequently the fund manager buys and sells stocks. 100% turnover = the entire portfolio was replaced once during the year." data-t-interp="<strong>High turnover (> 100%) = active trading</strong>, higher costs, more tax events. <strong>Low turnover (< 30%)</strong> = buy-and-hold approach. Index funds have very low turnover (< 5%). High turnover without proportional returns is a red flag.">ⓘ</button>
+      </div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:2 }}%{% else %}—{% endif %}</div></div>
     </div>
   </div>
 
@@ -556,8 +673,12 @@
             <th>#</th>
             <th>Security</th>
             <th>Sector</th>
-            <th>Weight %</th>
-            <th>Fwd P/E</th>
+            <th>Weight %
+              <button class="info-btn" aria-label="Stock Weight" data-t-what="The percentage of the fund's total assets invested in this specific company.">ⓘ</button>
+            </th>
+            <th>Fwd P/E
+              <button class="info-btn" aria-label="Forward P/E" data-t-title="Forward Price-to-Earnings (P/E) Ratio" data-t-what="The stock's current price divided by next year's expected earnings per share. A forward P/E of 20x means investors are paying ₹20 for every ₹1 of expected future profit." data-t-interp="<strong>Lower P/E</strong> = cheaper stock (possibly undervalued). <strong>Higher P/E</strong> = expensive or high-growth stock. Compare within same sector — IT stocks naturally command higher P/E than banking stocks.">ⓘ</button>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -595,11 +716,19 @@
     <div class="card">
       <div class="card-header"><div class="card-title">Costs & Fees</div></div>
       <div class="metrics-dl">
-        <div><div class="metric-key">Expense Ratio</div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}</div></div>
+        <div><div class="metric-key">Expense Ratio
+          <button class="info-btn" aria-label="Expense Ratio" data-t-title="Expense Ratio" data-t-what="Annual fee deducted from the fund's NAV to cover management, distribution, and admin costs. Always prefer Direct plans which have lower expense ratios than Regular plans." data-t-range='[{"dot":"good","label":"< 0.5%","text":"Very low"},{"dot":"good","label":"0.5%–1%","text":"Low (good for equity)"},{"dot":"ok","label":"1%–1.5%","text":"Average"},{"dot":"bad","label":"> 1.5%","text":"High"}]'>ⓘ</button>
+        </div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}</div></div>
         {% if meta.expense_ratio_date %}<div><div class="metric-key">Expense Ratio Date</div><div class="metric-val" style="font-size:13px">{{ meta.expense_ratio_date|date:"d M Y" }}</div></div>{% endif %}
-        <div><div class="metric-key">Portfolio Turnover</div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover }}%{% else %}—{% endif %}</div></div>
-        <div><div class="metric-key">CRISIL Rating</div><div class="metric-val" style="font-size:13px">{{ meta.crisil_rating|default:"—" }}</div></div>
-        <div><div class="metric-key">Kuvera Rating</div><div class="metric-val">{% if meta.fund_rating %}{% for i in "12345" %}{% if forloop.counter <= meta.fund_rating %}★{% else %}☆{% endif %}{% endfor %}{% else %}—{% endif %}</div></div>
+        <div><div class="metric-key">Portfolio Turnover
+          <button class="info-btn" aria-label="Portfolio Turnover" data-t-title="Portfolio Turnover" data-t-what="How frequently the fund replaces its holdings. Impacts transaction costs and tax efficiency. Very active trading (>100%) increases hidden costs.">ⓘ</button>
+        </div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover }}%{% else %}—{% endif %}</div></div>
+        <div><div class="metric-key">CRISIL Rating
+          <button class="info-btn" aria-label="CRISIL Rating" data-t-title="CRISIL Fund Ranking" data-t-what="An independent rating by CRISIL (a subsidiary of S&amp;P Global) that ranks mutual funds within their category. Rank 1 = top 10%, Rank 5 = bottom 10%.">ⓘ</button>
+        </div><div class="metric-val" style="font-size:13px">{{ meta.crisil_rating|default:"—" }}</div></div>
+        <div><div class="metric-key">Kuvera Rating
+          <button class="info-btn" aria-label="Kuvera Rating" data-t-title="Kuvera Star Rating" data-t-what="Kuvera's proprietary rating (1–5 stars) based on a combination of performance, risk, and consistency metrics. Useful as a quick screening signal.">ⓘ</button>
+        </div><div class="metric-val">{% if meta.fund_rating %}{% for i in "12345" %}{% if forloop.counter <= meta.fund_rating %}★{% else %}☆{% endif %}{% endfor %}{% else %}—{% endif %}</div></div>
       </div>
     </div>
 
@@ -607,25 +736,37 @@
       <div class="card-header"><div class="card-title">Investment Rules</div></div>
       <div class="metrics-dl">
         <div><div class="metric-key">Min Lumpsum</div><div class="metric-val">{% if meta.lump_min %}₹{{ meta.lump_min|floatformat:0 }}{% else %}—{% endif %}</div></div>
-        <div><div class="metric-key">Min Additional</div><div class="metric-val">{% if meta.lump_min_additional %}₹{{ meta.lump_min_additional|floatformat:0 }}{% else %}—{% endif %}</div></div>
+        <div><div class="metric-key">Min Additional
+          <button class="info-btn" aria-label="Min Additional" data-t-title="Minimum Additional Investment" data-t-what="After your initial lumpsum investment, this is the minimum amount you can invest in subsequent lumpsum transactions. Usually lower than the initial minimum.">ⓘ</button>
+        </div><div class="metric-val">{% if meta.lump_min_additional %}₹{{ meta.lump_min_additional|floatformat:0 }}{% else %}—{% endif %}</div></div>
         <div><div class="metric-key">Min SIP</div><div class="metric-val">{% if meta.sip_min %}₹{{ meta.sip_min|floatformat:0 }}{% else %}—{% endif %}</div></div>
         <div><div class="metric-key">SIP Available</div><div class="metric-val">{% if meta.sip_available %}✅ Yes{% else %}❌ No{% endif %}</div></div>
-        <div><div class="metric-key">Lock-in Period</div><div class="metric-val">{{ meta.lock_in_label }}</div></div>
-        <div><div class="metric-key">Redemption Allowed</div><div class="metric-val">{% if meta.redemption_allowed %}✅ Yes{% else %}❌ No{% endif %}</div></div>
+        <div><div class="metric-key">Lock-in Period
+          <button class="info-btn" aria-label="Lock-in Period" data-t-title="Lock-in Period" data-t-what="The mandatory holding period. ELSS funds have 3-year lock-in (compulsory). Closed-end funds also have fixed lock-in. Open-end non-ELSS funds have no lock-in but may charge an exit load if you redeem early.">ⓘ</button>
+        </div><div class="metric-val">{{ meta.lock_in_label }}</div></div>
+        <div><div class="metric-key">Redemption Allowed
+          <button class="info-btn" aria-label="Redemption Allowed" data-t-what="Whether you can currently withdraw (redeem) your investment. Closed-end funds and funds in lock-in period may restrict redemption.">ⓘ</button>
+        </div><div class="metric-val">{% if meta.redemption_allowed %}✅ Yes{% else %}❌ No{% endif %}</div></div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header"><div class="card-title">Tax Treatment</div></div>
+      <div class="card-header"><div class="card-title">Tax Treatment
+        <button class="info-btn" aria-label="Tax on Mutual Funds" data-t-title="Mutual Fund Taxation (India)" data-t-what="Tax rules that apply when you sell (redeem) mutual fund units. Equity funds (>65% equity) have more favourable tax treatment than debt funds." data-t-note="Tax laws may change. Consult a CA or tax advisor for your specific situation.">ⓘ</button>
+      </div></div>
       <div class="card-body">
         {% if 'equity' in scheme.scheme_category|lower or 'ELSS' in scheme.scheme_category %}
         <div class="alert alert-info" style="margin:0">
           <div>
             <strong>Equity Fund Tax Rules</strong><br>
             <span style="font-size:12px;margin-top:6px;display:block">
-              • <strong>STCG (held &lt;12 months):</strong> 20% flat<br>
-              • <strong>LTCG (held &gt;12 months):</strong> 12.5% on gains above ₹1.25 lakh<br>
-              • ELSS: 3-year lock-in applies; LTCG rules apply
+              &bull; <strong>STCG
+                <button class="info-btn" aria-label="STCG" data-t-title="STCG (Short-Term Capital Gain)" data-t-what="Profit from selling equity mutual fund units held for less than 12 months. Taxed at a flat 20% regardless of your income slab.">ⓘ</button>
+              (held &lt;12 months):</strong> 20% flat<br>
+              &bull; <strong>LTCG
+                <button class="info-btn" aria-label="LTCG" data-t-title="LTCG (Long-Term Capital Gain)" data-t-what="Profit from selling equity mutual fund units held for more than 12 months. First ₹1.25 lakh of LTCG per year is tax-free. Beyond that, taxed at 12.5% without indexation.">ⓘ</button>
+              (held &gt;12 months):</strong> 12.5% on gains above ₹1.25 lakh<br>
+              &bull; ELSS: 3-year lock-in applies; LTCG rules apply
             </span>
           </div>
         </div>
@@ -634,8 +775,8 @@
           <div>
             <strong>Debt/Hybrid Fund Tax Rules</strong><br>
             <span style="font-size:12px;margin-top:6px;display:block">
-              • All gains taxed at income slab rate (no indexation benefit after April 2023)<br>
-              • Applicable to funds with &lt;65% equity allocation
+              &bull; All gains taxed at income slab rate (no indexation benefit after April 2023)<br>
+              &bull; Applicable to funds with &lt;65% equity allocation
             </span>
           </div>
         </div>
@@ -769,13 +910,17 @@
         </div>
         <!-- Text summary -->
         <div style="flex:1;min-width:220px">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:6px">Overall Score</div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:6px">Overall Score
+            <button class="info-btn" aria-label="Overall Score" data-t-title="Overall Fund Score (0–100)" data-t-what="A composite score computed from 4 pillars: Performance (30%), Risk/Stability (28%), Cost (12%), and Composition (15%), minus any Red Flag penalties (up to 15 pts)." data-t-interp="<strong>80–100:</strong> Excellent fund, top decile. <strong>60–80:</strong> Good. <strong>40–60:</strong> Average, check reasons. <strong>&lt;40:</strong> Poor." data-t-note="This is a quantitative model score, not investment advice. Always review the methodology notes below.">ⓘ</button>
+          </div>
           <div style="font-size:15px;font-weight:600;line-height:1.6;color:var(--text-primary)" id="overall-interp"></div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap" id="meta-badges"></div>
         </div>
         <!-- Rank -->
         <div id="rank-card" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px 24px;text-align:center;flex-shrink:0">
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Category Rank</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Category Rank
+            <button class="info-btn" aria-label="Category Rank" data-t-title="Category Rank" data-t-what="This fund's rank among all funds in the same SEBI category (e.g., Large Cap, Flexi Cap) in our database, sorted by their composite score." data-t-interp="Rank #1 of 50 = best-scoring fund in its category. Lower rank number = better.">ⓘ</button>
+          </div>
           <div id="rank-display" style="font-size:32px;font-weight:800;color:#6366f1;line-height:1">—</div>
           <div id="rank-total" style="font-size:11px;color:var(--text-muted);margin-top:2px"></div>
           <div id="rank-category" style="font-size:10px;color:var(--text-muted);margin-top:6px;max-width:140px"></div>
@@ -789,7 +934,9 @@
       <!-- Performance -->
       <div class="card" id="card-performance">
         <div class="card-header">
-          <div class="card-title">📈 Performance</div>
+          <div class="card-title">📈 Performance
+            <button class="info-btn" aria-label="Performance Score" data-t-title="Performance Pillar Score" data-t-what="Evaluates the fund's returns across 1Y, 3Y, and 5Y periods, rolling win rates, and excess return vs benchmark. Carries 30% weight in the overall score." data-t-interp="High performance score = fund has consistently delivered strong returns compared to its category. Doesn't account for risk taken — check the Risk pillar too.">ⓘ</button>
+          </div>
           <span id="badge-performance" class="pill"></span>
         </div>
         <div class="card-body" style="padding-top:0">
@@ -810,7 +957,9 @@
       <!-- Risk -->
       <div class="card" id="card-risk">
         <div class="card-header">
-          <div class="card-title">⚡ Risk / Stability</div>
+          <div class="card-title">⚡ Risk / Stability
+            <button class="info-btn" aria-label="Risk Score" data-t-title="Risk/Stability Pillar Score" data-t-what="Evaluates how smoothly the fund generates returns, using Sortino ratio, max drawdown, downside capture, and Sharpe ratio. Carries 28% weight in the overall score." data-t-interp="High risk score = fund has controlled downside well and delivered consistent returns. A fund can score high on Performance but low on Risk if it achieved returns through excessive volatility.">ⓘ</button>
+          </div>
           <span id="badge-risk" class="pill"></span>
         </div>
         <div class="card-body" style="padding-top:0">
@@ -831,7 +980,9 @@
       <!-- Cost -->
       <div class="card" id="card-cost">
         <div class="card-header">
-          <div class="card-title">💰 Cost</div>
+          <div class="card-title">💰 Cost
+            <button class="info-btn" aria-label="Cost Score" data-t-title="Cost Pillar Score" data-t-what="Evaluates the expense ratio relative to category norms, and AUM size as a cost-stability indicator. Carries 12% weight. Lower expense ratio = higher cost score.">ⓘ</button>
+          </div>
           <span id="badge-cost" class="pill"></span>
         </div>
         <div class="card-body" style="padding-top:0">
@@ -852,7 +1003,9 @@
       <!-- Composition -->
       <div class="card" id="card-composition">
         <div class="card-header">
-          <div class="card-title">🏗️ Composition</div>
+          <div class="card-title">🏗️ Composition
+            <button class="info-btn" aria-label="Composition Score" data-t-title="Composition Pillar Score" data-t-what="Evaluates portfolio construction: how concentrated the top holdings are, total number of stocks, and sector concentration (measured by HHI index). Carries 15% weight." data-t-interp="High composition score = well-diversified portfolio. Low score = the fund bets heavily on a few stocks or sectors, which increases risk even if returns look good.">ⓘ</button>
+          </div>
           <span id="badge-composition" class="pill"></span>
         </div>
         <div class="card-body" style="padding-top:0">
@@ -875,7 +1028,9 @@
     <!-- ── Red Flags Panel ─────────────────────────────────────── -->
     <div class="card" style="margin-bottom:20px" id="red-flags-card">
       <div class="card-header">
-        <div class="card-title">🚩 Red Flags</div>
+        <div class="card-title">🚩 Red Flags
+          <button class="info-btn" aria-label="Red Flags" data-t-title="Red Flags" data-t-what="Structural issues that might make this fund risky or unsuitable, beyond just returns. Each flag deducts up to 3 points from the overall score (max -15 pts)." data-t-interp="Red flags include: very low AUM (&lt;₹50 Cr), very high expense ratio, extreme concentration, missing benchmark, insufficient data. Multiple flags = exercise extra caution.">ⓘ</button>
+        </div>
         <span id="red-flag-summary" class="pill"></span>
       </div>
       <div class="card-body" id="red-flags-body">
@@ -885,7 +1040,9 @@
 
     <!-- ── Score Weight Breakdown ──────────────────────────────── -->
     <div class="card" style="margin-bottom:20px">
-      <div class="card-header"><div class="card-title">Score Composition</div></div>
+      <div class="card-header"><div class="card-title">Score Composition
+        <button class="info-btn" aria-label="Score Composition" data-t-title="Score Composition" data-t-what="Visual breakdown of how the overall score is split across pillars. Each coloured segment shows the weighted contribution of each pillar (Performance, Risk, Cost, Composition)." data-t-interp="A fund that excels in Performance but has a thin Risk bar is risky. Ideally all bars should be healthy proportionally.">ⓘ</button>
+      </div></div>
       <div class="card-body">
         <div style="display:flex;gap:6px;height:20px;border-radius:6px;overflow:hidden" id="score-breakdown-bar"></div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px" id="score-breakdown-legend"></div>
