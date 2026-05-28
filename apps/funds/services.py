@@ -100,13 +100,14 @@ def search_amfi_cache(query: str, limit: int = 10) -> list[dict]:
 
 def _search_mfapi_live(query: str, limit: int = 10) -> list[dict]:
     """Fallback: search mfapi.in live search endpoint."""
-    import requests
+    from adapters.amfi_adapter import AMFIAdapter
     try:
-        r = requests.get(
+        adapter = AMFIAdapter()
+        r = adapter._get_with_retry(
             f'https://api.mfapi.in/mf/search?q={query}',
             timeout=5,
+            max_retries=2,
         )
-        r.raise_for_status()
         data = r.json()
         return [
             {

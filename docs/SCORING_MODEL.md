@@ -22,10 +22,10 @@ The Fund Scoring Model is a **category-normalized, multi-factor quantitative fra
 ## 2. Score Structure
 
 ```
-Final Score = 0.30 × Performance
-            + 0.28 × Risk
-            + 0.12 × Cost
-            + 0.15 × Composition
+Final Score = 0.35 × Performance
+            + 0.30 × Risk
+            + 0.15 × Cost
+            + 0.20 × Composition
             − Red Flag Penalty   (max 15 pts)
 
 Clamped to [0, 100]
@@ -33,11 +33,12 @@ Clamped to [0, 100]
 
 | Pillar | Weight | Description |
 |---|---|---|
-| **Performance** | 30% | Return quality over multiple timeframes |
-| **Risk / Stability** | 28% | Downside control and volatility-adjusted returns |
-| **Cost** | 12% | Total cost efficiency vs category norms |
-| **Composition** | 15% | Portfolio construction quality |
+| **Performance** | 35% | Return quality over multiple timeframes |
+| **Risk / Stability** | 30% | Downside control and volatility-adjusted returns |
+| **Cost** | 15% | Total cost efficiency vs category norms |
+| **Composition** | 20% | Portfolio construction quality |
 | **Red Flags** | −15% max penalty | Structural or data-quality concerns |
+
 
 ---
 

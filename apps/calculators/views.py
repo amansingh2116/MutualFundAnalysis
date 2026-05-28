@@ -321,7 +321,7 @@ def calc_tax_api(request):
 
 def holding_key(holding) -> str:
     isin = str(getattr(holding, 'isin', '') or '').strip().upper()
-    if isin:
+    if isin and isin not in ('-', 'NA', '0', 'NONE', 'N/A', 'NULL'):
         return f'isin:{isin}'
     name = normalise_holding_name(getattr(holding, 'security_name', '') or '')
     if not name:

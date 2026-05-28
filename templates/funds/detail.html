@@ -518,6 +518,76 @@
     </div>
   </div>
 
+  <!-- Quarterly Performance Analysis -->
+  {% if quarterly_performance.upside or quarterly_performance.downside %}
+  <div class="card" style="margin-top:20px">
+    <div class="card-header">
+      <div class="card-title">Quarterly Performance Analysis (Top 5 & Worst 5)
+        <button class="info-btn" aria-label="Quarterly Performance" data-t-title="Quarterly Performance" data-t-what="Highlights the top 5 highest-returning (upside) and top 5 most negative (downside) quarters. It provides insight into the fund's extreme scenarios vs benchmark.">ⓘ</button>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; padding: 20px;">
+      
+      <!-- Upside Quarters -->
+      <div>
+        <h4 style="margin-bottom:12px; font-size:14px; color:var(--text-muted);"><span style="color:var(--success)">📈 Upside Quarters</span> (Top 5)</h4>
+        <div class="table-wrapper" style="margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px;">
+          <table style="font-size:12px; margin: 0; border: none; width: 100%;">
+            <thead>
+              <tr style="background: rgba(0,0,0,0.2);">
+                <th style="text-align:left; border-bottom: 1px solid var(--border);">Quarter</th>
+                <th style="text-align:right; border-bottom: 1px solid var(--border);">Fund</th>
+                <th style="text-align:right; border-bottom: 1px solid var(--border);">Benchmark</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for q in quarterly_performance.upside|slice:":5" %}
+              <tr>
+                <td style="font-weight:600; border-bottom: 1px solid var(--border);">{{ q.quarter }}</td>
+                <td style="text-align:right; border-bottom: 1px solid var(--border);" class="positive">{{ q.fund_return|floatformat:2 }}%</td>
+                <td style="text-align:right; border-bottom: 1px solid var(--border);" class="muted">{% if q.benchmark_return %}{{ q.benchmark_return|floatformat:2 }}%{% else %}—{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" style="text-align:center; color:var(--text-muted); border-bottom: 1px solid var(--border);">No upside quarters found</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">Total {{ quarterly_performance.upside|length }} upside quarter(s)</div>
+      </div>
+      
+      <!-- Downside Quarters -->
+      <div>
+        <h4 style="margin-bottom:12px; font-size:14px; color:var(--text-muted);"><span style="color:var(--danger)">📉 Downside Quarters</span> (Worst 5)</h4>
+        <div class="table-wrapper" style="margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px;">
+          <table style="font-size:12px; margin: 0; border: none; width: 100%;">
+            <thead>
+              <tr style="background: rgba(0,0,0,0.2);">
+                <th style="text-align:left; border-bottom: 1px solid var(--border);">Quarter</th>
+                <th style="text-align:right; border-bottom: 1px solid var(--border);">Fund</th>
+                <th style="text-align:right; border-bottom: 1px solid var(--border);">Benchmark</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for q in quarterly_performance.downside|slice:":5" %}
+              <tr>
+                <td style="font-weight:600; border-bottom: 1px solid var(--border);">{{ q.quarter }}</td>
+                <td style="text-align:right; border-bottom: 1px solid var(--border);" class="negative">{{ q.fund_return|floatformat:2 }}%</td>
+                <td style="text-align:right; border-bottom: 1px solid var(--border);" class="muted">{% if q.benchmark_return %}{{ q.benchmark_return|floatformat:2 }}%{% else %}—{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" style="text-align:center; color:var(--text-muted); border-bottom: 1px solid var(--border);">No downside quarters found</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">Total {{ quarterly_performance.downside|length }} downside quarter(s)</div>
+      </div>
+      
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Year-wise Fund vs Benchmark Risk Table -->
   <div class="card" style="margin-top:20px">
     <div class="card-header"><div class="card-title">Year-wise Risk Metrics</div></div>
@@ -1071,7 +1141,7 @@
           <p>Each metric is linearly normalized to [0, 100] using fixed thresholds calibrated for the Indian mutual fund market. When data is missing for a pillar, the score for that pillar is excluded and weights are redistributed across available pillars. The confidence level (<strong>Rated / Provisional / Unrated</strong>) reflects data coverage.</p>
           <h4 style="color:var(--text-primary);margin:12px 0 6px">Category Rank</h4>
           <p>The fund is ranked among peers in the same SEBI category (Direct/Regular separated) using pre-computed analytics stored in our database. Peer count reflects funds in our database, not the total universe.</p>
-          <p style="margin-top:10px"><a href="/docs/SCORING_MODEL.md" target="_blank" style="color:var(--indigo-400)">→ Full model documentation (SCORING_MODEL.md)</a></p>
+          <p style="margin-top:10px"><a href="https://github.com/amansingh2116/MutualFundAnalysis/blob/main/docs/SCORING_MODEL.md" target="_blank" style="color:var(--indigo-400)">→ Full model documentation (SCORING_MODEL.md)</a></p>
         </div>
       </div>
     </div>

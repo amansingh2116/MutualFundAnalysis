@@ -327,26 +327,31 @@ def portfolio_overlap_view(request, pk):
     transactions = portfolio.transactions.filter(scheme__isnull=False).select_related('scheme')
     schemes = list({tx.scheme for tx in transactions if tx.scheme})
 
+    from apps.calculators.views import holding_key
+    from apps.funds.runtime import get_runtime_snapshot
+    
+    # Pre-fetch snapshots and build holding maps
+    holding_maps = []
+    for s in schemes:
+        snap = get_runtime_snapshot(s)
+        hm = {}
+        for h in snap.top_holdings:
+            k = holding_key(h)
+            if k and getattr(h, 'weight_pct', None) is not None:
+                hm[k] = float(h.weight_pct)
+        holding_maps.append(hm)
+
     overlap_matrix = []
     if len(schemes) >= 2:
-        today_month = date(date.today().year, date.today().month, 1)
-        for i, s1 in enumerate(schemes):
+        for i, hm1 in enumerate(holding_maps):
             row = []
-            h1 = {
-                h['security_name']: float(h['weight_pct'])
-                for h in Holding.objects.filter(scheme=s1).order_by('-as_of_month').values('security_name', 'weight_pct')[:50]
-            }
-            for j, s2 in enumerate(schemes):
+            for j, hm2 in enumerate(holding_maps):
                 if i == j:
                     row.append(100.0)
-                    continue
-                h2 = {
-                    h['security_name']: float(h['weight_pct'])
-                    for h in Holding.objects.filter(scheme=s2).order_by('-as_of_month').values('security_name', 'weight_pct')[:50]
-                }
-                common = set(h1.keys()) & set(h2.keys())
-                score = sum(min(h1[n], h2[n]) for n in common)
-                row.append(round(score, 1))
+                else:
+                    common = set(hm1.keys()) & set(hm2.keys())
+                    score = sum(min(hm1[n], hm2[n]) for n in common)
+                    row.append(round(score, 1))
             overlap_matrix.append(row)
 
     return render(request, 'portfolio/overlap.html', {
@@ -375,6 +380,9 @@ def portfolio_benchmark_view(request, pk):
     
     indices = BenchmarkIndex.objects.filter(is_active=True).order_by('name')
     
+    default_weights, fallbacks = get_default_blended_benchmark_weights(portfolio)
+    default_formatted_weights = {k: round(v * 100, 2) for k, v in default_weights.items()}
+
     custom_weights = {}
     for key, value in request.GET.items():
         if key.startswith('weight_'):
@@ -390,37 +398,46 @@ def portfolio_benchmark_view(request, pk):
         total_w = sum(custom_weights.values())
         if total_w > 0:
             custom_weights = {k: v/total_w for k, v in custom_weights.items()}
-        weights_dict = custom_weights
-    else:
-        weights_dict = get_default_blended_benchmark_weights(portfolio)
-        
-    formatted_weights = {k: round(v * 100, 2) for k, v in weights_dict.items()}
     
+    custom_formatted_weights = {k: round(v * 100, 2) for k, v in custom_weights.items()} if custom_weights else None
+        
     port_dates, port_invested, port_values = get_portfolio_journey(portfolio)
     port_current = port_values[-1] if port_values else 0
     port_xirr = calculate_portfolio_xirr(portfolio)
     
-    blend_current, blend_xirr, blend_dates, blend_values = simulate_custom_benchmark(portfolio, weights_dict)
-    nifty_current, nifty_xirr, nifty_dates, nifty_values = simulate_custom_benchmark(portfolio, {'NIFTY 50': 1.0})
+    def_current, def_xirr, _, def_values = simulate_custom_benchmark(portfolio, default_weights)
+    nifty_current, nifty_xirr, _, nifty_values = simulate_custom_benchmark(portfolio, {'NIFTY 50': 1.0})
     
-    blend_metrics = compute_advanced_risk_metrics(port_values, blend_values) if port_values and blend_values else {}
+    custom_current, custom_xirr, custom_values = None, None, None
+    custom_metrics = {}
+    if custom_weights:
+        custom_current, custom_xirr, _, custom_values = simulate_custom_benchmark(portfolio, custom_weights)
+        custom_metrics = compute_advanced_risk_metrics(port_values, custom_values) if port_values and custom_values else {}
+    
+    def_metrics = compute_advanced_risk_metrics(port_values, def_values) if port_values and def_values else {}
     nifty_metrics = compute_advanced_risk_metrics(port_values, nifty_values) if port_values and nifty_values else {}
     
     return render(request, 'portfolio/benchmark.html', {
         'portfolio': portfolio,
         'indices': indices,
-        'weights_dict': formatted_weights,
+        'default_weights': default_formatted_weights,
+        'custom_weights': custom_formatted_weights,
+        'fallbacks': fallbacks,
         'port_current': port_current,
         'port_xirr': port_xirr,
-        'blend_current': blend_current,
-        'blend_xirr': blend_xirr,
+        'def_current': def_current,
+        'def_xirr': def_xirr,
+        'custom_current': custom_current,
+        'custom_xirr': custom_xirr,
         'nifty_current': nifty_current,
         'nifty_xirr': nifty_xirr,
-        'blend_metrics': blend_metrics,
+        'def_metrics': def_metrics,
+        'custom_metrics': custom_metrics,
         'nifty_metrics': nifty_metrics,
         'journey_dates': json.dumps(port_dates),
         'port_values': json.dumps(port_values),
-        'blend_values': json.dumps(blend_values),
+        'def_values': json.dumps(def_values),
+        'custom_values': json.dumps(custom_values) if custom_values else 'null',
         'nifty_values': json.dumps(nifty_values),
     })
 

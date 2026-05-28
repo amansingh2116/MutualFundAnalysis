@@ -182,6 +182,7 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         if db_risk and db_risk.get("3Y"):
             risk = db_risk
     drawdown = compute_drawdown(nav_series)
+    quarterly = compute_quarterly_performance(nav_series, benchmark_series)
     yearly_risk = compute_yearly_risk_metrics(nav_series, benchmark_series)
 
     managers = split_manager_names(str(getattr(meta, "fund_manager", "") or ""))
@@ -226,6 +227,7 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         risk_3y=risk.get("3Y"),
         risk_5y=risk.get("5Y"),
         drawdown=drawdown,
+        quarterly_performance=quarterly,
         yearly_risk=yearly_risk,
         top_holdings=holdings_normalized,
         sector_alloc=sectors_normalized,
@@ -1440,6 +1442,52 @@ def compute_drawdown(nav: pd.Series) -> list[SimpleNamespace]:
     running_max = nav.cummax()
     dd = ((nav - running_max) / running_max) * 100
     return [ns(date=idx.date().isoformat(), drawdown=float(value)) for idx, value in dd.resample("W").last().dropna().items()]
+
+def compute_quarterly_performance(nav: pd.Series, bm: pd.Series) -> dict[str, list[dict]]:
+    results = {"upside": [], "downside": []}
+    if nav.empty:
+        return results
+        
+    nav_q = nav.resample("QS").last().dropna()
+    bm_q = bm.resample("QS").last().dropna() if not bm.empty else pd.Series(dtype=float)
+    
+    if len(nav_q) < 2:
+        return results
+        
+    for i in range(1, len(nav_q)):
+        sv = float(nav_q.iloc[i - 1])
+        ev = float(nav_q.iloc[i])
+        if sv <= 0:
+            continue
+        ret = (ev / sv - 1) * 100
+        
+        qstart = nav_q.index[i - 1]
+        
+        bm_ret = None
+        if not bm_q.empty and qstart in bm_q.index and nav_q.index[i] in bm_q.index:
+            try:
+                bm_sv = float(bm_q.loc[qstart])
+                bm_ev = float(bm_q.loc[nav_q.index[i]])
+                if bm_sv > 0:
+                    bm_ret = (bm_ev / bm_sv - 1) * 100
+            except KeyError:
+                pass
+                
+        quarter_data = {
+            "quarter": f"Q{(qstart.month - 1) // 3 + 1} {qstart.year}",
+            "fund_return": round(ret, 2),
+            "benchmark_return": round(bm_ret, 2) if bm_ret is not None else None,
+        }
+        
+        if ret > 0:
+            results["upside"].append(quarter_data)
+        elif ret < 0:
+            results["downside"].append(quarter_data)
+            
+    results["upside"].sort(key=lambda x: x["fund_return"], reverse=True)
+    results["downside"].sort(key=lambda x: x["fund_return"])
+    
+    return results
 
 
 def empty_benchmark_result(name: str | None = None) -> SimpleNamespace:

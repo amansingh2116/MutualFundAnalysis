@@ -927,10 +927,21 @@ def fetch_yahoo_history_for_candidate(
                 kwargs["end"] = (parsed_end + timedelta(days=1)).isoformat()
         else:
             kwargs["period"] = period
-        try:
-            hist = ticker.history(**kwargs, raise_errors=False)
-        except TypeError:
-            hist = ticker.history(**kwargs)
+        import time
+        hist = None
+        for attempt in range(3):
+            try:
+                try:
+                    hist = ticker.history(**kwargs, raise_errors=False)
+                except TypeError:
+                    hist = ticker.history(**kwargs)
+                if hist is not None and not hist.empty:
+                    break
+            except Exception as e:
+                logger.warning("yfinance fetch attempt %d failed for %s: %s", attempt + 1, candidate.yahoo_ticker, e)
+                time.sleep(1)
+        if hist is None:
+            hist = pd.DataFrame()
         field = "Adj Close" if candidate.is_proxy and hist is not None and "Adj Close" in hist else candidate.field
         series = _extract_close_series(hist, field)
         if len(series) < min_rows:

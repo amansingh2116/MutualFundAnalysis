@@ -224,6 +224,8 @@ def _load_index_nav(index_name: str) -> pd.Series:
                     for d, v in series.items()
                 ]
                 BenchmarkNAV.objects.bulk_create(objs, ignore_conflicts=True)
+        except (ConnectionError, TimeoutError) as exc:
+            logger.error("Connection or timeout error while fetching index '%s': %s", index_name, exc)
         except Exception as exc:
             logger.warning("On-demand fetch failed for '%s': %s", index_name, exc)
 

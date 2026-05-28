@@ -72,6 +72,17 @@
   <div class="page-subtitle">Analyze portfolio performance against custom blended benchmarks and NIFTY 50</div>
 </div>
 
+{% if fallbacks %}
+<div class="alert alert-warning" style="margin-bottom: 20px; font-size: 13px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 12px; border-radius: 6px; color: #d97706;">
+  <strong>Note:</strong> We used NIFTY 50 as a fallback for some funds because their actual benchmarks were unavailable or lacked historical data:
+  <ul style="margin-top: 4px; padding-left: 20px; margin-bottom: 0;">
+    {% for f in fallbacks %}
+    <li>{{ f }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 <div class="comparison-grid">
   <!-- Portfolio Card -->
   <div class="stat-card">
@@ -88,40 +99,79 @@
     </div>
     <div class="stat-row">
       <span>Volatility (Ann.)</span>
-      <span class="stat-val">{% if blend_metrics.volatility %}{{ blend_metrics.volatility }}%{% else %}-{% endif %}</span>
+      <span class="stat-val">{% if def_metrics.volatility %}{{ def_metrics.volatility }}%{% else %}-{% endif %}</span>
     </div>
   </div>
 
   <!-- Blended Benchmark Card -->
   <div class="stat-card" style="border-left: 4px solid #3b82f6;">
-    <div class="stat-card-title">Blended Benchmark</div>
+    <div class="stat-card-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Default Blended Benchmark</span>
+      <span class="info-btn" data-t-title="Default Weights" data-t-what="{% for k,v in default_weights.items %}&lt;div&gt;&lt;strong&gt;{{ k }}&lt;/strong&gt;: {{ v }}%&lt;/div&gt;{% endfor %}" style="font-size: 12px; cursor: help;">ⓘ</span>
+    </div>
     <div class="stat-row">
       <span>Simulated Value</span>
-      <span class="stat-val">₹{{ blend_current|floatformat:2 }}</span>
+      <span class="stat-val">₹{{ def_current|floatformat:2 }}</span>
     </div>
     <div class="stat-row">
       <span>XIRR</span>
-      <span class="stat-val" style="color: {% if blend_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
-        {{ blend_xirr|floatformat:2 }}%
+      <span class="stat-val" style="color: {% if def_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
+        {{ def_xirr|floatformat:2 }}%
       </span>
     </div>
     <div class="stat-row">
       <span>Alpha</span>
-      <span class="stat-val">{{ blend_metrics.alpha|default:"-" }}%</span>
+      <span class="stat-val">{{ def_metrics.alpha|default:"-" }}%</span>
     </div>
     <div class="stat-row">
       <span>Beta</span>
-      <span class="stat-val">{{ blend_metrics.beta|default:"-" }}</span>
+      <span class="stat-val">{{ def_metrics.beta|default:"-" }}</span>
     </div>
     <div class="stat-row">
       <span>Sharpe / Sortino</span>
-      <span class="stat-val">{{ blend_metrics.sharpe|default:"-" }} / {{ blend_metrics.sortino|default:"-" }}</span>
+      <span class="stat-val">{{ def_metrics.sharpe|default:"-" }} / {{ def_metrics.sortino|default:"-" }}</span>
     </div>
     <div class="stat-row">
       <span>Capture (Up/Down)</span>
-      <span class="stat-val">{{ blend_metrics.up_capture|default:"-" }}% / {{ blend_metrics.down_capture|default:"-" }}%</span>
+      <span class="stat-val">{{ def_metrics.up_capture|default:"-" }}% / {{ def_metrics.down_capture|default:"-" }}%</span>
     </div>
   </div>
+
+  {% if custom_weights %}
+  <!-- Custom Benchmark Card -->
+  <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+    <div class="stat-card-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Custom Benchmark</span>
+      <span class="info-btn" data-t-title="Custom Weights" data-t-what="{% for k,v in custom_weights.items %}&lt;div&gt;&lt;strong&gt;{{ k }}&lt;/strong&gt;: {{ v }}%&lt;/div&gt;{% endfor %}" style="font-size: 12px; cursor: help;">ⓘ</span>
+    </div>
+    <div class="stat-row">
+      <span>Simulated Value</span>
+      <span class="stat-val">₹{{ custom_current|floatformat:2 }}</span>
+    </div>
+    <div class="stat-row">
+      <span>XIRR</span>
+      <span class="stat-val" style="color: {% if custom_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
+        {{ custom_xirr|floatformat:2 }}%
+      </span>
+    </div>
+    <div class="stat-row">
+      <span>Alpha</span>
+      <span class="stat-val">{{ custom_metrics.alpha|default:"-" }}%</span>
+    </div>
+    <div class="stat-row">
+      <span>Beta</span>
+      <span class="stat-val">{{ custom_metrics.beta|default:"-" }}</span>
+    </div>
+    <div class="stat-row">
+      <span>Sharpe / Sortino</span>
+      <span class="stat-val">{{ custom_metrics.sharpe|default:"-" }} / {{ custom_metrics.sortino|default:"-" }}</span>
+    </div>
+    <div class="stat-row">
+      <span>Capture (Up/Down)</span>
+      <span class="stat-val">{{ custom_metrics.up_capture|default:"-" }}% / {{ custom_metrics.down_capture|default:"-" }}%</span>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Nifty 50 Card -->
   <div class="stat-card" style="border-left: 4px solid #10b981;">
@@ -166,7 +216,8 @@
   <div class="card-body">
     <form method="GET" action="{% url 'portfolio:benchmark' portfolio.pk %}" id="customBlendForm">
       <div id="weight-rows-container">
-        {% for bm_name, weight in weights_dict.items %}
+        {% with active_weights=custom_weights|default:default_weights %}
+        {% for bm_name, weight in active_weights.items %}
         <div class="weight-row">
           <select name="index_temp" disabled>
             <option value="{{ bm_name }}">{{ bm_name }}</option>
@@ -176,6 +227,7 @@
           <span style="font-size: 14px; color: var(--text-muted);">%</span>
         </div>
         {% endfor %}
+        {% endwith %}
       </div>
       <div style="margin-top: 16px; margin-bottom: 16px; font-size: 13px; color: var(--text-muted);">
         Total Weight: <span id="total-weight-display">100</span>%
@@ -205,43 +257,58 @@
   // Chart initialization
   const dates = {{ journey_dates|safe }};
   const portValues = {{ port_values|safe }};
-  const blendValues = {{ blend_values|safe }};
+  const defValues = {{ def_values|safe }};
   const niftyValues = {{ nifty_values|safe }};
+  const customValues = {{ custom_values|safe }};
+  
+  const datasets = [
+    {
+      label: 'Portfolio',
+      data: portValues,
+      borderColor: '#8b5cf6',
+      backgroundColor: 'rgba(139, 92, 246, 0.1)',
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: true
+    },
+    {
+      label: 'Default Blended Benchmark',
+      data: defValues,
+      borderColor: '#3b82f6',
+      borderWidth: 2,
+      borderDash: [5, 5],
+      pointRadius: 0,
+      fill: false
+    },
+    {
+      label: 'NIFTY 50',
+      data: niftyValues,
+      borderColor: '#10b981',
+      borderWidth: 2,
+      borderDash: [2, 2],
+      pointRadius: 0,
+      fill: false
+    }
+  ];
+
+  if (customValues) {
+    datasets.splice(2, 0, {
+      label: 'Custom Benchmark',
+      data: customValues,
+      borderColor: '#f59e0b',
+      borderWidth: 2,
+      borderDash: [3, 3],
+      pointRadius: 0,
+      fill: false
+    });
+  }
   
   const ctx = document.getElementById('benchmarkChart').getContext('2d');
   new Chart(ctx, {
     type: 'line',
     data: {
       labels: dates,
-      datasets: [
-        {
-          label: 'Portfolio',
-          data: portValues,
-          borderColor: '#8b5cf6',
-          backgroundColor: 'rgba(139, 92, 246, 0.1)',
-          borderWidth: 2,
-          pointRadius: 0,
-          fill: true
-        },
-        {
-          label: 'Blended Benchmark',
-          data: blendValues,
-          borderColor: '#3b82f6',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          pointRadius: 0,
-          fill: false
-        },
-        {
-          label: 'NIFTY 50',
-          data: niftyValues,
-          borderColor: '#10b981',
-          borderWidth: 2,
-          borderDash: [2, 2],
-          pointRadius: 0,
-          fill: false
-        }
-      ]
+      datasets: datasets
     },
     options: {
       responsive: true,

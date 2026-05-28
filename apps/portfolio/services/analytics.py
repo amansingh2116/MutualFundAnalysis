@@ -275,7 +275,7 @@ def calculate_portfolio_ratios(portfolio):
 def get_default_blended_benchmark_weights(portfolio):
     """
     Determines the default blended benchmark for the portfolio.
-    It equal-weights the benchmarks of the funds present in the portfolio.
+    It weights the benchmarks of the funds based on their current actual value in the portfolio.
     If a fund's benchmark index is missing or has no NAV data, NIFTY 50 is used.
     """
     from collections import defaultdict
@@ -283,26 +283,50 @@ def get_default_blended_benchmark_weights(portfolio):
     from apps.benchmarks.registry import benchmark_for
     
     transactions = portfolio.transactions.filter(scheme__isnull=False).select_related('scheme')
-    schemes = list({tx.scheme for tx in transactions if tx.scheme})
     
-    if not schemes:
-        return {'NIFTY 50': 1.0}
+    scheme_values = defaultdict(float)
+    total_value = 0.0
+    
+    for tx in transactions:
+        if tx.tx_type in ('BUY', 'SIP', 'SWITCH_IN', 'DIV_REINV'):
+            scheme_values[tx.scheme] += float(tx.units)
+        elif tx.tx_type in ('SELL', 'REDEEM', 'SWITCH_OUT'):
+            scheme_values[tx.scheme] -= float(tx.units)
+            
+    for scheme, units in list(scheme_values.items()):
+        if units > 0 and scheme.nav_latest:
+            val = units * float(scheme.nav_latest)
+            scheme_values[scheme] = val
+            total_value += val
+        else:
+            del scheme_values[scheme]
+            
+    if not scheme_values or total_value <= 0:
+        return {'NIFTY 50': 1.0}, []
         
     weights = defaultdict(float)
-    equal_weight = 1.0 / len(schemes)
+    fallbacks = []
     
-    for scheme in schemes:
+    for scheme, val in scheme_values.items():
+        scheme_weight = val / total_value
         bm_name = benchmark_for(scheme.scheme_category, scheme.scheme_name)
+        if not bm_name:
+            weights['NIFTY 50'] += scheme_weight
+            fallbacks.append(f"{scheme.scheme_name[:30]}... (No benchmark category mapping)")
+            continue
+            
         try:
             index = BenchmarkIndex.objects.get(name=bm_name)
             if index.nav_history.exists():
-                weights[bm_name] += equal_weight
+                weights[bm_name] += scheme_weight
             else:
-                weights['NIFTY 50'] += equal_weight
+                weights['NIFTY 50'] += scheme_weight
+                fallbacks.append(f"{scheme.scheme_name[:30]}... (No historical data for {bm_name})")
         except BenchmarkIndex.DoesNotExist:
-            weights['NIFTY 50'] += equal_weight
+            weights['NIFTY 50'] += scheme_weight
+            fallbacks.append(f"{scheme.scheme_name[:30]}... (Benchmark {bm_name} not found in DB)")
             
-    return dict(weights)
+    return dict(weights), fallbacks
 
 def simulate_custom_benchmark(portfolio, weights_dict):
     """

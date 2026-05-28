@@ -25,10 +25,10 @@ MODEL_VERSION = "1.0"
 
 # Pillar weights — must sum to 1.0
 WEIGHTS = {
-    "performance":  0.30,
-    "risk":         0.28,
-    "cost":         0.12,
-    "composition":  0.15,
+    "performance":  0.35,
+    "risk":         0.30,
+    "cost":         0.15,
+    "composition":  0.20,
     # Red flag is a penalty layer subtracted from the composite, not a pillar weight
 }
 
@@ -231,8 +231,8 @@ def _score_performance(trailing_map: dict, rolling_returns: dict, risk_3y, risk_
                 "missing": "Insufficient trailing return data (need at least 1Y CAGR)"}
 
     # Rescale to full weight range
-    raw_score = weighted_sum / available_weights * 100  # normalize missing sub-metrics
-    score = round(max(0, min(100, weighted_sum / available_weights * 100)), 1)
+    raw_score = weighted_sum / available_weights  # normalize missing sub-metrics
+    score = round(max(0, min(100, raw_score)), 1)
 
     status = STATUS_RATED if available_weights >= 0.80 else STATUS_PROVISIONAL
     missing_note = None if available_weights >= 0.80 else "Some return periods unavailable; score is provisional"
@@ -322,7 +322,7 @@ def _score_risk(risk_3y, risk_5y) -> dict:
                 "details": details, "missing": "Insufficient risk metrics; need at least Sortino or Max Drawdown",
                 "interpretation": "Risk scoring requires at least one of: Sortino Ratio, Max Drawdown."}
 
-    score = round(max(0, min(100, weighted_sum / available_weights * 100)), 1)
+    score = round(max(0, min(100, weighted_sum / available_weights)), 1)
     status = STATUS_RATED if available_weights >= 0.70 else STATUS_PROVISIONAL
     missing_note = None if available_weights >= 0.70 else f"Some risk metrics unavailable ({period_label} data used)"
 
@@ -388,7 +388,7 @@ def _score_cost(expense_ratio: Optional[float], aum: Optional[float],
                 "details": details, "missing": "Expense ratio not available",
                 "interpretation": "Cost data not available from current data sources for this fund."}
 
-    score = round(max(0, min(100, weighted_sum / available_weights * 100)), 1)
+    score = round(max(0, min(100, weighted_sum / available_weights)), 1)
     status = STATUS_RATED if available_weights >= 0.70 else STATUS_PROVISIONAL
     missing_note = None if available_weights >= 0.70 else "AUM or expense ratio data partially unavailable"
 
@@ -470,7 +470,7 @@ def _score_composition(top_holdings: list, sector_alloc: list,
                 "details": details, "missing": "Insufficient portfolio data for composition scoring",
                 "interpretation": "Holdings data is incomplete; composition score is provisional."}
 
-    score = round(max(0, min(100, weighted_sum / available_weights * 100)), 1)
+    score = round(max(0, min(100, weighted_sum / available_weights)), 1)
     status = STATUS_RATED if available_weights >= 0.70 else STATUS_PROVISIONAL
     missing_note = None if available_weights >= 0.70 else "Partial portfolio data; score is provisional"
 
@@ -712,10 +712,7 @@ def score_fund(snapshot) -> SimpleNamespace:
     if available_weight < 0.10:
         final_score = None
     else:
-        # Normalize across available pillars
-        raw = weighted_sum / available_weight * 100  # 0–100
-        raw_normalized = weighted_sum / available_weight  # already 0–100 since each pillar is 0–100
-        final_score = round(max(0, min(100, weighted_sum / available_weight - red["total_penalty"])), 1)
+        # Compute as percentage of available weight, subtract penalty
         # Simpler: compute as percentage of available weight, subtract penalty
         composite = weighted_sum / available_weight
         final_score = round(max(0, min(100, composite - red["total_penalty"])), 1)

@@ -344,7 +344,7 @@
   <div class="section-label">Rebalancing <button class="info-btn" aria-label="Rebalancing" data-t-title="Rebalancing Strategy" data-t-what="How the backtester maintains your portfolio's target asset allocation (determined by your initial SIP weights).">ⓘ</button></div>
   <div class="setting-grid">
     <div class="setting-field">
-      <label>Mode</label>
+      <label style="display:flex;align-items:center;gap:4px">Mode <button class="info-btn" aria-label="Rebalance Mode" data-t-title="Rebalance Mode" data-t-what="Annual runs exactly once a year. Threshold runs only when a fund's weight drifts beyond the set limit.">ⓘ</button></label>
       <select id="rebal-mode" class="bt-select" onchange="toggleRebalFields()">
         <option value="none">No rebalancing</option>
         <option value="annual" selected>Annual</option>
@@ -352,7 +352,7 @@
       </select>
     </div>
     <div class="setting-field" id="rebal-month-wrap">
-      <label>Anchor Month</label>
+      <label style="display:flex;align-items:center;gap:4px">Anchor Month <button class="info-btn" aria-label="Anchor Month" data-t-title="Anchor Month" data-t-what="The specific calendar month each year when the annual rebalance occurs.">ⓘ</button></label>
       <select id="rebal-month" class="bt-select">
         <option value="1" selected>January</option><option value="4">April</option>
         <option value="7">July</option><option value="10">October</option>
@@ -1414,8 +1414,6 @@ function showNotification(type, msg) {
   const prefill = params.get('prefill');
   if (!prefill) return;
   try {
-    // Robust decoding: URLSearchParams already decodes the URL layer.
-    // Try parsing raw prefill string, fallback to decodeURIComponent if nested encoding exists.
     let parsedFunds = null;
     try {
       parsedFunds = JSON.parse(prefill);
@@ -1466,17 +1464,33 @@ function showNotification(type, msg) {
       const modeEl = document.getElementById('rebal-mode');
       if (modeEl) { modeEl.value = rebalMode; if (typeof toggleRebalFields === 'function') toggleRebalFields(); }
     }
+
+    // Apply debt parking fund from URL if available
+    const debtParkId = params.get('debt_park_id');
+    if (debtParkId) {
+      document.getElementById('debt-park-id').value = debtParkId;
+      document.getElementById('debt-park-type').value = 'index'; // Assume index for defaults like NIFTY LIQUID INDEX
+      document.getElementById('debt-selected-name').textContent = debtParkId.replace(/\+/g, ' ');
+      document.getElementById('debt-selected').style.display = 'flex';
+    }
+
+    // Ensure DOM is fully updated with the funds
     renderFundCards();
+    
     // Show notification and auto-run backtest
-    if (fundPlans.length) {
+    if (fundPlans.length > 0) {
       setTimeout(() => {
-        showNotification('info',
-          `${fundPlans.length} recommended funds loaded — running backtest…`);
+        showNotification('info', `${fundPlans.length} recommended funds loaded — running backtest…`);
         // Auto-trigger the backtest so user lands on results
-        if (typeof runBacktest === 'function') runBacktest();
-      }, 300);
+        if (typeof runBacktest === 'function') {
+          runBacktest();
+        }
+      }, 500); // slight delay to ensure UI paints
     }
   } catch(e) { console.warn('prefill parse error', e); }
 })();
+  if (window.initInfoTooltips) {
+    window.initInfoTooltips(document.body);
+  }
 </script>
 {% endblock %}

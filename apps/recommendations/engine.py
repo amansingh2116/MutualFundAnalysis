@@ -31,16 +31,22 @@ TOP_FUNDS = {
 
 def compute_risk_capacity(profile) -> str:
     """Layer 1: Financial ability to take risk"""
-    if (profile.income_stability == 'irregular' or 
-        profile.emergency_fund_months < 3 or 
-        profile.debt_load == 'high' or 
-        profile.liquidity_need == 'high'):
+    ef_months = getattr(profile, 'emergency_fund_months', 3) or 3
+    dependents = getattr(profile, 'dependents', 0) or 0
+    inc_stab = getattr(profile, 'income_stability', 'stable') or 'stable'
+    debt = getattr(profile, 'debt_load', 'low') or 'low'
+    liq = getattr(profile, 'liquidity_need', 'low') or 'low'
+    
+    if (inc_stab == 'irregular' or 
+        ef_months < 3 or 
+        debt == 'high' or 
+        liq == 'high'):
         return 'conservative'
     
-    if (profile.income_stability == 'stable' and 
-        profile.emergency_fund_months >= 6 and 
-        profile.debt_load in ('none', 'low') and 
-        profile.dependents <= 1):
+    if (inc_stab == 'stable' and 
+        ef_months >= 6 and 
+        debt in ('none', 'low') and 
+        dependents <= 1):
         return 'aggressive'
         
     return 'balanced'
@@ -48,10 +54,13 @@ def compute_risk_capacity(profile) -> str:
 
 def compute_risk_tolerance(profile) -> str:
     """Layer 2: Emotional comfort with volatility"""
-    if profile.loss_reaction == 'sell' or (profile.loss_reaction == 'concerned' and profile.investing_experience == 'beginner'):
+    loss = getattr(profile, 'loss_reaction', 'calm') or 'calm'
+    exp = getattr(profile, 'investing_experience', 'intermediate') or 'intermediate'
+    
+    if loss == 'sell' or (loss == 'concerned' and exp == 'beginner'):
         return 'conservative'
         
-    if profile.loss_reaction == 'buy_more' and profile.investing_experience in ('intermediate', 'expert'):
+    if loss == 'buy_more' and exp in ('intermediate', 'expert'):
         return 'aggressive'
         
     return 'balanced'

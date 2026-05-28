@@ -112,6 +112,7 @@ class FundDetailView(DetailView):
             'risk_3y': runtime.risk_3y,
             'risk_5y': runtime.risk_5y,
             'yearly_risk': runtime.yearly_risk,
+            'quarterly_performance': getattr(runtime, 'quarterly_performance', None),
             'top_holdings': runtime.top_holdings,
             'sector_alloc': runtime.sector_alloc,
             'holdings_month': runtime.holdings_month.strftime('%b %Y') if runtime.holdings_month else None,
