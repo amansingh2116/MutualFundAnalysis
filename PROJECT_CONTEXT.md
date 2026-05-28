@@ -216,3 +216,18 @@ If you are an AI assistant inheriting this project:
 6. **`_parse_date` helpers should NOT be defined inside loops.** Define them once.
 7. **`calendar` and `datetime` are imported at the top of `views.py`.** Do not re-import mid-file.
 8. **Backtester API expects a specific JSON schema.** See `docs/backtester_analysis.md` for the full reference.
+
+---
+
+## 10. Future Integrations & Enhancements
+
+### Future AI Integration
+**Robust Execution & Edge-Case Handling**
+- **Structured Outputs:** Utilizing strict JSON schemas (via Pydantic and function calling) to ensure LLMs output deterministic financial summaries that don't break the PDF generation pipeline.
+- **Semantic Caching:** Implementing caching for AI queries to reduce API costs and latency for frequently searched tickers.
+- **Hallucination Prevention:** Enforcing strict grounding rules where the AI is only allowed to comment on the quantitative data provided by the analytics engine, preventing it from inventing financial figures.
+
+**🔐 API Rate Limiting & Authentication**
+- **User Login & API Keys:** Introduce a system where users authenticate with their credentials and submit their own API keys (e.g., OpenAI/Anthropic). This enables personalized rate limits and reduces the chance of hitting shared API quotas.
+- **Selective AI Invocation:** In the Django UI, provide dedicated buttons for each AI-powered task (e.g., risk analysis, portfolio analysis, investor recommendation, etc.) across tabs and important metrics. Users can choose to run AI only on specific components using their own API key, while the platform still produces an overall base summary without AI when desired.
+- **Caching & Rate-limit Guardrails:** Implement semantic caching of AI responses and a request-throttling layer that monitors usage per user API key, automatically backing off or queueing requests when limits are approached.

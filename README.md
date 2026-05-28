@@ -6,169 +6,186 @@
 
 ---
 
-## Features
+## 🌟 Features & Working Details
 
 ### 🔍 Fund Research & Discovery
-- Browse and search across **14,000+ AMFI-registered schemes** with real-time AMFI cache fallback
-- Full **fund detail pages** with NAV history, metadata, and analytics
-- **Calendar-year returns**, trailing returns (1M, 3M, 6M, 1Y, 3Y, 5Y, Max)
-- **Rolling return distributions** with win rates, medians, and min/max ranges
-- **Risk metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios
-- **Holdings, sector allocation, and asset allocation** from Morningstar
-- **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`)
+- Browse and search across **14,000+ AMFI-registered schemes** with real-time AMFI cache fallback.
+- Full **fund detail pages** with NAV history, metadata, and analytics.
+- **Performance**: Calendar-year returns, trailing returns (1M, 3M, 6M, 1Y, 3Y, 5Y, Max).
+- **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, and **Quarterly Performance Analysis (Upside/Downside)**.
+- **Rolling return distributions** with win rates, medians, and min/max ranges.
+- **Composition**: Holdings, sector allocation, and asset allocation from Morningstar.
+- **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`).
 
 ### 💼 Portfolio Analysis
-- Upload CAS (Consolidated Account Statement) Excel/CSV files, or enter transactions **manually**
-- **Fuzzy matching** of fund names from CAS to AMFI codes
-- Per-fund and portfolio-level **XIRR** using SciPy root-finding
-- **Portfolio value journey** chart (weekly resolution, NAV-adjusted)
-- **Concentration score** using Herfindahl-Hirschman Index (HHI)
-- **Portfolio turnover** analysis (buy activity in last 12 months)
-- **Blended benchmark comparison** with custom index weights
+- Upload CAS (Consolidated Account Statement) Excel/CSV files, or enter transactions **manually**.
+- **Fuzzy matching** of fund names from CAS to AMFI codes.
+- Per-fund and portfolio-level **XIRR** using SciPy root-finding.
+- **Blended benchmark comparison**: Automatically aggregates your portfolio's underlying benchmarks and accurately weights them by your actual capital allocation.
+- **Concentration score** using Herfindahl-Hirschman Index (HHI) and **Portfolio turnover** analysis.
 
 ### 📊 Tactical Backtester Engine
-- Build a custom **investment plan** with per-fund SIP schedules, lumpsum events, and sell rules
-- Simulate against **historical NAV data** with full transaction ledger using rigorous unitized NAV accounting
-- Five strategy variants: **Base Plan, Trend Filter (12-month), MA Filter (10-month), Volatility Control, Composite Signal**
-- Tactical overlays automatically redirect equity SIPs to a **debt parking fund** when macroeconomic/momentum signals deteriorate
-- Per-strategy metrics: CAGR, XIRR, Final Corpus, Max Drawdown, Sharpe, Sortino, Volatility
-- **Rebalancing Engine**: Annual or drift-threshold based asset reallocation
+- Build a custom **investment plan** with per-fund SIP schedules, lumpsum events, and sell rules.
+- Simulate against **historical NAV data** with full transaction ledger using rigorous unitized NAV accounting.
+- Five strategy variants: **Base Plan, Trend Filter (12-month), MA Filter (10-month), Volatility Control, Composite Signal**.
+- Tactical overlays automatically redirect equity SIPs to a **debt parking fund** when macroeconomic/momentum signals deteriorate.
+- Per-strategy metrics: CAGR, XIRR, Final Corpus, Max Drawdown, Sharpe, Sortino, Volatility.
 - See `docs/backtester_analysis.md` for full mathematical and architectural details.
 
 ### 🎯 Recommendations & Risk Profiling
-- Risk-profiling **questionnaire** (experience, horizon, loss tolerance, goals)
-- Maps user profile to optimal Equity/Debt/Gold allocation ratios
-- Selects top funds in each required SEBI category using the 100-point Scoring Model
-- Direct one-click integration to run a **5-year historical backtest** on the suggested portfolio
+- Risk-profiling **questionnaire** (experience, horizon, loss tolerance, goals) mapping to optimal Equity/Debt/Gold allocation ratios.
+- Selects top funds in each required SEBI category using the 100-point Scoring Model.
+- Direct one-click integration to run a **5-year historical backtest** on the suggested portfolio.
 
 ### 🧮 Financial Calculators
-- **SIP** and **Step-Up SIP** future value
-- **Lumpsum** return calculator
-- **SWP** (Systematic Withdrawal Plan) depletion analysis
-- **XIRR** from manually entered cash flows
-- **Goal planner** — how much SIP needed to reach a target corpus
+- **SIP** and **Step-Up SIP** future value, **Lumpsum** return calculator, **SWP** depletion analysis, **XIRR** cash flows, and **Goal planner**.
 
 ---
 
-## Tech Stack
+## ⚙️ How It Works (Under the Hood)
+1. **Data Ingestion (`adapters/`)**: The system fetches live scheme data, historical NAVs, and metadata completely free of cost by connecting to unauthenticated APIs including AMFI, mfapi.in, captnemo, Morningstar (via mstarpy), and Yahoo Finance.
+2. **Analytics Engine (`apps/analytics/`)**: Real-time mathematical computations (CAGR, Beta, Sharpe, Rolling returns) are heavily vectorized using **Pandas** and **NumPy** to ensure fast response times directly on the server side.
+3. **Runtime Assembly (`apps/funds/runtime.py`)**: When you load a fund, the runtime snapshot intelligently aggregates database historical data and live adapter data, filling missing gaps dynamically before rendering the HTML template.
+4. **Interactive UI (`static/js/`)**: The frontend uses Vanilla JavaScript and **Plotly** to render complex financial charts without heavy JS frameworks, keeping the application lightweight.
+
+---
+
+## 🛠 Tech Stack
 
 | Layer | Choice |
 |---|---|
 | Backend | Django 5.x (Python 3.11+) |
 | Analytics | Pandas, NumPy, SciPy, statsmodels |
 | Charts | Plotly (client-side JS) |
-| Frontend | Django Templates, vanilla CSS, vanilla JS |
-| Database | SQLite (dev) / PostgreSQL (prod) |
+| Frontend | Django Templates, Vanilla CSS, Vanilla JS |
+| Database | SQLite (Dev) / PostgreSQL (Prod) |
 | Background tasks | django-q2 |
-| Static files | WhiteNoise |
-| Deployment | Render.com |
 
 ---
 
-## Data Sources
+## 📂 Project Structure & File Details
 
-All sources are free and unauthenticated.
-
-| Source | Use |
-|---|---|
-| **AMFI** | Scheme universe, latest NAVs, search index |
-| **mfapi.in** | Full historical NAV series per scheme |
-| **captnemo API** | Rich metadata (expense ratio, AUM, inception date) |
-| **mstarpy** | Holdings, sector allocation, asset allocation |
-| **NSE India API** | Live and historical benchmark index data |
-| **yfinance** | Fallback for benchmark data and fund ticker resolution |
-
----
-
-## Project Structure
-
-```
+```text
 MutualFundAnalysis/
-├── manage.py
-├── requirements.txt
-├── .env.example             ← copy to .env and fill secrets
-├── render.yaml              ← Render.com deployment config
+├── manage.py                ← Django command-line utility for administrative tasks
+├── requirements.txt         ← Project Python dependencies
+├── render.yaml              ← Render.com Infrastructure-as-Code deployment config
 │
-├── config/                  ← Django project config
+├── config/                  ← Main Django configuration
+│   ├── settings.py          ← Database, middleware, and environment variables
+│   └── urls.py              ← Global URL routing table
 │
-├── apps/
-│   ├── core/                ← BaseModel
-│   ├── funds/               ← Scheme master, NAV history, runtime snapshot
-│   ├── analytics/           ← Analytics engine, 100-point Scorer
-│   ├── benchmarks/          ← BenchmarkIndex, BenchmarkNAV
-│   ├── calculators/         ← Stateless financial calculators
-│   ├── recommendations/     ← Risk profiling questionnaire
-│   └── portfolio/           ← Portfolio upload, XIRR, backtester engine
+├── apps/                    ← Django Application Modules
+│   ├── core/                ← Base models, mixins, and shared utilities
+│   ├── funds/               ← Scheme master, NAV history, and runtime snapshots (`runtime.py`)
+│   ├── analytics/           ← Core financial math engine (`engine.py`, rolling returns, metrics)
+│   ├── benchmarks/          ← Benchmark index registry and NAV history tracking
+│   ├── calculators/         ← Stateless financial logic for SIP, Lumpsum, SWP, Goals
+│   ├── recommendations/     ← Risk profiling questionnaire and fund suggestion engine
+│   └── portfolio/           ← CAS parsing, XIRR processing, and the Backtester simulation engine
 │
-├── adapters/                ← External API adapters
-├── templates/               ← Django HTML templates
-├── static/                  ← CSS and JS files
-├── notebooks/               ← Jupyter notebooks and research files
+├── adapters/                ← Third-party API integrations (AMFI, Morningstar, Yahoo)
+├── templates/               ← Django HTML templates (UI layout)
+├── static/                  ← Vanilla CSS styles and JS scripts (Plotly charts, Tooltips)
 │
-└── docs/                    ← Architecture documentation
-    ├── backtester_analysis.md ← Backtester design, math, and API reference
-    ├── SCORING_MODEL.md       ← Fund scoring model design
-    ├── recommendation_engine.md ← Recommendation engine logic
-    └── UI_TOOLTIPS.md         ← Info-button tooltip system reference
+└── docs/                    ← Deep-dive technical documentation
+    ├── backtester_analysis.md ← Backtester math, simulation rules, and API payload reference
+    ├── SCORING_MODEL.md       ← Comprehensive rules for the 100-point Fund scoring model
+    └── DEPLOYMENT.md          ← Original deployment reference documentation
 ```
 
 ---
 
-## Setup & Installation
+## 💻 Setup & Installation (Local Development)
 
 ### Prerequisites
 - Python 3.11+
 - Git
 
-### 1. Clone and set up environment
-
+### 1. Clone and Set Up Environment
 ```bash
 git clone https://github.com/amansingh2116/MutualFundAnalysis.git
 cd MutualFundAnalysis
+
+# Create Virtual Environment
 python -m venv venv
-# Windows:
+
+# Activate Virtual Environment (Windows)
 venv\Scripts\activate
-# macOS/Linux:
+# Activate Virtual Environment (macOS/Linux)
 source venv/bin/activate
+
+# Install Dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment
-
+### 2. Configure Environment Variables
 ```bash
 cp .env.example .env
-# Edit .env: set SECRET_KEY, DEBUG=True for local dev
 ```
+Edit the `.env` file to set your `SECRET_KEY` and ensure `DEBUG=True` for local development.
 
-### 3. Initialise the database
-
+### 3. Initialize the Database & Admin User
 ```bash
 python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 4. Load scheme master data (one-time)
-
+### 4. Load Scheme Master Data
 ```bash
-# Build the scheme registry from AMFI NAVAll.txt (~14,000 schemes)
+# Build the scheme registry from AMFI (~14,000 schemes)
 python manage.py build_scheme_master
 
-# Fetch benchmark index history (Nifty 50, Sensex, etc.)
+# Fetch benchmark index history
 python manage.py ingest_benchmarks
 ```
+> **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data locally to run the app.
 
-> **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data.
-
-### 5. Run the development server
-
+### 5. Run the Server
 ```bash
 python manage.py runserver
 ```
-
-Visit `http://127.0.0.1:8000/`
+Visit `http://127.0.0.1:8000/` in your browser.
 
 ---
 
-## Deployment (Render.com)
+## 🚀 Deployment (Cloud via GitHub & Render)
 
-See [`DEPLOYMENT.md`](DEPLOYMENT.md) and [`render.yaml`](render.yaml) for full production deployment instructions.
+To make the app searchable online, persist user data securely in the cloud, and automate daily database updates, follow these deployment steps:
+
+### 1. Push to GitHub
+Commit your local codebase and push it to a GitHub repository:
+```bash
+git add .
+git commit -m "Ready for deployment"
+git remote add origin https://github.com/YOUR_USERNAME/MutualFundAnalysis.git
+git push -u origin main
+```
+
+### 2. Deploy on Render.com (Free Tier)
+1. Create a free account at [Render.com](https://render.com).
+2. Click **New +** and select **Blueprint**.
+3. Connect your GitHub account and select your repository.
+4. Render will automatically detect the included `render.yaml` file and spin up:
+   * A **PostgreSQL Database** (ensuring user profiles/portfolios are securely saved).
+   * A **Web Service** running your Django platform.
+
+### 3. Automate Daily Data Fetching (GitHub Actions)
+You must fetch new mutual fund NAVs daily so your platform stays up-to-date.
+1. Create `.github/workflows/daily_update.yml` in your repository.
+2. Add the following GitHub Action workflow to trigger Render to run the update every day at midnight (UTC):
+```yaml
+name: Daily NAV Database Update
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+```
+3. Get your **Deploy Hook URL** from the Render dashboard (Web Service settings) and add it as a Repository Secret (`RENDER_DEPLOY_HOOK_URL`) in your GitHub repository.
