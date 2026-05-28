@@ -2,9 +2,14 @@
 {% block title %}Portfolio Upload{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <div class="page-title">📊 Upload Your Portfolio</div>
-  <div class="page-subtitle">Import your mutual fund transactions from an Excel or CSV file. Data stays on your device — never shared.</div>
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+  <div>
+    <div class="page-title">📊 Upload Your Portfolio</div>
+    <div class="page-subtitle">Import your mutual fund transactions from an Excel or CSV file. Data stays on your device — never shared.</div>
+  </div>
+  <div>
+    <a href="{% url 'portfolio:manual_entry' %}" class="btn btn-secondary">✏️ Enter Transactions Manually</a>
+  </div>
 </div>
 
 <div class="grid-2" style="gap:24px">

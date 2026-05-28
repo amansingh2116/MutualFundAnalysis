@@ -5,6 +5,7 @@
 <div class="breadcrumb">
   <a href="{% url 'portfolio:list' %}">My Portfolios</a><span class="breadcrumb-sep">›</span><span>{{ portfolio.name }}</span>
 </div>
+
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
   <div>
     <h1 class="page-title">{{ portfolio.name }}</h1>
@@ -12,95 +13,782 @@
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <a href="{% url 'portfolio:overlap' portfolio.pk %}" class="btn btn-secondary btn-sm">🔄 Overlap Matrix</a>
-    <a href="{% url 'portfolio:benchmark' portfolio.pk %}" class="btn btn-secondary btn-sm">📊 Benchmark</a>
-    <a href="{% url 'portfolio:rebalance' portfolio.pk %}" class="btn btn-secondary btn-sm">⚖️ Rebalance</a>
-    <form method="post" action="{% url 'portfolio:delete' portfolio.pk %}" onsubmit="return confirm('Delete portfolio?')">
+    <a href="{% url 'portfolio:benchmark' portfolio.pk %}" class="btn btn-secondary btn-sm">📊 Benchmark Compare</a>
+    <form method="post" action="{% url 'portfolio:delete' portfolio.pk %}" style="display:inline;" onsubmit="return confirm('Delete portfolio?')">
       {% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
     </form>
   </div>
 </div>
 
-<!-- Summary Stats -->
-<div class="stats-grid" style="margin-bottom:24px">
-  <div class="stat-card">
-    <div class="stat-label">Current Value</div>
-    <div class="stat-value" style="font-size:22px">{% if total_current %}₹{{ total_current|floatformat:0 }}{% else %}—{% endif %}</div>
-    <div class="stat-card-icon">💰</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Total Invested</div>
-    <div class="stat-value" style="font-size:22px">₹{{ total_invested|floatformat:0 }}</div>
-    <div class="stat-card-icon">📥</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Total Gain/Loss</div>
-    <div class="stat-value" style="font-size:22px;color:{% if total_gain >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
-      {% if total_gain >= 0 %}+{% endif %}₹{{ total_gain|floatformat:0 }}
-    </div>
-    <div class="stat-card-icon">📈</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Absolute Return</div>
-    <div class="stat-value" style="font-size:22px;color:{% if abs_return >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
-      {% if abs_return >= 0 %}+{% endif %}{{ abs_return|floatformat:2 }}%
-    </div>
-    <div class="stat-card-icon">📊</div>
-  </div>
+<!-- Tabs -->
+<div class="tabs" style="margin-bottom: 24px; border-bottom: 1px solid var(--border); display: flex; gap: 24px;">
+    <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview" style="background:none; border:none; color:var(--text); padding-bottom:12px; border-bottom: 2px solid var(--primary); font-weight: 500; cursor:pointer;">Overview</button>
+    <button class="tab-btn" onclick="switchTab('analysis')" id="tab-analysis" style="background:none; border:none; color:var(--text-muted); padding-bottom:12px; border-bottom: 2px solid transparent; cursor:pointer;">Analytics & Performance</button>
+    <button class="tab-btn" onclick="switchTab('rebalancing')" id="tab-rebalancing" style="background:none; border:none; color:var(--text-muted); padding-bottom:12px; border-bottom: 2px solid transparent; cursor:pointer;">Rebalancing & Alerts</button>
 </div>
 
-{% if not total_current %}
-<div class="alert alert-warning">
-  ⚠️ Current values are unavailable — fund NAV data hasn't been loaded yet. 
-  Run <code style="color:var(--indigo-400)">python manage.py ingest_nav</code> to fetch latest NAVs.
-</div>
-{% endif %}
+<!-- OVERVIEW TAB -->
+<div id="content-overview" class="tab-content">
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-label">Current Value</div>
+        <div class="stat-value" style="font-size:22px">{% if total_current %}₹{{ total_current|floatformat:0 }}{% else %}—{% endif %}</div>
+        <div class="stat-card-icon">💰</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Invested</div>
+        <div class="stat-value" style="font-size:22px">₹{{ total_invested|floatformat:0 }}</div>
+        <div class="stat-card-icon">📥</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Gain/Loss</div>
+        <div class="stat-value" style="font-size:22px;color:{% if total_gain >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
+          {% if total_gain >= 0 %}+{% endif %}₹{{ total_gain|floatformat:0 }}
+        </div>
+        <div class="stat-card-icon">📈</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Absolute Return</div>
+        <div class="stat-value" style="font-size:22px;color:{% if abs_return >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
+          {% if abs_return >= 0 %}+{% endif %}{{ abs_return|floatformat:2 }}%
+        </div>
+        <div class="stat-card-icon">📊</div>
+      </div>
+    </div>
 
-<!-- Fund-level breakdown -->
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">Fund Holdings</div>
-    <span class="pill pill-gray">{{ fund_summary|length }} funds</span>
-  </div>
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Fund Name</th>
-          <th>Units</th>
-          <th>Invested</th>
-          <th>Latest NAV</th>
-          <th>Current Value</th>
-          <th>Gain/Loss</th>
-          <th>Return %</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for f in fund_summary %}
-        <tr>
-          <td>
-            {% if f.scheme %}<a href="{% url 'funds:detail' f.scheme.amfi_code %}" class="fund-link">{{ f.scheme_name|truncatechars:50 }}</a>
-            {% else %}<span style="color:var(--text-secondary);font-size:13px">{{ f.scheme_name|truncatechars:50 }}</span>
-            {% if not f.scheme %}<div class="fund-house" style="color:var(--amber-400)">⚠️ Fund not matched in DB</div>{% endif %}
+    <!-- Portfolio Journey Chart -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <div class="card-title">Portfolio Journey</div>
+        </div>
+        <div class="card-body">
+            <div id="journey-chart" style="width:100%; height:350px;"></div>
+        </div>
+    </div>
+
+    <!-- Fund Holdings Table -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Fund Holdings</div>
+        <span class="pill pill-gray">{{ fund_summary|length }} funds</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Fund Name</th>
+              <th>Units</th>
+              <th>Invested</th>
+              <th>Latest NAV</th>
+              <th>Current Value</th>
+              <th>Gain/Loss</th>
+              <th>Return %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in fund_summary %}
+            <tr>
+              <td>
+                {% if f.scheme %}<a href="{% url 'funds:detail' f.scheme.amfi_code %}" class="fund-link">{{ f.scheme_name|truncatechars:50 }}</a>
+                {% else %}<span style="color:var(--text-secondary);font-size:13px">{{ f.scheme_name|truncatechars:50 }}</span>{% endif %}
+              </td>
+              <td class="muted">{{ f.units|floatformat:4 }}</td>
+              <td>₹{{ f.invested|floatformat:0 }}</td>
+              <td class="muted">{% if f.nav_latest %}₹{{ f.nav_latest|floatformat:4 }}{% else %}—{% endif %}</td>
+              <td>{% if f.current_value %}₹{{ f.current_value|floatformat:0 }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td class="{% if f.gain and f.gain >= 0 %}positive{% elif f.gain %}negative{% else %}muted{% endif %}">
+                {% if f.gain %}{% if f.gain >= 0 %}+{% endif %}₹{{ f.gain|floatformat:0 }}{% else %}—{% endif %}
+              </td>
+              <td class="{% if f.gain_pct and f.gain_pct >= 0 %}positive{% elif f.gain_pct %}negative{% else %}muted{% endif %}">
+                {% if f.gain_pct %}{% if f.gain_pct >= 0 %}+{% endif %}{{ f.gain_pct|floatformat:2 }}%{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px">No holdings found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Transaction History Table -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-header">
+        <div class="card-title">Transaction History</div>
+        <span class="pill pill-indigo">{{ transactions|length }} entries</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Scheme Name</th>
+              <th>Type</th>
+              <th style="text-align: right;">Units</th>
+              <th style="text-align: right;">NAV (₹)</th>
+              <th style="text-align: right;">Amount (₹)</th>
+              <th style="text-align: center;">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in transactions %}
+            <tr>
+              <td>
+                {% if t.scheme %}<a href="{% url 'funds:detail' t.scheme.amfi_code %}" class="fund-link">{{ t.scheme_name }}</a>
+                {% else %}<span style="color:var(--text-secondary)">{{ t.scheme_name }}</span>{% endif %}
+              </td>
+              <td>
+                <span class="pill {% if t.tx_type == 'BUY' or t.tx_type == 'SIP' %}pill-green{% else %}pill-red{% endif %}">
+                  {{ t.tx_type }}
+                </span>
+              </td>
+              <td class="muted" style="text-align: right;">{{ t.units|floatformat:4 }}</td>
+              <td class="muted" style="text-align: right;">{% if t.nav %}₹{{ t.nav|floatformat:4 }}{% else %}—{% endif %}</td>
+              <td style="text-align: right; font-weight: 500;">₹{{ t.amount|floatformat:2 }}</td>
+              <td style="text-align: center;" class="muted">{{ t.tx_date|date:"d M Y" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">No transactions found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+</div>
+
+<!-- ANALYSIS TAB -->
+<div id="content-analysis" class="tab-content" style="display:none;">
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-label">Portfolio XIRR</div>
+        <div class="stat-value" style="font-size:22px;color:{% if portfolio_xirr >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
+          {% if portfolio_xirr %}{{ portfolio_xirr|floatformat:2 }}%{% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Benchmark XIRR (NIFTY 50)</div>
+        <div class="stat-value" style="font-size:22px;color:{% if benchmark_xirr >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
+          {% if benchmark_xirr %}{{ benchmark_xirr|floatformat:2 }}%{% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Alpha Generated</div>
+        <div class="stat-value" style="font-size:22px;color:{% if portfolio_xirr and benchmark_xirr and portfolio_xirr > benchmark_xirr %}var(--emerald-400){% else %}var(--red-400){% endif %}">
+          {% if portfolio_xirr and benchmark_xirr %}
+             {% if portfolio_xirr > benchmark_xirr %}+{% endif %}{{ portfolio_xirr|add:"-"|add:benchmark_xirr|floatformat:2 }}%
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Diversification Score</div>
+        <div class="stat-value" style="font-size:22px">{{ diversification_score }}/100</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <div class="card-title">Fund Performance Categories</div>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fund Name</th>
+                        <th>1Y Return (Est)</th>
+                        <th>Category</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in fund_summary %}
+                    <tr>
+                        <td>{{ f.scheme_name|truncatechars:50 }}</td>
+                        <td>{% if f.gain_pct %}{{ f.gain_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                        <td>
+                            {% if f.gain_pct and f.gain_pct > 20 %}
+                                <span class="pill" style="background: var(--emerald-400); color: black;">Top Performer</span>
+                            {% elif f.gain_pct and f.gain_pct > 10 %}
+                                <span class="pill" style="background: var(--indigo-400); color: white;">On Track</span>
+                            {% elif f.gain_pct and f.gain_pct > 0 %}
+                                <span class="pill" style="background: var(--amber-400); color: black;">Off Track</span>
+                            {% elif f.gain_pct %}
+                                <span class="pill" style="background: var(--red-400); color: white;">Out of Form</span>
+                            {% else %}
+                                <span class="muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Metrics -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Risk Metrics</div>
+            </div>
+            <div class="card-body">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span class="muted">Weighted Volatility</span>
+                    <span>{% if ratios.weighted_volatility %}{{ ratios.weighted_volatility|floatformat:2 }}%{% else %}—{% endif %}</span>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Diversification Assessment</div>
+            </div>
+            <div class="card-body">
+                <p style="color: var(--text-muted); font-size: 14px; line-height: 1.5;">
+                    {{ diversification_comment }}
+                </p>
+                <div style="margin-top: 12px;">
+                    <progress value="{{ diversification_score }}" max="100" style="width:100%; height:8px; border-radius:4px;"></progress>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Forecasting Dashboard -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <div class="card-title">🔮 Interactive Portfolio Forecasting & Trend Engine</div>
+            <span class="pill pill-indigo">Simulator</span>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: 300px 1fr; gap: 24px;">
+                <!-- Left Sidebar: Controls -->
+                <div style="background: var(--bg-surface); padding: 18px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+                    <h3 style="font-size: 11px; font-weight: 600; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Simulation Settings</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Select Model Type</label>
+                        <select class="form-control" id="forecast-model-select" onchange="toggleModelParams()">
+                            <option value="">-- Choose a Model --</option>
+                            <option value="monte_carlo">Monte Carlo Simulation</option>
+                            <option value="arima">ARIMA Time Series</option>
+                            <option value="machine_learning">Machine Learning (Lags)</option>
+                            <option value="technical_analysis">Technical Analysis (TA)</option>
+                        </select>
+                    </div>
+
+                    <!-- General Parameters -->
+                    <div id="general-params-group" style="display:none;">
+                        <div class="form-group">
+                            <label class="form-label">Forecast Horizon</label>
+                            <select class="form-control" id="forecast-horizon">
+                                <option value="1">1 Year</option>
+                                <option value="3" selected>3 Years</option>
+                                <option value="5">5 Years</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Monte Carlo Parameters -->
+                    <div id="monte-carlo-params" style="display:none; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Number of Simulations</label>
+                            <select class="form-control" id="mc-simulations">
+                                <option value="100">100 Runs</option>
+                                <option value="250" selected>250 Runs</option>
+                                <option value="500">500 Runs</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Volatility Shift Adjust</label>
+                            <div class="range-wrapper">
+                                <input type="range" id="mc-vol-adj" min="-0.5" max="0.5" step="0.05" value="0.0" oninput="document.getElementById('mc-vol-adj-val').innerText = (this.value >= 0 ? '+' : '') + Math.round(this.value * 100) + '%'">
+                                <span class="range-value" id="mc-vol-adj-val">0%</span>
+                            </div>
+                            <span class="form-hint">Adjust the baseline historical volatility of all funds.</span>
+                        </div>
+                    </div>
+
+                    <!-- ARIMA Parameters -->
+                    <div id="arima-params" style="display:none; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                            <div class="form-group">
+                                <label class="form-label">p (AR)</label>
+                                <input type="number" class="form-control" id="arima-p" value="1" min="0" max="5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">d (I)</label>
+                                <input type="number" class="form-control" id="arima-d" value="1" min="0" max="2">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">q (MA)</label>
+                                <input type="number" class="form-control" id="arima-q" value="1" min="0" max="5">
+                            </div>
+                        </div>
+                        <span class="form-hint">AutoRegressive, Integrated, Moving Average order lags.</span>
+                    </div>
+
+                    <!-- ML Parameters -->
+                    <div id="ml-params" style="display:none; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Regression Model</label>
+                            <select class="form-control" id="ml-model">
+                                <option value="RIDGE">Ridge Regressor</option>
+                                <option value="RANDOM_FOREST">Random Forest Regressor</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lag window (days)</label>
+                            <input type="number" class="form-control" id="ml-lags" value="10" min="2" max="30">
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="run-forecast-btn" onclick="runForecastSimulation()" style="width: 100%; justify-content: center; margin-top: 16px;" disabled>
+                        <span>Run Simulation</span>
+                    </button>
+                </div>
+
+                <!-- Right Panel: Results Display -->
+                <div id="forecast-results-panel" style="display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px dashed var(--border); border-radius: var(--radius-lg); padding: 32px; min-height: 400px; text-align: center; color: var(--text-muted);">
+                    <div style="font-size: 48px; margin-bottom: 12px;">🔮</div>
+                    <h3 style="font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">No Model Selected</h3>
+                    <p style="max-width: 420px; font-size: 13px;">Select a model on the left, adjust parameters as desired, and click <strong>Run Simulation</strong> to dynamically view forecasts and indicators.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- REBALANCING TAB -->
+<div id="content-rebalancing" class="tab-content" style="display:none;">
+    <div class="card" style="margin-bottom: 24px; border-left: 4px solid var(--amber-400);">
+        <div class="card-header">
+            <div class="card-title">Rebalancing Alerts</div>
+        </div>
+        <div class="card-body">
+            {% if portfolio_xirr and benchmark_xirr and portfolio_xirr < benchmark_xirr %}
+                <div class="alert alert-warning" style="margin-bottom: 12px;">
+                    <strong>Underperforming Benchmark:</strong> Your portfolio XIRR ({{ portfolio_xirr|floatformat:2 }}%) is lower than the simulated NIFTY 50 XIRR ({{ benchmark_xirr|floatformat:2 }}%). Consider exiting your lowest performing active funds and shifting to index funds.
+                </div>
             {% endif %}
-          </td>
-          <td class="muted">{{ f.units|floatformat:4 }}</td>
-          <td>₹{{ f.invested|floatformat:0 }}</td>
-          <td class="muted">{% if f.nav_latest %}₹{{ f.nav_latest|floatformat:4 }}{% else %}—{% endif %}</td>
-          <td>{% if f.current_value %}₹{{ f.current_value|floatformat:0 }}{% else %}<span class="muted">—</span>{% endif %}</td>
-          <td class="{% if f.gain and f.gain >= 0 %}positive{% elif f.gain %}negative{% else %}muted{% endif %}">
-            {% if f.gain %}{% if f.gain >= 0 %}+{% endif %}₹{{ f.gain|floatformat:0 }}{% else %}—{% endif %}
-          </td>
-          <td class="{% if f.gain_pct and f.gain_pct >= 0 %}positive{% elif f.gain_pct %}negative{% else %}muted{% endif %}">
-            {% if f.gain_pct %}{% if f.gain_pct >= 0 %}+{% endif %}{{ f.gain_pct|floatformat:2 }}%{% else %}—{% endif %}
-          </td>
-          <td>{% if f.scheme %}<a href="{% url 'funds:detail' f.scheme.amfi_code %}" class="btn btn-secondary btn-sm">View →</a>{% endif %}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px">No holdings found in uploaded file.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+            
+            {% if fund_summary|length > 15 %}
+                <div class="alert alert-warning">
+                    <strong>Over-diversification Warning:</strong> You hold {{ fund_summary|length }} funds. This high number of funds leads to overlapping stocks and dilutes your returns (index hugging). Consolidate your portfolio to 4-6 high conviction funds.
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <strong>On Track:</strong> Your portfolio size is manageable. Keep an eye on sector overlaps.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">News & Market Events</div>
+        </div>
+        <div class="card-body" style="color:var(--text-muted); font-size:14px; text-align:center; padding: 32px;">
+            <p>News feeds and their implication on your portfolio will be displayed here.</p>
+            <p><em>To be implemented later.</em></p>
+        </div>
+    </div>
 </div>
+
+<script>
+function switchTab(tabId) {
+    // Hide all contents
+    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+    // Reset all tabs
+    document.querySelectorAll('.tab-btn').forEach(el => {
+        el.style.color = 'var(--text-muted)';
+        el.style.borderBottomColor = 'transparent';
+        el.classList.remove('active');
+    });
+    
+    // Show selected content
+    document.getElementById('content-' + tabId).style.display = 'block';
+    
+    // Highlight selected tab
+    const activeTab = document.getElementById('tab-' + tabId);
+    activeTab.style.color = 'var(--text)';
+    activeTab.style.borderBottomColor = 'var(--primary)';
+    activeTab.classList.add('active');
+    
+    // Trigger window resize to fix Plotly charts resizing issue in hidden tabs
+    window.dispatchEvent(new Event('resize'));
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    const dates = {{ journey_dates|safe }};
+    const invested = {{ journey_invested|safe }};
+    const values = {{ journey_value|safe }};
+    
+    if (dates && dates.length > 0) {
+        const trace1 = {
+            x: dates,
+            y: invested,
+            name: 'Total Invested',
+            type: 'scatter',
+            fill: 'tozeroy',
+            line: {color: '#94a3b8', width: 2}
+        };
+        
+        const trace2 = {
+            x: dates,
+            y: values,
+            name: 'Current Value',
+            type: 'scatter',
+            fill: 'tonexty',
+            line: {color: '#3b82f6', width: 3}
+        };
+        
+        const layout = {
+            margin: {l: 40, r: 20, t: 20, b: 40},
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: {color: '#94a3b8'},
+            xaxis: {
+                showgrid: false,
+                zeroline: false
+            },
+            yaxis: {
+                gridcolor: '#334155',
+                zerolinecolor: '#334155',
+                tickprefix: '₹'
+            },
+            legend: {
+                orientation: 'h',
+                y: 1.1
+            }
+        };
+        
+        Plotly.newPlot('journey-chart', [trace1, trace2], layout, {responsive: true});
+    } else {
+        document.getElementById('journey-chart').innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Not enough data for chart.</div>';
+    }
+});
+
+function toggleModelParams() {
+    const model = document.getElementById("forecast-model-select").value;
+    const runBtn = document.getElementById("run-forecast-btn");
+    
+    // Hide all parameter groups initially
+    document.getElementById("general-params-group").style.display = "none";
+    document.getElementById("monte-carlo-params").style.display = "none";
+    document.getElementById("arima-params").style.display = "none";
+    document.getElementById("ml-params").style.display = "none";
+    
+    if (model) {
+        runBtn.disabled = false;
+        if (model !== "technical_analysis") {
+            document.getElementById("general-params-group").style.display = "block";
+        }
+        
+        if (model === "monte_carlo") {
+            document.getElementById("monte-carlo-params").style.display = "block";
+        } else if (model === "arima") {
+            document.getElementById("arima-params").style.display = "block";
+        } else if (model === "machine_learning") {
+            document.getElementById("ml-params").style.display = "block";
+        }
+    } else {
+        runBtn.disabled = true;
+    }
+}
+
+async function runForecastSimulation() {
+    const model = document.getElementById("forecast-model-select").value;
+    const horizon = document.getElementById("forecast-horizon").value;
+    const simulations = document.getElementById("mc-simulations").value;
+    const vol_adj = document.getElementById("mc-vol-adj").value;
+    const arima_p = document.getElementById("arima-p").value;
+    const arima_d = document.getElementById("arima-d").value;
+    const arima_q = document.getElementById("arima-q").value;
+    const ml_model = document.getElementById("ml-model").value;
+    const ml_lags = document.getElementById("ml-lags").value;
+    
+    const resultsPanel = document.getElementById("forecast-results-panel");
+    
+    // Show spinner loader state
+    resultsPanel.innerHTML = `
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 350px; width: 100%;">
+            <div class="spinner" style="width: 48px; height: 48px; margin-bottom: 16px;"></div>
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Running Statistical Model...</h3>
+            <p style="font-size: 12px; color: var(--text-muted);">Calculating predictions and projecting valuation pathways.</p>
+        </div>
+    `;
+    
+    try {
+        const queryParams = new URLSearchParams({
+            model,
+            horizon,
+            simulations,
+            vol_adj,
+            arima_p,
+            arima_d,
+            arima_q,
+            ml_model,
+            ml_lags
+        });
+        
+        const res = await fetch(`forecast/api/?${queryParams.toString()}`);
+        const data = await res.json();
+        
+        if (!res.ok) {
+            resultsPanel.innerHTML = `
+                <div class="alert alert-danger" style="margin: 32px auto; max-width: 500px; width: 100%;">
+                    <strong>Calculation Error:</strong> ${data.error || 'Failed to execute projection model.'}
+                </div>
+            `;
+            return;
+        }
+        
+        if (model === "technical_analysis") {
+            renderTADashboard(data.ta);
+        } else {
+            renderForecastChart(data.forecast, data.history, model);
+        }
+    } catch(e) {
+        console.error(e);
+        resultsPanel.innerHTML = `
+            <div class="alert alert-danger" style="margin: 32px auto; max-width: 500px; width: 100%;">
+                <strong>Network Error:</strong> Failed to connect to calculation server.
+            </div>
+        `;
+    }
+}
+
+function renderTADashboard(ta) {
+    const resultsPanel = document.getElementById("forecast-results-panel");
+    resultsPanel.innerHTML = `
+        <div style="width:100%; display: flex; flex-direction: column; gap: 20px; text-align: left; padding: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <h3 style="font-size: 15px; font-weight: 600; color: var(--text-primary);">Technical Analysis Consensus</h3>
+                <span class="pill" id="ta-consensus-pill" style="font-size: 12px; padding: 6px 16px; font-weight: 700; border-radius: 4px;">--</span>
+            </div>
+            
+            <div class="grid-2" style="gap: 16px;">
+                <!-- Moving Averages -->
+                <div class="stat-card" style="padding: 16px;">
+                    <div class="stat-label" style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Moving Averages</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:13px;">
+                            <span class="muted">50-day SMA</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">₹${ta.sma50 ? ta.sma50.toLocaleString() : 'Calculating...'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px;">
+                            <span class="muted">200-day SMA</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">₹${ta.sma200 ? ta.sma200.toLocaleString() : 'Calculating...'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- RSI -->
+                <div class="stat-card" style="padding: 16px;">
+                    <div class="stat-label" style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Relative Strength Index (RSI-14)</div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                        <span style="font-size: 24px; font-weight: 700; color: var(--indigo-400);">${ta.rsi || '--'}</span>
+                        <span class="pill" id="ta-rsi-pill" style="font-size: 11px; font-weight: 700;">--</span>
+                    </div>
+                </div>
+                
+                <!-- MACD -->
+                <div class="stat-card" style="padding: 16px;">
+                    <div class="stat-label" style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">MACD Crossover</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:13px;">
+                            <span class="muted">MACD Value</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${ta.macd || '--'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px;">
+                            <span class="muted">Signal Line</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${ta.macd_signal || '--'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bollinger Bands -->
+                <div class="stat-card" style="padding: 16px;">
+                    <div class="stat-label" style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Bollinger Bands (20-day)</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:13px;">
+                            <span class="muted">Upper Boundary</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">₹${ta.bb_upper ? ta.bb_upper.toLocaleString() : 'Calculating...'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px;">
+                            <span class="muted">Lower Boundary</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">₹${ta.bb_lower ? ta.bb_lower.toLocaleString() : 'Calculating...'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Style consensus pill
+    const cPill = document.getElementById("ta-consensus-pill");
+    cPill.innerText = ta.consensus;
+    if (ta.consensus.includes("BUY")) {
+        cPill.style.background = "rgba(16,185,129,0.15)";
+        cPill.style.color = "var(--emerald-400)";
+    } else if (ta.consensus.includes("SELL")) {
+        cPill.style.background = "rgba(248,113,113,0.15)";
+        cPill.style.color = "var(--red-400)";
+    } else {
+        cPill.style.background = "rgba(148,163,184,0.1)";
+        cPill.style.color = "var(--text-secondary)";
+    }
+    
+    // Style RSI pill
+    const rPill = document.getElementById("ta-rsi-pill");
+    const rsi = ta.rsi;
+    if (rsi) {
+        if (rsi > 70) {
+            rPill.innerText = "Overbought (Sell)";
+            rPill.style.background = "rgba(248,113,113,0.15)";
+            rPill.style.color = "var(--red-400)";
+        } else if (rsi < 30) {
+            rPill.innerText = "Oversold (Buy)";
+            rPill.style.background = "rgba(16,185,129,0.15)";
+            rPill.style.color = "var(--emerald-400)";
+        } else {
+            rPill.innerText = "Neutral (Hold)";
+            rPill.style.background = "rgba(148,163,184,0.1)";
+            rPill.style.color = "var(--text-secondary)";
+        }
+    }
+}
+
+let lastFinalMCValues = []; // global storage for probability target queries
+
+function renderForecastChart(forecast, history, model) {
+    const resultsPanel = document.getElementById("forecast-results-panel");
+    resultsPanel.innerHTML = `
+        <div style="width:100%; display: flex; flex-direction: column; gap: 24px; text-align: left; padding: 10px;">
+            <div id="forecast-plotly-chart" style="width: 100%; height: 350px;"></div>
+            
+            <div class="stats-grid" id="forecast-stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 0; gap: 16px;">
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <div class="stat-label" style="font-size:10px; color: var(--text-muted); text-transform: uppercase;">Expected Final Value</div>
+                    <div class="stat-value" id="fc-expected-val" style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">--</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <div class="stat-label" style="font-size:10px; color: var(--text-muted); text-transform: uppercase;">Worst Case (10th %)</div>
+                    <div class="stat-value" id="fc-p10-val" style="font-size: 20px; font-weight: 700; color: var(--red-400); margin-top: 4px;">--</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <div class="stat-label" style="font-size:10px; color: var(--text-muted); text-transform: uppercase;">Best Case (90th %)</div>
+                    <div class="stat-value" id="fc-p90-val" style="font-size: 20px; font-weight: 700; color: var(--emerald-400); margin-top: 4px;">--</div>
+                </div>
+            </div>
+            
+            <div id="mc-probability-panel" class="card" style="display:none; padding:16px; border: 1px solid var(--border); background: var(--bg-surface); border-radius: var(--radius);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h4 style="font-size:13px; font-weight:600; color:var(--text-primary);">Goal Probability Simulator</h4>
+                        <p style="font-size:11px; color:var(--text-muted); margin-top:2px;">Calculate the probability of reaching a target portfolio value at the end of the horizon.</p>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <span style="font-size:13px; font-weight:500; color:var(--text-secondary);">Target: ₹</span>
+                        <input type="number" id="mc-target-input" class="form-control" value="10000" style="width:120px; padding:6px 10px;" oninput="updateGoalProbability()">
+                        <span class="pill pill-indigo" id="mc-probability-result" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius: 4px;">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Set values
+    const n = forecast.p50.length;
+    const expected = forecast.p50[n - 1];
+    const p10 = forecast.p10[n - 1];
+    const p90 = forecast.p90[n - 1];
+    
+    document.getElementById("fc-expected-val").innerText = "₹" + Math.round(expected).toLocaleString();
+    document.getElementById("fc-p10-val").innerText = "₹" + Math.round(p10).toLocaleString();
+    document.getElementById("fc-p90-val").innerText = "₹" + Math.round(p90).toLocaleString();
+    
+    if (model === "monte_carlo" && forecast.final_values && forecast.final_values.length > 1) {
+        lastFinalMCValues = forecast.final_values;
+        document.getElementById("mc-probability-panel").style.display = "block";
+        updateGoalProbability();
+    }
+    
+    // Plotly layout configuration
+    const histDates = history.dates || [];
+    const histVals = history.values || [];
+    
+    const traceHist = {
+        x: histDates,
+        y: histVals,
+        name: 'Historical Value',
+        type: 'scatter',
+        line: {color: '#94a3b8', width: 2, dash: 'solid'}
+    };
+    
+    const traceP50 = {
+        x: forecast.dates,
+        y: forecast.p50,
+        name: model === 'monte_carlo' ? 'Expected Projection (50th %)' : 'Model Projection',
+        type: 'scatter',
+        line: {color: '#3b82f6', width: 3, dash: 'solid'}
+    };
+    
+    const traceP10 = {
+        x: forecast.dates,
+        y: forecast.p10,
+        name: model === 'monte_carlo' ? 'Bearish Pathway (10th %)' : 'Confidence Band Lower',
+        type: 'scatter',
+        line: {color: '#ef4444', width: 1.5, dash: 'dot'}
+    };
+    
+    const traceP90 = {
+        x: forecast.dates,
+        y: forecast.p90,
+        name: model === 'monte_carlo' ? 'Bullish Pathway (90th %)' : 'Confidence Band Upper',
+        type: 'scatter',
+        line: {color: '#10b981', width: 1.5, dash: 'dot'}
+    };
+    
+    const layout = {
+        margin: {l: 50, r: 20, t: 20, b: 40},
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: {color: '#94a3b8'},
+        xaxis: {
+            showgrid: false,
+            zeroline: false
+        },
+        yaxis: {
+            gridcolor: '#334155',
+            zerolinecolor: '#334155',
+            tickprefix: '₹'
+        },
+        legend: {
+            orientation: 'h',
+            y: 1.15
+        }
+    };
+    
+    Plotly.newPlot('forecast-plotly-chart', [traceHist, traceP10, traceP50, traceP90], layout, {responsive: true});
+}
+
+function updateGoalProbability() {
+    if (!lastFinalMCValues || lastFinalMCValues.length === 0) return;
+    const target = parseFloat(document.getElementById("mc-target-input").value);
+    if (isNaN(target) || target <= 0) {
+        document.getElementById("mc-probability-result").innerText = "--";
+        return;
+    }
+    const successCount = lastFinalMCValues.filter(val => val >= target).length;
+    const prob = (successCount / lastFinalMCValues.length) * 100;
+    
+    const resPill = document.getElementById("mc-probability-result");
+    resPill.innerText = prob.toFixed(1) + "% Chance";
+    if (prob > 70) {
+        resPill.className = "pill pill-green";
+    } else if (prob > 40) {
+        resPill.className = "pill pill-amber";
+    } else {
+        resPill.className = "pill pill-red";
+    }
+}
+</script>
 {% endblock %}

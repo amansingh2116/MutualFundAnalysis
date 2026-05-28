@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Entry - Portfolio{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 900px; margin: 2rem auto;">
+    <div class="card-header">
+        <h2 class="card-title">Manual Portfolio Entry</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">
+            Add your mutual fund transactions row by row. For SIP and SWP, we automatically fetch the historic NAV and add multiple monthly transactions.
+        </p>
+    </div>
+    
+    <div class="card-body">
+        <form method="post" id="manual-entry-form" onsubmit="event.preventDefault(); submitManualEntry(event);">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label>Portfolio Name</label>
+                <input type="text" name="portfolio_name" class="form-control" placeholder="My Manual Portfolio" value="My Manual Portfolio" required>
+            </div>
+
+            <table class="table" id="transaction-table" style="margin-top: 1rem;">
+                <thead>
+                    <tr>
+                        <th style="width: 35%">Scheme / Fund Name</th>
+                        <th style="width: 15%">Type</th>
+                        <th style="width: 15%">Amount (₹)</th>
+                        <th style="width: 15%">Start Date</th>
+                        <th style="width: 15%" class="end-date-col">End Date (SIP/SWP)</th>
+                        <th style="width: 5%"></th>
+                    </tr>
+                </thead>
+                <tbody id="transaction-body">
+                    <!-- Rows will be added dynamically -->
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 1rem;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addRow()">+ Add Row</button>
+            </div>
+
+            <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                <button type="submit" class="btn btn-primary" id="submit-btn">Save Portfolio</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template for a row -->
+<template id="row-template">
+    <tr class="tx-row">
+        <td>
+            <div style="position: relative;">
+                <input type="text" class="form-control scheme-search" placeholder="Search fund..." required autocomplete="off" oninput="searchScheme(this)">
+                <input type="hidden" class="scheme-id" name="scheme_id[]" required>
+                <div class="search-results-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:1000; background:var(--bg-surface); border:1px solid var(--border); max-height:200px; overflow-y:auto; border-radius:4px; box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
+            </div>
+        </td>
+        <td>
+            <select class="form-control tx-type" name="tx_type[]" onchange="toggleEndDate(this)">
+                <option value="BUY">Buy</option>
+                <option value="SELL">Sell</option>
+                <option value="SIP">SIP</option>
+                <option value="SWP">SWP</option>
+            </select>
+        </td>
+        <td>
+            <input type="number" step="0.01" class="form-control amount" name="amount[]" placeholder="0.00" required>
+        </td>
+        <td>
+            <input type="date" class="form-control start-date" name="start_date[]" required>
+        </td>
+        <td>
+            <input type="date" class="form-control end-date" name="end_date[]" style="display:none;" disabled>
+        </td>
+        <td>
+            <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()" style="padding: 4px 8px;">✕</button>
+        </td>
+    </tr>
+</template>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        addRow(); // add initial row
+    });
+
+    function addRow() {
+        const tbody = document.getElementById("transaction-body");
+        const template = document.getElementById("row-template");
+        const clone = template.content.cloneNode(true);
+        tbody.appendChild(clone);
+    }
+
+    function toggleEndDate(selectElem) {
+        const row = selectElem.closest('tr');
+        const endDateInput = row.querySelector('.end-date');
+        const type = selectElem.value;
+        if (type === 'SIP' || type === 'SWP') {
+            endDateInput.style.display = 'block';
+            endDateInput.required = true;
+            endDateInput.disabled = false;
+        } else {
+            endDateInput.style.display = 'none';
+            endDateInput.required = false;
+            endDateInput.disabled = true;
+            endDateInput.value = '';
+        }
+    }
+
+    // Debounce function for search
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    const searchScheme = debounce(async (inputElem) => {
+        const query = inputElem.value;
+        const dropdown = inputElem.parentElement.querySelector('.search-results-dropdown');
+        const hiddenInput = inputElem.parentElement.querySelector('.scheme-id');
+        
+        if (query.length < 3) {
+            dropdown.style.display = 'none';
+            hiddenInput.value = '';
+            return;
+        }
+
+        try {
+            // Reusing existing API or we will create one
+            const res = await fetch(`/funds/search/?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            
+            dropdown.innerHTML = '';
+            if (data.results && data.results.length > 0) {
+                data.results.forEach(fund => {
+                    const div = document.createElement('div');
+                    div.style.padding = '8px 12px';
+                    div.style.cursor = 'pointer';
+                    div.style.borderBottom = '1px solid var(--border)';
+                    div.innerText = fund.scheme_name;
+                    div.onclick = () => {
+                        inputElem.value = fund.scheme_name;
+                        hiddenInput.value = fund.amfi_code;
+                        dropdown.style.display = 'none';
+                    };
+                    div.onmouseover = () => div.style.background = 'var(--bg-elevated)';
+                    div.onmouseout = () => div.style.background = 'transparent';
+                    dropdown.appendChild(div);
+                });
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, 300);
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('scheme-search')) {
+            document.querySelectorAll('.search-results-dropdown').forEach(d => d.style.display = 'none');
+        }
+    });
+
+    async function submitManualEntry(event) {
+        const form = document.getElementById("manual-entry-form");
+        const btn = document.getElementById("submit-btn");
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+
+        const rows = document.querySelectorAll('.tx-row');
+        const transactions = [];
+
+        rows.forEach(row => {
+            const scheme_id = row.querySelector('.scheme-id').value;
+            const tx_type = row.querySelector('.tx-type').value;
+            const amount = row.querySelector('.amount').value;
+            const start_date = row.querySelector('.start-date').value;
+            const end_date = row.querySelector('.end-date').value;
+
+            if (scheme_id && amount && start_date) {
+                transactions.push({
+                    scheme_id,
+                    tx_type,
+                    amount,
+                    start_date,
+                    end_date
+                });
+            }
+        });
+
+        if (transactions.length === 0) {
+            alert("Please add at least one valid transaction.");
+            btn.disabled = false;
+            btn.innerText = "Save Portfolio";
+            return;
+        }
+
+        const payload = {
+            portfolio_name: form.querySelector('[name="portfolio_name"]').value,
+            transactions: transactions
+        };
+
+        try {
+            const res = await fetch("{% url 'portfolio:manual_entry_api' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Portfolio saved successfully! Added ${data.tx_count} transactions (including SIP expansions).`);
+                window.location.href = `/portfolio/${data.portfolio_id}/`;
+            } else {
+                alert("Error: " + (data.error || "Failed to save portfolio."));
+                btn.disabled = false;
+                btn.innerText = "Save Portfolio";
+            }
+        } catch (e) {
+            console.error(e);
+            alert("A network error occurred.");
+            btn.disabled = false;
+            btn.innerText = "Save Portfolio";
+        }
+    }
+</script>
+{% endblock %}

@@ -79,15 +79,53 @@ def portfolio_upload_view(request):
 @login_required
 def portfolio_dashboard_view(request, pk):
     portfolio = get_object_or_404(Portfolio, pk=pk, user=request.user)
+
+    # Auto-fix missing NAV/units for transactions (e.g. from manual entry before NAV was fetched)
+    from django.db.models import Q
+    unprocessed_txs = portfolio.transactions.filter(Q(units=0.0) | Q(nav__isnull=True))
+    if unprocessed_txs.exists():
+        from apps.funds.services import get_or_fetch_nav_history
+        from apps.funds.models import NAVHistory
+        from decimal import Decimal
+        # Group by scheme to avoid duplicate fetches
+        schemes_to_fetch = set(tx.scheme for tx in unprocessed_txs if tx.scheme)
+        for scheme in schemes_to_fetch:
+            get_or_fetch_nav_history(scheme)
+            
+        # Re-fetch and re-calculate
+        for tx in unprocessed_txs:
+            if tx.scheme:
+                nav_history = NAVHistory.objects.filter(scheme=tx.scheme, date__lte=tx.tx_date).order_by('-date').first()
+                if nav_history:
+                    tx.nav = nav_history.nav
+                    tx.units = Decimal(str(float(tx.amount) / float(tx.nav)))
+                    tx.save(update_fields=['nav', 'units'])
+
     transactions = portfolio.transactions.select_related('scheme').order_by('tx_date')
 
+    from apps.portfolio.services.analytics import (
+        calculate_portfolio_xirr,
+        simulate_benchmark,
+        calculate_diversification_score,
+        calculate_portfolio_ratios,
+        get_portfolio_journey
+    )
+    
     # Group by scheme and compute current value + XIRR
     fund_summary = _compute_portfolio_summary(transactions)
 
     total_invested = sum(f['invested'] for f in fund_summary)
-    total_current = sum(f['current_value'] for f in fund_summary)
+    total_current = sum(f['current_value'] for f in fund_summary if f['current_value'])
     total_gain = total_current - total_invested
     abs_return = (total_gain / total_invested * 100) if total_invested else 0
+    
+    portfolio_xirr = calculate_portfolio_xirr(portfolio)
+    benchmark_current, benchmark_xirr = simulate_benchmark(portfolio, "^NSEI")
+    
+    diversification_score, diversification_comment = calculate_diversification_score(portfolio)
+    ratios = calculate_portfolio_ratios(portfolio)
+    
+    journey_dates, journey_invested, journey_value = get_portfolio_journey(portfolio)
 
     return render(request, 'portfolio/dashboard.html', {
         'portfolio': portfolio,
@@ -96,7 +134,16 @@ def portfolio_dashboard_view(request, pk):
         'total_current': total_current,
         'total_gain': total_gain,
         'abs_return': abs_return,
+        'portfolio_xirr': portfolio_xirr,
+        'benchmark_xirr': benchmark_xirr,
+        'diversification_score': diversification_score,
+        'diversification_comment': diversification_comment,
+        'ratios': ratios,
+        'journey_dates': json.dumps(journey_dates),
+        'journey_invested': json.dumps(journey_invested),
+        'journey_value': json.dumps(journey_value),
         'tx_count': transactions.count(),
+        'transactions': transactions.order_by('-tx_date'),
     })
 
 
@@ -181,6 +228,7 @@ def portfolio_overlap_view(request, pk):
         'portfolio': portfolio,
         'schemes': schemes,
         'overlap_matrix': overlap_matrix,
+        'zipped_matrix': list(zip(schemes, overlap_matrix)),
         'matrix_json': json.dumps(overlap_matrix),
         'scheme_names_json': json.dumps([s.scheme_name[:40] for s in schemes]),
     })
@@ -188,12 +236,67 @@ def portfolio_overlap_view(request, pk):
 
 @login_required
 def portfolio_benchmark_view(request, pk):
-    """Compare portfolio returns vs Nifty 50."""
+    """Compare portfolio returns vs Blended Benchmark and Nifty 50."""
     portfolio = get_object_or_404(Portfolio, pk=pk, user=request.user)
+    
+    from apps.benchmarks.models import BenchmarkIndex
+    from apps.portfolio.services.analytics import (
+        get_default_blended_benchmark_weights,
+        simulate_custom_benchmark,
+        get_portfolio_journey,
+        compute_advanced_risk_metrics,
+        calculate_portfolio_xirr
+    )
+    
+    indices = BenchmarkIndex.objects.filter(is_active=True).order_by('name')
+    
+    custom_weights = {}
+    for key, value in request.GET.items():
+        if key.startswith('weight_'):
+            try:
+                bm_name = key.replace('weight_', '')
+                weight = float(value) / 100.0 # user provides %
+                if weight > 0:
+                    custom_weights[bm_name] = weight
+            except ValueError:
+                pass
+                
+    if custom_weights:
+        total_w = sum(custom_weights.values())
+        if total_w > 0:
+            custom_weights = {k: v/total_w for k, v in custom_weights.items()}
+        weights_dict = custom_weights
+    else:
+        weights_dict = get_default_blended_benchmark_weights(portfolio)
+        
+    formatted_weights = {k: round(v * 100, 2) for k, v in weights_dict.items()}
+    
+    port_dates, port_invested, port_values = get_portfolio_journey(portfolio)
+    port_current = port_values[-1] if port_values else 0
+    port_xirr = calculate_portfolio_xirr(portfolio)
+    
+    blend_current, blend_xirr, blend_dates, blend_values = simulate_custom_benchmark(portfolio, weights_dict)
+    nifty_current, nifty_xirr, nifty_dates, nifty_values = simulate_custom_benchmark(portfolio, {'NIFTY 50': 1.0})
+    
+    blend_metrics = compute_advanced_risk_metrics(port_values, blend_values) if port_values and blend_values else {}
+    nifty_metrics = compute_advanced_risk_metrics(port_values, nifty_values) if port_values and nifty_values else {}
+    
     return render(request, 'portfolio/benchmark.html', {
         'portfolio': portfolio,
-        'benchmark': 'NIFTY 50 (Price Index)',
-        'note': 'Benchmark simulation coming soon — requires NAV data for your funds.',
+        'indices': indices,
+        'weights_dict': formatted_weights,
+        'port_current': port_current,
+        'port_xirr': port_xirr,
+        'blend_current': blend_current,
+        'blend_xirr': blend_xirr,
+        'nifty_current': nifty_current,
+        'nifty_xirr': nifty_xirr,
+        'blend_metrics': blend_metrics,
+        'nifty_metrics': nifty_metrics,
+        'journey_dates': json.dumps(port_dates),
+        'port_values': json.dumps(port_values),
+        'blend_values': json.dumps(blend_values),
+        'nifty_values': json.dumps(nifty_values),
     })
 
 
@@ -203,3 +306,162 @@ def portfolio_rebalance_view(request, pk):
     return render(request, 'portfolio/rebalance.html', {
         'portfolio': portfolio,
     })
+
+import calendar
+from datetime import datetime
+
+def _add_months(d, months):
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return d.replace(year=year, month=month, day=day)
+
+@login_required
+def portfolio_manual_entry_view(request):
+    return render(request, 'portfolio/manual_entry.html')
+
+@login_required
+def portfolio_manual_entry_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        portfolio_name = data.get('portfolio_name', 'My Manual Portfolio')
+        transactions_data = data.get('transactions', [])
+        
+        if not transactions_data:
+            return JsonResponse({'error': 'No transactions provided'}, status=400)
+            
+        portfolio = Portfolio.objects.create(user=request.user, name=portfolio_name, is_private=True)
+        tx_objs = []
+        
+        for tx in transactions_data:
+            amfi_code = tx.get('scheme_id') # Front end sends scheme_id key but value is actually amfi_code
+            tx_type = tx['tx_type']
+            amount = float(tx['amount'])
+            start_date = datetime.strptime(tx['start_date'], '%Y-%m-%d').date()
+            
+            try:
+                scheme = Scheme.objects.get(amfi_code=amfi_code)
+            except Scheme.DoesNotExist:
+                continue
+                
+            # Fetch NAV history on-demand so units are calculated correctly
+            from apps.funds.services import get_or_fetch_nav_history
+            get_or_fetch_nav_history(scheme)
+                
+            dates_to_process = []
+            if tx_type in ('SIP', 'SWP'):
+                end_date = datetime.strptime(tx['end_date'], '%Y-%m-%d').date()
+                curr_date = start_date
+                while curr_date <= end_date:
+                    dates_to_process.append(curr_date)
+                    curr_date = _add_months(curr_date, 1)
+            else:
+                dates_to_process.append(start_date)
+                
+            for d in dates_to_process:
+                # Find closest NAV on or before this date
+                nav_history = NAVHistory.objects.filter(scheme=scheme, date__lte=d).order_by('-date').first()
+                if nav_history:
+                    nav = float(nav_history.nav)
+                    units = amount / nav
+                else:
+                    nav = None
+                    units = 0.0 # Will need user to manually fix if no NAV found
+                    
+                mapped_tx_type = 'BUY' if tx_type in ('BUY', 'SIP') else 'SELL'
+                
+                tx_objs.append(Transaction(
+                    portfolio=portfolio,
+                    scheme=scheme,
+                    scheme_name=scheme.scheme_name,
+                    amfi_code=scheme.amfi_code,
+                    tx_type=mapped_tx_type,
+                    tx_date=d,
+                    units=units,
+                    nav=nav,
+                    amount=amount,
+                    folio='MANUAL'
+                ))
+                
+        Transaction.objects.bulk_create(tx_objs)
+        
+        return JsonResponse({
+            'status': 'success',
+            'portfolio_id': portfolio.id,
+            'tx_count': len(tx_objs)
+        })
+    except Exception as e:
+        logger.exception("Error processing manual entry")
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def portfolio_forecast_api(request, pk):
+    portfolio = get_object_or_404(Portfolio, pk=pk, user=request.user)
+    
+    # Extract query parameters
+    model_type = request.GET.get('model', 'monte_carlo').lower()
+    horizon_years = int(request.GET.get('horizon', 3))
+    horizon_days = horizon_years * 365
+    
+    from apps.portfolio.services.forecasting import (
+        simulate_monte_carlo,
+        forecast_arima,
+        forecast_machine_learning,
+        calculate_ta_indicators,
+        get_daily_portfolio_history
+    )
+    
+    # Always include TA indicators for the consensus panel
+    ta_data = calculate_ta_indicators(portfolio)
+    
+    forecast_data = None
+    try:
+        if model_type == 'monte_carlo':
+            sims = int(request.GET.get('simulations', 250))
+            vol_adj = float(request.GET.get('vol_adj', 0.0))
+            forecast_data = simulate_monte_carlo(portfolio, horizon_days, sims, vol_adj)
+        elif model_type == 'arima':
+            p = int(request.GET.get('arima_p', 1))
+            d = int(request.GET.get('arima_d', 1))
+            q = int(request.GET.get('arima_q', 1))
+            forecast_data = forecast_arima(portfolio, horizon_days, p, d, q)
+        elif model_type == 'machine_learning':
+            ml_model = request.GET.get('ml_model', 'RIDGE')
+            lags = int(request.GET.get('ml_lags', 10))
+            forecast_data = forecast_machine_learning(portfolio, horizon_days, ml_model, lags)
+    except Exception as e:
+        logger.exception(f"Forecasting model {model_type} failed")
+        return JsonResponse({'error': f"Model execution failed: {str(e)}"}, status=400)
+        
+    # If the selected model failed or returned None, fall back to standard Monte Carlo
+    if not forecast_data:
+        try:
+            forecast_data = simulate_monte_carlo(portfolio, horizon_days, 250, 0.0)
+        except Exception:
+            pass
+            
+    if not forecast_data:
+        return JsonResponse({'error': 'Not enough historical NAV data to calculate forecast.'}, status=400)
+        
+    # Build historical daily series (last 90 days) for plot overlay
+    hist_df = get_daily_portfolio_history(portfolio)
+    hist_data = {}
+    if not hist_df.empty:
+        hist_subset = hist_df.tail(90)
+        hist_data = {
+            'dates': [d.strftime('%Y-%m-%d') for d in hist_subset['date']],
+            'values': hist_subset['current_value'].tolist()
+        }
+        
+    return JsonResponse({
+        'forecast': forecast_data,
+        'history': hist_data,
+        'ta': ta_data
+    })
+
+

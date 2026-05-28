@@ -29,9 +29,9 @@
         </tr>
       </thead>
       <tbody>
-        {% for i, row in overlap_matrix|enumerate %}
+        {% for scheme, row in zipped_matrix %}
         <tr>
-          <td style="font-weight:500;font-size:12px;max-width:200px">{{ schemes|index:i|attr:'scheme_name'|truncatechars:40 }}</td>
+          <td style="font-weight:500;font-size:12px;max-width:200px">{{ scheme.scheme_name|truncatechars:40 }}</td>
           {% for val in row %}
           <td style="text-align:center;color:{% if val == 100 %}var(--text-muted){% elif val > 50 %}var(--red-400){% elif val > 25 %}var(--amber-400){% else %}var(--emerald-400){% endif %};font-weight:{% if val == 100 %}400{% else %}600{% endif %}">
             {% if val == 100 %}—{% else %}{{ val }}%{% endif %}
@@ -59,17 +59,19 @@
 {% block extra_js %}
 <script>
 {% if overlap_matrix %}
-const matrix = {{ matrix_json }};
-const names = {{ scheme_names_json }};
-Plotly.newPlot('overlap-heatmap', [{
-  z: matrix,
-  x: names, y: names,
-  type: 'heatmap',
-  colorscale: [['0','rgba(52,211,153,0.8)'],['0.5','rgba(251,191,36,0.8)'],['1','rgba(248,113,113,0.8)']],
-  zmin: 0, zmax: 100,
-  hovertemplate: '%{y}<br>vs<br>%{x}<br>Overlap: %{z}%<extra></extra>',
-  showscale: true,
-}], { ...MF_PLOTLY_LAYOUT_BASE, height: 380 }, MF_PLOTLY_CONFIG);
+document.addEventListener('DOMContentLoaded', () => {
+  const matrix = {{ matrix_json|safe }};
+  const names = {{ scheme_names_json|safe }};
+  Plotly.newPlot('overlap-heatmap', [{
+    z: matrix,
+    x: names, y: names,
+    type: 'heatmap',
+    colorscale: [['0','rgba(52,211,153,0.8)'],['0.5','rgba(251,191,36,0.8)'],['1','rgba(248,113,113,0.8)']],
+    zmin: 0, zmax: 100,
+    hovertemplate: '%{y}<br>vs<br>%{x}<br>Overlap: %{z}%<extra></extra>',
+    showscale: true,
+  }], { ...MF_PLOTLY_LAYOUT_BASE, height: 380 }, MF_PLOTLY_CONFIG);
+});
 {% endif %}
 </script>
 {% endblock %}

@@ -2,6 +2,66 @@
 {% block title %}Benchmark Comparison{% endblock %}
 
 {% block content %}
+<style>
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .stat-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .stat-val {
+    font-weight: 500;
+  }
+  .chart-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .weight-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .weight-row select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .weight-row input {
+    width: 100px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+  }
+</style>
+
 <div class="breadcrumb">
   <a href="{% url 'portfolio:list' %}">Portfolios</a><span class="breadcrumb-sep">›</span>
   <a href="{% url 'portfolio:dashboard' portfolio.pk %}">{{ portfolio.name }}</a><span class="breadcrumb-sep">›</span>
@@ -9,12 +69,261 @@
 </div>
 <div class="page-header">
   <div class="page-title">📊 Benchmark Comparison</div>
-  <div class="page-subtitle">How your portfolio performed vs {{ benchmark }}</div>
+  <div class="page-subtitle">Analyze portfolio performance against custom blended benchmarks and NIFTY 50</div>
 </div>
-<div class="card">
-  <div class="card-body chart-placeholder" style="min-height:300px">
-    <span class="placeholder-icon">📊</span>
-    <span style="font-size:13px;color:var(--text-muted)">{{ note }}</span>
+
+<div class="comparison-grid">
+  <!-- Portfolio Card -->
+  <div class="stat-card">
+    <div class="stat-card-title">My Portfolio</div>
+    <div class="stat-row">
+      <span>Current Value</span>
+      <span class="stat-val">₹{{ port_current|floatformat:2 }}</span>
+    </div>
+    <div class="stat-row">
+      <span>XIRR</span>
+      <span class="stat-val" style="color: {% if port_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
+        {{ port_xirr|floatformat:2 }}%
+      </span>
+    </div>
+    <div class="stat-row">
+      <span>Volatility (Ann.)</span>
+      <span class="stat-val">{% if blend_metrics.volatility %}{{ blend_metrics.volatility }}%{% else %}-{% endif %}</span>
+    </div>
+  </div>
+
+  <!-- Blended Benchmark Card -->
+  <div class="stat-card" style="border-left: 4px solid #3b82f6;">
+    <div class="stat-card-title">Blended Benchmark</div>
+    <div class="stat-row">
+      <span>Simulated Value</span>
+      <span class="stat-val">₹{{ blend_current|floatformat:2 }}</span>
+    </div>
+    <div class="stat-row">
+      <span>XIRR</span>
+      <span class="stat-val" style="color: {% if blend_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
+        {{ blend_xirr|floatformat:2 }}%
+      </span>
+    </div>
+    <div class="stat-row">
+      <span>Alpha</span>
+      <span class="stat-val">{{ blend_metrics.alpha|default:"-" }}%</span>
+    </div>
+    <div class="stat-row">
+      <span>Beta</span>
+      <span class="stat-val">{{ blend_metrics.beta|default:"-" }}</span>
+    </div>
+    <div class="stat-row">
+      <span>Sharpe / Sortino</span>
+      <span class="stat-val">{{ blend_metrics.sharpe|default:"-" }} / {{ blend_metrics.sortino|default:"-" }}</span>
+    </div>
+    <div class="stat-row">
+      <span>Capture (Up/Down)</span>
+      <span class="stat-val">{{ blend_metrics.up_capture|default:"-" }}% / {{ blend_metrics.down_capture|default:"-" }}%</span>
+    </div>
+  </div>
+
+  <!-- Nifty 50 Card -->
+  <div class="stat-card" style="border-left: 4px solid #10b981;">
+    <div class="stat-card-title">NIFTY 50</div>
+    <div class="stat-row">
+      <span>Simulated Value</span>
+      <span class="stat-val">₹{{ nifty_current|floatformat:2 }}</span>
+    </div>
+    <div class="stat-row">
+      <span>XIRR</span>
+      <span class="stat-val" style="color: {% if nifty_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
+        {{ nifty_xirr|floatformat:2 }}%
+      </span>
+    </div>
+    <div class="stat-row">
+      <span>Alpha</span>
+      <span class="stat-val">{{ nifty_metrics.alpha|default:"-" }}%</span>
+    </div>
+    <div class="stat-row">
+      <span>Beta</span>
+      <span class="stat-val">{{ nifty_metrics.beta|default:"-" }}</span>
+    </div>
+    <div class="stat-row">
+      <span>Sharpe / Sortino</span>
+      <span class="stat-val">{{ nifty_metrics.sharpe|default:"-" }} / {{ nifty_metrics.sortino|default:"-" }}</span>
+    </div>
+    <div class="stat-row">
+      <span>Capture (Up/Down)</span>
+      <span class="stat-val">{{ nifty_metrics.up_capture|default:"-" }}% / {{ nifty_metrics.down_capture|default:"-" }}%</span>
+    </div>
   </div>
 </div>
+
+<div class="chart-container">
+  <canvas id="benchmarkChart" height="100"></canvas>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>⚙️ Customize Blended Benchmark</h3>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="{% url 'portfolio:benchmark' portfolio.pk %}" id="customBlendForm">
+      <div id="weight-rows-container">
+        {% for bm_name, weight in weights_dict.items %}
+        <div class="weight-row">
+          <select name="index_temp" disabled>
+            <option value="{{ bm_name }}">{{ bm_name }}</option>
+          </select>
+          <input type="hidden" name="weight_{{ bm_name }}" value="{{ weight }}" class="weight-hidden">
+          <input type="number" value="{{ weight }}" step="0.01" min="0" max="100" placeholder="Weight %" class="weight-input" onchange="this.previousElementSibling.value=this.value; updateTotalWeight();">
+          <span style="font-size: 14px; color: var(--text-muted);">%</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="margin-top: 16px; margin-bottom: 16px; font-size: 13px; color: var(--text-muted);">
+        Total Weight: <span id="total-weight-display">100</span>%
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <h4 style="margin-bottom: 8px;">Add Index:</h4>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <select id="new-index-select" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text);">
+            <option value="">-- Select Index --</option>
+            {% for idx in indices %}
+            <option value="{{ idx.name }}">{{ idx.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-secondary" onclick="addIndexRow()">Add</button>
+        </div>
+      </div>
+      
+      <button type="submit" class="btn btn-primary" id="update-btn">Update Comparison</button>
+      <a href="{% url 'portfolio:benchmark' portfolio.pk %}" class="btn btn-secondary" style="margin-left: 8px;">Reset to Default</a>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Chart initialization
+  const dates = {{ journey_dates|safe }};
+  const portValues = {{ port_values|safe }};
+  const blendValues = {{ blend_values|safe }};
+  const niftyValues = {{ nifty_values|safe }};
+  
+  const ctx = document.getElementById('benchmarkChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        {
+          label: 'Portfolio',
+          data: portValues,
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: true
+        },
+        {
+          label: 'Blended Benchmark',
+          data: blendValues,
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointRadius: 0,
+          fill: false
+        },
+        {
+          label: 'NIFTY 50',
+          data: niftyValues,
+          borderColor: '#10b981',
+          borderWidth: 2,
+          borderDash: [2, 2],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return context.dataset.label + ': ₹' + context.parsed.y.toFixed(2);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { maxTicksLimit: 10 }
+        },
+        y: {
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            callback: function(value) { return '₹' + (value/1000) + 'k'; }
+          }
+        }
+      }
+    }
+  });
+
+  function updateTotalWeight() {
+    const inputs = document.querySelectorAll('.weight-input');
+    let total = 0;
+    inputs.forEach(input => {
+      total += parseFloat(input.value || 0);
+    });
+    document.getElementById('total-weight-display').innerText = total.toFixed(2);
+    document.getElementById('update-btn').disabled = (Math.abs(total - 100) > 0.01);
+  }
+
+  document.querySelectorAll('.weight-input').forEach(input => {
+    input.addEventListener('input', function() {
+      this.previousElementSibling.value = this.value;
+      updateTotalWeight();
+    });
+  });
+  
+  function addIndexRow() {
+    const select = document.getElementById('new-index-select');
+    const idxName = select.value;
+    if (!idxName) return;
+    
+    if (document.querySelector(`input[name="weight_${idxName}"]`)) {
+      alert("Index already added!");
+      return;
+    }
+    
+    const container = document.getElementById('weight-rows-container');
+    const row = document.createElement('div');
+    row.className = 'weight-row';
+    row.innerHTML = `
+      <select name="index_temp" disabled>
+        <option value="${idxName}">${idxName}</option>
+      </select>
+      <input type="hidden" name="weight_${idxName}" value="0">
+      <input type="number" value="0" step="0.01" min="0" max="100" placeholder="Weight %" class="weight-input" onchange="this.previousElementSibling.value=this.value; updateTotalWeight();">
+      <span style="font-size: 14px; color: var(--text-muted);">%</span>
+      <button type="button" class="btn btn-secondary" style="padding: 4px 8px;" onclick="this.parentElement.remove(); updateTotalWeight();">X</button>
+    `;
+    container.appendChild(row);
+    
+    row.querySelector('.weight-input').addEventListener('input', function() {
+      this.previousElementSibling.value = this.value;
+      updateTotalWeight();
+    });
+    select.value = "";
+    updateTotalWeight();
+  }
+
+  // Initialize total weight on load
+  updateTotalWeight();
+</script>
 {% endblock %}

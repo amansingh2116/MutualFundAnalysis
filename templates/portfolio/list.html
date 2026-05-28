@@ -5,9 +5,12 @@
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
   <div>
     <h1 class="page-title">📊 My Portfolios</h1>
-    <div class="page-subtitle">Upload your mutual fund transaction data to analyze performance.</div>
+    <div class="page-subtitle">Upload or manually enter your mutual fund transaction data to analyze performance.</div>
   </div>
-  <a href="{% url 'portfolio:upload' %}" class="btn btn-primary">+ Upload Portfolio</a>
+  <div style="display:flex;gap:10px">
+    <a href="{% url 'portfolio:manual_entry' %}" class="btn btn-secondary">✏️ Enter Manually</a>
+    <a href="{% url 'portfolio:upload' %}" class="btn btn-primary">+ Upload Portfolio</a>
+  </div>
 </div>
 
 {% if portfolios %}
@@ -30,9 +33,12 @@
     <div style="font-size:48px;margin-bottom:16px">📊</div>
     <h2 style="font-size:18px;font-weight:700;margin-bottom:8px">No portfolios yet</h2>
     <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px">
-      Upload your mutual fund transaction file (Excel/CSV) to analyze performance, compute XIRR, and check fund overlap.
+      Upload your mutual fund transaction file (Excel/CSV) or enter transactions manually to analyze performance, compute XIRR, and check fund overlap.
     </p>
-    <a href="{% url 'portfolio:upload' %}" class="btn btn-primary">Upload Portfolio →</a>
+    <div style="display:flex;gap:12px;justify-content:center">
+      <a href="{% url 'portfolio:upload' %}" class="btn btn-primary">Upload Portfolio →</a>
+      <a href="{% url 'portfolio:manual_entry' %}" class="btn btn-secondary">✏️ Create Manually →</a>
+    </div>
   </div>
 </div>
 {% endif %}

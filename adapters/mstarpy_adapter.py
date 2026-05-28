@@ -186,9 +186,10 @@ class MstarpyAdapter(BaseAdapter):
             List of dicts with 'SecId', 'Name', 'LegalName' etc.
         """
         try:
-            import mstarpy
-            results = mstarpy.search_funds(name, pageSize=page_size)
-            return results if isinstance(results, list) else []
+            from mstarpy.search import MorningstarSession
+            session = MorningstarSession()
+            results = session.screener_universe(name, field=["SecId", "Name"], pageSize=page_size)
+            return [r.get('meta', {}) | r.get('fields', {}) for r in results]
         except Exception as e:
             logger.warning(f"[mstarpy] search_fund failed for '{name}': {e}")
             return []
