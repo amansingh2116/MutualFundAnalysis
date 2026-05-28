@@ -519,6 +519,135 @@ def analysis_api(request, amfi_code):
 
 
 @require_GET
+def peer_comparison_api(request, amfi_code):
+    """
+    Peer comparison data for a fund.
+
+    Returns the base fund plus up to N category peers (same SEBI category,
+    same plan/direct flag, different AMC) with a unified data payload covering:
+      - Ratios (PE, Std Dev, Sharpe, Sortino, Max Drawdown)
+      - Returns (trailing + rolling stats)
+      - Scheme information (expense ratio, AUM, SIP/Lumpsum limits, etc.)
+
+    Query params:
+      max   — number of peers to return (default 5, max 8)
+    """
+    from django.core.cache import cache as django_cache
+
+    scheme = get_scheme_or_404(amfi_code)
+    max_peers = min(int(request.GET.get('max', 5)), 8)
+    cache_key = f"fund:peers:v2:{amfi_code}:{max_peers}"
+    cached = django_cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
+    try:
+        from apps.funds.runtime import find_peer_funds, get_runtime_snapshot
+
+        peers = find_peer_funds(scheme, max_peers=max_peers)
+        funds_to_fetch = [scheme] + peers
+
+        funds_data = []
+        for s in funds_to_fetch:
+            try:
+                snap = get_runtime_snapshot(s)
+            except Exception as exc:
+                logger.info("[peers] snapshot failed for %s: %s", s.amfi_code, exc)
+                continue
+
+            # ── Ratios ──────────────────────────────────────────────────────
+            pe_ratios = [
+                h.forward_pe for h in snap.top_holdings
+                if getattr(h, 'forward_pe', None)
+            ]
+            avg_pe = round(sum(pe_ratios) / len(pe_ratios), 2) if pe_ratios else None
+
+            risk3 = snap.risk_3y
+            risk5 = snap.risk_5y
+
+            def _f(obj, attr):
+                v = getattr(obj, attr, None) if obj else None
+                return round(float(v), 2) if v is not None else None
+
+            # ── Returns ─────────────────────────────────────────────────────
+            trailing = {
+                r.period: round(float(r.cagr_pct), 2)
+                for r in (snap.trailing_returns or [])
+                if r.cagr_pct is not None
+            }
+
+            rolling_1y = snap.rolling_returns.get('1Y') if snap.rolling_returns else None
+            rolling_3y = snap.rolling_returns.get('3Y') if snap.rolling_returns else None
+
+            # ── Scheme info ─────────────────────────────────────────────────
+            meta = snap.meta
+
+            funds_data.append({
+                'amfi_code':    s.amfi_code,
+                'scheme_name':  s.scheme_name,
+                'fund_house':   s.fund_house,
+                'category':     getattr(snap, 'category', s.scheme_category) or s.scheme_category,
+                'is_base':      s.amfi_code == amfi_code,
+                # Ratios
+                'pe_ratio':          avg_pe,
+                'std_dev_3y':        _f(risk3, 'std_dev_ann'),
+                'sharpe_3y':         _f(risk3, 'sharpe_ratio'),
+                'sortino_3y':        _f(risk3, 'sortino_ratio'),
+                'max_drawdown_3y':   _f(risk3, 'max_drawdown'),
+                'std_dev_5y':        _f(risk5, 'std_dev_ann'),
+                'sharpe_5y':         _f(risk5, 'sharpe_ratio'),
+                'sortino_5y':        _f(risk5, 'sortino_ratio'),
+                'max_drawdown_5y':   _f(risk5, 'max_drawdown'),
+                # Returns
+                'trailing':          trailing,
+                'rolling_1y_mean':   round(float(rolling_1y.mean_pct), 2) if rolling_1y else None,
+                'rolling_1y_median': round(float(rolling_1y.median_pct), 2) if rolling_1y else None,
+                'rolling_3y_mean':   round(float(rolling_3y.mean_pct), 2) if rolling_3y else None,
+                'rolling_3y_median': round(float(rolling_3y.median_pct), 2) if rolling_3y else None,
+                # CAGR since inception
+                'cagr_inception':    trailing.get('SI'),
+                # Scheme information
+                'expense_ratio':   float(meta.expense_ratio) if meta.expense_ratio is not None else None,
+                'aum':             float(meta.aum) if meta.aum else None,
+                'lock_in_period':  getattr(meta, 'lock_in_label', None),
+                'min_sip':         float(meta.sip_min) if meta.sip_min else None,
+                'min_lumpsum':     float(meta.lump_min) if meta.lump_min else None,
+                'inception_date':  meta.start_date.isoformat() if meta.start_date else None,
+                'investment_objective': (getattr(meta, 'investment_objective', '') or '')[:300],
+                'fund_manager':    getattr(meta, 'fund_manager', '') or '',
+                'crisil_rating':   getattr(meta, 'crisil_rating', '') or '',
+                'ms_rating':       getattr(meta, 'ms_rating', None),
+                'sip_available':   getattr(meta, 'sip_available', True),
+                'exit_load':       None,   # not reliably available from any runtime source
+            })
+
+        from apps.funds.runtime import _extract_category_from_name
+        inferred_category = scheme.scheme_category or _extract_category_from_name(scheme.scheme_name)
+
+        peer_codes = [f['amfi_code'] for f in funds_data if not f['is_base']]
+        compare_url = (
+            '/calculators/compare/?funds=' + ','.join([amfi_code] + peer_codes[:3])
+            if peer_codes else ''
+        )
+
+        payload = {
+            'base_amfi_code': amfi_code,
+            'funds': funds_data,
+            'peer_count': len(funds_data) - 1,
+            'category': scheme.scheme_category or inferred_category,
+            'inferred_category': inferred_category,
+            'compare_url': compare_url,
+        }
+        ttl = 60 * 30 if funds_data else 60 * 5
+        django_cache.set(cache_key, payload, ttl)
+        return JsonResponse(payload)
+
+    except Exception as exc:
+        logger.error("[%s] peer_comparison_api failed: %s", amfi_code, exc, exc_info=True)
+        return JsonResponse({'error': str(exc), 'amfi_code': amfi_code}, status=500)
+
+
+@require_GET
 def rolling_chart_api(request, amfi_code):
     """Rolling return distribution for chart rendering.
 

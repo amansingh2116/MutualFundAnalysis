@@ -77,7 +77,7 @@
   </div>
 </div>
 
-<!-- 7-Tab Navigation -->
+<!-- 8-Tab Navigation -->
 <div class="tabs" id="fund-tabs">
   <button class="tab-btn active" data-tab="tab-overview">📋 Overview</button>
   <button class="tab-btn" data-tab="tab-performance">📈 Performance</button>
@@ -86,6 +86,7 @@
   <button class="tab-btn" data-tab="tab-costs">💰 Costs &amp; Rules</button>
   <button class="tab-btn" data-tab="tab-managers">👤 Managers</button>
   <button class="tab-btn" data-tab="tab-analysis" id="tab-btn-analysis">🧠 Analysis</button>
+  <button class="tab-btn" data-tab="tab-peers"   id="tab-btn-peers">🤝 Peers</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
@@ -926,11 +927,52 @@
   </div><!-- /#analysis-content -->
 </div><!-- /#tab-analysis -->
 
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 8: PEER COMPARISON                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-peers">
+
+  <!-- loading state -->
+  <div id="peers-loading" style="text-align:center;padding:60px 0">
+    <div class="spinner" style="margin:0 auto 16px"></div>
+    <div style="font-size:13px;color:var(--text-muted)">Loading peer funds in the same category…</div>
+  </div>
+
+  <!-- error state -->
+  <div id="peers-error" style="display:none">
+    <div class="alert alert-warning">⚠️ Could not load peer comparison data. Please try again later.</div>
+  </div>
+
+  <!-- content rendered by JS -->
+  <div id="peers-content" style="display:none"></div>
+
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
+<style>
+/* ── Peers tab styles ─────────────────────────────────────── */
+.peers-compare-table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
+.peers-compare-table th,.peers-compare-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top;word-break:break-word}
+.peers-compare-table thead th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);white-space:normal;text-align:center;background:var(--bg-elevated);position:sticky;top:0;z-index:1}
+.peers-compare-table thead th.peers-base-col{color:var(--accent);border-bottom:2px solid var(--accent);background:rgba(99,102,241,.06)}
+.peers-compare-table tbody tr:hover{background:rgba(255,255,255,.025)}
+.peers-compare-table td.peers-metric-label{font-size:11.5px;color:var(--text-secondary);font-weight:600;white-space:nowrap;width:160px;background:var(--bg-elevated);position:sticky;left:0}
+.peers-compare-table td.peers-base-col{background:rgba(99,102,241,.04);font-weight:600;text-align:center}
+.peers-compare-table td:not(.peers-metric-label){text-align:center}
+.peers-val-pos{color:#10b981;font-weight:600}
+.peers-val-neg{color:#ef4444;font-weight:600}
+.peers-val-neutral{color:var(--text-primary)}
+.peers-section-header{font-size:13px;font-weight:700;color:var(--text-primary);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.peers-fund-link{font-size:11px;font-weight:700;color:var(--indigo-400);text-decoration:none;display:block;margin-bottom:2px;line-height:1.35}
+.peers-fund-link:hover{text-decoration:underline}
+.peers-fund-house{font-size:10px;color:var(--text-muted);display:block}
+.peers-badge-base{display:inline-block;font-size:9px;padding:1px 6px;border-radius:20px;background:var(--accent);color:#fff;font-weight:700;letter-spacing:.03em;margin-top:3px}
+</style>
 <script>
 const AMFI_CODE = '{{ scheme.amfi_code }}';
+
 
 // Load NAV chart on page ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -1513,5 +1555,201 @@ function renderRollingTable(el, data) {
       </div>
     </div>`;
 }
+
+/* ── Peers Tab ─────────────────────────────────────────────────────────── */
+(function () {
+  const AMFI = '{{ scheme.amfi_code }}';
+  let peersLoaded = false;
+
+  document.getElementById('tab-btn-peers').addEventListener('click', function () {
+    if (!peersLoaded) loadPeers();
+  });
+
+  function fmt(v, decimals, suffix) {
+    decimals = decimals == null ? 2 : decimals;
+    suffix = suffix || '';
+    if (v == null) return '—';
+    return parseFloat(v).toFixed(decimals) + suffix;
+  }
+
+  function colorClass(v) {
+    if (v == null) return 'peers-val-neutral';
+    return v > 0 ? 'peers-val-pos' : 'peers-val-neg';
+  }
+
+  function fmtCcy(v) {
+    if (v == null) return '—';
+    if (v >= 10000) return '₹' + Math.round(v / 100) + 'Cr';
+    if (v >= 1000)  return '₹' + Math.round(v) + 'Cr';
+    return '₹' + parseFloat(v).toFixed(2) + 'Cr';
+  }
+
+  function fmtSipLump(v) {
+    if (v == null) return '—';
+    return '₹' + parseInt(v).toLocaleString('en-IN');
+  }
+
+  function loadPeers() {
+    peersLoaded = true;
+    fetch('/api/funds/' + AMFI + '/peers/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById('peers-loading').style.display = 'none';
+        if (!data.funds || data.funds.length === 0) {
+          var el = document.getElementById('peers-error');
+          el.innerHTML = '<div class="alert alert-warning">No peer funds found in the same SEBI category in the database.</div>';
+          el.style.display = '';
+          return;
+        }
+        renderPeers(data);
+        document.getElementById('peers-content').style.display = '';
+      })
+      .catch(function() {
+        document.getElementById('peers-loading').style.display = 'none';
+        document.getElementById('peers-error').style.display = '';
+      });
+  }
+
+  function headerCell(f) {
+    var cls = f.is_base ? 'peers-base-col' : '';
+    var badge = f.is_base ? '<span class="peers-badge-base">This Fund</span>' : '';
+    return '<th class="' + cls + '"><a class="peers-fund-link" href="/funds/' + f.amfi_code + '/">' + f.scheme_name + '</a><span class="peers-fund-house">' + f.fund_house + '</span>' + badge + '</th>';
+  }
+
+  function metricRow(label, funds, valFn) {
+    var cells = '';
+    for (var i = 0; i < funds.length; i++) {
+      var f = funds[i];
+      var r = valFn(f);
+      var colCls = f.is_base ? 'peers-base-col' : '';
+      cells += '<td class="' + colCls + '"><span class="' + r.cls + '">' + r.txt + '</span></td>';
+    }
+    return '<tr><td class="peers-metric-label">' + label + '</td>' + cells + '</tr>';
+  }
+
+  function renderPeers(data) {
+    var funds = data.funds;
+    var headerRow = '<tr><th class="peers-metric-label" style="min-width:160px">Metric</th>' + funds.map(headerCell).join('') + '</tr>';
+
+    /* Section 1: Risk Ratios */
+    var ratiosRows =
+      metricRow('PE Ratio (Avg)', funds, function(f) { return {cls:'peers-val-neutral', txt: fmt(f.pe_ratio,1,'x')}; }) +
+      metricRow('Std Dev 3Y (Ann %)', funds, function(f) { return {cls:'peers-val-neutral', txt: fmt(f.std_dev_3y)+'%'}; }) +
+      metricRow('Sharpe Ratio 3Y', funds, function(f) { return {cls:colorClass(f.sharpe_3y), txt: fmt(f.sharpe_3y)}; }) +
+      metricRow('Sortino Ratio 3Y', funds, function(f) { return {cls:colorClass(f.sortino_3y), txt: fmt(f.sortino_3y)}; }) +
+      metricRow('Max Drawdown 3Y', funds, function(f) { return {cls:'peers-val-neg', txt: fmt(f.max_drawdown_3y)+'%'}; }) +
+      metricRow('Std Dev 5Y (Ann %)', funds, function(f) { return {cls:'peers-val-neutral', txt: fmt(f.std_dev_5y)+'%'}; }) +
+      metricRow('Sharpe Ratio 5Y', funds, function(f) { return {cls:colorClass(f.sharpe_5y), txt: fmt(f.sharpe_5y)}; }) +
+      metricRow('Sortino Ratio 5Y', funds, function(f) { return {cls:colorClass(f.sortino_5y), txt: fmt(f.sortino_5y)}; }) +
+      metricRow('Max Drawdown 5Y', funds, function(f) { return {cls:'peers-val-neg', txt: fmt(f.max_drawdown_5y)+'%'}; });
+
+    /* Section 2: Returns */
+    var PERIODS = ['1M','3M','6M','1Y','2Y','3Y','5Y','7Y','10Y','SI'];
+    var trailingRows = '';
+    for (var pi = 0; pi < PERIODS.length; pi++) {
+      (function(p) {
+        trailingRows += metricRow('Trailing ' + p + ' (CAGR)', funds, function(f) {
+          var v = f.trailing && f.trailing[p] != null ? f.trailing[p] : null;
+          return {cls: colorClass(v), txt: v != null ? (v >= 0 ? '+' : '') + fmt(v) + '%' : '—'};
+        });
+      })(PERIODS[pi]);
+    }
+    var rollingRows =
+      metricRow('Rolling 1Y Mean', funds, function(f) { return {cls:colorClass(f.rolling_1y_mean), txt: fmt(f.rolling_1y_mean)+'%'}; }) +
+      metricRow('Rolling 1Y Median', funds, function(f) { return {cls:colorClass(f.rolling_1y_median), txt: fmt(f.rolling_1y_median)+'%'}; }) +
+      metricRow('Rolling 3Y Mean', funds, function(f) { return {cls:colorClass(f.rolling_3y_mean), txt: fmt(f.rolling_3y_mean)+'%'}; }) +
+      metricRow('Rolling 3Y Median', funds, function(f) { return {cls:colorClass(f.rolling_3y_median), txt: fmt(f.rolling_3y_median)+'%'}; });
+
+    /* Section 3: Scheme Information */
+    var schemeRows =
+      metricRow('Expense Ratio', funds, function(f) {
+        return {cls: (f.expense_ratio != null && f.expense_ratio < 1) ? 'peers-val-pos' : 'peers-val-neutral',
+                txt: f.expense_ratio != null ? fmt(f.expense_ratio)+'%' : '—'};
+      }) +
+      metricRow('AUM', funds, function(f) { return {cls:'peers-val-neutral', txt: fmtCcy(f.aum)}; }) +
+      metricRow('Min SIP', funds, function(f) { return {cls:'peers-val-neutral', txt: fmtSipLump(f.min_sip)}; }) +
+      metricRow('Min Lumpsum', funds, function(f) { return {cls:'peers-val-neutral', txt: fmtSipLump(f.min_lumpsum)}; }) +
+      metricRow('Lock-in', funds, function(f) { return {cls:'peers-val-neutral', txt: f.lock_in_period || 'None'}; }) +
+      metricRow('CAGR Since Inception', funds, function(f) {
+        var v = f.cagr_inception;
+        return {cls: colorClass(v), txt: v != null ? (v>=0?'+':'') + fmt(v) + '%' : '—'};
+      }) +
+      metricRow('Inception Date', funds, function(f) {
+        if (!f.inception_date) return {cls:'peers-val-neutral', txt:'—'};
+        var d = new Date(f.inception_date);
+        return {cls:'peers-val-neutral', txt: d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})};
+      }) +
+      metricRow('Fund Manager', funds, function(f) { return {cls:'peers-val-neutral', txt: f.fund_manager || '—'}; }) +
+      metricRow('CRISIL Rating', funds, function(f) { return {cls:'peers-val-neutral', txt: f.crisil_rating || '—'}; }) +
+      metricRow('Morningstar ★', funds, function(f) {
+        if (!f.ms_rating) return {cls:'peers-val-neutral', txt:'—'};
+        return {cls:'peers-val-neutral', txt: '★'.repeat(f.ms_rating) + '☆'.repeat(5-f.ms_rating)};
+      }) +
+      metricRow('Tax Treatment', funds, function(f) {
+        var cat = (f.category||'').toLowerCase();
+        var isEq = cat.indexOf('equity') >= 0 || cat.indexOf('elss') >= 0;
+        return {cls:'peers-val-neutral', txt: isEq ? 'LTCG 12.5% / STCG 20%' : 'Income slab rate'};
+      });
+
+    function tableWrap(rows) {
+      return '<div class="table-wrapper" style="overflow-x:auto"><table class="peers-compare-table"><thead>' + headerRow + '</thead><tbody>' + rows + '</tbody></table></div>';
+    }
+
+    /* Objectives */
+    var objectiveRows = '';
+    for (var oi = 0; oi < funds.length; oi++) {
+      var f = funds[oi];
+      var colCls = f.is_base ? 'peers-base-col' : '';
+      var badge = f.is_base ? '<span class="peers-badge-base">This Fund</span><br>' : '';
+      objectiveRows += '<tr><td class="peers-metric-label" style="vertical-align:top;font-size:11px"><a class="peers-fund-link" href="/funds/' + f.amfi_code + '/">' + f.scheme_name.slice(0,40) + '…</a></td>' +
+        '<td class="' + colCls + '" style="font-size:11.5px;color:var(--text-secondary);line-height:1.6;text-align:left">' + badge + (f.investment_objective || '—') + '</td></tr>';
+    }
+
+    var catLabel = data.category || data.inferred_category || '';
+    var catIsInferred = !data.category && !!data.inferred_category;
+    var peerCount = data.peer_count || 0;
+    var compareUrl = data.compare_url || '';
+
+    var categoryNote = catIsInferred
+      ? ' <span style="font-size:10px;color:var(--text-muted)">(detected from fund name)</span>'
+      : '';
+
+    var compareCTA = compareUrl
+      ? '<div style="margin-bottom:20px;padding:12px 16px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">' +
+          '<div>' +
+            '<div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:3px">🔬 Deep-dive comparison</div>' +
+            '<div style="font-size:11.5px;color:var(--text-secondary)">Use the Compare Funds tool for a full side-by-side analysis with charts, overlap and more</div>' +
+          '</div>' +
+          '<a href="' + compareUrl + '" style="white-space:nowrap;padding:7px 18px;background:var(--accent);color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:.03em">Compare in Compare Funds →</a>' +
+        '</div>'
+      : '';
+
+    var manualCompareCTA =
+      '<div style="margin-top:20px;padding:14px 16px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px">' +
+        '<div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:6px">🤝 Want to compare with a specific fund?</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">' +
+          'Peer selection above is automatic. You can manually pick any funds and compare them side-by-side in the ' +
+          '<strong>Compare Funds</strong> tool — including charts, holdings overlap, and rolling returns.' +
+        '</div>' +
+        '<a href="/calculators/compare/?funds={{ scheme.amfi_code }}" ' +
+           'style="display:inline-block;padding:7px 16px;border:1px solid var(--accent);color:var(--accent);border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">' +
+          '→ Open Compare Funds Tool' +
+        '</a>' +
+      '</div>';
+
+    document.getElementById('peers-content').innerHTML =
+      '<div style="margin-bottom:16px;padding:10px 14px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:8px;font-size:12px;color:var(--text-secondary)">' +
+        '📊 Showing <strong>' + peerCount + ' peer fund' + (peerCount!==1?'s':'') + '</strong>' +
+        (catLabel ? ' in category: <strong style="color:var(--text-primary)">' + catLabel + '</strong>' + categoryNote : '') +
+        ' &nbsp;·&nbsp; Sorted by AUM &nbsp;·&nbsp; Same plan type (Direct/Regular + Growth/IDCW)' +
+      '</div>' +
+      compareCTA +
+      '<div class="card" style="margin-bottom:20px"><div class="card-header"><div class="peers-section-header">📐 Risk Ratios</div></div><div class="card-body-tight">' + tableWrap(ratiosRows) + '</div></div>'+
+      '<div class="card" style="margin-bottom:20px"><div class="card-header"><div class="peers-section-header">📈 Returns Comparison</div></div><div class="card-body-tight"><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Trailing CAGR · computed from live NAV data</div>' + tableWrap(trailingRows + rollingRows) + '</div></div>'+
+      '<div class="card" style="margin-bottom:20px"><div class="card-header"><div class="peers-section-header">📋 Scheme Information</div></div><div class="card-body-tight">' + tableWrap(schemeRows) + '</div></div>'+
+      '<div class="card" style="margin-bottom:20px"><div class="card-header"><div class="peers-section-header">🎯 Investment Objectives</div></div><div class="card-body-tight"><div class="table-wrapper"><table class="peers-compare-table"><tbody>' + objectiveRows + '</tbody></table></div></div></div>' +
+      manualCompareCTA;
+  }
+}());
 </script>
 {% endblock %}

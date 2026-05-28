@@ -1663,6 +1663,164 @@ def _aum_cr(value: Any) -> float | None:
     return result / 10 if result > 50_000 else result
 
 
+# ── SEBI category keywords extracted from AMFI scheme names ──────────────────
+# Maps keyword tokens (lowercase, in order of specificity) that appear in the
+# fund name to a canonical category label used for grouping.
+_SEBI_KEYWORD_MAP: list[tuple[tuple[str, ...], str]] = [
+    # Thematic / Sectoral — check before generic equity
+    (("banking", "financial", "psu", "financi"), "Thematic-Banking&Financial"),
+    (("technology", "tech", "information technology", "it fund"), "Thematic-Technology"),
+    (("pharma", "healthcare", "health care"), "Thematic-Pharma"),
+    (("infrastructure", "infra"), "Thematic-Infrastructure"),
+    (("consumption", "consumer"), "Thematic-Consumption"),
+    (("energy", "power", "utilities"), "Thematic-Energy"),
+    (("mnc",), "Thematic-MNC"),
+    (("esg",), "Thematic-ESG"),
+    (("dividend",), "Thematic-Dividend"),
+    (("transportation", "logistics"), "Thematic-Transportation"),
+    (("realty", "real estate"), "Thematic-Realty"),
+    (("manufacturing",), "Thematic-Manufacturing"),
+    (("business cycle",), "Thematic-BusinessCycle"),
+    (("quant",), "Thematic-Quant"),
+    # Index / ETF / FoF
+    (("index", "nifty", "sensex", "bse"), "Index"),
+    (("etf",), "ETF"),
+    (("fund of fund", "fof", "overseas", "international", "global"), "FoF"),
+    # Hybrid
+    (("balanced advantage", "dynamic asset allocation"), "Hybrid-BalancedAdvantage"),
+    (("aggressive hybrid", "equity hybrid"), "Hybrid-Aggressive"),
+    (("conservative hybrid",), "Hybrid-Conservative"),
+    (("multi asset", "multi-asset"), "Hybrid-MultiAsset"),
+    (("arbitrage",), "Hybrid-Arbitrage"),
+    (("equity savings",), "Hybrid-EquitySavings"),
+    (("balanced hybrid",), "Hybrid-Balanced"),
+    # Equity categories — check after thematic
+    (("elss", "tax saver", "tax saving"), "Equity-ELSS"),
+    (("flexi cap", "flexicap", "multi cap", "multicap"), "Equity-FlexiCap"),
+    (("large and mid", "large & mid"), "Equity-LargeMidCap"),
+    (("large cap", "largecap", "bluechip", "blue chip"), "Equity-LargeCap"),
+    (("mid cap", "midcap", "mid-cap"), "Equity-MidCap"),
+    (("small cap", "smallcap", "small-cap"), "Equity-SmallCap"),
+    (("value fund", "value and contra", "contra fund"), "Equity-Value"),
+    (("focused fund", "focus fund"), "Equity-Focused"),
+    # Debt categories
+    (("overnight",), "Debt-Overnight"),
+    (("liquid fund", "liquid plan"), "Debt-Liquid"),
+    (("ultra short", "ultrashort"), "Debt-UltraShort"),
+    (("low duration",), "Debt-LowDuration"),
+    (("money market",), "Debt-MoneyMarket"),
+    (("short duration", "short term"), "Debt-Short"),
+    (("medium duration",), "Debt-Medium"),
+    (("medium to long", "medium and long"), "Debt-MediumLong"),
+    (("long duration", "long term"), "Debt-Long"),
+    (("dynamic bond", "dynamic debt"), "Debt-Dynamic"),
+    (("corporate bond", "corp bond"), "Debt-Corporate"),
+    (("credit risk", "credit fund"), "Debt-CreditRisk"),
+    (("banking and psu", "banking & psu"), "Debt-BankingPSU"),
+    (("gilt", "g-sec", "gsec"), "Debt-Gilt"),
+    (("floater",), "Debt-Floater"),
+    # Solution-oriented
+    (("retirement",), "Solution-Retirement"),
+    (("children", "child"), "Solution-Children"),
+]
+
+
+def _extract_category_from_name(name: str) -> str:
+    """Extract a normalised SEBI-like category label from a fund scheme name.
+
+    Returns a string such as 'Equity-FlexiCap', 'Debt-Liquid', etc., or '' if
+    no category keyword is found.
+    """
+    name_lower = name.lower()
+    for keywords, category in _SEBI_KEYWORD_MAP:
+        if any(kw in name_lower for kw in keywords):
+            return category
+    return ""
+
+
+def find_peer_funds(scheme: Scheme, max_peers: int = 5) -> list[Scheme]:
+    """Return up to *max_peers* peer Schemes in the same category from different AMCs.
+
+    3-tier strategy (in order of preference):
+    ─────────────────────────────────────────
+    Tier 1 — scheme_category DB match (fast, exact)
+        If scheme_category is populated, use it directly.
+
+    Tier 2 — name-keyword extraction (always available)
+        Parse the scheme name to determine a SEBI-like category string using
+        a hand-crafted keyword map.  Filter all DB schemes whose names contain
+        the same keywords.  This works for all funds regardless of whether
+        scheme_category is populated in the DB.
+
+    Tier 3 — scheme_type broad match (last resort)
+        If no category keywords match, fall back to scheme_type ('Open Ended
+        Schemes(Equity/ Equity related)' etc.) so we at least find same
+        asset-class funds.
+
+    All tiers:
+        • Exclude same AMC (fund_house)
+        • Exclude the fund itself
+        • Match plan (GROWTH/IDCW) and is_direct flag exactly
+        • Sort by aum_cr desc (largest peers first)
+    """
+    import re
+    amc = (scheme.fund_house or "").strip()
+    plan = scheme.plan or "GROWTH"
+    is_direct = scheme.is_direct
+    base_qs = (
+        Scheme.objects
+        .filter(plan=plan, is_direct=is_direct, is_active=True)
+        .exclude(fund_house=amc)
+        .exclude(amfi_code=scheme.amfi_code)
+    )
+
+    # ── Tier 1: scheme_category if populated ────────────────────────────────
+    category = (scheme.scheme_category or "").strip()
+    if category:
+        results = list(
+            base_qs.filter(scheme_category=category)
+            .order_by("-aum_cr", "scheme_name")[:max_peers]
+        )
+        if results:
+            return results
+
+    # ── Tier 2: name-keyword extraction ─────────────────────────────────────
+    inferred_category = _extract_category_from_name(scheme.scheme_name)
+    if inferred_category:
+        # Find the first matching keyword tuple for this category
+        matching_keywords: tuple[str, ...] = ()
+        for kws, cat in _SEBI_KEYWORD_MAP:
+            if cat == inferred_category:
+                matching_keywords = kws
+                break
+
+        if matching_keywords:
+            # Build a Q OR filter: name__icontains for each keyword
+            from django.db.models import Q
+            kw_q = Q()
+            for kw in matching_keywords:
+                kw_q |= Q(scheme_name__icontains=kw)
+
+            results = list(
+                base_qs.filter(kw_q)
+                .order_by("-aum_cr", "scheme_name")[:max_peers]
+            )
+            if results:
+                return results
+
+    # ── Tier 3: scheme_type broad match ─────────────────────────────────────
+    stype = (scheme.scheme_type or "").strip()
+    if stype:
+        results = list(
+            base_qs.filter(scheme_type=stype)
+            .order_by("-aum_cr", "scheme_name")[:max_peers]
+        )
+        if results:
+            return results
+
+    return []
+
+
 def format_lock_in(value: Any) -> str:
     days_or_years = _int(value)
     if not days_or_years:

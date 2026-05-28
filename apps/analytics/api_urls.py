@@ -18,5 +18,6 @@ urlpatterns = [
     path('funds/<str:amfi_code>/rolling/', api_views.rolling_chart_api, name='rolling'),
     path('funds/<str:amfi_code>/rolling-timeseries/', api_views.rolling_timeseries_api, name='rolling_timeseries'),
     path('funds/<str:amfi_code>/analysis/', api_views.analysis_api, name='analysis'),
+    path('funds/<str:amfi_code>/peers/', api_views.peer_comparison_api, name='peers'),
 ]
 
