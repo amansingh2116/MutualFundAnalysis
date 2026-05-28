@@ -367,6 +367,87 @@ def rolling_timeseries_api(request, amfi_code):
 
 
 @require_GET
+def analysis_api(request, amfi_code):
+    """
+    Fund analysis scorecard API.
+
+    Returns a full multi-factor scorecard for the fund:
+      - 5-pillar scores (Performance, Risk, Cost, Composition, Red Flags)
+      - Overall composite score
+      - Confidence level (Rated / Provisional / Unrated)
+      - Category rank
+      - Interpretive text per pillar
+      - Fallback notes where data is missing
+    """
+    from django.core.cache import cache as django_cache
+
+    scheme = get_scheme_or_404(amfi_code)
+    cache_key = f"fund:analysis:v1:{amfi_code}"
+    cached = django_cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
+    try:
+        from apps.funds.runtime import get_runtime_snapshot
+        from apps.analytics.scorer import score_fund, compute_category_rank
+
+        snapshot = get_runtime_snapshot(scheme)
+        result = score_fund(snapshot)
+
+        # Compute category rank separately (DB-aware)
+        rank_info = compute_category_rank(scheme, result.final_score)
+
+        def _pillar_json(p: dict) -> dict:
+            """Serialize a pillar result dict for JSON."""
+            return {
+                "score":          p.get("score"),
+                "status":         p.get("status"),
+                "interpretation": p.get("interpretation"),
+                "missing":        p.get("missing"),
+                "details":        p.get("details", {}),
+            }
+
+        payload = {
+            "amfi_code":          amfi_code,
+            "scheme_name":        scheme.scheme_name,
+            "category":           scheme.scheme_category,
+            "final_score":        result.final_score,
+            "confidence":         result.confidence,
+            "overall_badge":      result.overall_badge,
+            "overall_interpretation": result.overall_interpretation,
+            "model_version":      result.model_version,
+            "nav_days":           result.nav_days,
+            "missing_pillars":    result.missing_pillars,
+            "provisional_pillars": result.provisional_pillars,
+            "performance":        _pillar_json(result.performance),
+            "risk":               _pillar_json(result.risk),
+            "cost":               _pillar_json(result.cost),
+            "composition":        _pillar_json(result.composition),
+            "red_flags": {
+                "flags":         result.red_flags["flags"],
+                "total_penalty": result.red_flags["total_penalty"],
+            },
+            "rank": {
+                "rank":       rank_info["rank"],
+                "total":      rank_info["total"],
+                "percentile": rank_info["percentile"],
+                "category":   scheme.scheme_category,
+            },
+            # Normalized portfolio numbers for display fix
+            "normalized_top10_weight": result.normalized_top10_weight,
+            "normalized_total_count":  result.normalized_total_count,
+        }
+
+        ttl = 60 * 60 * 6 if result.confidence == "RATED" else 60 * 30
+        django_cache.set(cache_key, payload, ttl)
+        return JsonResponse(payload)
+
+    except Exception as exc:
+        logger.error(f"[{amfi_code}] analysis_api failed: {exc}", exc_info=True)
+        return JsonResponse({"error": str(exc), "amfi_code": amfi_code}, status=500)
+
+
+@require_GET
 def rolling_chart_api(request, amfi_code):
     """Rolling return distribution for chart rendering.
 

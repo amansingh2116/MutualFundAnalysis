@@ -45,6 +45,47 @@ FINAPI_TTL = 60 * 60 * 6
 BENCHMARK_TTL = 60 * 60 * 6
 
 
+def _normalize_portfolio_weights(holdings: list, sectors: list) -> tuple[list, list]:
+    """
+    Detect and fix weight-unit bugs in holdings/sector data.
+
+    Data sources sometimes return weights in inconsistent units:
+      - Fraction form: 0.0843 should be 8.43%  (handled by per-source adapters)
+      - Already percentage: 8.43%               (correct)
+      - Double-multiplied: 843% or 84.3 still stored as-is but sum > 100
+
+    Strategy: if the total of all holding weights deviates far from 100,
+    normalize by rescaling to sum = 100.
+    """
+    def _fix(items, attr="weight_pct"):
+        if not items:
+            return items
+        total = sum(getattr(h, attr, 0) or 0 for h in items)
+        if total <= 0:
+            return items
+        # Weights should sum to ~100. Allow 10% slack (90–110).
+        if 90 <= total <= 110:
+            return items  # already correct
+        # Normalize: scale each weight so total = 100
+        factor = 100.0 / total
+        corrected = []
+        for h in items:
+            w = getattr(h, attr, None)
+            if w is not None:
+                try:
+                    object.__setattr__(h, attr, round(w * factor, 4))
+                except AttributeError:
+                    try:
+                        setattr(h, attr, round(w * factor, 4))
+                    except Exception:
+                        pass
+            corrected.append(h)
+        return corrected
+
+    return _fix(holdings), _fix(sectors)
+
+
+
 def ns(**kwargs):
     return SimpleNamespace(**kwargs)
 
@@ -80,9 +121,13 @@ def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
     if not portfolio.get("holdings") and not portfolio.get("sectors"):
         portfolio = fetch_db_portfolio(scheme)
 
+    raw_holdings = portfolio.get("holdings", [])
+    raw_sectors  = portfolio.get("sectors", [])
+    holdings_normalized, sectors_normalized = _normalize_portfolio_weights(raw_holdings, raw_sectors)
+
     result = ns(
-        top_holdings=portfolio.get("holdings", []),
-        sector_alloc=portfolio.get("sectors", []),
+        top_holdings=holdings_normalized,
+        sector_alloc=sectors_normalized,
         asset_alloc=portfolio.get("asset_alloc"),
         holdings_month=portfolio.get("as_of"),
         portfolio_source=portfolio.get("source", ""),
@@ -145,6 +190,17 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         manager_source = "captnemo"
     elif yahoo.get("fund_manager"):
         manager_source = "yahooquery"
+    
+    # ── Normalize portfolio weights (fix double-multiplication bugs) ───────────
+    raw_holdings = portfolio.get("holdings", [])
+    raw_sectors  = portfolio.get("sectors", [])
+    holdings_normalized, sectors_normalized = _normalize_portfolio_weights(raw_holdings, raw_sectors)
+
+    _top10_weight_raw = sum(
+        getattr(h, "weight_pct", 0) or 0 for h in holdings_normalized[:10]
+    )
+    # Guard: if still implausibly large after normalization, don't display
+    _top10_weight = round(_top10_weight_raw, 2) if 0 < _top10_weight_raw <= 100 else None
 
     snapshot = ns(
         scheme=scheme,
@@ -171,12 +227,13 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         risk_5y=risk.get("5Y"),
         drawdown=drawdown,
         yearly_risk=yearly_risk,
-        top_holdings=portfolio.get("holdings", []),
-        sector_alloc=portfolio.get("sectors", []),
+        top_holdings=holdings_normalized,
+        sector_alloc=sectors_normalized,
         asset_alloc=portfolio.get("asset_alloc"),
         holdings_month=portfolio.get("as_of"),
-        top10_weight=round(sum(h.weight_pct for h in portfolio.get("holdings", [])[:10]), 2),
-        total_holdings_count=len(portfolio.get("holdings", [])),
+        top10_weight=_top10_weight,
+        total_holdings_count=len(holdings_normalized),
+
         managers=managers,
         manager_cards=[
             ns(

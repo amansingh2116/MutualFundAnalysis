@@ -119,7 +119,7 @@ function renderSectorChart(el, { sectors }) {
     hovertemplate: '%{label}<br>%{value:.1f}%<extra></extra>',
     marker: { colors: SECTOR_COLORS },
   };
-  Plotly.newPlot(el, [trace], { ...mergePlotlyLayout({ margin: { l: 0, r: 0, t: 0, b: 0 } }), showlegend: true, legend: { orientation: 'v', x: 0.55, y: 0.5, font: { size: 10 } }, height: 260 }, MF_PLOTLY_CONFIG);
+  Plotly.newPlot(el, [trace], { ...mergePlotlyLayout({ margin: { l: 10, r: 140, t: 10, b: 10 } }), showlegend: true, legend: { orientation: 'v', x: 1.05, y: 0.5, yanchor: 'middle', font: { size: 10 } }, height: 260 }, MF_PLOTLY_CONFIG);
 }
 
 // ── Calendar Return Chart ──────────────────────────────────────

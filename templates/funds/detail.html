@@ -76,14 +76,15 @@
   </div>
 </div>
 
-<!-- 6-Tab Navigation -->
+<!-- 7-Tab Navigation -->
 <div class="tabs" id="fund-tabs">
   <button class="tab-btn active" data-tab="tab-overview">📋 Overview</button>
   <button class="tab-btn" data-tab="tab-performance">📈 Performance</button>
   <button class="tab-btn" data-tab="tab-risk">⚡ Risk</button>
   <button class="tab-btn" data-tab="tab-portfolio">🏗️ Portfolio</button>
-  <button class="tab-btn" data-tab="tab-costs">💰 Costs & Rules</button>
+  <button class="tab-btn" data-tab="tab-costs">💰 Costs &amp; Rules</button>
   <button class="tab-btn" data-tab="tab-managers">👤 Managers</button>
+  <button class="tab-btn" data-tab="tab-analysis" id="tab-btn-analysis">🧠 Analysis</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
@@ -532,8 +533,10 @@
     <div class="card-header"><div class="card-title">Portfolio Summary</div></div>
     <div class="metrics-dl">
       <div><div class="metric-key">Total Holdings</div><div class="metric-val">{{ total_holdings_count|default:"—" }}</div></div>
-      <div><div class="metric-key">Top 10 Weight</div><div class="metric-val">{{ top10_weight|floatformat:2|default:"—" }}%</div></div>
-      <div><div class="metric-key">Portfolio Turnover</div><div class="metric-val">{{ portfolio_turnover|default:"—" }}%</div></div>
+      <div><div class="metric-key">Top 10 Weight</div><div class="metric-val">
+        {% if top10_weight %}{{ top10_weight|floatformat:2 }}%{% else %}—{% endif %}
+      </div></div>
+      <div><div class="metric-key">Portfolio Turnover</div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:2 }}%{% else %}—{% endif %}</div></div>
     </div>
   </div>
 
@@ -727,6 +730,201 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 7: ANALYSIS SCORECARD -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-analysis">
+
+  <!-- Loading state -->
+  <div id="analysis-loading" style="text-align:center;padding:60px 0">
+    <div class="spinner" style="margin:0 auto 16px"></div>
+    <div style="font-size:13px;color:var(--text-muted)">Computing fund scorecard…</div>
+  </div>
+
+  <!-- Error state -->
+  <div id="analysis-error" style="display:none">
+    <div class="alert alert-warning">⚠️ Unable to compute scorecard right now. Please try again later.</div>
+  </div>
+
+  <!-- Scorecard content (rendered by JS) -->
+  <div id="analysis-content" style="display:none">
+
+    <!-- ── Hero Score Card ─────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,var(--bg-elevated) 0%,rgba(99,102,241,0.08) 100%);border:1px solid rgba(99,102,241,0.3)">
+      <div class="card-body" style="display:flex;align-items:center;gap:32px;flex-wrap:wrap;padding:28px">
+        <!-- Gauge -->
+        <div style="flex-shrink:0;text-align:center">
+          <svg id="score-gauge" width="140" height="140" viewBox="0 0 140 140" style="display:block;margin:0 auto">
+            <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(148,163,184,0.12)" stroke-width="12"/>
+            <circle id="score-arc" cx="70" cy="70" r="58" fill="none" stroke="#6366f1" stroke-width="12"
+                    stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4"
+                    transform="rotate(-90 70 70)" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke .5s"/>
+            <text id="score-gauge-text" x="70" y="70" text-anchor="middle" dominant-baseline="central"
+                  font-size="28" font-weight="800" fill="#f1f5f9" font-family="Inter,sans-serif">—</text>
+            <text x="70" y="92" text-anchor="middle" font-size="10" fill="#64748b" font-family="Inter,sans-serif">/100</text>
+          </svg>
+          <div id="score-badge-label" style="font-size:12px;font-weight:700;margin-top:6px;letter-spacing:.05em"></div>
+        </div>
+        <!-- Text summary -->
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:6px">Overall Score</div>
+          <div style="font-size:15px;font-weight:600;line-height:1.6;color:var(--text-primary)" id="overall-interp"></div>
+          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap" id="meta-badges"></div>
+        </div>
+        <!-- Rank -->
+        <div id="rank-card" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px 24px;text-align:center;flex-shrink:0">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Category Rank</div>
+          <div id="rank-display" style="font-size:32px;font-weight:800;color:#6366f1;line-height:1">—</div>
+          <div id="rank-total" style="font-size:11px;color:var(--text-muted);margin-top:2px"></div>
+          <div id="rank-category" style="font-size:10px;color:var(--text-muted);margin-top:6px;max-width:140px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Pillar Cards Grid ────────────────────────────────────── -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:20px">
+
+      <!-- Performance -->
+      <div class="card" id="card-performance">
+        <div class="card-header">
+          <div class="card-title">📈 Performance</div>
+          <span id="badge-performance" class="pill"></span>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:10px;border-radius:5px">
+                <div id="bar-performance" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
+              </div>
+            </div>
+            <div id="score-performance" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div id="interp-performance" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
+          <div id="details-performance" class="metrics-dl" style="gap:6px"></div>
+          <div id="missing-performance" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Risk -->
+      <div class="card" id="card-risk">
+        <div class="card-header">
+          <div class="card-title">⚡ Risk / Stability</div>
+          <span id="badge-risk" class="pill"></span>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:10px;border-radius:5px">
+                <div id="bar-risk" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
+              </div>
+            </div>
+            <div id="score-risk" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div id="interp-risk" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
+          <div id="details-risk" class="metrics-dl" style="gap:6px"></div>
+          <div id="missing-risk" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Cost -->
+      <div class="card" id="card-cost">
+        <div class="card-header">
+          <div class="card-title">💰 Cost</div>
+          <span id="badge-cost" class="pill"></span>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:10px;border-radius:5px">
+                <div id="bar-cost" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
+              </div>
+            </div>
+            <div id="score-cost" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div id="interp-cost" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
+          <div id="details-cost" class="metrics-dl" style="gap:6px"></div>
+          <div id="missing-cost" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Composition -->
+      <div class="card" id="card-composition">
+        <div class="card-header">
+          <div class="card-title">🏗️ Composition</div>
+          <span id="badge-composition" class="pill"></span>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:10px;border-radius:5px">
+                <div id="bar-composition" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
+              </div>
+            </div>
+            <div id="score-composition" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div id="interp-composition" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
+          <div id="details-composition" class="metrics-dl" style="gap:6px"></div>
+          <div id="missing-composition" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
+        </div>
+      </div>
+
+    </div><!-- /pillar grid -->
+
+    <!-- ── Red Flags Panel ─────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:20px" id="red-flags-card">
+      <div class="card-header">
+        <div class="card-title">🚩 Red Flags</div>
+        <span id="red-flag-summary" class="pill"></span>
+      </div>
+      <div class="card-body" id="red-flags-body">
+        <div style="font-size:12px;color:var(--text-muted)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── Score Weight Breakdown ──────────────────────────────── -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">Score Composition</div></div>
+      <div class="card-body">
+        <div style="display:flex;gap:6px;height:20px;border-radius:6px;overflow:hidden" id="score-breakdown-bar"></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px" id="score-breakdown-legend"></div>
+      </div>
+    </div>
+
+    <!-- ── Methodology Note ────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header" style="cursor:pointer" onclick="toggleMethodology()">
+        <div class="card-title">📖 How We Score — Methodology &amp; Model Notes</div>
+        <span style="font-size:11px;color:var(--text-muted)" id="methodology-toggle-label">Show ▼</span>
+      </div>
+      <div id="methodology-body" style="display:none">
+        <div class="card-body" style="font-size:12px;color:var(--text-secondary);line-height:1.8">
+          <p><strong>Model Version:</strong> <span id="model-ver"></span> &nbsp;·&nbsp; <strong>NAV Days:</strong> <span id="nav-days-display"></span></p>
+          <h4 style="color:var(--text-primary);margin:12px 0 6px">Scoring Framework</h4>
+          <p>This scorecard uses a <strong>category-normalized, multi-factor model</strong> to evaluate funds across 5 independent pillars. Each pillar is scored 0–100 and combined using fixed weights:</p>
+          <ul style="padding-left:18px;margin:6px 0">
+            <li><strong>Performance (30%)</strong> — Trailing CAGR (1Y/3Y/5Y), rolling win rate, excess return vs benchmark.</li>
+            <li><strong>Risk / Stability (28%)</strong> — Sortino ratio, max drawdown, downside capture ratio, Sharpe ratio. Emphasises downside control over total volatility.</li>
+            <li><strong>Cost (12%)</strong> — Expense ratio vs category-type norms, AUM size factor.</li>
+            <li><strong>Composition (15%)</strong> — Top-10 concentration, total holdings count, sector HHI (diversification index).</li>
+            <li><strong>Red Flag Penalty (up to −15 pts)</strong> — Structural risks deducted from the composite: missing benchmark, very high ER, low AUM, extreme concentration, insufficient data.</li>
+          </ul>
+          <h4 style="color:var(--text-primary);margin:12px 0 6px">Normalization &amp; Fallbacks</h4>
+          <p>Each metric is linearly normalized to [0, 100] using fixed thresholds calibrated for the Indian mutual fund market. When data is missing for a pillar, the score for that pillar is excluded and weights are redistributed across available pillars. The confidence level (<strong>Rated / Provisional / Unrated</strong>) reflects data coverage.</p>
+          <h4 style="color:var(--text-primary);margin:12px 0 6px">Category Rank</h4>
+          <p>The fund is ranked among peers in the same SEBI category (Direct/Regular separated) using pre-computed analytics stored in our database. Peer count reflects funds in our database, not the total universe.</p>
+          <p style="margin-top:10px"><a href="/docs/SCORING_MODEL.md" target="_blank" style="color:var(--indigo-400)">→ Full model documentation (SCORING_MODEL.md)</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Disclaimer ──────────────────────────────────────────── -->
+    <div class="alert alert-warning" style="margin-bottom:20px;font-size:12px;line-height:1.7">
+      <strong>⚠️ Important Disclaimer:</strong> This scorecard is generated automatically using a quantitative model based on historical data. <strong>It is not investment advice.</strong> Past performance does not guarantee future results. The model uses price-index benchmarks (not TRI), and data gaps may affect accuracy. Scores change as new data is published. Always consult a <strong>SEBI-registered financial advisor</strong> before making investment decisions. This tool is for educational and informational purposes only.
+    </div>
+
+  </div><!-- /#analysis-content -->
+</div><!-- /#tab-analysis -->
+
 {% endblock %}
 
 {% block extra_js %}
@@ -760,6 +958,15 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('sector-chart').__loaded = true;
     }
   });
+
+  // Load analysis scorecard when tab is clicked (lazy, once)
+  document.querySelector('[data-tab="tab-analysis"]')?.addEventListener('click', () => {
+    if (!document.getElementById('tab-analysis').__analysisLoaded) {
+      document.getElementById('tab-analysis').__analysisLoaded = true;
+      loadAnalysisScorecard();
+    }
+  });
+
 
   // NAV range buttons
   document.querySelectorAll('.nav-range-btn').forEach(btn => {
@@ -818,7 +1025,239 @@ async function simulateSIP() {
 </script>
 
 <script>
+// ═══════════════════════════════════════════════════════════════
+// Analysis Scorecard JS
+// ═══════════════════════════════════════════════════════════════
+
+function toggleMethodology() {
+  const body = document.getElementById('methodology-body');
+  const lbl  = document.getElementById('methodology-toggle-label');
+  if (body.style.display === 'none') {
+    body.style.display = 'block'; lbl.textContent = 'Hide ▲';
+  } else {
+    body.style.display = 'none'; lbl.textContent = 'Show ▼';
+  }
+}
+
+const BADGE_COLORS = {
+  strong: '#10b981', good: '#6366f1', fair: '#f59e0b',
+  weak: '#f97316', poor: '#ef4444', 'n/a': '#64748b',
+};
+const PILLAR_META = {
+  performance:  { label: 'Performance',  color: '#6366f1', weight: 0.30 },
+  risk:         { label: 'Risk',         color: '#34d399', weight: 0.28 },
+  cost:         { label: 'Cost',         color: '#f59e0b', weight: 0.12 },
+  composition:  { label: 'Composition',  color: '#f87171', weight: 0.15 },
+};
+const CONFIDENCE_STYLES = {
+  RATED:       { label: 'Rated',       bg: 'rgba(16,185,129,0.15)',  color: '#10b981', emoji: '✅' },
+  PROVISIONAL: { label: 'Provisional', bg: 'rgba(245,158,11,0.15)',  color: '#f59e0b', emoji: '⚠️' },
+  UNRATED:     { label: 'Unrated',     bg: 'rgba(100,116,139,0.15)', color: '#64748b', emoji: '⚪' },
+};
+
+function _pillBadge(text, bg, color) {
+  return `<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${bg};color:${color}">${text}</span>`;
+}
+
+function renderAnalysisPillar(name, data) {
+  const score = data.score;
+  const status = data.status || 'UNRATED';
+  const badgeEl   = document.getElementById(`badge-${name}`);
+  const barEl     = document.getElementById(`bar-${name}`);
+  const scoreEl   = document.getElementById(`score-${name}`);
+  const interpEl  = document.getElementById(`interp-${name}`);
+  const detailsEl = document.getElementById(`details-${name}`);
+  const missingEl = document.getElementById(`missing-${name}`);
+
+  if (!badgeEl) return;
+
+  // Score and bar
+  const displayScore = score != null ? Math.round(score) : null;
+  scoreEl.textContent = displayScore != null ? displayScore : '—';
+
+  const pct = displayScore ?? 0;
+  const barColor = pct >= 75 ? '#10b981' : pct >= 55 ? '#6366f1' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  setTimeout(() => { if (barEl) barEl.style.width = pct + '%'; barEl.style.background = barColor; }, 50);
+
+  // Badge
+  const badgeLabel = score != null
+    ? (pct >= 75 ? 'Strong' : pct >= 55 ? 'Good' : pct >= 40 ? 'Fair' : pct >= 25 ? 'Weak' : 'Poor')
+    : status === 'UNRATED' ? 'Unrated' : 'Provisional';
+  const badgeColor = score != null
+    ? (pct >= 75 ? '#10b981' : pct >= 55 ? '#6366f1' : pct >= 40 ? '#f59e0b' : '#ef4444')
+    : '#64748b';
+  badgeEl.innerHTML = _pillBadge(badgeLabel, `${badgeColor}22`, badgeColor);
+
+  // Interpretation
+  if (interpEl) interpEl.textContent = data.interpretation || '';
+
+  // Details table
+  if (detailsEl && data.details) {
+    detailsEl.innerHTML = Object.values(data.details).map(d => {
+      const val = d.value != null ? (typeof d.value === 'number' ? d.value.toFixed(2) : d.value) : '—';
+      const scoreStr = d.score != null ? ` <span style="color:#64748b;font-size:10px">(score: ${Math.round(d.score)})</span>` : '';
+      const bench = d.benchmark ? `<br><span style="font-size:10px;color:#64748b">${d.benchmark}</span>` : '';
+      return `<div><div class="metric-key">${d.label}</div><div class="metric-val" style="font-size:13px">${val}${scoreStr}${bench}</div></div>`;
+    }).join('');
+  }
+
+  // Missing note
+  if (missingEl) {
+    missingEl.textContent = data.missing ? '⚠️ ' + data.missing : '';
+  }
+}
+
+function renderGauge(score) {
+  const arc  = document.getElementById('score-arc');
+  const text = document.getElementById('score-gauge-text');
+  const lbl  = document.getElementById('score-badge-label');
+  if (!arc) return;
+
+  const circumference = 2 * Math.PI * 58; // 364.4
+  if (score != null) {
+    const offset = circumference * (1 - score / 100);
+    const color = score >= 75 ? '#10b981' : score >= 55 ? '#6366f1' : score >= 40 ? '#f59e0b' : '#ef4444';
+    arc.style.stroke = color;
+    setTimeout(() => { arc.style.strokeDashoffset = offset; }, 100);
+    text.textContent = Math.round(score);
+    const badge = score >= 75 ? {label:'Strong',color:'#10b981'} : score >= 55 ? {label:'Good',color:'#6366f1'} : score >= 40 ? {label:'Fair',color:'#f59e0b'} : {label:'Weak',color:'#ef4444'};
+    lbl.textContent = badge.label;
+    lbl.style.color = badge.color;
+  } else {
+    text.textContent = '—';
+    lbl.textContent = 'Unrated';
+    lbl.style.color = '#64748b';
+  }
+}
+
+function renderRank(rankData) {
+  const rankEl = document.getElementById('rank-display');
+  const totalEl = document.getElementById('rank-total');
+  const catEl = document.getElementById('rank-category');
+  if (!rankEl) return;
+  if (rankData && rankData.rank) {
+    rankEl.textContent = '#' + rankData.rank;
+    totalEl.textContent = `of ${rankData.total} funds`;
+    catEl.textContent = rankData.category || '';
+  } else {
+    rankEl.textContent = '—';
+    totalEl.textContent = 'Rank unavailable';
+    catEl.textContent = '';
+  }
+}
+
+function renderRedFlags(rfData) {
+  const body = document.getElementById('red-flags-body');
+  const summary = document.getElementById('red-flag-summary');
+  if (!body) return;
+  const flags = rfData.flags || [];
+  if (!flags.length) {
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#10b981"><span style="font-size:18px">✅</span> No red flags detected — fund passes all structural checks.</div>`;
+    if (summary) summary.innerHTML = _pillBadge('Clean', 'rgba(16,185,129,0.15)', '#10b981');
+    return;
+  }
+  const sevIcon = {critical:'🔴',warning:'🟡',info:'ℹ️'};
+  body.innerHTML = flags.map(f => `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border-subtle)">
+      <span style="font-size:16px;flex-shrink:0">${sevIcon[f.severity]||'⚠️'}</span>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.label} <span style="font-size:11px;color:#ef4444;font-weight:700">−${f.penalty} pts</span></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${f.note}</div>
+      </div>
+    </div>`).join('');
+  const penalty = rfData.total_penalty || 0;
+  if (summary) summary.innerHTML = _pillBadge(
+    `${flags.length} flag${flags.length>1?'s':''} (−${penalty} pts)`,
+    'rgba(239,68,68,0.15)', '#ef4444'
+  );
+}
+
+function renderScoreBreakdown(data) {
+  const bar = document.getElementById('score-breakdown-bar');
+  const legend = document.getElementById('score-breakdown-legend');
+  if (!bar || !legend) return;
+  const pillars = [
+    { key:'performance', ...PILLAR_META.performance },
+    { key:'risk',        ...PILLAR_META.risk },
+    { key:'cost',        ...PILLAR_META.cost },
+    { key:'composition', ...PILLAR_META.composition },
+  ];
+  const total = pillars.reduce((s, p) => s + (data[p.key]?.score != null ? p.weight : 0), 0) || 1;
+  bar.innerHTML = pillars.map(p => {
+    const score = data[p.key]?.score;
+    const flex = (p.weight / total * 100).toFixed(1);
+    const opacity = score != null ? 1 : 0.3;
+    return `<div style="flex:${flex};background:${p.color};opacity:${opacity};border-radius:2px" title="${p.label}: ${score != null ? Math.round(score) : 'N/A'}"></div>`;
+  }).join('');
+  legend.innerHTML = pillars.map(p => {
+    const score = data[p.key]?.score;
+    return `<div style="display:flex;align-items:center;gap:4px">
+      <div style="width:10px;height:10px;border-radius:2px;background:${p.color}"></div>
+      <span style="color:var(--text-muted)">${p.label} (${(p.weight*100).toFixed(0)}%)</span>
+      <span style="font-weight:700;color:var(--text-primary)">${score != null ? Math.round(score) : '—'}</span>
+    </div>`;
+  }).join('');
+}
+
+async function loadAnalysisScorecard() {
+  const loading = document.getElementById('analysis-loading');
+  const errBox  = document.getElementById('analysis-error');
+  const content = document.getElementById('analysis-content');
+  if (!loading) return;
+
+  loading.style.display = 'block';
+  errBox.style.display  = 'none';
+  content.style.display = 'none';
+
+  try {
+    const resp = await fetch(`/api/funds/${AMFI_CODE}/analysis/`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const d = await resp.json();
+    if (d.error) throw new Error(d.error);
+
+    loading.style.display = 'none';
+    content.style.display = 'block';
+
+    // Gauge + overall
+    renderGauge(d.final_score);
+    document.getElementById('overall-interp').textContent = d.overall_interpretation || '';
+
+    // Meta badges
+    const metaBadges = document.getElementById('meta-badges');
+    const cs = CONFIDENCE_STYLES[d.confidence] || CONFIDENCE_STYLES.UNRATED;
+    metaBadges.innerHTML = _pillBadge(`${cs.emoji} ${cs.label}`, cs.bg, cs.color)
+      + (d.nav_days ? _pillBadge(`${d.nav_days} NAV days`, 'rgba(99,102,241,0.1)', '#6366f1') : '')
+      + (d.missing_pillars?.length ? _pillBadge(`${d.missing_pillars.length} pillar(s) unrated`, 'rgba(239,68,68,0.1)', '#ef4444') : '');
+
+    // Model metadata
+    const mv = document.getElementById('model-ver');
+    const nd = document.getElementById('nav-days-display');
+    if (mv) mv.textContent = d.model_version || '—';
+    if (nd) nd.textContent = d.nav_days ? `${d.nav_days} trading days (~${(d.nav_days/252).toFixed(1)} years)` : '—';
+
+    // Pillars
+    ['performance','risk','cost','composition'].forEach(p => renderAnalysisPillar(p, d[p] || {}));
+
+    // Red flags
+    renderRedFlags(d.red_flags || {flags:[], total_penalty:0});
+
+    // Score breakdown bar
+    renderScoreBreakdown(d);
+
+    // Category rank
+    renderRank(d.rank || {});
+
+  } catch(e) {
+    loading.style.display = 'none';
+    errBox.style.display  = 'block';
+    errBox.querySelector('.alert').textContent = `⚠️ Error loading scorecard: ${e.message}`;
+  }
+}
+</script>
+
+<script>
 function renderRollingChart(el, data) {
+
   if (!data || !data.windows || !data.windows.length) {
     el.innerHTML = '<div class="chart-placeholder" style="min-height:280px"><span style="font-size:12px;color:var(--text-muted)">Rolling chart data unavailable.</span></div>';
     return;
