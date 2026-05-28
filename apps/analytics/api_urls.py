@@ -13,4 +13,5 @@ urlpatterns = [
     path('funds/<str:amfi_code>/holdings/', api_views.holdings_api, name='holdings'),
     path('funds/<str:amfi_code>/sector/', api_views.sector_api, name='sector'),
     path('funds/<str:amfi_code>/sip/', api_views.sip_simulate_api, name='sip'),
+    path('funds/<str:amfi_code>/rolling/', api_views.rolling_chart_api, name='rolling'),
 ]

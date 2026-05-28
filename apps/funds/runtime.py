@@ -59,7 +59,7 @@ def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
     indices) so the Portfolio tab renders quickly, even when the full snapshot
     is still being built in the background.
     """
-    cache_key = f"fund:portfolio:v2:{scheme.amfi_code}"
+    cache_key = f"fund:portfolio:v3:{scheme.amfi_code}"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -93,7 +93,7 @@ def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
 
 
 def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
-    cache_key = f"fund:snapshot:v8:{scheme.amfi_code}"
+    cache_key = f"fund:snapshot:v9:{scheme.amfi_code}"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -130,13 +130,14 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
     meta = build_meta(scheme, mfapi_meta, db_meta, captnemo, yahoo, nav_series)
     trailing = compute_trailing_returns(nav_series, benchmark_series) or fetch_db_trailing_returns(scheme)
     calendar = compute_calendar_returns(nav_series, benchmark_series) or fetch_db_calendar_returns(scheme)
-    rolling = compute_rolling_returns(nav_series) or fetch_db_rolling_returns(scheme)
+    rolling = compute_rolling_returns(nav_series, benchmark_series) or fetch_db_rolling_returns(scheme)
     risk = compute_risk_metrics(nav_series, benchmark_series)
     if not risk or not risk.get("3Y") or risk["3Y"].beta is None:
         db_risk = fetch_db_risk_metrics(scheme)
         if db_risk and db_risk.get("3Y"):
             risk = db_risk
     drawdown = compute_drawdown(nav_series)
+    yearly_risk = compute_yearly_risk_metrics(nav_series, benchmark_series)
 
     managers = split_manager_names(str(getattr(meta, "fund_manager", "") or ""))
     manager_source = ""
@@ -169,10 +170,13 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         risk_3y=risk.get("3Y"),
         risk_5y=risk.get("5Y"),
         drawdown=drawdown,
+        yearly_risk=yearly_risk,
         top_holdings=portfolio.get("holdings", []),
         sector_alloc=portfolio.get("sectors", []),
         asset_alloc=portfolio.get("asset_alloc"),
         holdings_month=portfolio.get("as_of"),
+        top10_weight=round(sum(h.weight_pct for h in portfolio.get("holdings", [])[:10]), 2),
+        total_holdings_count=len(portfolio.get("holdings", [])),
         managers=managers,
         manager_cards=[
             ns(
@@ -1178,30 +1182,133 @@ def compute_calendar_returns(nav: pd.Series, bm: pd.Series) -> list[SimpleNamesp
     return sorted(rows, key=lambda r: r.year, reverse=True)
 
 
-def compute_rolling_returns(nav: pd.Series) -> dict[str, SimpleNamespace]:
+def compute_rolling_returns(nav: pd.Series, bm: pd.Series | None = None) -> dict[str, SimpleNamespace]:
     result = {}
     if nav.empty or not isinstance(nav.index, pd.DatetimeIndex):
         return result
     daily = nav.resample("B").ffill().dropna()
-    for window, days in [("1Y", 252), ("3Y", 756), ("5Y", 1260)]:
+    # Align benchmark if provided
+    bm_daily = bm.resample("B").ffill().dropna() if bm is not None and not bm.empty else pd.Series(dtype=float)
+
+    for window, days in [("1Y", 252), ("2Y", 504), ("3Y", 756), ("5Y", 1260), ("7Y", 1764), ("10Y", 2520)]:
         if len(daily) <= days:
             continue
         rolling = ((daily / daily.shift(days)) ** (252 / days) - 1) * 100
         rolling = rolling.dropna()
         if rolling.empty:
             continue
+
+        # Benchmark rolling stats
+        bm_min = bm_max = bm_mean = bm_median = outperformance_rate = None
+        if len(bm_daily) > days:
+            bm_rolling = ((bm_daily / bm_daily.shift(days)) ** (252 / days) - 1) * 100
+            bm_rolling = bm_rolling.dropna()
+            if not bm_rolling.empty:
+                aligned = pd.concat([rolling.rename("fund"), bm_rolling.rename("bm")], axis=1, join="inner").dropna()
+                if not aligned.empty:
+                    bm_min = float(aligned["bm"].min())
+                    bm_max = float(aligned["bm"].max())
+                    bm_mean = float(aligned["bm"].mean())
+                    bm_median = float(aligned["bm"].median())
+                    outperformance_rate = float((aligned["fund"] > aligned["bm"]).mean() * 100)
+
         result[window] = ns(
             window=window,
             window_days=days,
             min_pct=float(rolling.min()),
             max_pct=float(rolling.max()),
             mean_pct=float(rolling.mean()),
+            median_pct=float(rolling.median()),
             std_dev=float(rolling.std()),
             win_rate_0=float((rolling > 0).mean() * 100),
+            win_rate_8=float((rolling > 8).mean() * 100),
             win_rate_12=float((rolling > 12).mean() * 100),
+            bm_min=bm_min,
+            bm_max=bm_max,
+            bm_mean=bm_mean,
+            bm_median=bm_median,
+            outperformance_rate=outperformance_rate,
             as_of=nav.index[-1].date(),
         )
     return result
+
+
+def compute_yearly_risk_metrics(nav: pd.Series, bm: pd.Series | None = None) -> list[SimpleNamespace]:
+    """Per-calendar-year fund vs benchmark risk breakdown.
+
+    Returns a list of SimpleNamespace (one per year), sorted newest-first.
+    Partial first year is included and labelled with `is_partial=True`.
+    """
+    if nav.empty or not isinstance(nav.index, pd.DatetimeIndex):
+        return []
+    rf = float(getattr(settings, "RF_ANNUAL_RATE", 0.065))
+    bm_daily = bm.resample("B").ffill().dropna() if bm is not None and not bm.empty else pd.Series(dtype=float)
+
+    start_year = nav.index[0].year
+    end_year = nav.index[-1].year
+    rows = []
+
+    for year in range(end_year, start_year - 1, -1):
+        y_start = pd.Timestamp(f"{year}-01-01")
+        y_end = pd.Timestamp(f"{year}-12-31")
+        s = nav[(nav.index >= y_start) & (nav.index <= y_end)]
+        if len(s) < 20:
+            continue
+        is_partial = (year == start_year and nav.index[0].month > 1)
+
+        ret = s.pct_change().dropna()
+        std = float(ret.std() * np.sqrt(252) * 100) if len(ret) > 5 else None
+        fund_cagr = cagr_for_window(s, s.index[0], s.index[-1])
+        ann_ret = fund_cagr or 0
+        downside = ret[ret < 0].std() * np.sqrt(252) * 100 if len(ret) > 5 else None
+        sharpe = ((ann_ret - rf * 100) / std) if std else None
+        sortino = ((ann_ret - rf * 100) / downside) if downside else None
+        dd_list = compute_drawdown(s)
+        max_dd = min((d.drawdown for d in dd_list), default=None)
+
+        bm_cagr = alpha = beta = upside_cap = downside_cap = bm_std = None
+        if not bm_daily.empty:
+            b = bm_daily[(bm_daily.index >= y_start) & (bm_daily.index <= y_end)]
+            if len(b) > 20:
+                bm_cagr = cagr_for_window(b, b.index[0], b.index[-1])
+                bm_ret = b.pct_change().dropna()
+                bm_std = float(bm_ret.std() * np.sqrt(252) * 100)
+                aligned_prices = pd.concat(
+                    [s.resample("B").ffill().rename("fund"), b.resample("B").ffill().rename("bm")],
+                    axis=1, join="inner",
+                ).dropna()
+                aligned = aligned_prices.pct_change().dropna()
+                if len(aligned) > 10:
+                    var = aligned["bm"].var()
+                    if var:
+                        cov = aligned.cov().loc["fund", "bm"]
+                        beta = cov / var
+                        bm_ann = ((1 + aligned["bm"]).prod() ** (252 / len(aligned)) - 1) * 100
+                        alpha = ann_ret - (rf * 100 + beta * (bm_ann - rf * 100))
+                    up = aligned[aligned["bm"] > 0]
+                    down = aligned[aligned["bm"] < 0]
+                    upside_cap = (up["fund"].mean() / up["bm"].mean() * 100) if len(up) and up["bm"].mean() else None
+                    downside_cap = (down["fund"].mean() / down["bm"].mean() * 100) if len(down) and down["bm"].mean() else None
+
+        rows.append(ns(
+            year=year,
+            is_partial=is_partial,
+            days=len(s),
+            fund_cagr=fund_cagr,
+            bm_cagr=bm_cagr,
+            alpha=alpha,
+            beta=beta,
+            std_dev=std,
+            bm_std=bm_std,
+            sharpe=sharpe,
+            sortino=sortino,
+            max_drawdown=max_dd,
+            upside_capture=upside_cap,
+            downside_capture=downside_cap,
+            beat_benchmark=(fund_cagr > bm_cagr) if fund_cagr is not None and bm_cagr is not None else None,
+        ))
+
+    return rows
 
 
 def compute_risk_metrics(nav: pd.Series, bm: pd.Series) -> dict[str, SimpleNamespace]:
@@ -1315,7 +1422,17 @@ def fetch_benchmark_result(name: str | None, nav: pd.Series) -> SimpleNamespace:
                 series=series,
             )
 
-    series, candidate = fetch_yahoo_history_for_benchmark(name, start_date=start.date(), min_rows=2)
+    import concurrent.futures
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            future = ex.submit(fetch_yahoo_history_for_benchmark, name, start_date=start.date(), min_rows=2)
+            series, candidate = future.result(timeout=12)
+    except concurrent.futures.TimeoutError:
+        logger.info("Benchmark fetch timed out for %s (>12s)", name)
+        series, candidate = pd.Series(dtype=float), None
+    except Exception as exc:
+        logger.info("Benchmark fetch error for %s: %s", name, exc)
+        series, candidate = pd.Series(dtype=float), None
     if candidate is not None and len(series) >= 2:
         fallback_used = candidate.is_fallback or candidate.is_proxy
         if candidate.is_proxy:

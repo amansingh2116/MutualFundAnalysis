@@ -216,43 +216,54 @@
   <div class="card" style="margin-bottom:20px">
     <div class="card-header"><div class="card-title">Rolling Return Statistics</div></div>
     <div class="card-body-tight">
-      {% if rolling_1y or rolling_3y or rolling_5y %}
-      <table>
-        <thead><tr><th>Window</th><th>Min</th><th>Max</th><th>Mean</th><th>Std Dev</th><th>Win Rate (>0%)</th><th>Win Rate (>12%)</th></tr></thead>
+      {% if rolling_returns %}
+      <table style="font-size:12px">
+        <thead>
+          <tr>
+            <th>Window</th>
+            <th>Min</th>
+            <th>Max</th>
+            <th>Median</th>
+            <th>Mean</th>
+            <th>Win Rate (>0%)</th>
+            <th>Win Rate (>8%)</th>
+            <th>BM Median</th>
+            <th>BM Mean</th>
+            <th title="% of rolling periods where fund beat benchmark">Outperform %</th>
+          </tr>
+        </thead>
         <tbody>
-          {% if rolling_1y %}<tr>
-            <td style="font-weight:600">1Y Rolling</td>
-            <td class="negative">{{ rolling_1y.min_pct|floatformat:2 }}%</td>
-            <td class="positive">{{ rolling_1y.max_pct|floatformat:2 }}%</td>
-            <td>{{ rolling_1y.mean_pct|floatformat:2 }}%</td>
-            <td>{{ rolling_1y.std_dev|floatformat:2 }}%</td>
-            <td class="positive">{{ rolling_1y.win_rate_0|floatformat:1 }}%</td>
-            <td>{{ rolling_1y.win_rate_12|floatformat:1 }}%</td>
-          </tr>{% endif %}
-          {% if rolling_3y %}<tr>
-            <td style="font-weight:600">3Y Rolling</td>
-            <td class="negative">{{ rolling_3y.min_pct|floatformat:2 }}%</td>
-            <td class="positive">{{ rolling_3y.max_pct|floatformat:2 }}%</td>
-            <td>{{ rolling_3y.mean_pct|floatformat:2 }}%</td>
-            <td>{{ rolling_3y.std_dev|floatformat:2 }}%</td>
-            <td class="positive">{{ rolling_3y.win_rate_0|floatformat:1 }}%</td>
-            <td>{{ rolling_3y.win_rate_12|floatformat:1 }}%</td>
-          </tr>{% endif %}
-          {% if rolling_5y %}<tr>
-            <td style="font-weight:600">5Y Rolling</td>
-            <td class="negative">{{ rolling_5y.min_pct|floatformat:2 }}%</td>
-            <td class="positive">{{ rolling_5y.max_pct|floatformat:2 }}%</td>
-            <td>{{ rolling_5y.mean_pct|floatformat:2 }}%</td>
-            <td>{{ rolling_5y.std_dev|floatformat:2 }}%</td>
-            <td class="positive">{{ rolling_5y.win_rate_0|floatformat:1 }}%</td>
-            <td>{{ rolling_5y.win_rate_12|floatformat:1 }}%</td>
-          </tr>{% endif %}
+          {% for window, r in rolling_returns.items %}
+          <tr>
+            <td style="font-weight:600;white-space:nowrap">{{ r.window }} Rolling</td>
+            <td class="negative">{{ r.min_pct|floatformat:2 }}%</td>
+            <td class="positive">{{ r.max_pct|floatformat:2 }}%</td>
+            <td class="{% if r.median_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.median_pct|floatformat:2 }}%</td>
+            <td>{{ r.mean_pct|floatformat:2 }}%</td>
+            <td class="positive">{{ r.win_rate_0|floatformat:1 }}%</td>
+            <td>{{ r.win_rate_8|floatformat:1 }}%</td>
+            <td class="muted">{% if r.bm_median %}{{ r.bm_median|floatformat:2 }}%{% else %}—{% endif %}</td>
+            <td class="muted">{% if r.bm_mean %}{{ r.bm_mean|floatformat:2 }}%{% else %}—{% endif %}</td>
+            <td class="{% if r.outperformance_rate and r.outperformance_rate > 50 %}positive{% else %}{% if r.outperformance_rate %}negative{% else %}muted{% endif %}{% endif %}">
+              {% if r.outperformance_rate %}{{ r.outperformance_rate|floatformat:1 }}%{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
       {% else %}
       <div class="chart-placeholder" style="min-height:80px"><span style="font-size:12px;color:var(--text-muted)">Rolling returns not computed yet.</span></div>
       {% endif %}
     </div>
+  </div>
+
+  <!-- Rolling Returns Chart -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <div class="card-title">Rolling Returns Distribution</div>
+      <div style="font-size:11px;color:var(--text-muted)">Annualised return range across all rolling windows. Bar = mean, error bar = min/max. BM shown in outline.</div>
+    </div>
+    <div id="rolling-chart" style="height:320px"></div>
   </div>
 
   <!-- SIP Simulator -->
@@ -338,8 +349,64 @@
     {% endif %}
   </div>
 
+  <!-- Market Volatility & Capture Ratios -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><div class="card-title">Market Volatility Measures (3Y)</div></div>
+    <div class="metrics-dl">
+      <div><div class="metric-key">Upside Capture</div><div class="metric-val positive">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}%</div></div>
+      <div><div class="metric-key">Downside Capture</div><div class="metric-val negative">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}%</div></div>
+      <div><div class="metric-key">Max Drawdown</div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%</div></div>
+    </div>
+  </div>
+
+  <!-- Year-wise Fund vs Benchmark Risk Table -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><div class="card-title">Year-wise Risk Metrics</div></div>
+    <div class="card-body-tight">
+      {% if yearly_risk %}
+      <div class="table-wrapper">
+        <table style="font-size:12px">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Fund CAGR</th>
+              <th>BM CAGR</th>
+              <th>Alpha</th>
+              <th>Beta</th>
+              <th>Sharpe</th>
+              <th>Sortino</th>
+              <th>Max DD</th>
+              <th>Upside Cap</th>
+              <th>Downside Cap</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for yr in yearly_risk %}
+            <tr {% if yr.fund_cagr and yr.bm_cagr and yr.fund_cagr > yr.bm_cagr %}style="background:rgba(16,185,129,.06)"{% elif yr.fund_cagr and yr.bm_cagr %}style="background:rgba(239,68,68,.04)"{% endif %}>
+              <td style="font-weight:700">{{ yr.year }}{% if yr.is_partial %}<sup title="Partial year">*</sup>{% endif %}</td>
+              <td class="{% if yr.fund_cagr and yr.fund_cagr >= 0 %}positive{% else %}negative{% endif %}">{% if yr.fund_cagr %}{{ yr.fund_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="muted">{% if yr.bm_cagr %}{{ yr.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="{% if yr.alpha and yr.alpha >= 0 %}positive{% else %}negative{% endif %}">{% if yr.alpha %}{{ yr.alpha|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="muted">{% if yr.beta %}{{ yr.beta|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td>{% if yr.sharpe %}{{ yr.sharpe|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td>{% if yr.sortino %}{{ yr.sortino|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td class="negative">{% if yr.max_drawdown %}{{ yr.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="positive">{% if yr.upside_capture %}{{ yr.upside_capture|floatformat:1 }}%{% else %}—{% endif %}</td>
+              <td class="negative">{% if yr.downside_capture %}{{ yr.downside_capture|floatformat:1 }}%{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if yearly_risk.0.is_partial %}<div style="font-size:11px;color:var(--text-muted);padding:8px">* Partial year</div>{% endif %}
+      {% else %}
+      <div class="chart-placeholder" style="min-height:80px"><span style="font-size:12px;color:var(--text-muted)">Yearly risk data unavailable.</span></div>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- Drawdown Chart -->
-  <div class="card">
+  <div class="card" style="margin-top:20px">
     <div class="card-header"><div class="card-title">Drawdown Chart</div></div>
     <div id="drawdown-chart" style="height:280px"></div>
   </div>
@@ -391,6 +458,16 @@
         <div class="chart-placeholder" style="min-height:120px"><span style="font-size:12px;color:var(--text-muted)">Asset allocation is not available from the on-demand sources for this plan.</span></div>
         {% endif %}
       </div>
+    </div>
+  </div>
+
+  <!-- Portfolio Summary Stats -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><div class="card-title">Portfolio Summary</div></div>
+    <div class="metrics-dl">
+      <div><div class="metric-key">Total Holdings</div><div class="metric-val">{{ total_holdings_count|default:"—" }}</div></div>
+      <div><div class="metric-key">Top 10 Weight</div><div class="metric-val">{{ top10_weight|floatformat:2|default:"—" }}%</div></div>
+      <div><div class="metric-key">Portfolio Turnover</div><div class="metric-val">{{ portfolio_turnover|default:"—" }}%</div></div>
     </div>
   </div>
 
@@ -599,6 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('returns-bar-chart').__loaded) {
       loadChart('returns-bar-chart', `/api/funds/${AMFI_CODE}/returns/`, (el, d) => renderReturnsChart(el, d));
       loadChart('calendar-chart', `/api/funds/${AMFI_CODE}/calendar/`, (el, d) => renderCalendarChart(el, d));
+      loadChart('rolling-chart', `/api/funds/${AMFI_CODE}/rolling/`, (el, d) => renderRollingChart(el, d));
       document.getElementById('returns-bar-chart').__loaded = true;
     }
   });
@@ -670,6 +748,90 @@ async function simulateSIP() {
       <div id="sip-donut" style="height:220px"></div>`;
     renderSIPChart(document.getElementById('sip-donut'), d);
   } catch { result.innerHTML = `<div class="alert alert-danger">Simulation failed. Ensure NAV data is loaded.</div>`; }
+}
+</script>
+
+<script>
+function renderRollingChart(el, data) {
+  if (!data || !data.windows || !data.windows.length) {
+    el.innerHTML = '<div class="chart-placeholder" style="min-height:280px"><span style="font-size:12px;color:var(--text-muted)">Rolling chart data unavailable.</span></div>';
+    return;
+  }
+  const windows = data.windows;
+  const labels = windows.map(w => w.window + ' Rolling');
+  const bm_name = data.benchmark_name || 'Benchmark';
+
+  const fundBar = {
+    name: 'Fund Mean',
+    x: labels,
+    y: windows.map(w => w.mean),
+    type: 'bar',
+    marker: { color: 'rgba(99,102,241,0.85)', line: { color: 'rgba(99,102,241,1)', width: 1 } },
+    error_y: {
+      type: 'data',
+      symmetric: false,
+      array: windows.map(w => w.max - w.mean),
+      arrayminus: windows.map(w => w.mean - w.min),
+      visible: true,
+      color: 'rgba(99,102,241,0.5)',
+      thickness: 2,
+      width: 6,
+    },
+    text: windows.map(w => `Mean: ${w.mean.toFixed(1)}%<br>Median: ${w.median.toFixed(1)}%<br>Min: ${w.min.toFixed(1)}%<br>Max: ${w.max.toFixed(1)}%<br>Win>8%: ${w.win_rate_8}%`),
+    hoverinfo: 'text+name',
+  };
+
+  const bmBar = {
+    name: bm_name + ' Mean',
+    x: labels,
+    y: windows.map(w => w.bm_mean),
+    type: 'bar',
+    marker: { color: 'rgba(251,191,36,0.4)', line: { color: 'rgba(251,191,36,0.9)', width: 1.5 } },
+    error_y: {
+      type: 'data',
+      symmetric: false,
+      array: windows.map(w => w.bm_max != null ? w.bm_max - w.bm_mean : null),
+      arrayminus: windows.map(w => w.bm_min != null ? w.bm_mean - w.bm_min : null),
+      visible: true,
+      color: 'rgba(251,191,36,0.5)',
+      thickness: 2,
+      width: 6,
+    },
+    text: windows.map(w => w.bm_mean != null ? `BM Mean: ${w.bm_mean.toFixed(1)}%<br>Outperform: ${w.outperformance_rate ?? '—'}%` : 'No benchmark data'),
+    hoverinfo: 'text+name',
+  };
+
+  const outLine = {
+    name: 'Outperformance %',
+    x: labels,
+    y: windows.map(w => w.outperformance_rate),
+    type: 'scatter',
+    mode: 'lines+markers',
+    yaxis: 'y2',
+    line: { color: 'rgba(16,185,129,0.9)', width: 2, dash: 'dot' },
+    marker: { size: 8, color: 'rgba(16,185,129,1)' },
+    hovertemplate: '%{y:.1f}% of periods fund beat BM<extra></extra>',
+  };
+
+  const layout = {
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    font: { color: '#94a3b8', size: 11 },
+    barmode: 'group',
+    bargap: 0.25,
+    bargroupgap: 0.08,
+    legend: { x: 0, y: 1.12, orientation: 'h', font: { size: 11 } },
+    margin: { t: 30, r: 60, b: 40, l: 50 },
+    xaxis: { showgrid: false, zeroline: false },
+    yaxis: { title: 'Annualised Return (%)', gridcolor: 'rgba(148,163,184,0.08)', zeroline: true, zerolinecolor: 'rgba(148,163,184,0.2)' },
+    yaxis2: { title: '% Periods Outperforming', overlaying: 'y', side: 'right', range: [0, 110], showgrid: false, tickformat: '.0f', ticksuffix: '%' },
+  };
+
+  const traces = [fundBar];
+  if (windows.some(w => w.bm_mean != null)) traces.push(bmBar);
+  if (windows.some(w => w.outperformance_rate != null)) traces.push(outLine);
+
+  Plotly.newPlot(el, traces, layout, { responsive: true, displayModeBar: false });
 }
 </script>
 {% endblock %}

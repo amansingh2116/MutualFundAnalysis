@@ -228,3 +228,39 @@ def sip_simulate_api(request, amfi_code):
 
     # Convert numpy types for JSON serialization
     return JsonResponse({k: float(v) if hasattr(v, '__float__') else v for k, v in result.items()})
+
+
+@require_GET
+def rolling_chart_api(request, amfi_code):
+    """Rolling return distribution for chart rendering.
+
+    Returns percentile boxes per window (fund + benchmark) so the frontend
+    can draw a grouped box / bar chart without re-computing anything heavy.
+    """
+    scheme = get_scheme_or_404(amfi_code)
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
+    windows = []
+    for key, r in (snapshot.rolling_returns or {}).items():
+        windows.append({
+            'window': r.window,
+            'min': round(r.min_pct, 2),
+            'max': round(r.max_pct, 2),
+            'mean': round(r.mean_pct, 2),
+            'median': round(r.median_pct, 2),
+            'std': round(r.std_dev, 2),
+            'win_rate_0': round(r.win_rate_0, 1),
+            'win_rate_8': round(r.win_rate_8, 1),
+            'win_rate_12': round(r.win_rate_12, 1),
+            'bm_min': round(r.bm_min, 2) if r.bm_min is not None else None,
+            'bm_max': round(r.bm_max, 2) if r.bm_max is not None else None,
+            'bm_mean': round(r.bm_mean, 2) if r.bm_mean is not None else None,
+            'bm_median': round(r.bm_median, 2) if r.bm_median is not None else None,
+            'outperformance_rate': round(r.outperformance_rate, 1) if r.outperformance_rate is not None else None,
+        })
+    return JsonResponse({
+        'windows': windows,
+        'benchmark_name': snapshot.benchmark_display_name,
+    })
+

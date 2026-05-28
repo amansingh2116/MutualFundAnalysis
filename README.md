@@ -57,9 +57,23 @@ This project has successfully transitioned from a design workspace into a functi
 
 **Core Features Implemented:**
 - **On-Demand Runtime Data Architecture:** Keeps only lightweight scheme data locally, then fetches NAV, metadata, holdings, sectors, and allocations on demand from AMFI, `mfapi.in`, `captnemo`, `mstarpy`, `yahooquery`, and `yfinance`.
-- **Advanced Analytics Engine:** Uses vectorized Pandas operations to calculate Rolling Returns, Sharpe, Sortino, Alpha, Beta, Max Drawdown, and Trailing Returns dynamically.
+- **Advanced Analytics Engine:** Uses vectorized Pandas operations to calculate Rolling Returns (with win rates, medians, and outperformance), Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, and Trailing Returns dynamically.
+- **Year-wise Fund vs Benchmark Breakdown:** Risk and performance are now sliced by calendar year, comparing fund outcomes directly with their respective benchmarks.
 - **Screener & Fund Compare:** Real-time HTMX-powered screening and side-by-side comparison.
 - **PDF Reports:** 1-click export of beautifully formatted fund fact sheets.
+
+### Known Limitations & Future Roadmap
+Due to the constraints of relying on public unauthenticated APIs and on-demand data fetching, the following features are **intentionally deferred** to a future phase:
+
+- **Category Average Comparisons** — No unified database of historical category averages yet; fund-vs-peer comparisons require a scheduled ingestion pipeline.
+- **Fund Screener** — The screener module has been removed in the current version; a rebuilt screener with proper pre-computed metrics is planned.
+- **Peer Finding and Comparison** — Cross-fund peer ranking relies on having pre-computed metrics for all funds in a category.
+- **Data-based Relative Fund Ranking** — A rules-based model combining returns, risk, cost, and consistency requires a full category dataset.
+- **Individual Stock Holding Analysis** — Deep-dive analysis of each underlying stock (P/E, growth, etc.) is not yet integrated.
+- **Holdings Change Over Time** — Tracking how a fund's portfolio composition changes quarter-over-quarter is deferred.
+- **Portfolio Overlap Analysis** — Identifying common holdings between two funds requires bulk holdings data for all funds simultaneously.
+- **AI/ML-Assisted Fund Selection** — Explainable AI guidance is planned only after the deterministic metrics are fully validated.
+- **Total Return Index (TRI) Benchmarks** — Index history currently fetches price data only, not TRI (which includes dividends and is ~1–2% higher annually). SEBI mandates TRI for official benchmark comparison.
 
 For a deep-dive into the technical architecture, data flow, and code structure, please read the newly added **[`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md)**.
 

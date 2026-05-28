@@ -91,7 +91,8 @@ BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
     ),
     "NIFTY SMALLCAP 50": BenchmarkDefinition(
         "NIFTY SMALLCAP 50",
-        ("NIFTYSMLCAP50.NS",),
+        # NIFTYSMLCAP50.NS is delisted on Yahoo — ^CNXSC (Smallcap 100) used as closest proxy
+        ("^CNXSC", "NIFTYSMLCAP50.NS"),
         aliases=("NIFTY SMLCAP 50", "SMALLCAP 50"),
         nse_name="NIFTY SMLCAP 50",
     ),
@@ -356,21 +357,38 @@ def fetch_yahoo_history_for_benchmark(
     end_date: date | str | None = None,
     period: str = "max",
     min_rows: int = 2,
-) -> tuple[pd.Series, BenchmarkCandidate | None]:
+    deadline: "float | None" = None,
+) -> "tuple[pd.Series, BenchmarkCandidate | None]":
+    import time
+    if deadline is None:
+        deadline = time.monotonic() + 10  # 10-second hard cap on the whole benchmark fetch
+
     for candidate in iter_benchmark_candidates(name):
         series = fetch_yahoo_history_for_candidate(candidate, start_date=start_date, end_date=end_date, period=period, min_rows=min_rows)
         if not series.empty:
             series.attrs["benchmark_candidate"] = candidate
             return series, candidate
-    series, candidate = fetch_niftyindices_history_for_benchmark(name, start_date=start_date, end_date=end_date, min_rows=min_rows)
+
+    import time as _time
+    if _time.monotonic() >= deadline:
+        logger.info("Benchmark fetch deadline exceeded for %s (skipping niftyindices+nse)", name)
+        return pd.Series(dtype=float), None
+
+    series, candidate = fetch_niftyindices_history_for_benchmark(name, start_date=start_date, end_date=end_date, min_rows=min_rows, deadline=deadline)
     if not series.empty:
         series.attrs["benchmark_candidate"] = candidate
         return series, candidate
+
+    if _time.monotonic() >= deadline:
+        logger.info("Benchmark fetch deadline exceeded for %s (skipping nse)", name)
+        return pd.Series(dtype=float), None
+
     series, candidate = fetch_nse_history_for_benchmark(name, start_date=start_date, end_date=end_date, min_rows=min_rows)
     if not series.empty:
         series.attrs["benchmark_candidate"] = candidate
         return series, candidate
     return pd.Series(dtype=float), None
+
 
 
 def fetch_yahoo_history_for_candidate(
@@ -504,6 +522,7 @@ def fetch_niftyindices_history_for_benchmark(
     start_date: date | str | None = None,
     end_date: date | str | None = None,
     min_rows: int = 2,
+    deadline: "float | None" = None,
 ) -> tuple[pd.Series, BenchmarkCandidate | None]:
     canonical = normalize_benchmark_name(name)
     if not canonical:
@@ -537,10 +556,14 @@ def fetch_niftyindices_history_for_benchmark(
 
     rows = []
     try:
+        import time as _time
         session = _make_niftyindices_session()
         index_name = _niftyindices_trading_name(session, requested_index)
         chunk_start = start
         while chunk_start <= end:
+            if deadline is not None and _time.monotonic() >= deadline:
+                logger.info("Nifty Indices deadline exceeded for %s, aborting chunk loop", requested_index)
+                break
             chunk_end = min(chunk_start + timedelta(days=365), end)
             rows.extend(_fetch_niftyindices_rows(session, index_name, requested_index, chunk_start, chunk_end))
             chunk_start = chunk_end + timedelta(days=1)
@@ -608,7 +631,7 @@ def _fetch_niftyindices_rows_once(
         )
     }
     last_exc: Exception | None = None
-    for timeout in (12, 24):
+    for timeout in (5, 8):
         try:
             response = session.post(
                 f"{NIFTYINDICES_BASE}/Backpage.aspx/getHistoricaldatatabletoString",
