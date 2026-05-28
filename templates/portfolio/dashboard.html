@@ -55,12 +55,21 @@
       </div>
       <div class="stat-card">
         <div class="stat-label">Absolute Return
-          <button class="info-btn" aria-label="Absolute Return" data-t-title="Absolute Return (%)" data-t-what="The simple percentage growth of your portfolio (Total Gain divided by Total Invested). Doesn't account for the time period of your investments. For annualised returns, see XIRR in the Analytics tab.">ⓘ</button>
+          <button class="info-btn" aria-label="Absolute Return" data-t-title="Absolute Return (%)" data-t-what="The simple percentage growth of your portfolio (Total Gain divided by Total Invested). Doesn't account for the time period of your investments.">ⓘ</button>
         </div>
         <div class="stat-value" style="font-size:22px;color:{% if abs_return >= 0 %}var(--emerald-400){% else %}var(--red-400){% endif %}">
           {% if abs_return >= 0 %}+{% endif %}{{ abs_return|floatformat:2 }}%
         </div>
         <div class="stat-card-icon">📊</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Portfolio XIRR
+          <button class="info-btn" aria-label="Portfolio XIRR" data-t-title="Portfolio XIRR" data-t-what="Extended Internal Rate of Return — the true annualised growth rate of your portfolio accounting for the exact timing of every investment and redemption.">ⓘ</button>
+        </div>
+        <div class="stat-value" style="font-size:22px;color:{% if portfolio_xirr and portfolio_xirr >= 0 %}var(--emerald-400){% elif portfolio_xirr %}var(--red-400){% endif %}">
+          {% if portfolio_xirr %}{{ portfolio_xirr|floatformat:2 }}%{% else %}—{% endif %}
+        </div>
+        <div class="stat-card-icon">⚡</div>
       </div>
     </div>
 
@@ -87,10 +96,10 @@
               <th>Fund Name</th>
               <th>Units</th>
               <th>Invested</th>
-              <th>Latest NAV</th>
               <th>Current Value</th>
               <th>Gain/Loss</th>
-              <th>Return %</th>
+              <th>Abs. Return %</th>
+              <th>XIRR</th>
             </tr>
           </thead>
           <tbody>
@@ -102,13 +111,15 @@
               </td>
               <td class="muted">{{ f.units|floatformat:4 }}</td>
               <td>₹{{ f.invested|floatformat:0 }}</td>
-              <td class="muted">{% if f.nav_latest %}₹{{ f.nav_latest|floatformat:4 }}{% else %}—{% endif %}</td>
               <td>{% if f.current_value %}₹{{ f.current_value|floatformat:0 }}{% else %}<span class="muted">—</span>{% endif %}</td>
               <td class="{% if f.gain and f.gain >= 0 %}positive{% elif f.gain %}negative{% else %}muted{% endif %}">
                 {% if f.gain %}{% if f.gain >= 0 %}+{% endif %}₹{{ f.gain|floatformat:0 }}{% else %}—{% endif %}
               </td>
               <td class="{% if f.gain_pct and f.gain_pct >= 0 %}positive{% elif f.gain_pct %}negative{% else %}muted{% endif %}">
                 {% if f.gain_pct %}{% if f.gain_pct >= 0 %}+{% endif %}{{ f.gain_pct|floatformat:2 }}%{% else %}—{% endif %}
+              </td>
+              <td class="{% if f.xirr and f.xirr >= 0 %}positive{% elif f.xirr %}negative{% else %}muted{% endif %}" style="font-weight:600">
+                {% if f.xirr %}{% if f.xirr >= 0 %}+{% endif %}{{ f.xirr|floatformat:2 }}%{% else %}<span class="muted">—</span>{% endif %}
               </td>
             </tr>
             {% empty %}
@@ -268,10 +279,51 @@
         </div>
     </div>
 
+    <!-- Portfolio Composition Analysis -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <div class="card-title">🥧 Portfolio Composition</div>
+            <span class="pill pill-gray">{{ composition.num_funds }} funds</span>
+        </div>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px">
+                <!-- Asset Allocation -->
+                <div>
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:12px">Asset Class Allocation</div>
+                    <div id="asset-alloc-chart" style="height:220px"></div>
+                </div>
+                <!-- Sector Allocation -->
+                <div>
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:12px">Fund Category Breakdown</div>
+                    <div id="sector-alloc-chart" style="height:220px"></div>
+                </div>
+            </div>
+            <!-- Concentration & Turnover -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+                <div class="stat-card" style="padding:16px">
+                    <div class="stat-label" style="font-size:10px">Concentration (HHI)</div>
+                    <div class="stat-value" style="font-size:18px;margin:6px 0">{{ composition.hhi }}</div>
+                    <div style="font-size:11px;color:{% if composition.hhi < 0.3 %}var(--emerald-400){% elif composition.hhi < 0.6 %}#f59e0b{% else %}var(--red-400){% endif %};font-weight:600">{{ composition.concentration_label }}</div>
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:4px">0 = perfect diversification · 1 = single fund</div>
+                </div>
+                <div class="stat-card" style="padding:16px">
+                    <div class="stat-label" style="font-size:10px">Buy Transactions (12M)</div>
+                    <div class="stat-value" style="font-size:28px;margin:6px 0">{{ composition.turnover_buys_12m }}</div>
+                    <div style="font-size:11px;color:var(--text-muted)">purchases in last 12 months</div>
+                </div>
+                <div class="stat-card" style="padding:16px">
+                    <div class="stat-label" style="font-size:10px">Active Funds</div>
+                    <div class="stat-value" style="font-size:28px;margin:6px 0">{{ composition.num_funds }}</div>
+                    <div style="font-size:11px;color:{% if composition.num_funds <= 8 %}var(--emerald-400){% else %}#f59e0b{% endif %}">{% if composition.num_funds <= 4 %}Highly focused{% elif composition.num_funds <= 8 %}Well managed{% else %}Consider consolidating{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Interactive Forecasting Dashboard -->
     <div class="card" style="margin-bottom: 24px;">
         <div class="card-header">
-            <div class="card-title">🔮 Interactive Portfolio Forecasting & Trend Engine</div>
+            <div class="card-title">🔮 Interactive Portfolio Forecasting &amp; Trend Engine</div>
             <span class="pill pill-indigo">Simulator</span>
         </div>
         <div class="card-body">
@@ -480,6 +532,50 @@ document.addEventListener("DOMContentLoaded", function() {
         Plotly.newPlot('journey-chart', [trace1, trace2], layout, {responsive: true});
     } else {
         document.getElementById('journey-chart').innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Not enough data for chart.</div>';
+    }
+
+    // ── Composition Charts ──────────────────────────────────────────────────
+    const assetClasses = {{ composition.asset_classes|safe }};
+    const sectors = {{ composition.sectors|safe }};
+    const baseLayout = {
+        margin: {l: 10, r: 10, t: 10, b: 10},
+        paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+        font: {color: '#94a3b8', size: 11},
+        legend: {orientation: 'v', x: 1, xanchor: 'left', y: 0.5, font: {size: 10}},
+        showlegend: true,
+    };
+    const palette = ['#6366f1','#10b981','#f59e0b','#ef4444','#a855f7','#3b82f6','#14b8a6','#f97316'];
+
+    if (Object.keys(assetClasses).length) {
+        Plotly.newPlot('asset-alloc-chart', [{
+            labels: Object.keys(assetClasses),
+            values: Object.values(assetClasses),
+            type: 'pie', hole: 0.55,
+            textinfo: 'percent',
+            textposition: 'inside',
+            marker: {colors: palette},
+        }], {...baseLayout, margin: {l:10,r:120,t:10,b:10}}, {displayModeBar: false, responsive: true});
+    }
+
+    if (Object.keys(sectors).length) {
+        const sKeys = Object.keys(sectors);
+        const sVals = Object.values(sectors);
+        Plotly.newPlot('sector-alloc-chart', [{
+            x: sVals.map(v => parseFloat(v.toFixed(1))),
+            y: sKeys,
+            type: 'bar',
+            orientation: 'h',
+            marker: {color: palette, opacity: 0.85},
+            text: sVals.map(v => v.toFixed(1) + '%'),
+            textposition: 'outside',
+        }], {
+            ...baseLayout,
+            margin: {l: 110, r: 50, t: 10, b: 20},
+            xaxis: {showgrid: false, zeroline: false, showticklabels: false},
+            yaxis: {showgrid: false, zeroline: false, tickfont: {size: 11}},
+            showlegend: false,
+            bargap: 0.3,
+        }, {displayModeBar: false, responsive: true});
     }
 });
 

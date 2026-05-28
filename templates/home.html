@@ -74,33 +74,6 @@
   </a>
 </div>
 
-<!-- Popular Categories -->
-<div class="card" style="margin-bottom:20px">
-  <div class="card-header">
-    <div class="card-title">Browse by Category</div>
-    <a href="{% url 'funds:category_list' %}" class="btn btn-secondary btn-sm">All Categories →</a>
-  </div>
-  <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px">
-    {% for cat in categories %}
-    <a href="{% url 'funds:category_list' %}?category={{ cat.scheme_category|urlencode }}"
-       class="filter-chip">
-      {{ cat.scheme_category|truncatechars:50 }}
-      {% if cat.count %}<span style="opacity:.5;margin-left:4px">({{ cat.count }})</span>{% endif %}
-    </a>
-    {% empty %}
-    <!-- Static categories when DB is empty - these link to fund detail on-demand -->
-    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Large+Cap+Fund" class="filter-chip">🔵 Large Cap</a>
-    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Mid+Cap+Fund" class="filter-chip">🟡 Mid Cap</a>
-    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Small+Cap+Fund" class="filter-chip">🟠 Small Cap</a>
-    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Flexi+Cap+Fund" class="filter-chip">🌈 Flexi Cap</a>
-    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+ELSS" class="filter-chip">💚 ELSS (Tax Saving)</a>
-    <a href="{% url 'funds:category_list' %}?category=Hybrid+Scheme+-+Aggressive+Hybrid+Fund" class="filter-chip">⚖️ Aggressive Hybrid</a>
-    <a href="{% url 'funds:category_list' %}?category=Debt+Scheme+-+Liquid+Fund" class="filter-chip">💧 Liquid</a>
-    <a href="{% url 'funds:category_list' %}?category=Debt+Scheme+-+Short+Duration+Fund" class="filter-chip">⏱️ Short Duration</a>
-    <a href="{% url 'funds:category_list' %}?category=Equity+Scheme+-+Index+Funds" class="filter-chip">📊 Index Funds</a>
-    {% endfor %}
-  </div>
-</div>
 
 <!-- Popular Funds Quick Links (static, loads on-demand) -->
 <div class="card">

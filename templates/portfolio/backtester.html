@@ -314,11 +314,6 @@
 
   <!-- Search -->
   <div class="section-label">Add Fund or Index</div>
-  <div class="search-type-toggle">
-    <button class="type-btn active" data-type="all" onclick="setSearchType('all',this)">All</button>
-    <button class="type-btn" data-type="scheme" onclick="setSearchType('scheme',this)">🏦 MF</button>
-    <button class="type-btn" data-type="index" onclick="setSearchType('index',this)">📈 Index</button>
-  </div>
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
     <input type="text" id="fund-search" placeholder="Search mutual funds or indices…" autocomplete="off">
@@ -334,7 +329,19 @@
   </div>
 
   <!-- Portfolio Settings -->
-  <div class="section-label">Rebalancing</div>
+  <div class="section-label">Simulation Date Range</div>
+  <div class="setting-grid" style="margin-bottom:10px">
+    <div class="setting-field">
+      <label>Start Date</label>
+      <input type="date" id="bt-start-date" class="bt-input" placeholder="Inception date">
+    </div>
+    <div class="setting-field">
+      <label>End Date</label>
+      <input type="date" id="bt-end-date" class="bt-input" placeholder="Today">
+    </div>
+  </div>
+
+  <div class="section-label">Rebalancing <button class="info-btn" aria-label="Rebalancing" data-t-title="Rebalancing Strategy" data-t-what="How the backtester maintains your portfolio's target asset allocation (determined by your initial SIP weights).">ⓘ</button></div>
   <div class="setting-grid">
     <div class="setting-field">
       <label>Mode</label>
@@ -352,7 +359,7 @@
       </select>
     </div>
     <div class="setting-field" id="rebal-thresh-wrap" style="display:none">
-      <label>Drift Threshold (%)</label>
+      <label style="display:flex;align-items:center;gap:4px">Drift Threshold (%) <button class="info-btn" aria-label="Drift Threshold" data-t-title="Drift Threshold" data-t-what="The maximum allowed deviation from your target allocation. If a fund's weight drifts by more than this percentage, a rebalance is triggered.">ⓘ</button></label>
       <input type="number" id="rebal-threshold" class="bt-input" value="5" min="1" max="30">
     </div>
   </div>
@@ -388,7 +395,7 @@
   
   <!-- Synthetic Debt Return Slider -->
   <div class="setting-field" style="margin-top:8px;margin-bottom:12px">
-    <label style="font-size:10px;color:var(--text-muted)">Synthetic Debt Return Rate (p.a.)</label>
+    <label style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px">Synthetic Debt Return Rate (p.a.) <button class="info-btn" aria-label="Synthetic Debt Return" data-t-title="Synthetic Debt Return" data-t-what="If you don't select a specific Debt Parking Fund above, parked cash will earn this fixed annualised return, compounded daily.">ⓘ</button></label>
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
       <input type="range" id="debt-return-rate" min="2" max="15" step="0.5" value="7.0" style="flex:1"
         oninput="document.getElementById('debt-return-val').textContent=this.value+'%'">
@@ -400,7 +407,7 @@
   </div>
 
   <div class="setting-field">
-    <label style="font-size:10px;color:var(--text-muted)">Vol Threshold — Strategy 3</label>
+    <label style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px">Vol Threshold — Strategy 3 <button class="info-btn" aria-label="Volatility Threshold" data-t-title="Volatility Threshold" data-t-what="Used by the 'Volatility Control' overlay. If the equity index's short-term volatility exceeds this annualised threshold, SIPs are paused and redirected to debt to avoid turbulent markets.">ⓘ</button></label>
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
       <input type="range" id="vol-thresh" min="5" max="50" value="20" style="flex:1"
         oninput="document.getElementById('vol-thresh-val').textContent=this.value+'%'">
@@ -472,11 +479,11 @@
     <!-- Overview Tab -->
     <div class="bt-pane active" id="pane-overview">
       <div class="chart-box">
-        <div class="chart-box-title">Portfolio Growth — Base Plan</div>
+        <div class="chart-box-title">Portfolio Growth — Base Plan <button class="info-btn" aria-label="Portfolio Growth" data-t-title="Portfolio Growth" data-t-what="Visualises how your portfolio value has grown over time compared to the total amount of money you invested.">ⓘ</button></div>
         <div id="chart-growth" style="height:320px"></div>
       </div>
       <div class="chart-box">
-        <div class="chart-box-title">Calendar Year Returns</div>
+        <div class="chart-box-title">Calendar Year Returns <button class="info-btn" aria-label="Calendar Year Returns" data-t-title="Calendar Year Returns" data-t-what="The time-weighted return of your portfolio strategy for each calendar year.">ⓘ</button></div>
         <div id="cal-bars"></div>
       </div>
     </div>
@@ -484,18 +491,21 @@
     <!-- Returns Tab -->
     <div class="bt-pane" id="pane-returns">
       <div class="chart-box">
-        <div class="chart-box-title">5-Year Rolling CAGR — Base Plan</div>
+        <div class="chart-box-title">5-Year Rolling CAGR — Base Plan <button class="info-btn" aria-label="Rolling CAGR" data-t-title="Rolling 5-Year CAGR" data-t-what="Shows the Compound Annual Growth Rate for every possible continuous 5-year window in the backtest period.">ⓘ</button></div>
         <div id="chart-rolling" style="height:260px"></div>
       </div>
       <div class="chart-box">
-        <div class="chart-box-title">Trailing Returns</div>
+        <div class="chart-box-title">Trailing Returns <button class="info-btn" aria-label="Trailing Returns" data-t-title="Trailing Returns" data-t-what="The annualised return of your portfolio looking back exactly 1, 3, or 5 years from the end of the backtest.">ⓘ</button></div>
         <table class="bt-table">
-          <thead><tr><th>Period</th><th>Base Plan CAGR</th></tr></thead>
+          <thead><tr>
+            <th>Period <button class="info-btn" aria-label="Period" data-t-title="Trailing Period" data-t-what="The duration looking backward from the end of the simulation.">ⓘ</button></th>
+            <th>Base Plan CAGR <button class="info-btn" aria-label="Base Plan CAGR" data-t-title="Trailing CAGR" data-t-what="The annualised compound growth rate of the portfolio over this specific trailing window.">ⓘ</button></th>
+          </tr></thead>
           <tbody id="trailing-tbody"></tbody>
         </table>
       </div>
       <div class="chart-box">
-        <div class="chart-box-title">5-Year Rolling Stats — Base Plan</div>
+        <div class="chart-box-title">5-Year Rolling Stats — Base Plan <button class="info-btn" aria-label="Rolling Stats" data-t-title="Rolling Statistics" data-t-what="Summary of the best, worst, and average returns across all 5-year periods.">ⓘ</button></div>
         <div id="rolling-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
       </div>
     </div>
@@ -503,22 +513,22 @@
     <!-- Risk Tab -->
     <div class="bt-pane" id="pane-risk">
       <div class="chart-box">
-        <div class="chart-box-title">Portfolio Drawdown — Base Plan</div>
+        <div class="chart-box-title">Portfolio Drawdown — Base Plan <button class="info-btn" aria-label="Portfolio Drawdown" data-t-title="Drawdown Profile" data-t-what="Measures the percentage decline from the portfolio's highest peak value down to its lowest point before recovering.">ⓘ</button></div>
         <div id="chart-drawdown" style="height:260px"></div>
       </div>
       <div class="chart-box">
-        <div class="chart-box-title">Risk Metrics — Base Plan</div>
+        <div class="chart-box-title">Risk Metrics — Base Plan <button class="info-btn" aria-label="Risk Metrics" data-t-title="Risk Metrics" data-t-what="Standard statistical measures to evaluate the risk and volatility of your portfolio strategy.">ⓘ</button></div>
         <table class="bt-table" id="risk-table">
           <tbody>
-            <tr><td style="color:var(--text-muted)">Annualised Volatility</td><td id="rm-vol">—</td></tr>
-            <tr><td style="color:var(--text-muted)">Max Drawdown</td><td id="rm-dd">—</td></tr>
-            <tr><td style="color:var(--text-muted)">Sharpe Ratio</td><td id="rm-sharpe">—</td></tr>
-            <tr><td style="color:var(--text-muted)">Sortino Ratio</td><td id="rm-sortino">—</td></tr>
+            <tr><td style="color:var(--text-muted);display:flex;align-items:center;gap:4px">Annualised Volatility <button class="info-btn" aria-label="Volatility" data-t-title="Annualised Volatility" data-t-what="The degree of variation of your portfolio returns. Higher volatility means riskier, larger price swings.">ⓘ</button></td><td id="rm-vol">—</td></tr>
+            <tr><td style="color:var(--text-muted);display:flex;align-items:center;gap:4px">Max Drawdown <button class="info-btn" aria-label="Max Drawdown" data-t-title="Maximum Drawdown" data-t-what="The largest single drop from peak to trough in your portfolio's value during the backtest.">ⓘ</button></td><td id="rm-dd">—</td></tr>
+            <tr><td style="color:var(--text-muted);display:flex;align-items:center;gap:4px">Sharpe Ratio <button class="info-btn" aria-label="Sharpe Ratio" data-t-title="Sharpe Ratio" data-t-what="Measures risk-adjusted return. A higher Sharpe ratio indicates better returns for the level of risk taken. (Generally, >1.0 is good).">ⓘ</button></td><td id="rm-sharpe">—</td></tr>
+            <tr><td style="color:var(--text-muted);display:flex;align-items:center;gap:4px">Sortino Ratio <button class="info-btn" aria-label="Sortino Ratio" data-t-title="Sortino Ratio" data-t-what="Similar to Sharpe, but only penalises downside volatility (losses), ignoring upside volatility.">ⓘ</button></td><td id="rm-sortino">—</td></tr>
           </tbody>
         </table>
       </div>
       <div class="chart-box">
-        <div class="chart-box-title">📉 Downside Quarters</div>
+        <div class="chart-box-title">📉 Downside Quarters <button class="info-btn" aria-label="Downside Quarters" data-t-title="Downside Quarters" data-t-what="Lists every calendar quarter where the portfolio generated a negative return.">ⓘ</button></div>
         <div id="downside-table-wrap"></div>
       </div>
     </div>
@@ -533,8 +543,11 @@
         <div style="overflow-x:auto">
           <table class="bt-table" id="ledger-table">
             <thead><tr>
-              <th>Date</th><th>Fund</th><th>Type</th>
-              <th>NAV (₹)</th><th>Units</th><th>Amount (₹)</th><th>Trigger</th>
+              <th>Date</th><th>Fund</th><th>Type <button class="info-btn" aria-label="Transaction Type" data-t-title="Transaction Type" data-t-what="SIP, Lumpsum, Sell, or Rebalance.">ⓘ</button></th>
+              <th>NAV (₹) <button class="info-btn" aria-label="NAV" data-t-title="Execution NAV" data-t-what="The Net Asset Value at which the transaction was executed.">ⓘ</button></th>
+              <th>Units</th>
+              <th>Amount (₹)</th>
+              <th>Trigger <button class="info-btn" aria-label="Trigger" data-t-title="Event Trigger" data-t-what="Why this transaction occurred (e.g. Scheduled, Tactical Overlay, Drift Rebalance).">ⓘ</button></th>
             </tr></thead>
             <tbody id="ledger-tbody"></tbody>
           </table>
@@ -552,21 +565,26 @@
       </div>
       <div class="overlay-pills" id="overlay-pills"></div>
       <div class="chart-box">
-        <div class="chart-box-title">Portfolio Growth — All Overlays</div>
+        <div class="chart-box-title">Portfolio Growth — All Overlays <button class="info-btn" aria-label="Growth Comparison" data-t-title="Growth Comparison" data-t-what="Compares the historical portfolio value trajectory of the Base Plan against all the tactical overlay strategies simultaneously.">ⓘ</button></div>
         <div id="chart-overlays" style="height:300px"></div>
       </div>
       <div class="chart-box">
-        <div class="chart-box-title">Overlay Comparison</div>
+        <div class="chart-box-title">Overlay Comparison <button class="info-btn" aria-label="Overlay Comparison" data-t-title="Overlay Comparison" data-t-what="Compares the final metrics of your base plan against various tactical rebalancing strategies to see if they would have improved returns or reduced risk.">ⓘ</button></div>
         <table class="bt-table">
           <thead><tr>
-            <th>Strategy</th><th>Final Corpus</th><th>CAGR</th><th>XIRR</th>
-            <th>Max DD</th><th>Sharpe</th><th>Vol</th>
+            <th>Strategy</th>
+            <th>Final Corpus <button class="info-btn" aria-label="Final Corpus" data-t-title="Final Corpus" data-t-what="The final monetary value of the portfolio at the end of the simulation.">ⓘ</button></th>
+            <th>CAGR <button class="info-btn" aria-label="CAGR" data-t-title="CAGR" data-t-what="Compound Annual Growth Rate. The smoothed annual growth rate of the portfolio.">ⓘ</button></th>
+            <th>XIRR <button class="info-btn" aria-label="XIRR" data-t-title="XIRR" data-t-what="Extended Internal Rate of Return. The true return accounting for exactly when cash flows occurred.">ⓘ</button></th>
+            <th>Max DD <button class="info-btn" aria-label="Max Drawdown" data-t-title="Max Drawdown" data-t-what="The deepest percentage drop from a peak to a trough during the backtest.">ⓘ</button></th>
+            <th>Sharpe <button class="info-btn" aria-label="Sharpe Ratio" data-t-title="Sharpe Ratio" data-t-what="Risk-adjusted return. Higher is better.">ⓘ</button></th>
+            <th>Vol <button class="info-btn" aria-label="Volatility" data-t-title="Annualised Volatility" data-t-what="The typical percentage fluctuation in portfolio value per year.">ⓘ</button></th>
           </tr></thead>
           <tbody id="overlay-tbody"></tbody>
         </table>
       </div>
       <div class="chart-box">
-        <div class="chart-box-title">Equity Deployment — Overlays</div>
+        <div class="chart-box-title">Equity Deployment — Overlays <button class="info-btn" aria-label="Equity Deployment" data-t-title="Equity Deployment" data-t-what="Shows what percentage of your portfolio was invested in equity funds vs parked in debt funds over time for each overlay strategy.">ⓘ</button></div>
         <div id="chart-equity-ratio" style="height:220px"></div>
       </div>
     </div>
@@ -962,8 +980,11 @@ async function runBacktest() {
     rebalance_anchor_month: parseInt(document.getElementById('rebal-month')?.value || 1),
     debt_park_source_type: debtId ? debtType : '',
     debt_park_id: debtId,
+    debt_park_name: debtId ? document.getElementById('debt-selected-name').textContent : '',
     vol_threshold: parseFloat(document.getElementById('vol-thresh').value || 20),
     debt_return_pct: parseFloat(document.getElementById('debt-return-rate')?.value || 7),
+    start_date: document.getElementById('bt-start-date').value || null,
+    end_date: document.getElementById('bt-end-date').value || null,
   };
 
   try {
@@ -993,6 +1014,13 @@ function renderResults(data) {
   document.getElementById('results-panel').style.display = 'block';
   showTab('overview');
 
+  if (data.start_date) {
+    document.getElementById('bt-start-date').value = data.start_date;
+  }
+  if (data.end_date) {
+    document.getElementById('bt-end-date').value = data.end_date;
+  }
+
   const strategies = data.strategies || [];
   if (!strategies.length) {
     document.getElementById('warnings-box').innerHTML =
@@ -1017,6 +1045,10 @@ function renderResults(data) {
   renderLedger(base.transactions || []);
   renderOverlayTab(strategies);
   renderConclusion(data.conclusion, strategies);
+  
+  if (window.initInfoTooltips) {
+    window.initInfoTooltips(document.getElementById('results-area'));
+  }
 }
 
 function renderWarnings(warnings) {
@@ -1031,9 +1063,10 @@ function renderPlanSummary(data) {
     <div class="psb-title">📋 Portfolio Plan — ${data.start_date} → ${data.end_date}</div>
     <div class="psb-row">
       ${ps.map(f => `
-        <div class="psb-tag">
+        <div class="psb-tag" ${f.is_debt ? 'style="border:1px dashed var(--indigo-500);"' : ''}>
           ${f.source_type==='scheme'?'🏦':'📈'}
           <strong>${f.label}</strong>
+          ${f.is_debt ? '<span style="color:var(--text-muted)">(Debt Parking)</span>' : ''}
           ${f.sip_count ? `<span style="color:var(--text-muted)">${f.sip_count} SIP</span>` : ''}
           ${f.lump_count ? `<span style="color:var(--text-muted)">${f.lump_count} Lump</span>` : ''}
           ${f.monthly_sip ? `<span style="color:var(--indigo-400)">₹${fmtNum(f.monthly_sip)}/mo</span>` : ''}
@@ -1044,18 +1077,19 @@ function renderPlanSummary(data) {
 function renderOverviewGrid(s) {
   if (!s) return;
   document.getElementById('overview-grid').innerHTML = `
-    ${ovCard(fmtCr(s.final_corpus), 'Final Corpus', '', 'positive')}
-    ${ovCard(fmtPct(s.cagr), 'CAGR', '', s.cagr >= 0 ? 'positive' : 'negative')}
-    ${ovCard(fmtPct(s.xirr), 'XIRR', 'Actual investor return', s.xirr >= 0 ? 'positive' : 'negative')}
-    ${ovCard(fmtCr(s.total_invested), 'Total Invested', '', 'neutral')}
-    ${ovCard(fmtCr(s.absolute_gain), 'Absolute Gain', '', s.absolute_gain >= 0 ? 'positive' : 'negative')}
-    ${ovCard(fmtPct(s.absolute_return_pct), 'Total Return %', '', s.absolute_return_pct >= 0 ? 'positive' : 'negative')}
+    ${ovCard(fmtCr(s.final_corpus), 'Final Corpus', '', 'positive', 'Final Portfolio Corpus', 'The final value of your portfolio at the end of the backtest period.')}
+    ${ovCard(fmtPct(s.cagr), 'CAGR', '', s.cagr >= 0 ? 'positive' : 'negative', 'Compound Annual Growth Rate', 'The time-weighted annualised growth rate of the portfolio itself, independent of the timing of your cash flows.')}
+    ${ovCard(fmtPct(s.xirr), 'XIRR', 'Actual investor return', s.xirr >= 0 ? 'positive' : 'negative', 'Extended Internal Rate of Return', 'The actual annualised return of your invested cash flows, accounting for exact timing of SIPs and lumpsums.')}
+    ${ovCard(fmtCr(s.total_invested), 'Total Invested', '', 'neutral', 'Total Amount Invested', 'The total principal amount you invested throughout the period.')}
+    ${ovCard(fmtCr(s.absolute_gain), 'Absolute Gain', '', s.absolute_gain >= 0 ? 'positive' : 'negative', 'Absolute Gain', 'The absolute difference between the Final Corpus and Total Invested.')}
+    ${ovCard(fmtPct(s.absolute_return_pct), 'Total Return %', '', s.absolute_return_pct >= 0 ? 'positive' : 'negative', 'Total Absolute Return', 'The percentage return calculated simply as (Absolute Gain / Total Invested), regardless of the time period.')}
   `;
 }
-function ovCard(val, label, sub, cls) {
+function ovCard(val, label, sub, cls, tooltipTitle, tooltipWhat) {
+  const tooltipHtml = tooltipTitle ? `<button class="info-btn" aria-label="${label}" data-t-title="${tooltipTitle}" data-t-what="${tooltipWhat}">ⓘ</button>` : '';
   return `<div class="ov-card">
     <div class="ov-val ${cls}">${val}</div>
-    <div class="ov-label">${label}</div>
+    <div class="ov-label" style="display:flex;align-items:center;justify-content:center;gap:4px">${label}${tooltipHtml}</div>
     ${sub ? `<div class="ov-sub">${sub}</div>` : ''}
   </div>`;
 }
@@ -1127,14 +1161,15 @@ function renderTrailingTable(s) {
 function renderRollingStats(s) {
   if (!s) return;
   document.getElementById('rolling-stats-grid').innerHTML = `
-    ${statCard(fmtPct(s.rolling_5y_min), '5Y Min CAGR', 'negative')}
-    ${statCard(fmtPct(s.rolling_5y_avg), '5Y Avg CAGR', 'neutral')}
-    ${statCard(fmtPct(s.rolling_5y_max), '5Y Max CAGR', 'positive')}`;
+    ${statCard(fmtPct(s.rolling_5y_min), '5Y Min CAGR', 'negative', 'Worst 5-Year Return', 'The lowest annualised return achieved over any 5-year rolling window during the backtest period.')}
+    ${statCard(fmtPct(s.rolling_5y_avg), '5Y Avg CAGR', 'neutral', 'Average 5-Year Return', 'The average annualised return across all possible 5-year rolling windows.')}
+    ${statCard(fmtPct(s.rolling_5y_max), '5Y Max CAGR', 'positive', 'Best 5-Year Return', 'The highest annualised return achieved over any 5-year rolling window during the backtest period.')}`;
 }
-function statCard(v, label, cls) {
+function statCard(v, label, cls, tooltipTitle, tooltipWhat) {
+  const tooltipHtml = tooltipTitle ? `<button class="info-btn" aria-label="${label}" data-t-title="${tooltipTitle}" data-t-what="${tooltipWhat}" style="margin-left:4px">ⓘ</button>` : '';
   return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
     <div style="font-size:18px;font-weight:700" class="${cls}">${v}</div>
-    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">${label}</div>
+    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;display:flex;align-items:center;justify-content:center">${label}${tooltipHtml}</div>
   </div>`;
 }
 
@@ -1337,8 +1372,38 @@ function getCookie(name) {
   }, '');
 }
 function showNotification(type, msg) {
-  // Simple alert fallback
-  alert(msg);
+  // Beautiful non-blocking floating toast notification
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.style.position = 'fixed';
+  toast.style.bottom = '24px';
+  toast.style.right = '24px';
+  toast.style.background = 'linear-gradient(135deg, #4f46e5, #7c3aed)';
+  toast.style.color = '#fff';
+  toast.style.padding = '12px 20px';
+  toast.style.borderRadius = '10px';
+  toast.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.3)';
+  toast.style.zIndex = '9999';
+  toast.style.fontSize = '13px';
+  toast.style.fontWeight = '600';
+  toast.style.transition = 'all 0.3s ease';
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateY(10px)';
+  toast.textContent = msg;
+
+  document.body.appendChild(toast);
+
+  // Trigger browser paint to animate
+  setTimeout(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  }, 50);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1349,42 +1414,68 @@ function showNotification(type, msg) {
   const prefill = params.get('prefill');
   if (!prefill) return;
   try {
-    const funds = JSON.parse(decodeURIComponent(prefill));
-    funds.forEach(fp => {
-      const existing = fundPlans.find(f => f.source_id === fp.source_id);
-      if (existing) return;
-      const plan = {
-        id: Date.now() + Math.random(),
-        label: fp.label,
-        source_type: fp.source_type,
-        source_id: fp.source_id,
-        rules: (fp.rules || []).map(r => ({
-          id: Date.now() + Math.random(),
-          rule_type: r.rule_type || 'sip',
-          amount: r.amount || 5000,
-          frequency: r.frequency || 'monthly',
-          start_date: r.start_date || '',
-          end_date: r.end_date || '',
-          step_up_pct: r.step_up_pct || 0,
-          lumpsum_date: r.lumpsum_date || '',
-          sell_pct: r.sell_pct || 100,
-          trigger: r.trigger || '',
-          trigger_value: r.trigger_value || '',
-        })),
-      };
-      fundPlans.push(plan);
-    });
-    if (params.get('rebalance_mode'))
-      document.getElementById('rebal-mode').value = params.get('rebalance_mode');
-    if (params.get('debt_park_id')) {
-      const sel = document.getElementById('debt-index-select');
-      [...sel.options].forEach(o => { if (o.value === params.get('debt_park_id')) o.selected = true; });
+    // Robust decoding: URLSearchParams already decodes the URL layer.
+    // Try parsing raw prefill string, fallback to decodeURIComponent if nested encoding exists.
+    let parsedFunds = null;
+    try {
+      parsedFunds = JSON.parse(prefill);
+    } catch(err) {
+      parsedFunds = JSON.parse(decodeURIComponent(prefill));
+    }
+
+    if (parsedFunds && Array.isArray(parsedFunds)) {
+      parsedFunds.forEach((fp, idx) => {
+        const existing = fundPlans.find(f => f.source_id === fp.source_id);
+        if (existing) return;
+        const plan = {
+          id: Date.now() + Math.floor(Math.random()*10000) + idx,
+          label: fp.label,
+          source_type: fp.source_type,
+          source_id: fp.source_id,
+          rules: (fp.rules || []).map((r, ridx) => ({
+            id: Date.now() + Math.floor(Math.random()*10000) + ridx + 100,
+            rule_type: r.rule_type || 'sip',
+            amount: r.amount || 5000,
+            frequency: r.frequency || 'monthly',
+            start_date: r.start_date || '',
+            end_date: r.end_date || '',
+            step_up_pct: r.step_up_pct || 0,
+            lumpsum_date: r.lumpsum_date || '',
+            sell_pct: r.sell_pct || 100,
+            trigger: r.trigger || '',
+            trigger_value: r.trigger_value || '',
+          })),
+        };
+        fundPlans.push(plan);
+      });
+    }
+
+    // Apply simulation start/end dates from URL
+    const urlStartDate = params.get('start_date');
+    if (urlStartDate) {
+      document.getElementById('bt-start-date').value = urlStartDate;
+    }
+    const urlEndDate = params.get('end_date');
+    if (urlEndDate) {
+      document.getElementById('bt-end-date').value = urlEndDate;
+    }
+
+    // Apply rebalance mode from URL
+    const rebalMode = params.get('rebalance_mode');
+    if (rebalMode) {
+      const modeEl = document.getElementById('rebal-mode');
+      if (modeEl) { modeEl.value = rebalMode; if (typeof toggleRebalFields === 'function') toggleRebalFields(); }
     }
     renderFundCards();
-    // Show notification
-    if (fundPlans.length)
-      setTimeout(() => showNotification('info',
-        `${fundPlans.length} recommended funds loaded — review the plan and click Run Backtest`), 400);
+    // Show notification and auto-run backtest
+    if (fundPlans.length) {
+      setTimeout(() => {
+        showNotification('info',
+          `${fundPlans.length} recommended funds loaded — running backtest…`);
+        // Auto-trigger the backtest so user lands on results
+        if (typeof runBacktest === 'function') runBacktest();
+      }, 300);
+    }
   } catch(e) { console.warn('prefill parse error', e); }
 })();
 </script>

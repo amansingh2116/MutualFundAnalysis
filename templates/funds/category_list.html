@@ -7,17 +7,6 @@
   <div class="page-subtitle">{{ schemes|length }} funds shown{% if current_category %} · {{ current_category }}{% endif %}</div>
 </div>
 
-<!-- Category Pills -->
-<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
-  <a href="{% url 'funds:category_list' %}" class="filter-chip {% if not current_category %}selected{% endif %}">All Categories</a>
-  {% for cat in categories %}
-  <a href="{% url 'funds:category_list' %}?category={{ cat.scheme_category|urlencode }}"
-     class="filter-chip {% if current_category == cat.scheme_category %}selected{% endif %}">
-    {{ cat.scheme_category|truncatechars:35 }}
-    <span style="opacity:0.5;margin-left:4px">({{ cat.count }})</span>
-  </a>
-  {% endfor %}
-</div>
 
 <!-- Fund Cards -->
 {% if schemes %}

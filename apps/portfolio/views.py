@@ -105,14 +105,16 @@ def portfolio_dashboard_view(request, pk):
 
     from apps.portfolio.services.analytics import (
         calculate_portfolio_xirr,
+        calculate_xirr,
         simulate_benchmark,
         calculate_diversification_score,
         calculate_portfolio_ratios,
         get_portfolio_journey
     )
     
-    # Group by scheme and compute current value + XIRR
+    # Group by scheme and compute current value + per-fund XIRR
     fund_summary = _compute_portfolio_summary(transactions)
+    _enrich_fund_xirr(fund_summary, transactions)
 
     total_invested = sum(f['invested'] for f in fund_summary)
     total_current = sum(f['current_value'] for f in fund_summary if f['current_value'])
@@ -126,6 +128,9 @@ def portfolio_dashboard_view(request, pk):
     ratios = calculate_portfolio_ratios(portfolio)
     
     journey_dates, journey_invested, journey_value = get_portfolio_journey(portfolio)
+    
+    # Portfolio composition analysis
+    composition = _compute_portfolio_composition(fund_summary, transactions)
 
     return render(request, 'portfolio/dashboard.html', {
         'portfolio': portfolio,
@@ -144,6 +149,7 @@ def portfolio_dashboard_view(request, pk):
         'journey_value': json.dumps(journey_value),
         'tx_count': transactions.count(),
         'transactions': transactions.order_by('-tx_date'),
+        'composition': composition,
     })
 
 
@@ -183,8 +189,124 @@ def _compute_portfolio_summary(transactions):
             'current_value': round(current_value, 2) if current_value else None,
             'gain': round(gain, 2) if gain is not None else None,
             'gain_pct': round(gain / d['invested'] * 100, 2) if gain is not None and d['invested'] else None,
+            'xirr': None,  # Enriched separately
         })
     return sorted(result, key=lambda x: -(x['current_value'] or 0))
+
+
+def _enrich_fund_xirr(fund_summary, transactions):
+    """Compute and attach per-fund XIRR to each entry in fund_summary in-place."""
+    from apps.portfolio.services.analytics import calculate_xirr
+    tx_list = list(transactions)
+    for fund in fund_summary:
+        amfi = fund['amfi_code']
+        name = fund['scheme_name']
+        cfs = []
+        for tx in tx_list:
+            key = tx.amfi_code or tx.scheme_name
+            if key != amfi and tx.scheme_name != name:
+                continue
+            amt = float(tx.amount)
+            if tx.tx_type in ('BUY', 'SIP', 'SWITCH_IN'):
+                cfs.append((tx.tx_date, -amt))
+            elif tx.tx_type in ('SELL', 'REDEEM', 'SWITCH_OUT'):
+                cfs.append((tx.tx_date, amt))
+        if fund['current_value'] and fund['current_value'] > 0:
+            cfs.append((date.today(), fund['current_value']))
+        try:
+            xirr_val = calculate_xirr(cfs)
+            fund['xirr'] = round(xirr_val, 2) if xirr_val is not None else None
+        except Exception:
+            fund['xirr'] = None
+
+
+def _compute_portfolio_composition(fund_summary, transactions):
+    """Compute sector allocation, asset class allocation, concentration (HHI), and turnover."""
+    import datetime
+    from collections import defaultdict
+
+    total_value = sum(f['current_value'] for f in fund_summary if f['current_value']) or 1
+
+    # Asset-class allocation by scheme category
+    asset_class_map = defaultdict(float)
+    sector_map = defaultdict(float)
+    weights = []
+
+    for f in fund_summary:
+        val = f['current_value'] or 0
+        pct = val / total_value * 100
+        weights.append(pct / 100)
+        scheme = f['scheme']
+        if scheme:
+            cat = scheme.scheme_category or 'Unknown'
+            # Derive broad asset class
+            if 'Debt' in cat or 'Liquid' in cat or 'Bond' in cat or 'Duration' in cat or 'Credit' in cat:
+                asset_class = 'Debt'
+            elif 'Hybrid' in cat or 'Balanced' in cat or 'Multi Asset' in cat:
+                asset_class = 'Hybrid'
+            elif 'Gold' in cat or 'Commodity' in cat:
+                asset_class = 'Commodity'
+            elif 'International' in cat or 'Global' in cat or 'Overseas' in cat:
+                asset_class = 'International Equity'
+            else:
+                asset_class = 'Domestic Equity'
+            asset_class_map[asset_class] += pct
+
+            # Sector from fund sub-category or name
+            name_lower = (scheme.scheme_name or '').lower()
+            if 'large cap' in name_lower or 'large & mid' in name_lower:
+                sector = 'Large Cap'
+            elif 'mid cap' in name_lower:
+                sector = 'Mid Cap'
+            elif 'small cap' in name_lower:
+                sector = 'Small Cap'
+            elif 'flexi' in name_lower or 'multi cap' in name_lower:
+                sector = 'Multi/Flexi Cap'
+            elif 'elss' in name_lower or 'tax sav' in name_lower:
+                sector = 'ELSS'
+            elif 'index' in name_lower or 'nifty' in name_lower or 'sensex' in name_lower:
+                sector = 'Index'
+            elif 'international' in name_lower or 'global' in name_lower or 'us ' in name_lower:
+                sector = 'International'
+            elif 'debt' in name_lower or 'liquid' in name_lower or 'bond' in name_lower:
+                sector = 'Debt'
+            elif 'hybrid' in name_lower or 'balanced' in name_lower:
+                sector = 'Hybrid'
+            else:
+                sector = 'Other Equity'
+            sector_map[sector] += pct
+        else:
+            asset_class_map['Unknown'] += pct
+            sector_map['Unknown'] += pct
+
+    # Concentration: Herfindahl-Hirschman Index (0–1, lower = more diversified)
+    hhi = sum(w ** 2 for w in weights)
+    if len(weights) > 1:
+        hhi_norm = (hhi - 1 / len(weights)) / (1 - 1 / len(weights))  # normalized 0-1
+    else:
+        hhi_norm = 1.0
+    concentration_label = (
+        'High Concentration' if hhi_norm > 0.6
+        else 'Moderate Concentration' if hhi_norm > 0.3
+        else 'Well Diversified'
+    )
+
+    # Turnover: count buy transactions in last 12 months
+    one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
+    tx_list = list(transactions)
+    recent_buys = sum(
+        1 for tx in tx_list
+        if tx.tx_type in ('BUY', 'SIP') and tx.tx_date >= one_year_ago
+    )
+
+    return {
+        'asset_classes': dict(sorted(asset_class_map.items(), key=lambda x: -x[1])),
+        'sectors': dict(sorted(sector_map.items(), key=lambda x: -x[1])),
+        'hhi': round(hhi_norm, 3),
+        'concentration_label': concentration_label,
+        'turnover_buys_12m': recent_buys,
+        'num_funds': len(fund_summary),
+    }
 
 
 @login_required
@@ -643,6 +765,7 @@ def portfolio_backtester_api(request):
             rebalance_anchor_month=int(data.get('rebalance_anchor_month', 1)),
             debt_park_source_type=str(data.get('debt_park_source_type', 'scheme')),
             debt_park_id=str(data.get('debt_park_id', '')),
+            debt_park_name=str(data.get('debt_park_name', '')),
             vol_threshold=float(data.get('vol_threshold', 20)) / 100.0,
             start_date=_pd(data.get('start_date')),
             end_date=_pd(data.get('end_date')),

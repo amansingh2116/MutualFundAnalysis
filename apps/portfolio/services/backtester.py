@@ -108,6 +108,7 @@ class PortfolioPlan:
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     debt_return_pct: float = 7.0
+    debt_park_name: str = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -461,9 +462,18 @@ def _simulate_strategy(
     chart_invested: List[float] = []
     chart_equity_ratio: List[float] = []
     chart_date_strs: List[str] = []
+    nav_chart_values: List[float] = []
+    port_nav = 100.0
+    port_units = 0.0
 
     for d in all_dates:
         is_chart_date = d in chart_dates_set
+        daily_net_cf = 0.0
+        
+        # ── Pre-cashflow Valuation (calculate today's NAV) ──
+        pv_before = _portfolio_value(fund_state, debt_units, plan.funds, price_map, debt_series, d)
+        if port_units > 0:
+            port_nav = pv_before / port_units
 
         # ── Process scheduled SIP / lumpsum events ────────────────────────────
         for fp, rule, sip_start in event_lookup.get(d, []):
@@ -491,6 +501,7 @@ def _simulate_strategy(
                             debt_units += invest_amount / debt_nav
                             total_invested += invest_amount
                             cf_list.append((d, -invest_amount))
+                            daily_net_cf += invest_amount
                     continue
 
             # Invest in the fund
@@ -498,6 +509,7 @@ def _simulate_strategy(
             state["units"] += units_bought
             total_invested += invest_amount
             cf_list.append((d, -invest_amount))
+            daily_net_cf += invest_amount
             if state["cost_basis_date"] is None:
                 state["cost_basis_date"] = d
             if strategy_key == "base":
@@ -527,6 +539,7 @@ def _simulate_strategy(
                         state["units"] += units_bought
                         total_invested += invest_amount
                         cf_list.append((d, -invest_amount))
+                        daily_net_cf += invest_amount
                         if state["cost_basis_date"] is None:
                             state["cost_basis_date"] = d
                         if strategy_key == "base":
@@ -558,6 +571,7 @@ def _simulate_strategy(
                     proceeds = units_to_sell * nav
                     state["units"] -= units_to_sell
                     cf_list.append((d, proceeds))
+                    daily_net_cf -= proceeds
                     if strategy_key == "base":
                         tx_ledger.append(TxRecord(
                             date=d.isoformat(), fund_label=fp.label,
@@ -579,12 +593,19 @@ def _simulate_strategy(
                 tx_ledger if strategy_key == "base" else None
             )
 
+        # ── Buy/Sell Portfolio Units ──────────────────────────────────────────
+        if daily_net_cf != 0.0:
+            if port_nav <= 0:
+                port_nav = 100.0
+            port_units += daily_net_cf / port_nav
+
         # ── Portfolio valuation ───────────────────────────────────────────────
         if is_chart_date:
             pv = _portfolio_value(fund_state, debt_units, plan.funds, price_map, debt_series, d)
             equity_val = _equity_value(fund_state, plan.funds, price_map, d)
             chart_date_strs.append(d.isoformat())
             chart_values.append(round(pv, 2))
+            nav_chart_values.append(round(port_nav, 4))
             chart_invested.append(round(total_invested, 2))
             eq_ratio = (equity_val / pv * 100) if pv > 0 else 0.0
             chart_equity_ratio.append(round(eq_ratio, 1))
@@ -596,18 +617,22 @@ def _simulate_strategy(
 
     # ── Metrics ───────────────────────────────────────────────────────────────
     xirr_val = _compute_xirr(cf_list)
+    nav_series = pd.Series(nav_chart_values, index=pd.to_datetime(chart_date_strs))
     port_series = pd.Series(chart_values, index=pd.to_datetime(chart_date_strs))
-    cagr = _series_cagr(port_series, total_invested)
-    trailing_1y = _trailing_return(port_series, 365)
-    trailing_3y = _trailing_return(port_series, 365 * 3)
-    trailing_5y = _trailing_return(port_series, 365 * 5)
-    r5min, r5max, r5avg = _rolling_5y_stats(port_series)
-    vol = _annualised_vol(port_series)
-    max_dd = _max_drawdown(port_series)
-    sharpe = _sharpe(port_series)
-    sortino = _sortino(port_series)
-    cal_rets = _calendar_returns(port_series)
-    downside_q = _downside_quarters(port_series)
+    
+    # All metrics (CAGR, risk, calendar) should be computed using Time-Weighted Return (TWR)
+    # which is exactly what our nav_series provides.
+    cagr = _series_cagr(nav_series, total_invested)
+    trailing_1y = _trailing_return(nav_series, 365)
+    trailing_3y = _trailing_return(nav_series, 365 * 3)
+    trailing_5y = _trailing_return(nav_series, 365 * 5)
+    r5min, r5max, r5avg = _rolling_5y_stats(nav_series)
+    vol = _annualised_vol(nav_series)
+    max_dd = _max_drawdown(nav_series)
+    sharpe = _sharpe(nav_series)
+    sortino = _sortino(nav_series)
+    cal_rets = _calendar_returns(nav_series)
+    downside_q = _downside_quarters(nav_series)
     abs_gain = final_corpus - total_invested
     abs_ret = (abs_gain / total_invested * 100) if total_invested > 0 else 0
     interp = _interpret(strategy_name, cagr, vol, max_dd, xirr_val)
@@ -997,6 +1022,14 @@ def run_plan_simulation(plan: PortfolioPlan) -> SimulationResult:
             "sip_count": len(sip_rules),
             "lump_count": len(lump_rules),
             "monthly_sip": sum(r.amount for r in sip_rules if r.frequency == "monthly"),
+        })
+
+    if plan.debt_park_id:
+        plan_summary.append({
+            "label": plan.debt_park_name or plan.debt_park_id,
+            "source_type": plan.debt_park_source_type,
+            "source_id": plan.debt_park_id,
+            "is_debt": True,
         })
 
     return SimulationResult(

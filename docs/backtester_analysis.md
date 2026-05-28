@@ -151,6 +151,7 @@ The API receives the full portfolio plan, processes the simulation via the backt
   "rebalance_anchor_month": 1,
   "debt_park_source_type": "scheme",
   "debt_park_id": "120503",
+  "debt_park_name": "Quant Liquid Fund Direct Growth",
   "vol_threshold": 20.0,
   "debt_return_pct": 7.5
 }
@@ -165,6 +166,7 @@ The API receives the full portfolio plan, processes the simulation via the backt
 | `rebalance_anchor_month`| Integer | Month index (1-12) used to anchor annual rebalances. | `1` |
 | `debt_park_source_type` | String | Source type for parking debt fund: `"scheme"`, `"index"`, or `""`.| `""` |
 | `debt_park_id` | String | Scheme AMFI code or index identifier for parked capital. | `""` |
+| `debt_park_name` | String | The display name of the debt parking fund. | `""` |
 | `vol_threshold` | Float | Annualized volatility percentage limit for Strategy 3 control. | `20.0` |
 | `debt_return_pct` | Float | Configurable p.a. compound rate for synthetic debt proxy. | `7.0` |
 
