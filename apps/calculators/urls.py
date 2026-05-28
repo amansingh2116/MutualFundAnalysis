@@ -13,6 +13,7 @@ urlpatterns = [
     path('goal/', views.goal_view, name='goal'),
     path('tax/', views.tax_view, name='tax'),
     path('overlap/', views.overlap_view, name='overlap'),
+    path('rolling/', views.rolling_view, name='rolling'),
     path('step-sip/', views.step_sip_view, name='step_sip'),
     # API endpoints
     path('api/sip/', views.calc_sip_api, name='api_sip'),

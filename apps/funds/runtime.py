@@ -93,7 +93,7 @@ def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
 
 
 def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
-    cache_key = f"fund:snapshot:v9:{scheme.amfi_code}"
+    cache_key = f"fund:snapshot:v10:{scheme.amfi_code}"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -1439,7 +1439,15 @@ def fetch_benchmark_result(name: str | None, nav: pd.Series) -> SimpleNamespace:
             display_name = f"{candidate.benchmark_name} proxy"
             source = f"{candidate.source} proxy"
         elif candidate.is_fallback:
-            display_name = f"{name} via {candidate.benchmark_name}"
+            if candidate.benchmark_name == "NIFTY 50":
+                display_name = f"NIFTY 50 (proxy for {name})"
+                note = candidate.note or (
+                    f"No confirmed Yahoo Finance ticker for '{name}'. "
+                    "NIFTY 50 is used as a proxy — comparisons are approximate."
+                )
+            else:
+                display_name = f"{name} via {candidate.benchmark_name}"
+                note = candidate.note
             source = f"{candidate.source} fallback"
         else:
             display_name = candidate.benchmark_name

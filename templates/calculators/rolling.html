@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}Rolling Return Calculator{% endblock %}
+
+{% block extra_head %}
+<style>
+.rrc-w-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.rrc-w-btn:hover {
+  border-color: var(--indigo-400);
+  color: var(--indigo-400);
+}
+.rrc-w-btn.rrc-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">&rsaquo;</span><span>Rolling Return Calculator</span></div>
+<div class="page-header">
+  <div class="page-title">📈 Rolling Return Calculator</div>
+  <div class="page-subtitle">Analyse how a mutual fund's rolling returns have performed over time vs its benchmark. Uses actual NAV history.</div>
+</div>
+
+<div class="calc-layout">
+  <!-- ── Inputs ──────────────────────────────────────────────────────── -->
+  <div class="calc-inputs">
+    <form id="rrc-form" autocomplete="off">
+      <!-- Fund Search -->
+      <div class="form-group" style="position:relative">
+        <label class="form-label">Search Mutual Fund</label>
+        <input class="form-control" id="rrc-search" type="text" placeholder="Type fund name, AMC, AMFI code or ISIN">
+        <div class="search-results-dropdown" id="rrc-dropdown"></div>
+      </div>
+      <div id="rrc-selected-fund" style="margin-bottom:12px"></div>
+
+      <!-- Window -->
+      <div class="form-group">
+        <label class="form-label">Rolling Window</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn rrc-w-btn rrc-active" data-days="252" data-label="1Y">1Y</button>
+          <button type="button" class="btn rrc-w-btn" data-days="504" data-label="2Y">2Y</button>
+          <button type="button" class="btn rrc-w-btn" data-days="756" data-label="3Y">3Y</button>
+          <button type="button" class="btn rrc-w-btn" data-days="1260" data-label="5Y">5Y</button>
+          <button type="button" class="btn rrc-w-btn" data-days="1764" data-label="7Y">7Y</button>
+          <button type="button" class="btn rrc-w-btn" data-days="2520" data-label="10Y">10Y</button>
+        </div>
+      </div>
+
+      <!-- Date range -->
+      <div class="form-group">
+        <label class="form-label">Start Date <span id="rrc-inception-hint" style="font-size:11px;color:var(--text-muted)"></span></label>
+        <input type="date" id="rrc-start" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date</label>
+        <input type="date" id="rrc-end" class="form-control">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+    </form>
+    <div class="alert alert-info" style="margin-top:14px;font-size:12px">NAV data is fetched live from AMFI/mfapi.in. First load for a fund may take 10–20 seconds.</div>
+  </div>
+
+  <!-- ── Results ─────────────────────────────────────────────────────── -->
+  <div class="calc-results">
+    <div id="rrc-results">
+      <div class="chart-placeholder" style="min-height:200px">
+        <span style="font-size:13px;color:var(--text-muted)">Search and select a fund to analyse.</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let rrcAmfiCode = null;
+let rrcWindowDays = 252;
+let rrcSearchTimer = null;
+let rrcInceptionDate = null;
+
+// ─── Fund Search ─────────────────────────────────────────────────────────────
+const rrcSearchInput = document.getElementById('rrc-search');
+const rrcDropdown = document.getElementById('rrc-dropdown');
+
+rrcSearchInput.addEventListener('input', () => {
+  clearTimeout(rrcSearchTimer);
+  const q = rrcSearchInput.value.trim();
+  if (q.length < 2) { rrcDropdown.classList.remove('open'); return; }
+  rrcSearchTimer = setTimeout(() => searchRRCFunds(q), 250);
+});
+
+async function searchRRCFunds(q) {
+  const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+  const data = await r.json();
+  rrcDropdown.innerHTML = (data.results || []).map(f => `
+    <div class="search-result-item"
+         data-code="${f.amfi_code}"
+         data-name="${escHtml(f.scheme_name)}"
+         data-house="${escHtml(f.fund_house || '')}">
+      <div class="sri-name">${escHtml(f.scheme_name)}</div>
+      <div class="sri-meta">${escHtml(f.fund_house || '')} &middot; AMFI ${f.amfi_code}</div>
+    </div>`).join('');
+  rrcDropdown.classList.toggle('open', Boolean(data.results?.length));
+}
+
+rrcDropdown.addEventListener('click', async e => {
+  const item = e.target.closest('.search-result-item');
+  if (!item) return;
+  rrcAmfiCode = item.dataset.code;
+  rrcSearchInput.value = '';
+  rrcDropdown.classList.remove('open');
+
+  document.getElementById('rrc-selected-fund').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0">
+        ${escHtml(item.dataset.name[0] || '?').toUpperCase()}
+      </div>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.dataset.name)}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${escHtml(item.dataset.house)} &middot; AMFI ${item.dataset.code}</div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="clearRRCFund()">✕</button>
+    </div>`;
+
+  // Pre-fill dates from the fund's NAV data
+  await prefillDates(rrcAmfiCode);
+});
+
+async function prefillDates(code) {
+  try {
+    const r = await fetch(`/api/funds/${code}/rolling-timeseries/?window=252`);
+    const d = await r.json();
+    if (d.inception_date) {
+      rrcInceptionDate = d.inception_date;
+      document.getElementById('rrc-start').value = d.inception_date;
+      document.getElementById('rrc-start').min = d.inception_date;
+      document.getElementById('rrc-inception-hint').textContent = `(inception: ${d.inception_date})`;
+    }
+    if (d.latest_date) {
+      document.getElementById('rrc-end').value = d.latest_date;
+      document.getElementById('rrc-end').max = d.latest_date;
+    }
+  } catch {}
+}
+
+function clearRRCFund() {
+  rrcAmfiCode = null;
+  rrcInceptionDate = null;
+  document.getElementById('rrc-selected-fund').innerHTML = '';
+  document.getElementById('rrc-start').value = '';
+  document.getElementById('rrc-end').value = '';
+  document.getElementById('rrc-inception-hint').textContent = '';
+}
+
+// ─── Window Buttons ───────────────────────────────────────────────────────────
+document.querySelectorAll('.rrc-w-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.rrc-w-btn').forEach(b => b.classList.remove('rrc-active'));
+    btn.classList.add('rrc-active');
+    rrcWindowDays = parseInt(btn.dataset.days);
+    // Auto-refresh if a fund is already selected and dates are ready
+    if (rrcAmfiCode && document.getElementById('rrc-start').value) {
+      document.getElementById('rrc-form').dispatchEvent(new Event('submit'));
+    }
+  });
+});
+
+// ─── Submit ───────────────────────────────────────────────────────────────────
+document.getElementById('rrc-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!rrcAmfiCode) {
+    document.getElementById('rrc-results').innerHTML = `<div class="alert alert-warning">Please search and select a fund first.</div>`;
+    return;
+  }
+  const start = document.getElementById('rrc-start').value;
+  const end = document.getElementById('rrc-end').value;
+
+  // Validate date constraints
+  if (start && rrcInceptionDate && start < rrcInceptionDate) {
+    document.getElementById('rrc-results').innerHTML =
+      `<div class="alert alert-warning">⚠️ Start date (${start}) cannot be before fund inception (${rrcInceptionDate}).</div>`;
+    return;
+  }
+  if (start && end && start >= end) {
+    document.getElementById('rrc-results').innerHTML =
+      `<div class="alert alert-warning">⚠️ Start date must be before end date.</div>`;
+    return;
+  }
+
+  const resultsEl = document.getElementById('rrc-results');
+  resultsEl.innerHTML = `<div class="chart-placeholder" style="min-height:300px"><div class="spinner"></div><br><span style="font-size:12px;color:var(--text-muted)">Fetching NAV data and computing rolling returns…</span></div>`;
+
+  let url = `/api/funds/${rrcAmfiCode}/rolling-timeseries/?window=${rrcWindowDays}`;
+  if (start) url += `&start=${start}`;
+  if (end) url += `&end=${end}`;
+
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (data.error) {
+      resultsEl.innerHTML = `<div class="alert alert-danger">${escHtml(data.error)}</div>`;
+      return;
+    }
+    if (!data.series?.length) {
+      resultsEl.innerHTML = `<div class="alert alert-warning">Not enough NAV data for a ${getWindowLabel(rrcWindowDays)} rolling window in the selected date range.</div>`;
+      return;
+    }
+    renderRRCResults(resultsEl, data);
+  } catch(err) {
+    resultsEl.innerHTML = `<div class="alert alert-danger">Failed to load data. Please try again.</div>`;
+  }
+});
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderRRCResults(container, data) {
+  container.innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">
+        <div class="card-title">${escHtml(data.scheme_name || 'Fund')}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${getWindowLabel(rrcWindowDays)} Rolling Return vs ${escHtml(data.benchmark_name || 'Benchmark')}</div>
+      </div>
+      <div class="card-body">
+        <div id="rrc-plot" style="height:340px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Statistics &amp; Distribution</div></div>
+      <div class="card-body">
+        <div id="rrc-stats"></div>
+      </div>
+    </div>`;
+
+  // Line chart
+  const dates = data.series.map(p => p.date);
+  const fundVals = data.series.map(p => p.fund);
+  const bmVals = data.series.map(p => p.bm);
+  const hasBm = bmVals.some(v => v !== null);
+
+  const traces = [{
+    x: dates, y: fundVals,
+    name: (data.scheme_name || 'Fund').replace(/ - .*/,'').slice(0,30),
+    type: 'scatter', mode: 'lines',
+    line: { color: 'rgba(251,191,36,0.9)', width: 2.5 },
+    hovertemplate: '%{x}: <b>%{y:.2f}%</b><extra></extra>',
+  }];
+  if (hasBm) {
+    traces.push({
+      x: dates, y: bmVals,
+      name: data.benchmark_name || 'Benchmark',
+      type: 'scatter', mode: 'lines',
+      line: { color: 'rgba(99,102,241,0.85)', width: 2 },
+      hovertemplate: '%{x}: <b>%{y:.2f}%</b><extra></extra>',
+    });
+  }
+
+  Plotly.newPlot('rrc-plot', traces, {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: { color: '#94a3b8', size: 11 },
+    legend: { x: 0, y: 1.1, orientation: 'h', font: { size: 11 } },
+    margin: { t: 30, r: 20, b: 60, l: 55 },
+    xaxis: { showgrid: false, zeroline: false, tickangle: -30 },
+    yaxis: {
+      title: 'Annualised Return (%)',
+      gridcolor: 'rgba(148,163,184,0.08)',
+      zeroline: true, zerolinecolor: 'rgba(239,68,68,0.3)', zerolinewidth: 1.5,
+      ticksuffix: '%',
+    },
+    hovermode: 'x unified',
+  }, { responsive: true, displayModeBar: false });
+
+  // Stats + distribution
+  const s = data.stats || {};
+  const b = data.bm_stats || {};
+  const bm = data.benchmark_name || 'Benchmark';
+  const fmtPct = v => v != null ? `${v.toFixed(2)}%` : '—';
+  const colr = v => v == null ? '' : v >= 0 ? 'color:#10b981' : 'color:#ef4444';
+  const statRow = (lbl, fv, bv) => `<tr>
+    <td style="color:var(--text-secondary);font-size:12px">${lbl}</td>
+    <td style="font-weight:600;font-size:12px;${colr(fv)}">${fmtPct(fv)}</td>
+    <td style="font-size:12px;color:var(--text-muted)">${fmtPct(bv)}</td>
+  </tr>`;
+
+  const distCols = ['neg','0_8','8_10','10_12','12_15','15_20','gt20'];
+  const distLabels = {'neg':'Negative','0_8':'0–8%','8_10':'8–10%','10_12':'10–12%','12_15':'12–15%','15_20':'15–20%','gt20':'>20%'};
+  const dHds = distCols.map(k => `<th style="font-size:11px">${distLabels[k]}</th>`).join('');
+  const fCells = distCols.map(k => {
+    const v = s.dist?.[k] ?? 0;
+    const c = k === 'neg' ? 'color:#ef4444' : v > 30 ? 'color:#10b981' : '';
+    return `<td style="font-size:12px;${c}">${v.toFixed(2)}%</td>`;
+  }).join('');
+  const bCells = distCols.map(k => {
+    const v = b.dist?.[k] ?? null;
+    return `<td style="font-size:12px;color:var(--text-muted)">${v != null ? v.toFixed(2)+'%' : '—'}</td>`;
+  }).join('');
+
+  document.getElementById('rrc-stats').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Statistics — ${getWindowLabel(rrcWindowDays)} Rolling</div>
+        <table style="width:100%;font-size:12px">
+          <thead><tr><th></th><th>Fund</th><th>${escHtml(bm)}</th></tr></thead>
+          <tbody>
+            ${statRow('Average', s.avg, b.avg)}
+            ${statRow('Median', s.median, b.median)}
+            ${statRow('Maximum', s.max, b.max)}
+            ${statRow('Minimum', s.min, b.min)}
+            <tr><td style="color:var(--text-secondary);font-size:12px">Negative %</td>
+              <td style="font-size:12px;${s.negative_pct > 0 ? 'color:#ef4444':'color:#10b981'}">${s.negative_pct?.toFixed(2) ?? '—'}%</td>
+              <td style="font-size:12px;color:var(--text-muted)">${b.negative_pct != null ? b.negative_pct.toFixed(2)+'%' : '—'}</td>
+            </tr>
+            <tr><td style="color:var(--text-secondary);font-size:12px">Data Points</td>
+              <td style="font-size:12px">${s.count ?? '—'}</td>
+              <td style="font-size:12px;color:var(--text-muted)">${b.count ?? '—'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Distribution (% of periods)</div>
+        <div class="table-wrapper">
+          <table style="font-size:11px">
+            <thead><tr><th>Entity</th>${dHds}</tr></thead>
+            <tbody>
+              <tr><td style="font-weight:600;font-size:11px">Fund</td>${fCells}</tr>
+              <tr><td style="font-size:11px;color:var(--text-muted)">${escHtml(bm.slice(0,16))}</td>${bCells}</tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:10px">
+          ⚠️ Benchmark uses Price Index, not TRI. TRI is typically 1–2% higher annually.
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getWindowLabel(days) {
+  return ({252:'1Y',504:'2Y',756:'3Y',1260:'5Y',1764:'7Y',2520:'10Y'}[days]) || `${(days/252).toFixed(0)}Y`;
+}
+
+function escHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+{% endblock %}

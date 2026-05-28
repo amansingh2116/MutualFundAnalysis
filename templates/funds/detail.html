@@ -1,6 +1,31 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block extra_head %}
+<style>
+.rrc-window-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.rrc-window-btn:hover {
+  border-color: var(--indigo-400);
+  color: var(--indigo-400);
+}
+.rrc-window-btn.rrc-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+}
+</style>
+{% endblock %}
 {% block title %}{{ scheme.scheme_name }}{% endblock %}
 {% block meta_description %}{{ scheme.scheme_name }} — NAV, returns, risk metrics, holdings, expense ratio, fund managers.{% endblock %}
 
@@ -212,56 +237,97 @@
     <div id="calendar-chart" style="height:260px"></div>
   </div>
 
-  <!-- Rolling Returns Summary -->
+  <!-- Rolling Returns — Summary Stats Table (all windows, vs benchmark) -->
   <div class="card" style="margin-bottom:20px">
-    <div class="card-header"><div class="card-title">Rolling Return Statistics</div></div>
+    <div class="card-header">
+      <div class="card-title">Rolling Return Statistics</div>
+      <div style="font-size:11px;color:var(--text-muted)">All rolling windows vs benchmark — full history</div>
+    </div>
     <div class="card-body-tight">
       {% if rolling_returns %}
-      <table style="font-size:12px">
-        <thead>
-          <tr>
-            <th>Window</th>
-            <th>Min</th>
-            <th>Max</th>
-            <th>Median</th>
-            <th>Mean</th>
-            <th>Win Rate (>0%)</th>
-            <th>Win Rate (>8%)</th>
-            <th>BM Median</th>
-            <th>BM Mean</th>
-            <th title="% of rolling periods where fund beat benchmark">Outperform %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for window, r in rolling_returns.items %}
-          <tr>
-            <td style="font-weight:600;white-space:nowrap">{{ r.window }} Rolling</td>
-            <td class="negative">{{ r.min_pct|floatformat:2 }}%</td>
-            <td class="positive">{{ r.max_pct|floatformat:2 }}%</td>
-            <td class="{% if r.median_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.median_pct|floatformat:2 }}%</td>
-            <td>{{ r.mean_pct|floatformat:2 }}%</td>
-            <td class="positive">{{ r.win_rate_0|floatformat:1 }}%</td>
-            <td>{{ r.win_rate_8|floatformat:1 }}%</td>
-            <td class="muted">{% if r.bm_median %}{{ r.bm_median|floatformat:2 }}%{% else %}—{% endif %}</td>
-            <td class="muted">{% if r.bm_mean %}{{ r.bm_mean|floatformat:2 }}%{% else %}—{% endif %}</td>
-            <td class="{% if r.outperformance_rate and r.outperformance_rate > 50 %}positive{% else %}{% if r.outperformance_rate %}negative{% else %}muted{% endif %}{% endif %}">
-              {% if r.outperformance_rate %}{{ r.outperformance_rate|floatformat:1 }}%{% else %}—{% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table style="font-size:12px">
+          <thead>
+            <tr>
+              <th>Window</th>
+              <th>Min</th><th>Max</th><th>Median</th><th>Mean</th>
+              <th>Win Rate (&gt;0%)</th><th>Win Rate (&gt;8%)</th>
+              <th>BM Median</th><th>BM Mean</th>
+              <th title="% of rolling periods where fund beat benchmark">Outperform %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for window, r in rolling_returns.items %}
+            <tr>
+              <td style="font-weight:600;white-space:nowrap">{{ r.window }} Rolling</td>
+              <td class="negative">{{ r.min_pct|floatformat:2 }}%</td>
+              <td class="positive">{{ r.max_pct|floatformat:2 }}%</td>
+              <td class="{% if r.median_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.median_pct|floatformat:2 }}%</td>
+              <td>{{ r.mean_pct|floatformat:2 }}%</td>
+              <td class="positive">{{ r.win_rate_0|floatformat:1 }}%</td>
+              <td>{{ r.win_rate_8|floatformat:1 }}%</td>
+              <td class="muted">{% if r.bm_median %}{{ r.bm_median|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="muted">{% if r.bm_mean %}{{ r.bm_mean|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="{% if r.outperformance_rate and r.outperformance_rate > 50 %}positive{% else %}{% if r.outperformance_rate %}negative{% else %}muted{% endif %}{% endif %}">
+                {% if r.outperformance_rate %}{{ r.outperformance_rate|floatformat:1 }}%{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       {% else %}
       <div class="chart-placeholder" style="min-height:80px"><span style="font-size:12px;color:var(--text-muted)">Rolling returns not computed yet.</span></div>
       {% endif %}
     </div>
   </div>
 
-  <!-- Rolling Returns Chart -->
+  <!-- Rolling Return Calculator (time-series plot + distribution table) -->
   <div class="card" style="margin-bottom:20px">
     <div class="card-header">
-      <div class="card-title">Rolling Returns Distribution</div>
-      <div style="font-size:11px;color:var(--text-muted)">Annualised return range across all rolling windows. Bar = mean, error bar = min/max. BM shown in outline.</div>
+      <div class="card-title">Rolling Return Calculator</div>
+      <div style="font-size:11px;color:var(--text-muted)">
+        Inception: <strong id="rrc-inception">{{ meta.start_date|default:"—" }}</strong> &nbsp;·&nbsp; Latest NAV: <strong id="rrc-latest">{{ nav_date|default:"—" }}</strong>
+      </div>
+    </div>
+    <div class="card-body">
+      <!-- Controls -->
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Rolling Window</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn rrc-window-btn rrc-active" data-days="365" id="rrc-btn-1Y">1Y</button>
+            <button class="btn rrc-window-btn" data-days="504" id="rrc-btn-2Y">2Y</button>
+            <button class="btn rrc-window-btn" data-days="756" id="rrc-btn-3Y">3Y</button>
+            <button class="btn rrc-window-btn" data-days="1260" id="rrc-btn-5Y">5Y</button>
+            <button class="btn rrc-window-btn" data-days="1764" id="rrc-btn-7Y">7Y</button>
+            <button class="btn rrc-window-btn" data-days="2520" id="rrc-btn-10Y">10Y</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Start Date</div>
+          <input type="date" id="rrc-start" class="form-control" style="width:155px;font-size:12px" value="{{ meta.start_date|default:'' }}">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">End Date</div>
+          <input type="date" id="rrc-end" class="form-control" style="width:155px;font-size:12px" value="{{ nav_date|default:'' }}">
+        </div>
+        <button class="btn btn-primary" id="rrc-calculate" style="height:36px">Calculate</button>
+      </div>
+
+      <!-- Line Chart -->
+      <div id="rrc-chart" style="height:300px"></div>
+
+      <!-- Stats + Distribution Table -->
+      <div id="rrc-table" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- Rolling Distribution Bar Chart (all windows) -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <div class="card-title">Rolling Returns Distribution (All Windows)</div>
+      <div style="font-size:11px;color:var(--text-muted)">Bar = mean, error bar = min/max. BM shown beside. Right axis = % of periods beating BM.</div>
     </div>
     <div id="rolling-chart" style="height:320px"></div>
   </div>
@@ -832,6 +898,180 @@ function renderRollingChart(el, data) {
   if (windows.some(w => w.outperformance_rate != null)) traces.push(outLine);
 
   Plotly.newPlot(el, traces, layout, { responsive: true, displayModeBar: false });
+}
+</script>
+
+<script>
+// ─── Rolling Return Calculator (RRC) ─────────────────────────────────────────
+let rrcWindowDays = 365;
+
+document.querySelectorAll('.rrc-window-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.rrc-window-btn').forEach(b => b.classList.remove('rrc-active'));
+    btn.classList.add('rrc-active');
+    rrcWindowDays = parseInt(btn.dataset.days);
+    // Auto-refresh — only if the chart has already been loaded once
+    if (document.getElementById('rrc-chart').__rrcLoaded) {
+      runRRC();
+    }
+  });
+});
+
+document.getElementById('rrc-calculate').addEventListener('click', runRRC);
+
+// Auto-run when Performance tab opens (only once, after chart load)
+document.querySelector('[data-tab="tab-performance"]')?.addEventListener('click', () => {
+  setTimeout(() => {
+    if (!document.getElementById('rrc-chart').__rrcLoaded) {
+      runRRC();
+      document.getElementById('rrc-chart').__rrcLoaded = true;
+    }
+  }, 400);
+});
+
+async function runRRC() {
+  const chartEl = document.getElementById('rrc-chart');
+  const tableEl = document.getElementById('rrc-table');
+  const start = document.getElementById('rrc-start').value;
+  const end = document.getElementById('rrc-end').value;
+
+  // Validate: start must be >= inception
+  const inceptionStr = document.getElementById('rrc-inception').textContent.trim();
+  if (start && inceptionStr && inceptionStr !== '—' && start < inceptionStr) {
+    tableEl.innerHTML = `<div class="alert alert-warning" style="font-size:12px">⚠️ Start date cannot be before fund inception (${inceptionStr}). Please adjust.</div>`;
+    return;
+  }
+
+  chartEl.innerHTML = `<div class="chart-placeholder" style="min-height:280px"><div class="spinner"></div></div>`;
+  tableEl.innerHTML = '';
+
+  let url = `/api/funds/${AMFI_CODE}/rolling-timeseries/?window=${rrcWindowDays}`;
+  if (start) url += `&start=${start}`;
+  if (end) url += `&end=${end}`;
+
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (data.error) {
+      chartEl.innerHTML = `<div class="alert alert-warning">${data.error}</div>`;
+      return;
+    }
+    if (!data.series || !data.series.length) {
+      chartEl.innerHTML = `<div class="chart-placeholder" style="min-height:280px"><span style="font-size:12px;color:var(--text-muted)">Not enough data for this window size in the selected date range.</span></div>`;
+      return;
+    }
+    renderRollingTimeseries(chartEl, data);
+    renderRollingTable(tableEl, data);
+  } catch(e) {
+    chartEl.innerHTML = `<div class="alert alert-danger">Failed to load rolling return data.</div>`;
+  }
+}
+
+function renderRollingTimeseries(el, data) {
+  const dates = data.series.map(p => p.date);
+  const fundVals = data.series.map(p => p.fund);
+  const bmVals = data.series.map(p => p.bm);
+  const hasBm = bmVals.some(v => v !== null);
+
+  const fundTrace = {
+    x: dates, y: fundVals,
+    name: data.scheme_name ? data.scheme_name.replace(/ - .*/,'').slice(0,30) : 'Fund',
+    type: 'scatter', mode: 'lines',
+    line: { color: 'rgba(251,191,36,0.9)', width: 2 },
+    hovertemplate: '%{x}: <b>%{y:.2f}%</b><extra></extra>',
+  };
+  const traces = [fundTrace];
+
+  if (hasBm) {
+    traces.push({
+      x: dates, y: bmVals,
+      name: data.benchmark_name || 'Benchmark',
+      type: 'scatter', mode: 'lines',
+      line: { color: 'rgba(99,102,241,0.85)', width: 2 },
+      hovertemplate: '%{x}: <b>%{y:.2f}%</b><extra></extra>',
+    });
+  }
+
+  const windowLabel = {365:'1Y',504:'2Y',756:'3Y',1260:'5Y',1764:'7Y',2520:'10Y'}[rrcWindowDays] || (rrcWindowDays/252).toFixed(0)+'Y';
+
+  Plotly.newPlot(el, traces, {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: { color: '#94a3b8', size: 11 },
+    title: { text: `${windowLabel} Rolling Return (CAGR %)`, font: { size: 13, color: '#e2e8f0' }, x: 0.02 },
+    legend: { x: 0, y: 1.1, orientation: 'h', font: { size: 11 } },
+    margin: { t: 50, r: 20, b: 60, l: 55 },
+    xaxis: { showgrid: false, zeroline: false, tickangle: -30 },
+    yaxis: { title: 'Annualised Return (%)', gridcolor: 'rgba(148,163,184,0.08)', zeroline: true, zerolinecolor: 'rgba(239,68,68,0.25)', zerolinewidth: 1.5, ticksuffix: '%' },
+    hovermode: 'x unified',
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderRollingTable(el, data) {
+  const s = data.stats || {};
+  const b = data.bm_stats || {};
+  const bm = data.benchmark_name || 'Benchmark';
+  const windowLabel = {365:'1Y',504:'2Y',756:'3Y',1260:'5Y',1764:'7Y',2520:'10Y'}[rrcWindowDays] || (rrcWindowDays/252).toFixed(0)+'Y';
+
+  const fmtPct = v => (v != null ? `${v.toFixed(2)}%` : '—');
+  const colorCls = v => v == null ? '' : v >= 0 ? 'color:#10b981' : 'color:#ef4444';
+
+  // Stats row
+  const statRow = (label, fv, bv) => `
+    <tr>
+      <td style="color:var(--text-secondary);font-size:12px">${label}</td>
+      <td style="font-weight:600;font-size:12px;${colorCls(fv)}">${fmtPct(fv)}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${fmtPct(bv)}</td>
+    </tr>`;
+
+  // Distribution table
+  const distLabel = (k) => ({'neg':'Negative','0_8':'0–8%','8_10':'8–10%','10_12':'10–12%','12_15':'12–15%','15_20':'15–20%','gt20':'>20%'}[k] || k);
+  const distCols = ['neg','0_8','8_10','10_12','12_15','15_20','gt20'];
+  const distHeads = distCols.map(k => `<th style="font-size:11px">${distLabel(k)}</th>`).join('');
+  const fundDistCells = distCols.map(k => {
+    const v = s.dist?.[k] ?? 0;
+    const cls = k === 'neg' ? 'color:#ef4444' : v > 30 ? 'color:#10b981' : '';
+    return `<td style="font-size:12px;${cls}">${v.toFixed(2)}%</td>`;
+  }).join('');
+  const bmDistCells = distCols.map(k => {
+    const v = b.dist?.[k] ?? null;
+    return `<td style="font-size:12px;color:var(--text-muted)">${v != null ? v.toFixed(2)+'%' : '—'}</td>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Statistics — ${windowLabel} Rolling</div>
+        <table style="font-size:12px;width:100%">
+          <thead><tr><th></th><th>Fund</th><th>${bm}</th></tr></thead>
+          <tbody>
+            ${statRow('Average', s.avg, b.avg)}
+            ${statRow('Median', s.median, b.median)}
+            ${statRow('Maximum', s.max, b.max)}
+            ${statRow('Minimum', s.min, b.min)}
+            <tr><td style="color:var(--text-secondary);font-size:12px">Negative %</td>
+              <td style="font-size:12px;${s.negative_pct > 0 ? 'color:#ef4444' : 'color:#10b981'}">${s.negative_pct?.toFixed(2) ?? '—'}%</td>
+              <td style="font-size:12px;color:var(--text-muted)">${b.negative_pct != null ? b.negative_pct.toFixed(2)+'%' : '—'}</td>
+            </tr>
+            <tr><td style="color:var(--text-secondary);font-size:12px">Data Points</td>
+              <td style="font-size:12px">${s.count ?? '—'}</td>
+              <td style="font-size:12px;color:var(--text-muted)">${b.count ?? '—'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Distribution (% of times)</div>
+        <div class="table-wrapper">
+          <table style="font-size:11px">
+            <thead><tr><th>Entity</th>${distHeads}</tr></thead>
+            <tbody>
+              <tr><td style="font-weight:600;font-size:11px;white-space:nowrap">Fund</td>${fundDistCells}</tr>
+              <tr><td style="font-size:11px;color:var(--text-muted);white-space:nowrap">${bm.slice(0,18)}</td>${bmDistCells}</tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
 }
 </script>
 {% endblock %}

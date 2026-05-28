@@ -231,6 +231,142 @@ def sip_simulate_api(request, amfi_code):
 
 
 @require_GET
+def rolling_timeseries_api(request, amfi_code):
+    """Rolling return time-series API.
+
+    Query params:
+      window  — rolling window in days (default 365 = 1Y)
+      start   — start date YYYY-MM-DD (optional, defaults to inception)
+      end     — end date YYYY-MM-DD (optional, defaults to latest NAV)
+
+    Returns:
+      inception_date, latest_date, benchmark_name,
+      series: [{date, fund, bm}, ...],
+      stats: {avg, median, min, max, negative_pct, dist_buckets}
+    """
+    import numpy as np
+    scheme = get_scheme_or_404(amfi_code)
+    from apps.funds.runtime import get_runtime_snapshot
+
+    snapshot = get_runtime_snapshot(scheme)
+    nav = snapshot.nav_series
+    bm = snapshot.benchmark_series
+
+    if nav.empty:
+        return JsonResponse({'error': 'No NAV data available.'})
+
+    # Parse params
+    try:
+        window_days = int(request.GET.get('window', 365))
+    except ValueError:
+        window_days = 365
+
+    inception_date = nav.index[0].date().isoformat()
+    latest_date = nav.index[-1].date().isoformat()
+
+    try:
+        start = pd.Timestamp(request.GET.get('start') or inception_date)
+    except Exception:
+        start = nav.index[0]
+    try:
+        end = pd.Timestamp(request.GET.get('end') or latest_date)
+    except Exception:
+        end = nav.index[-1]
+
+    # Clamp to available NAV range
+    start = max(start, nav.index[0])
+    end = min(end, nav.index[-1])
+
+    # Resample to business days
+    nav_b = nav.resample('B').ffill().dropna()
+    bm_b = bm.resample('B').ffill().dropna() if bm is not None and not bm.empty else pd.Series(dtype=float)
+
+    # Compute rolling returns: CAGR over window_days ending at each date
+    years = window_days / 252
+    rolling_fund = (nav_b / nav_b.shift(window_days)) ** (1 / years) - 1
+    rolling_fund = rolling_fund.dropna() * 100
+
+    rolling_bm = pd.Series(dtype=float)
+    if not bm_b.empty and len(bm_b) > window_days:
+        rolling_bm = (bm_b / bm_b.shift(window_days)) ** (1 / years) - 1
+        rolling_bm = rolling_bm.dropna() * 100
+
+    # Filter to requested date range (end-date of each window)
+    mask = (rolling_fund.index >= start) & (rolling_fund.index <= end)
+    rolling_fund = rolling_fund[mask]
+
+    # Build series
+    series = []
+    for dt, val in rolling_fund.items():
+        bm_val = None
+        if not rolling_bm.empty and dt in rolling_bm.index:
+            bv = rolling_bm.loc[dt]
+            bm_val = round(float(bv), 4) if not pd.isna(bv) else None
+        series.append({
+            'date': dt.date().isoformat(),
+            'fund': round(float(val), 4),
+            'bm': bm_val,
+        })
+
+    # Compute stats
+    vals = [p['fund'] for p in series]
+    bm_vals = [p['bm'] for p in series if p['bm'] is not None]
+    def pct_in(arr, lo, hi):
+        if not arr: return 0.0
+        return round(100 * sum(1 for v in arr if lo <= v < hi) / len(arr), 2)
+
+    stats = {}
+    if vals:
+        stats = {
+            'avg': round(float(np.mean(vals)), 2),
+            'median': round(float(np.median(vals)), 2),
+            'min': round(float(np.min(vals)), 2),
+            'max': round(float(np.max(vals)), 2),
+            'negative_pct': round(100 * sum(1 for v in vals if v < 0) / len(vals), 2),
+            'dist': {
+                'neg': pct_in(vals, -999, 0),
+                '0_8': pct_in(vals, 0, 8),
+                '8_10': pct_in(vals, 8, 10),
+                '10_12': pct_in(vals, 10, 12),
+                '12_15': pct_in(vals, 12, 15),
+                '15_20': pct_in(vals, 15, 20),
+                'gt20': pct_in(vals, 20, 9999),
+            },
+            'count': len(vals),
+        }
+    bm_stats = {}
+    if bm_vals:
+        bm_stats = {
+            'avg': round(float(np.mean(bm_vals)), 2),
+            'median': round(float(np.median(bm_vals)), 2),
+            'min': round(float(np.min(bm_vals)), 2),
+            'max': round(float(np.max(bm_vals)), 2),
+            'negative_pct': round(100 * sum(1 for v in bm_vals if v < 0) / len(bm_vals), 2),
+            'dist': {
+                'neg': pct_in(bm_vals, -999, 0),
+                '0_8': pct_in(bm_vals, 0, 8),
+                '8_10': pct_in(bm_vals, 8, 10),
+                '10_12': pct_in(bm_vals, 10, 12),
+                '12_15': pct_in(bm_vals, 12, 15),
+                '15_20': pct_in(bm_vals, 15, 20),
+                'gt20': pct_in(bm_vals, 20, 9999),
+            },
+            'count': len(bm_vals),
+        }
+
+    return JsonResponse({
+        'inception_date': inception_date,
+        'latest_date': latest_date,
+        'scheme_name': scheme.scheme_name,
+        'benchmark_name': snapshot.benchmark_display_name,
+        'window_days': window_days,
+        'series': series,
+        'stats': stats,
+        'bm_stats': bm_stats,
+    })
+
+
+@require_GET
 def rolling_chart_api(request, amfi_code):
     """Rolling return distribution for chart rendering.
 

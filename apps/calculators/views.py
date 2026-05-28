@@ -19,6 +19,10 @@ def hub_view(request):
     return render(request, 'calculators/hub.html')
 
 
+def rolling_view(request):
+    return render(request, 'calculators/rolling.html')
+
+
 def sip_view(request):
     return render(request, 'calculators/sip.html')
 
