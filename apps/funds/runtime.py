@@ -1787,86 +1787,15 @@ def _extract_category_from_name(name: str) -> str:
 
 
 def find_peer_funds(scheme: Scheme, max_peers: int = 5) -> list[Scheme]:
-    """Return up to *max_peers* peer Schemes in the same category from different AMCs.
+    """Return peer Schemes using the scored India peer engine.
 
-    3-tier strategy (in order of preference):
-    ─────────────────────────────────────────
-    Tier 1 — scheme_category DB match (fast, exact)
-        If scheme_category is populated, use it directly.
-
-    Tier 2 — name-keyword extraction (always available)
-        Parse the scheme name to determine a SEBI-like category string using
-        a hand-crafted keyword map.  Filter all DB schemes whose names contain
-        the same keywords.  This works for all funds regardless of whether
-        scheme_category is populated in the DB.
-
-    Tier 3 — scheme_type broad match (last resort)
-        If no category keywords match, fall back to scheme_type ('Open Ended
-        Schemes(Equity/ Equity related)' etc.) so we at least find same
-        asset-class funds.
-
-    All tiers:
-        • Exclude same AMC (fund_house)
-        • Exclude the fund itself
-        • Match plan (GROWTH/IDCW) and is_direct flag exactly
-        • Sort by aum_cr desc (largest peers first)
+    Kept as a compatibility wrapper for callers that only need scheme objects.
+    Use ``apps.funds.peers.get_peer_matches`` when score/reason metadata is
+    needed.
     """
-    import re
-    amc = (scheme.fund_house or "").strip()
-    plan = scheme.plan or "GROWTH"
-    is_direct = scheme.is_direct
-    base_qs = (
-        Scheme.objects
-        .filter(plan=plan, is_direct=is_direct, is_active=True)
-        .exclude(fund_house=amc)
-        .exclude(amfi_code=scheme.amfi_code)
-    )
+    from apps.funds.peers import get_peer_matches
 
-    # ── Tier 1: scheme_category if populated ────────────────────────────────
-    category = (scheme.scheme_category or "").strip()
-    if category:
-        results = list(
-            base_qs.filter(scheme_category=category)
-            .order_by("-aum_cr", "scheme_name")[:max_peers]
-        )
-        if results:
-            return results
-
-    # ── Tier 2: name-keyword extraction ─────────────────────────────────────
-    inferred_category = _extract_category_from_name(scheme.scheme_name)
-    if inferred_category:
-        # Find the first matching keyword tuple for this category
-        matching_keywords: tuple[str, ...] = ()
-        for kws, cat in _SEBI_KEYWORD_MAP:
-            if cat == inferred_category:
-                matching_keywords = kws
-                break
-
-        if matching_keywords:
-            # Build a Q OR filter: name__icontains for each keyword
-            from django.db.models import Q
-            kw_q = Q()
-            for kw in matching_keywords:
-                kw_q |= Q(scheme_name__icontains=kw)
-
-            results = list(
-                base_qs.filter(kw_q)
-                .order_by("-aum_cr", "scheme_name")[:max_peers]
-            )
-            if results:
-                return results
-
-    # ── Tier 3: scheme_type broad match ─────────────────────────────────────
-    stype = (scheme.scheme_type or "").strip()
-    if stype:
-        results = list(
-            base_qs.filter(scheme_type=stype)
-            .order_by("-aum_cr", "scheme_name")[:max_peers]
-        )
-        if results:
-            return results
-
-    return []
+    return [match.scheme for match in get_peer_matches(scheme, max_peers=max_peers)]
 
 
 def format_lock_in(value: Any) -> str:

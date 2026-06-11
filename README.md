@@ -16,6 +16,7 @@
 - **Rolling return distributions** with win rates, medians, and min/max ranges.
 - **Composition**: Holdings, sector allocation, and asset allocation from Morningstar.
 - **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`).
+- **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `docs/PEER_MATCHING.md`).
 
 ### 💼 Portfolio Analysis
 - Upload CAS (Consolidated Account Statement) Excel/CSV files, or enter transactions **manually**.
@@ -46,7 +47,8 @@
 1. **Data Ingestion (`adapters/`)**: The system fetches live scheme data, historical NAVs, and metadata completely free of cost by connecting to unauthenticated APIs including AMFI, mfapi.in, captnemo, Morningstar (via mstarpy), and Yahoo Finance.
 2. **Analytics Engine (`apps/analytics/`)**: Real-time mathematical computations (CAGR, Beta, Sharpe, Rolling returns) are heavily vectorized using **Pandas** and **NumPy** to ensure fast response times directly on the server side.
 3. **Runtime Assembly (`apps/funds/runtime.py`)**: When you load a fund, the runtime snapshot intelligently aggregates database historical data and live adapter data, filling missing gaps dynamically before rendering the HTML template.
-4. **Interactive UI (`static/js/`)**: The frontend uses Vanilla JavaScript and **Plotly** to render complex financial charts without heavy JS frameworks, keeping the application lightweight.
+4. **Peer Discovery (`apps/funds/peers.py`)**: The peer tab uses a scored matcher that works even when SEBI category data is missing by fingerprinting scheme names and basic metadata.
+5. **Interactive UI (`static/js/`)**: The frontend uses Vanilla JavaScript and **Plotly** to render complex financial charts without heavy JS frameworks, keeping the application lightweight.
 
 ---
 
@@ -72,12 +74,12 @@ MutualFundAnalysis/
 ├── render.yaml              ← Render.com Infrastructure-as-Code deployment config
 │
 ├── config/                  ← Main Django configuration
-│   ├── settings.py          ← Database, middleware, and environment variables
+│   ├── settings/            ← Shared, development, and production settings
 │   └── urls.py              ← Global URL routing table
 │
 ├── apps/                    ← Django Application Modules
 │   ├── core/                ← Base models, mixins, and shared utilities
-│   ├── funds/               ← Scheme master, NAV history, and runtime snapshots (`runtime.py`)
+│   ├── funds/               ← Scheme master, NAV history, runtime snapshots, peer matching, tests
 │   ├── analytics/           ← Core financial math engine (`engine.py`, rolling returns, metrics)
 │   ├── benchmarks/          ← Benchmark index registry and NAV history tracking
 │   ├── calculators/         ← Stateless financial logic for SIP, Lumpsum, SWP, Goals
@@ -90,6 +92,7 @@ MutualFundAnalysis/
 │
 └── docs/                    ← Deep-dive technical documentation
     ├── backtester_analysis.md ← Backtester math, simulation rules, and API payload reference
+    ├── PEER_MATCHING.md       ← Peer comparison matching rules and validation notes
     ├── SCORING_MODEL.md       ← Comprehensive rules for the 100-point Fund scoring model
     └── DEPLOYMENT.md          ← Original deployment reference documentation
 ```
@@ -146,6 +149,12 @@ python manage.py ingest_benchmarks
 python manage.py runserver
 ```
 Visit `http://127.0.0.1:8000/` in your browser.
+
+### 6. Run Tests
+```powershell
+$env:DEBUG='True'; python manage.py test apps.funds apps.analytics
+```
+If you run tests without overriding `DEBUG`, make sure `.env` uses a boolean such as `DEBUG=True` or `DEBUG=False`.
 
 ---
 

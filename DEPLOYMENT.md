@@ -191,6 +191,7 @@ Browser
 | Fund detail page (6 tabs) | ✅ Working (needs data) |
 | Fund screener with filters | ✅ Working |
 | Fund comparison (up to 4) | ✅ Working |
+| Fund peer comparison tab | ✅ Working with scored fingerprint matching |
 | SIP / Lumpsum / SWP calculators | ✅ Working |
 | Goal planner | ✅ Working |
 | Tax calculator (STCG/LTCG) | ✅ Working |

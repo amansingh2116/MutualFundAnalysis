@@ -536,16 +536,18 @@ def peer_comparison_api(request, amfi_code):
 
     scheme = get_scheme_or_404(amfi_code)
     max_peers = min(int(request.GET.get('max', 5)), 8)
-    cache_key = f"fund:peers:v2:{amfi_code}:{max_peers}"
+    cache_key = f"fund:peers:v3:{amfi_code}:{max_peers}"
     cached = django_cache.get(cache_key)
     if cached is not None:
         return JsonResponse(cached)
 
     try:
-        from apps.funds.runtime import find_peer_funds, get_runtime_snapshot
+        from apps.funds.peers import get_peer_matches
+        from apps.funds.runtime import get_runtime_snapshot
 
-        peers = find_peer_funds(scheme, max_peers=max_peers)
-        funds_to_fetch = [scheme] + peers
+        peer_matches = get_peer_matches(scheme, max_peers=max_peers)
+        match_by_code = {match.scheme.amfi_code: match for match in peer_matches}
+        funds_to_fetch = [scheme] + [match.scheme for match in peer_matches]
 
         funds_data = []
         for s in funds_to_fetch:
@@ -582,12 +584,16 @@ def peer_comparison_api(request, amfi_code):
             # ── Scheme info ─────────────────────────────────────────────────
             meta = snap.meta
 
+            match = match_by_code.get(s.amfi_code)
             funds_data.append({
                 'amfi_code':    s.amfi_code,
                 'scheme_name':  s.scheme_name,
                 'fund_house':   s.fund_house,
                 'category':     getattr(snap, 'category', s.scheme_category) or s.scheme_category,
                 'is_base':      s.amfi_code == amfi_code,
+                'match_score':  match.score if match else None,
+                'match_reason': match.match_reason if match else '',
+                'match_group':  match.match_group if match else '',
                 # Ratios
                 'pe_ratio':          avg_pe,
                 'std_dev_3y':        _f(risk3, 'std_dev_ann'),
@@ -680,4 +686,3 @@ def rolling_chart_api(request, amfi_code):
         'windows': windows,
         'benchmark_name': snapshot.benchmark_display_name,
     })
-

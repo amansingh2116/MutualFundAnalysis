@@ -31,7 +31,8 @@ Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV dat
    - **Metadata:** Fetches from captnemo by ISIN; falls back to a same-fund sibling growth plan with a UI label indicating it's a reference value
    - **Holdings/Sectors:** Uses mstarpy (Morningstar) first, then yahooquery fallback after Yahoo ticker resolution
    - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, etc.
-3. **Portfolio & Benchmarks** are the only data fully persisted in the database.
+3. **Peer Matching:** `apps.funds.peers.get_peer_matches(scheme)` fingerprints scheme names and basic metadata to rank peers even when `scheme_category` is empty.
+4. **Portfolio & Benchmarks** are the only data fully persisted in the database.
 
 ### Runtime Data Rules (Never Break These)
 - Do NOT bulk-ingest all schemes' NAV histories for normal browsing
@@ -59,7 +60,7 @@ Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV dat
 ```
 apps/
 ├── core/           ← BaseModel (UUID PK, created_at, updated_at), shared utilities
-├── funds/          ← Scheme, NAVHistory, SchemeMeta; runtime snapshot; PDF report
+├── funds/          ← Scheme, NAVHistory, SchemeMeta; runtime snapshot; peer matching; PDF report
 ├── analytics/      ← Analytics engine (engine.py) — pure math, zero views
 ├── benchmarks/     ← BenchmarkIndex, BenchmarkNAV, management commands, live market API
 ├── holdings/       ← Holding model (fund's underlying stocks/bonds by month)
@@ -84,6 +85,14 @@ Pure pandas/numpy — no Django ORM in hot loops. Key computations:
 - **Sharpe:** `(CAGR - RF_RATE) / volatility`; `RF_ANNUAL_RATE` is configurable via `.env`
 - **Beta/Alpha:** `scipy.stats.linregress(fund_returns, benchmark_returns)`
 - **Max Drawdown:** `nav / nav.cummax() - 1` minimum
+
+### A2. Peer Matching (`apps/funds/peers.py`)
+The peer comparison tab uses a scored India-focused matcher rather than a simple category or keyword fallback.
+- Hard filters: same plan, same Direct/Regular flag, active schemes only, different fund house, and different AMFI code
+- Fingerprints detect active equity/debt/hybrid, index funds, ETFs, FoFs, commodity funds, ELSS, sectors/themes, index groups, and FoF asset/geography
+- Ranking is score-first, then AUM, then scheme name; AUM never overrides relevance
+- The API returns `match_score`, `match_reason`, and `match_group` for debug visibility
+- Full notes and edge cases live in `docs/PEER_MATCHING.md`
 
 ### B. Portfolio Analyzer (`apps/portfolio/`)
 1. **Parsing** (`parsers.py`): Reads Excel/CSV using Pandas with heuristic column detection
@@ -201,6 +210,11 @@ All five planned phases are substantially implemented:
 - Docker containerization
 - PostgreSQL production validation
 - Unit test coverage
+
+**Recently validated:** Peer comparison now uses scored fingerprint-based matching for Indian mutual funds. Run the regression suite with:
+```powershell
+$env:DEBUG='True'; python manage.py test apps.funds apps.analytics
+```
 
 ---
 
