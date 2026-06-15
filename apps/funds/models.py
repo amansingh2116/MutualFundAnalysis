@@ -198,3 +198,64 @@ class SchemeMeta(BaseModel):
     @property
     def is_elss(self) -> bool:
         return self.lock_in_period >= 1095  # 3 years
+
+
+class FundScreenerSnapshot(BaseModel):
+    """
+    Denormalized, manually refreshable fund screener row.
+
+    The refresh_screener_data management command derives this from Scheme,
+    SchemeMeta, NAVHistory, and analytics tables so the screener UI can filter
+    and sort without doing heavy joins for every request.
+    """
+    scheme = models.OneToOneField(
+        Scheme,
+        on_delete=models.CASCADE,
+        related_name='screener_snapshot',
+    )
+
+    fund_name = models.CharField(max_length=300)
+    fund_house = models.CharField(max_length=200, db_index=True)
+    category_group = models.CharField(max_length=40, db_index=True)
+    scheme_sub_category = models.CharField(max_length=120, blank=True, db_index=True)
+    income_type = models.CharField(max_length=30, blank=True, db_index=True)
+    plan_type = models.CharField(max_length=30, blank=True, db_index=True)
+    is_direct = models.BooleanField(default=False, db_index=True)
+    is_etf = models.BooleanField(default=False, db_index=True)
+
+    benchmark_type = models.CharField(max_length=40, blank=True, db_index=True)
+    benchmark_name = models.CharField(max_length=160, blank=True, db_index=True)
+    risk_label = models.CharField(max_length=30, blank=True, db_index=True)
+
+    aum_cr = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    expense_ratio = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    fund_age_years = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+
+    returns_1y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    returns_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    returns_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    cagr_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    rolling_return_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    volatility_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    data_as_of = models.DateField(null=True, blank=True, db_index=True)
+    nav_as_of = models.DateField(null=True, blank=True)
+    analytics_as_of = models.DateField(null=True, blank=True)
+    metadata_as_of = models.DateTimeField(null=True, blank=True)
+    source_notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['fund_name']
+        indexes = [
+            models.Index(fields=['category_group', 'scheme_sub_category']),
+            models.Index(fields=['fund_house', 'category_group']),
+            models.Index(fields=['plan_type', 'is_direct']),
+            models.Index(fields=['benchmark_type', 'benchmark_name']),
+            models.Index(fields=['cagr_3y_pct']),
+            models.Index(fields=['rolling_return_3y_pct']),
+            models.Index(fields=['volatility_3y_pct']),
+            models.Index(fields=['data_as_of']),
+        ]
+
+    def __str__(self):
+        return f"Screener: {self.fund_name}"

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Scheme, NAVHistory, SchemeMeta
+from .models import FundScreenerSnapshot, Scheme, NAVHistory, SchemeMeta
 
 
 @admin.register(Scheme)
@@ -48,4 +48,21 @@ class SchemeMetaAdmin(admin.ModelAdmin):
     search_fields = ['scheme__amfi_code', 'scheme__scheme_name']
     raw_id_fields = ['scheme']
     readonly_fields = ['last_fetched', 'created_at', 'updated_at']
+    list_per_page = 50
+
+
+@admin.register(FundScreenerSnapshot)
+class FundScreenerSnapshotAdmin(admin.ModelAdmin):
+    list_display = [
+        'scheme', 'fund_house', 'category_group', 'scheme_sub_category',
+        'plan_type', 'benchmark_name', 'cagr_3y_pct', 'rolling_return_3y_pct',
+        'volatility_3y_pct', 'data_as_of', 'updated_at',
+    ]
+    list_filter = [
+        'category_group', 'scheme_sub_category', 'fund_house', 'plan_type',
+        'benchmark_type', 'risk_label', 'is_direct', 'is_etf',
+    ]
+    search_fields = ['fund_name', 'fund_house', 'scheme__amfi_code', 'benchmark_name']
+    raw_id_fields = ['scheme']
+    readonly_fields = ['created_at', 'updated_at']
     list_per_page = 50

@@ -41,6 +41,9 @@
       <a href="{% url 'funds:category_list' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
         <span class="nav-icon">📂</span> Browse Funds
       </a>
+      <a href="{% url 'funds:screener' %}" class="nav-item {% if request.resolver_match.url_name == 'screener' %}active{% endif %}">
+        <span class="nav-icon">S</span> Fund Screener
+      </a>
       <div class="nav-section-label" style="margin-top:12px">Tools</div>
       <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' %}active{% endif %}">
         <span class="nav-icon">🧮</span> Calculators

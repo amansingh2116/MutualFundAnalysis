@@ -3,16 +3,20 @@ apps/funds/views.py — Core fund views
 """
 import json
 import logging
+import csv
 from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
 from django.db.models import Count, Q
-from django.http import Http404, JsonResponse
+from django.core.paginator import Paginator
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import DetailView, ListView, TemplateView
 
-from apps.funds.models import NAVHistory, Scheme, SchemeMeta
+from apps.funds.models import FundScreenerSnapshot, NAVHistory, Scheme, SchemeMeta
+from apps.funds.screener import benchmark_options
+from apps.funds.screener_reports import render_fund_report_html
 
 logger = logging.getLogger('mfanalysis')
 
@@ -63,6 +67,209 @@ class CategoryListView(TemplateView):
             .annotate(count=Count('id')).order_by('-count')
         )
         return ctx
+
+
+class FundScreenerView(TemplateView):
+    template_name = 'funds/screener.html'
+    paginate_by = 50
+
+    sort_options = {
+        'name': 'fund_name',
+        'aum': 'aum_cr',
+        'expense': 'expense_ratio',
+        'age': 'fund_age_years',
+        'return_1y': 'returns_1y_pct',
+        'cagr_3y': 'cagr_3y_pct',
+        'return_5y': 'returns_5y_pct',
+        'rolling_3y': 'rolling_return_3y_pct',
+        'volatility_3y': 'volatility_3y_pct',
+        'updated': 'updated_at',
+    }
+
+    export_columns = [
+        ('fund_name', 'Scheme Name'),
+        ('fund_house', 'Fund House'),
+        ('category_group', 'Scheme Category'),
+        ('scheme_sub_category', 'Scheme Sub-category'),
+        ('plan_type', 'Plan Type'),
+        ('benchmark_type', 'Benchmark Type'),
+        ('benchmark_name', 'Benchmark'),
+        ('aum_cr', 'AUM (Cr)'),
+        ('expense_ratio', 'Expense Ratio'),
+        ('fund_age_years', 'Fund Age'),
+        ('returns_1y_pct', '1-Yr Return'),
+        ('cagr_3y_pct', '3-Yr CAGR'),
+        ('rolling_return_3y_pct', '3-Yr Rolling Return'),
+        ('volatility_3y_pct', '3-Yr Volatility'),
+        ('risk_label', 'Risk'),
+        ('data_as_of', 'Data As Of'),
+    ]
+
+    def get(self, request, *args, **kwargs):
+        qs = self.filtered_queryset()
+        if request.GET.get('export') == 'csv':
+            return self.export_csv(qs)
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        qs = self.filtered_queryset()
+        paginator = Paginator(qs, self.paginate_by)
+        page_obj = paginator.get_page(self.request.GET.get('page'))
+
+        ctx.update({
+            'page_obj': page_obj,
+            'snapshots': page_obj.object_list,
+            'total_count': paginator.count,
+            'filter_options': self.filter_options(),
+            'selected': self.selected_filters(),
+            'last_updated': (
+                FundScreenerSnapshot.objects.order_by('-updated_at')
+                .values_list('updated_at', flat=True)
+                .first()
+            ),
+            'query_string': self.query_string_without('page', 'export'),
+        })
+        return ctx
+
+    def filtered_queryset(self):
+        request = self.request
+        qs = FundScreenerSnapshot.objects.select_related('scheme').all()
+
+        q = request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(fund_name__icontains=q)
+                | Q(fund_house__icontains=q)
+                | Q(scheme__amfi_code__icontains=q)
+                | Q(benchmark_name__icontains=q)
+            )
+
+        list_filters = {
+            'house': 'fund_house__in',
+            'category': 'category_group__in',
+            'sub_category': 'scheme_sub_category__in',
+            'plan_type': 'plan_type__in',
+            'income_type': 'income_type__in',
+            'benchmark_type': 'benchmark_type__in',
+            'benchmark': 'benchmark_name__in',
+            'risk': 'risk_label__in',
+        }
+        for param, lookup in list_filters.items():
+            values = [v for v in request.GET.getlist(param) if v]
+            if values:
+                qs = qs.filter(**{lookup: values})
+
+        range_filters = {
+            'aum': 'aum_cr',
+            'expense': 'expense_ratio',
+            'age': 'fund_age_years',
+            'return_1y': 'returns_1y_pct',
+            'cagr_3y': 'cagr_3y_pct',
+            'return_5y': 'returns_5y_pct',
+            'rolling_3y': 'rolling_return_3y_pct',
+            'volatility_3y': 'volatility_3y_pct',
+        }
+        for param, field in range_filters.items():
+            min_value = self.decimal_param(f'{param}_min')
+            max_value = self.decimal_param(f'{param}_max')
+            if min_value is not None:
+                qs = qs.filter(**{f'{field}__gte': min_value})
+            if max_value is not None:
+                qs = qs.filter(**{f'{field}__lte': max_value})
+
+        sort = request.GET.get('sort', 'name')
+        sort_field = self.sort_options.get(sort, 'fund_name')
+        direction = request.GET.get('direction', 'asc')
+        if direction == 'desc':
+            sort_field = f'-{sort_field}'
+        qs = qs.order_by(sort_field, 'fund_name')
+        return qs
+
+    def filter_options(self):
+        base = FundScreenerSnapshot.objects.all()
+        return {
+            'houses': self.distinct_values(base, 'fund_house'),
+            'categories': self.distinct_values(base, 'category_group'),
+            'sub_categories': self.distinct_values(base, 'scheme_sub_category'),
+            'plan_types': self.distinct_values(base, 'plan_type'),
+            'benchmark_types': self.distinct_values(base, 'benchmark_type'),
+            'benchmarks': self.distinct_values(base, 'benchmark_name') or benchmark_options(),
+            'risks': self.distinct_values(base, 'risk_label'),
+        }
+
+    def selected_filters(self):
+        request = self.request
+        return {
+            'q': request.GET.get('q', ''),
+            'house': request.GET.getlist('house'),
+            'category': request.GET.getlist('category'),
+            'sub_category': request.GET.getlist('sub_category'),
+            'plan_type': request.GET.getlist('plan_type'),
+            'income_type': request.GET.getlist('income_type'),
+            'benchmark_type': request.GET.getlist('benchmark_type'),
+            'benchmark': request.GET.getlist('benchmark'),
+            'risk': request.GET.getlist('risk'),
+            'aum_min': request.GET.get('aum_min', '0'),
+            'aum_max': request.GET.get('aum_max', '20000'),
+            'expense_min': request.GET.get('expense_min', '0'),
+            'expense_max': request.GET.get('expense_max', '3'),
+            'age_min': request.GET.get('age_min', '0'),
+            'age_max': request.GET.get('age_max', '30'),
+            'return_1y_min': request.GET.get('return_1y_min', '-20'),
+            'return_1y_max': request.GET.get('return_1y_max', '60'),
+            'cagr_3y_min': request.GET.get('cagr_3y_min', '-10'),
+            'cagr_3y_max': request.GET.get('cagr_3y_max', '40'),
+            'return_5y_min': request.GET.get('return_5y_min', '-10'),
+            'return_5y_max': request.GET.get('return_5y_max', '40'),
+            'rolling_3y_min': request.GET.get('rolling_3y_min', '-10'),
+            'rolling_3y_max': request.GET.get('rolling_3y_max', '35'),
+            'volatility_3y_min': request.GET.get('volatility_3y_min', '0'),
+            'volatility_3y_max': request.GET.get('volatility_3y_max', '40'),
+            'sort': request.GET.get('sort', 'name'),
+            'direction': request.GET.get('direction', 'asc'),
+        }
+
+    def export_csv(self, qs):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="fund-screener.csv"'
+        writer = csv.writer(response)
+        writer.writerow([label for _, label in self.export_columns])
+        for row in qs[:5000]:
+            writer.writerow([getattr(row, field) for field, _ in self.export_columns])
+        return response
+
+    def query_string_without(self, *keys):
+        params = self.request.GET.copy()
+        for key in keys:
+            params.pop(key, None)
+        return params.urlencode()
+
+    def decimal_param(self, name):
+        value = self.request.GET.get(name)
+        if value in (None, ''):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def distinct_values(qs, field):
+        return list(
+            qs.exclude(**{field: ''})
+            .order_by(field)
+            .values_list(field, flat=True)
+            .distinct()
+        )
+
+
+def screener_report_view(request, amfi_code):
+    snapshot = get_object_or_404(
+        FundScreenerSnapshot.objects.select_related('scheme'),
+        scheme__amfi_code=amfi_code,
+    )
+    return HttpResponse(render_fund_report_html(snapshot), content_type='text/html; charset=utf-8')
 
 
 class FundDetailView(DetailView):

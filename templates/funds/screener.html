@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Mutual Fund Screener{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/screener.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+<form method="get" id="screener-form" class="screener-page">
+  <header class="screener-page-header">
+    <div>
+      <h1>Mutual Fund Screener</h1>
+      <div class="screener-view-row">
+        <span class="view-chip">All Funds</span>
+        <span class="data-freshness">
+          <span class="freshness-dot"></span>
+          {% if last_updated %}Updated {{ last_updated|date:"d M Y, H:i" }}{% else %}Awaiting first data refresh{% endif %}
+        </span>
+      </div>
+    </div>
+    <a class="icon-command" href="{% url 'funds:screener' %}" title="Clear all filters" aria-label="Clear all filters">Reset</a>
+  </header>
+
+  <div class="screener-workspace">
+    <aside class="screener-filters">
+      <div class="screener-tabs" role="tablist" aria-label="Filter groups">
+        <button type="button" class="screener-tab active" data-tab="basic">Basic</button>
+        <button type="button" class="screener-tab" data-tab="performance">Performance</button>
+        <button type="button" class="screener-tab" data-tab="risk">Risk</button>
+        <button type="button" class="screener-tab" data-tab="advanced">Advanced</button>
+      </div>
+
+      <div class="screener-filter-scroll">
+        <section class="screener-tab-panel active" data-panel="basic">
+          <details class="filter-block" open>
+            <summary>AUM (in Cr.)</summary>
+            <div class="range-control" data-range>
+              <div class="range-values"><span data-min-label>0</span><span data-max-label>20,000+</span></div>
+              <div class="dual-range">
+                <input type="range" min="0" max="20000" step="100" value="{{ selected.aum_min }}" data-range-min>
+                <input type="range" min="0" max="20000" step="100" value="{{ selected.aum_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="aum_min" value="{{ selected.aum_min }}" data-hidden-min>
+              <input type="hidden" name="aum_max" value="{{ selected.aum_max }}" data-hidden-max>
+              <div class="range-presets">
+                <button type="button" data-set-min="1000">1,000+ Cr</button>
+                <button type="button" data-set-min="5000">5,000+ Cr</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="filter-block" open>
+            <summary>Expense Ratio (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="2">
+              <div class="range-values"><span data-min-label>0.00%</span><span data-max-label>3.00%</span></div>
+              <div class="dual-range">
+                <input type="range" min="0" max="3" step="0.05" value="{{ selected.expense_min }}" data-range-min>
+                <input type="range" min="0" max="3" step="0.05" value="{{ selected.expense_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="expense_min" value="{{ selected.expense_min }}" data-hidden-min>
+              <input type="hidden" name="expense_max" value="{{ selected.expense_max }}" data-hidden-max>
+              <div class="range-presets">
+                <button type="button" data-set-max="0.4">Ultra Low (&lt;0.4%)</button>
+                <button type="button" data-set-max="1">Low (&lt;1%)</button>
+                <button type="button" data-set-max="1.5">Moderate (&lt;1.5%)</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="filter-block" open>
+            <summary>Fund Age (Years)</summary>
+            <div class="range-control" data-range data-decimals="0">
+              <div class="range-values"><span data-min-label>0</span><span data-max-label>30+</span></div>
+              <div class="dual-range">
+                <input type="range" min="0" max="30" step="1" value="{{ selected.age_min }}" data-range-min>
+                <input type="range" min="0" max="30" step="1" value="{{ selected.age_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="age_min" value="{{ selected.age_min }}" data-hidden-min>
+              <input type="hidden" name="age_max" value="{{ selected.age_max }}" data-hidden-max>
+              <div class="range-presets">
+                <button type="button" data-set-min="1">1Y+</button>
+                <button type="button" data-set-min="3">3Y+</button>
+                <button type="button" data-set-min="5">5Y+</button>
+                <button type="button" data-set-min="10">10Y+</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="filter-block" open>
+            <summary>Fund House</summary>
+            <input class="filter-search" type="search" placeholder="Search fund houses..." data-target="house-options">
+            <div class="checklist" id="house-options">
+              {% for option in filter_options.houses %}
+              <label class="check-row"><input type="checkbox" name="house" value="{{ option }}" {% if option in selected.house %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+
+          <details class="filter-block">
+            <summary>Scheme Category</summary>
+            <div class="checklist compact">
+              {% for option in filter_options.categories %}
+              <label class="check-row"><input type="checkbox" name="category" value="{{ option }}" {% if option in selected.category %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+
+          <details class="filter-block">
+            <summary>Scheme Sub-category</summary>
+            <input class="filter-search" type="search" placeholder="Search sub-categories..." data-target="subcategory-options">
+            <div class="checklist tall" id="subcategory-options">
+              {% for option in filter_options.sub_categories %}
+              <label class="check-row"><input type="checkbox" name="sub_category" value="{{ option }}" {% if option in selected.sub_category %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+
+          <details class="filter-block">
+            <summary>Plan & Income</summary>
+            <div class="checklist compact">
+              {% for option in filter_options.plan_types %}
+              <label class="check-row"><input type="checkbox" name="plan_type" value="{{ option }}" {% if option in selected.plan_type %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+              <label class="check-row"><input type="checkbox" name="income_type" value="Growth" {% if "Growth" in selected.income_type %}checked{% endif %}><span>Growth</span></label>
+              <label class="check-row"><input type="checkbox" name="income_type" value="IDCW" {% if "IDCW" in selected.income_type %}checked{% endif %}><span>IDCW</span></label>
+            </div>
+          </details>
+        </section>
+
+        <section class="screener-tab-panel" data-panel="performance">
+          <details class="filter-block" open>
+            <summary>1-Yr Return (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-20%</span><span data-max-label>60%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-20" max="60" step="0.5" value="{{ selected.return_1y_min }}" data-range-min>
+                <input type="range" min="-20" max="60" step="0.5" value="{{ selected.return_1y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="return_1y_min" value="{{ selected.return_1y_min }}" data-hidden-min>
+              <input type="hidden" name="return_1y_max" value="{{ selected.return_1y_max }}" data-hidden-max>
+            </div>
+          </details>
+          <details class="filter-block" open>
+            <summary>3-Yr CAGR (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>40%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.cagr_3y_min }}" data-range-min>
+                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.cagr_3y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="cagr_3y_min" value="{{ selected.cagr_3y_min }}" data-hidden-min>
+              <input type="hidden" name="cagr_3y_max" value="{{ selected.cagr_3y_max }}" data-hidden-max>
+            </div>
+          </details>
+          <details class="filter-block" open>
+            <summary>5-Yr CAGR (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>40%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.return_5y_min }}" data-range-min>
+                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.return_5y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="return_5y_min" value="{{ selected.return_5y_min }}" data-hidden-min>
+              <input type="hidden" name="return_5y_max" value="{{ selected.return_5y_max }}" data-hidden-max>
+            </div>
+          </details>
+          <details class="filter-block" open>
+            <summary>3-Yr Rolling Return (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>35%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_3y_min }}" data-range-min>
+                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_3y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="rolling_3y_min" value="{{ selected.rolling_3y_min }}" data-hidden-min>
+              <input type="hidden" name="rolling_3y_max" value="{{ selected.rolling_3y_max }}" data-hidden-max>
+            </div>
+          </details>
+        </section>
+
+        <section class="screener-tab-panel" data-panel="risk">
+          <details class="filter-block" open>
+            <summary>3-Yr Volatility (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>0%</span><span data-max-label>40%</span></div>
+              <div class="dual-range">
+                <input type="range" min="0" max="40" step="0.5" value="{{ selected.volatility_3y_min }}" data-range-min>
+                <input type="range" min="0" max="40" step="0.5" value="{{ selected.volatility_3y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="volatility_3y_min" value="{{ selected.volatility_3y_min }}" data-hidden-min>
+              <input type="hidden" name="volatility_3y_max" value="{{ selected.volatility_3y_max }}" data-hidden-max>
+            </div>
+          </details>
+          <details class="filter-block" open>
+            <summary>Risk Level</summary>
+            <div class="checklist compact">
+              {% for option in filter_options.risks %}
+              <label class="check-row"><input type="checkbox" name="risk" value="{{ option }}" {% if option in selected.risk %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+        </section>
+
+        <section class="screener-tab-panel" data-panel="advanced">
+          <details class="filter-block" open>
+            <summary>Benchmark Type</summary>
+            <div class="checklist compact">
+              {% for option in filter_options.benchmark_types %}
+              <label class="check-row"><input type="checkbox" name="benchmark_type" value="{{ option }}" {% if option in selected.benchmark_type %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+          <details class="filter-block" open>
+            <summary>Benchmark</summary>
+            <input class="filter-search" type="search" placeholder="Search benchmarks..." data-target="benchmark-options">
+            <div class="checklist tall" id="benchmark-options">
+              {% for option in filter_options.benchmarks %}
+              <label class="check-row"><input type="checkbox" name="benchmark" value="{{ option }}" {% if option in selected.benchmark %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+        </section>
+      </div>
+
+      <div class="screener-filter-footer">
+        <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+      </div>
+    </aside>
+
+    <section class="screener-results">
+      <div class="results-toolbar">
+        <div class="results-search">
+          <span aria-hidden="true">⌕</span>
+          <input type="search" name="q" value="{{ selected.q }}" placeholder="Search funds by name, AMC, AMFI or benchmark...">
+        </div>
+        <div class="results-actions">
+          <a class="toolbar-button" href="?{{ query_string }}{% if query_string %}&{% endif %}export=csv" title="Export filtered funds as CSV">⇩ <span>Export</span></a>
+          <div class="column-menu-wrap">
+            <button type="button" class="toolbar-button" id="column-menu-button" aria-expanded="false">☷ <span>View</span></button>
+            <div class="column-menu" id="column-menu" hidden>
+              <div class="column-menu-title">Visible columns</div>
+              <label><input type="checkbox" value="aum" checked> AUM</label>
+              <label><input type="checkbox" value="expense" checked> Expense Ratio</label>
+              <label><input type="checkbox" value="age" checked> Fund Age</label>
+              <label><input type="checkbox" value="return1y" checked> 1-Yr Return</label>
+              <label><input type="checkbox" value="cagr3y" checked> 3-Yr CAGR</label>
+              <label><input type="checkbox" value="return5y"> 5-Yr CAGR</label>
+              <label><input type="checkbox" value="rolling3y"> 3-Yr Rolling</label>
+              <label><input type="checkbox" value="volatility"> Volatility</label>
+              <label><input type="checkbox" value="risk"> Risk</label>
+              <label><input type="checkbox" value="benchmark"> Benchmark</label>
+              <label><input type="checkbox" value="updated"> Updated</label>
+              <label><input type="checkbox" value="report"> Report</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="results-meta">
+        <span>Showing {{ total_count }} fund{{ total_count|pluralize }}</span>
+        <span class="sort-summary">Sorted by {{ selected.sort|title }} · {{ selected.direction|title }}</span>
+      </div>
+
+      {% if snapshots %}
+      <div class="screener-table-shell">
+        <div class="table-wrapper">
+          <table class="screener-table" id="screener-table">
+            <thead>
+              <tr>
+                <th class="favorite-column" aria-label="Favorite"></th>
+                <th data-column="scheme"><button type="button" class="table-sort" data-sort="name">Scheme Name <span>↕</span></button></th>
+                <th data-column="aum"><button type="button" class="table-sort" data-sort="aum">AUM (Cr) <span>↕</span></button></th>
+                <th data-column="expense"><button type="button" class="table-sort" data-sort="expense">Expense Ratio <span>↕</span></button></th>
+                <th data-column="age"><button type="button" class="table-sort" data-sort="age">Fund Age <span>↕</span></button></th>
+                <th data-column="return1y"><button type="button" class="table-sort" data-sort="return_1y">1-Yr Return <span>↕</span></button></th>
+                <th data-column="cagr3y"><button type="button" class="table-sort" data-sort="cagr_3y">3-Yr CAGR <span>↕</span></button></th>
+                <th data-column="return5y"><button type="button" class="table-sort" data-sort="return_5y">5-Yr CAGR <span>↕</span></button></th>
+                <th data-column="rolling3y"><button type="button" class="table-sort" data-sort="rolling_3y">3-Yr Rolling <span>↕</span></button></th>
+                <th data-column="volatility"><button type="button" class="table-sort" data-sort="volatility_3y">Volatility <span>↕</span></button></th>
+                <th data-column="risk">Risk</th>
+                <th data-column="benchmark">Benchmark</th>
+                <th data-column="updated"><button type="button" class="table-sort" data-sort="updated">Updated <span>↕</span></button></th>
+                <th data-column="report">Report</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in snapshots %}
+              <tr>
+                <td class="favorite-column"><button type="button" class="favorite-button" data-fund="{{ row.scheme.amfi_code }}" title="Save fund to favorites" aria-label="Save {{ row.fund_name }} to favorites">☆</button></td>
+                <td data-column="scheme">
+                  <a href="{% url 'funds:detail' row.scheme.amfi_code %}" class="fund-link">{{ row.fund_name|truncatechars:66 }}</a>
+                  <div class="scheme-tags">
+                    {% if row.plan_type %}<span>{{ row.plan_type }}</span>{% endif %}
+                    {% if row.income_type %}<span>{{ row.income_type }}</span>{% endif %}
+                    {% if row.scheme_sub_category %}<small>{{ row.scheme_sub_category }}</small>{% endif %}
+                  </div>
+                </td>
+                <td data-column="aum">{% if row.aum_cr != None %}{{ row.aum_cr|floatformat:0 }}{% else %}—{% endif %}</td>
+                <td data-column="expense">{% if row.expense_ratio != None %}{{ row.expense_ratio|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="age">{% if row.fund_age_years != None %}{{ row.fund_age_years|floatformat:1 }}{% else %}—{% endif %}</td>
+                <td data-column="return1y" class="{% if row.returns_1y_pct > 0 %}positive{% elif row.returns_1y_pct < 0 %}negative{% endif %}">{% if row.returns_1y_pct != None %}{{ row.returns_1y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="cagr3y" class="{% if row.cagr_3y_pct > 0 %}positive{% elif row.cagr_3y_pct < 0 %}negative{% endif %}">{% if row.cagr_3y_pct != None %}{{ row.cagr_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="return5y" class="{% if row.returns_5y_pct > 0 %}positive{% elif row.returns_5y_pct < 0 %}negative{% endif %}">{% if row.returns_5y_pct != None %}{{ row.returns_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="rolling3y">{% if row.rolling_return_3y_pct != None %}{{ row.rolling_return_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="volatility">{% if row.volatility_3y_pct != None %}{{ row.volatility_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="risk">{% if row.risk_label %}<span class="risk-badge risk-{{ row.risk_label|lower|cut:" " }}">{{ row.risk_label }}</span>{% else %}—{% endif %}</td>
+                <td data-column="benchmark" class="benchmark-cell">{{ row.benchmark_name|default:"—"|truncatechars:34 }}</td>
+                <td data-column="updated">{% if row.data_as_of %}{{ row.data_as_of|date:"d M Y" }}{% else %}—{% endif %}</td>
+                <td data-column="report"><a class="report-link" href="{% url 'funds:screener_report' row.scheme.amfi_code %}" target="_blank" title="Open performance report">↗</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {% if page_obj.has_other_pages %}
+      <div class="pagination-row">
+        {% if page_obj.has_previous %}<a class="btn btn-secondary btn-sm" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a class="btn btn-secondary btn-sm" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="screener-empty">
+        <strong>No funds match these filters.</strong>
+        <span>Clear a few filters or refresh the screener data.</span>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const form = document.getElementById('screener-form');
+  const activeTabKey = 'fund-screener-active-tab';
+  const savedTab = sessionStorage.getItem(activeTabKey) || 'basic';
+
+  function activateTab(name) {
+    document.querySelectorAll('.screener-tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === name));
+    document.querySelectorAll('.screener-tab-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === name));
+    sessionStorage.setItem(activeTabKey, name);
+  }
+  document.querySelectorAll('.screener-tab').forEach((tab) => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
+  activateTab(savedTab);
+
+  document.querySelectorAll('.filter-search').forEach((input) => {
+    input.addEventListener('input', () => {
+      const target = document.getElementById(input.dataset.target);
+      const needle = input.value.trim().toLowerCase();
+      target.querySelectorAll('.check-row').forEach((row) => {
+        row.hidden = Boolean(needle) && !row.textContent.toLowerCase().includes(needle);
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-range]').forEach((control) => {
+    const minRange = control.querySelector('[data-range-min]');
+    const maxRange = control.querySelector('[data-range-max]');
+    const hiddenMin = control.querySelector('[data-hidden-min]');
+    const hiddenMax = control.querySelector('[data-hidden-max]');
+    const minLabel = control.querySelector('[data-min-label]');
+    const maxLabel = control.querySelector('[data-max-label]');
+    const decimals = Number(control.dataset.decimals || 0);
+    const suffix = control.dataset.suffix || '';
+
+    const format = (value) => {
+      const number = Number(value);
+      return number.toLocaleString(undefined, {minimumFractionDigits: decimals, maximumFractionDigits: decimals}) + suffix;
+    };
+    const sync = (source) => {
+      if (Number(minRange.value) > Number(maxRange.value)) {
+        if (source === minRange) maxRange.value = minRange.value;
+        else minRange.value = maxRange.value;
+      }
+      hiddenMin.value = minRange.value;
+      hiddenMax.value = maxRange.value;
+      minLabel.textContent = format(minRange.value);
+      maxLabel.textContent = format(maxRange.value);
+      const low = ((Number(minRange.value) - Number(minRange.min)) / (Number(minRange.max) - Number(minRange.min))) * 100;
+      const high = ((Number(maxRange.value) - Number(maxRange.min)) / (Number(maxRange.max) - Number(maxRange.min))) * 100;
+      control.style.setProperty('--range-low', low + '%');
+      control.style.setProperty('--range-high', high + '%');
+    };
+    minRange.addEventListener('input', () => sync(minRange));
+    maxRange.addEventListener('input', () => sync(maxRange));
+    control.querySelectorAll('[data-set-min]').forEach((button) => button.addEventListener('click', () => { minRange.value = button.dataset.setMin; sync(minRange); }));
+    control.querySelectorAll('[data-set-max]').forEach((button) => button.addEventListener('click', () => { maxRange.value = button.dataset.setMax; sync(maxRange); }));
+    sync();
+  });
+
+  document.querySelectorAll('.table-sort').forEach((button) => {
+    button.addEventListener('click', () => {
+      let sortInput = form.querySelector('input[name="sort"]');
+      let directionInput = form.querySelector('input[name="direction"]');
+      if (!sortInput) {
+        sortInput = document.createElement('input');
+        sortInput.type = 'hidden';
+        sortInput.name = 'sort';
+        form.appendChild(sortInput);
+      }
+      if (!directionInput) {
+        directionInput = document.createElement('input');
+        directionInput.type = 'hidden';
+        directionInput.name = 'direction';
+        form.appendChild(directionInput);
+      }
+      const sameColumn = sortInput.value === button.dataset.sort || '{{ selected.sort }}' === button.dataset.sort;
+      directionInput.value = sameColumn && '{{ selected.direction }}' === 'asc' ? 'desc' : 'asc';
+      sortInput.value = button.dataset.sort;
+      form.submit();
+    });
+  });
+
+  const columnButton = document.getElementById('column-menu-button');
+  const columnMenu = document.getElementById('column-menu');
+  const columnStorageKey = 'fund-screener-columns-v1';
+  const defaultColumns = ['aum', 'expense', 'age', 'return1y', 'cagr3y'];
+  let visibleColumns = JSON.parse(localStorage.getItem(columnStorageKey) || 'null') || defaultColumns;
+  const applyColumns = () => {
+    document.querySelectorAll('#column-menu input').forEach((box) => { box.checked = visibleColumns.includes(box.value); });
+    document.querySelectorAll('#screener-table [data-column]').forEach((cell) => {
+      if (cell.dataset.column === 'scheme') return;
+      cell.hidden = !visibleColumns.includes(cell.dataset.column);
+    });
+    localStorage.setItem(columnStorageKey, JSON.stringify(visibleColumns));
+  };
+  columnButton.addEventListener('click', () => {
+    columnMenu.hidden = !columnMenu.hidden;
+    columnButton.setAttribute('aria-expanded', String(!columnMenu.hidden));
+  });
+  document.querySelectorAll('#column-menu input').forEach((box) => box.addEventListener('change', () => {
+    visibleColumns = Array.from(document.querySelectorAll('#column-menu input:checked')).map((item) => item.value);
+    applyColumns();
+  }));
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.column-menu-wrap')) {
+      columnMenu.hidden = true;
+      columnButton.setAttribute('aria-expanded', 'false');
+    }
+  });
+  applyColumns();
+
+  const favoriteKey = 'fund-screener-favorites';
+  let favorites = JSON.parse(localStorage.getItem(favoriteKey) || '[]');
+  document.querySelectorAll('.favorite-button').forEach((button) => {
+    const syncFavorite = () => {
+      const selected = favorites.includes(button.dataset.fund);
+      button.textContent = selected ? '★' : '☆';
+      button.classList.toggle('active', selected);
+    };
+    button.addEventListener('click', () => {
+      favorites = favorites.includes(button.dataset.fund)
+        ? favorites.filter((code) => code !== button.dataset.fund)
+        : [...favorites, button.dataset.fund];
+      localStorage.setItem(favoriteKey, JSON.stringify(favorites));
+      syncFavorite();
+    });
+    syncFavorite();
+  });
+})();
+</script>
+{% endblock %}

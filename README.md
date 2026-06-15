@@ -144,13 +144,32 @@ python manage.py ingest_benchmarks
 ```
 > **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data locally to run the app.
 
-### 5. Run the Server
+### 5. Refresh the Fund Screener
+The screener uses persisted snapshots so filtering, sorting, and CSV export stay fast. Refresh them manually after updating scheme metadata, NAV history, or analytics:
+
+```bash
+# Preview the target set
+python manage.py refresh_screener_data --dry-run --direct-growth-only
+
+# Refresh Direct Growth screener rows
+python manage.py refresh_screener_data --direct-growth-only
+```
+
+Generate a top-funds CSV and standalone HTML performance reports:
+
+```bash
+python manage.py generate_screener_reports --top 10 --sort cagr_3y
+```
+
+Reports are written under `media/reports/fund_screener/YYYY-MM-DD/`. Supported sort values are `cagr_3y`, `rolling_3y`, `return_1y`, and `aum`.
+
+### 6. Run the Server
 ```bash
 python manage.py runserver
 ```
-Visit `http://127.0.0.1:8000/` in your browser.
+Visit `http://127.0.0.1:8000/funds/screener/` for the screener.
 
-### 6. Run Tests
+### 7. Run Tests
 ```powershell
 $env:DEBUG='True'; python manage.py test apps.funds apps.analytics
 ```
