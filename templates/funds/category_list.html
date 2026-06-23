@@ -11,6 +11,10 @@
     <button type="button" class="btn btn-secondary" id="compare-selected-btn" disabled title="Select at least 2 funds to compare">⚖️ Compare Selected</button>
   </div>
 </div>
+<div id="compare-tray" class="compare-tray" hidden style="margin-bottom: 15px;">
+  <div class="compare-tray-title">Compare (<span id="compare-count">0</span>/5):</div>
+  <div id="compare-items" class="compare-items"></div>
+</div>
 
 
 <!-- Fund Cards -->
@@ -34,7 +38,7 @@
         {% for s in schemes %}
         <tr>
           <td style="text-align: center;">
-            <button type="button" class="favorite-button" data-fund="{{ s.amfi_code }}" style="background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:0;" title="Select for comparison">☆</button>
+            <button type="button" class="favorite-button" data-fund="{{ s.amfi_code }}" data-name="{{ s.scheme_name }}" style="background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:0;" title="Select for comparison">☆</button>
           </td>
           <td>
             <a href="{% url 'funds:detail' s.amfi_code %}" class="fund-link">{{ s.scheme_name|truncatechars:60 }}</a>
@@ -71,11 +75,58 @@
       Run <code style="color:var(--indigo-400)">python manage.py build_scheme_master</code> to fetch ~14,000 schemes from AMFI.
     </span>
   </div>
+</div>
+{% endif %}
+
 <script>
 (function() {
-  const favoriteKey = 'fund-screener-favorites';
+  const favoriteKey = 'fund-browse-favorites';
   let favorites = JSON.parse(localStorage.getItem(favoriteKey) || '[]');
+  if (favorites.length > 0 && typeof favorites[0] === 'string') {
+    favorites = [];
+    localStorage.setItem(favoriteKey, '[]');
+  }
   
+  const compareTray = document.getElementById('compare-tray');
+  const compareItemsContainer = document.getElementById('compare-items');
+  const compareCountSpan = document.getElementById('compare-count');
+
+  const syncFavoriteBtn = (button) => {
+    const selected = favorites.some(f => f.id === button.dataset.fund);
+    button.textContent = selected ? '★' : '☆';
+    button.style.color = selected ? 'var(--yellow-400)' : 'var(--text-muted)';
+  };
+
+  const renderCompareTray = () => {
+    if (!compareTray) return;
+    if (favorites.length === 0) {
+      compareTray.hidden = true;
+      return;
+    }
+    compareTray.hidden = false;
+    compareCountSpan.textContent = favorites.length;
+    compareItemsContainer.innerHTML = '';
+    favorites.forEach((fav) => {
+      const el = document.createElement('div');
+      el.className = 'compare-item';
+      const shortName = fav.name.length > 40 ? fav.name.substring(0, 40) + '...' : fav.name;
+      el.innerHTML = `<span>${shortName}</span> <button type="button" class="compare-item-remove" data-id="${fav.id}" title="Remove">✕</button>`;
+      compareItemsContainer.appendChild(el);
+    });
+    compareItemsContainer.querySelectorAll('.compare-item-remove').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        favorites = favorites.filter((f) => f.id !== btn.dataset.id);
+        localStorage.setItem(favoriteKey, JSON.stringify(favorites));
+        renderCompareTray();
+        syncCompareButton();
+        document.querySelectorAll('.favorite-button').forEach(b => {
+          if (b.dataset.fund === btn.dataset.id) syncFavoriteBtn(b);
+        });
+      });
+    });
+  };
+
   const compareBtn = document.getElementById('compare-selected-btn');
   const syncCompareButton = () => {
     if (!compareBtn) return;
@@ -89,29 +140,33 @@
   };
 
   document.querySelectorAll('.favorite-button').forEach((button) => {
-    const syncFavorite = () => {
-      const selected = favorites.includes(button.dataset.fund);
-      button.textContent = selected ? '★' : '☆';
-      button.style.color = selected ? 'var(--yellow-400)' : 'var(--text-muted)';
-    };
     button.addEventListener('click', () => {
-      favorites = favorites.includes(button.dataset.fund)
-        ? favorites.filter((code) => code !== button.dataset.fund)
-        : [...favorites, button.dataset.fund];
+      const isSelected = favorites.some(f => f.id === button.dataset.fund);
+      if (isSelected) {
+        favorites = favorites.filter((f) => f.id !== button.dataset.fund);
+      } else {
+        if (favorites.length >= 5) {
+          alert('You can compare a maximum of 5 funds at a time.');
+          return;
+        }
+        favorites.push({ id: button.dataset.fund, name: button.dataset.name });
+      }
       localStorage.setItem(favoriteKey, JSON.stringify(favorites));
-      syncFavorite();
+      syncFavoriteBtn(button);
+      renderCompareTray();
       syncCompareButton();
     });
-    syncFavorite();
+    syncFavoriteBtn(button);
   });
   
   compareBtn?.addEventListener('click', () => {
     if (favorites.length >= 2) {
-      window.open("{% url 'calculators:compare' %}?funds=" + favorites.join(','), "_blank");
+      window.open("{% url 'calculators:compare' %}?funds=" + favorites.map(f => f.id).join(','), "_blank");
     }
   });
   
   syncCompareButton();
+  renderCompareTray();
 })();
 </script>
 {% endblock %}

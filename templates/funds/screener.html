@@ -19,7 +19,10 @@
         </span>
       </div>
     </div>
-    <a class="icon-command" href="{% url 'funds:screener' %}" title="Clear all filters" aria-label="Clear all filters">Reset</a>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="active-filter-count" class="active-filter-badge" hidden></span>
+      <a class="icon-command" href="{% url 'funds:screener' %}" title="Reset all filters to default" aria-label="Reset all filters">Reset All</a>
+    </div>
   </header>
 
   <div class="screener-workspace">
@@ -35,31 +38,32 @@
         <section class="screener-tab-panel active" data-panel="basic">
           <details class="filter-block" open>
             <summary>AUM (in Cr.)</summary>
-            <div class="range-control" data-range>
-              <div class="range-values"><span data-min-label>0</span><span data-max-label>20,000+</span></div>
+            <div class="range-control" data-range data-param-min="aum_min" data-param-max="aum_max">
+              <div class="range-values"><span data-min-label>0</span><span data-max-label>200,000+</span></div>
               <div class="dual-range">
-                <input type="range" min="0" max="20000" step="100" value="{{ selected.aum_min }}" data-range-min>
-                <input type="range" min="0" max="20000" step="100" value="{{ selected.aum_max }}" data-range-max>
+                <input type="range" min="0" max="200000" step="500" data-range-min data-default-min="0" data-init-value="{{ selected.aum_min }}">
+                <input type="range" min="0" max="200000" step="500" data-range-max data-default-max="200000" data-init-value="{{ selected.aum_max }}">
               </div>
-              <input type="hidden" name="aum_min" value="{{ selected.aum_min }}" data-hidden-min>
-              <input type="hidden" name="aum_max" value="{{ selected.aum_max }}" data-hidden-max>
+              <input type="hidden" name="aum_min" data-hidden-min>
+              <input type="hidden" name="aum_max" data-hidden-max>
               <div class="range-presets">
                 <button type="button" data-set-min="1000">1,000+ Cr</button>
                 <button type="button" data-set-min="5000">5,000+ Cr</button>
+                <button type="button" data-set-min="10000">10,000+ Cr</button>
               </div>
             </div>
           </details>
 
           <details class="filter-block" open>
             <summary>Expense Ratio (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="2">
+            <div class="range-control" data-range data-suffix="%" data-decimals="2" data-param-min="expense_min" data-param-max="expense_max">
               <div class="range-values"><span data-min-label>0.00%</span><span data-max-label>3.00%</span></div>
               <div class="dual-range">
-                <input type="range" min="0" max="3" step="0.05" value="{{ selected.expense_min }}" data-range-min>
-                <input type="range" min="0" max="3" step="0.05" value="{{ selected.expense_max }}" data-range-max>
+                <input type="range" min="0" max="3" step="0.05" data-range-min data-default-min="0" data-init-value="{{ selected.expense_min }}">
+                <input type="range" min="0" max="3" step="0.05" data-range-max data-default-max="3" data-init-value="{{ selected.expense_max }}">
               </div>
-              <input type="hidden" name="expense_min" value="{{ selected.expense_min }}" data-hidden-min>
-              <input type="hidden" name="expense_max" value="{{ selected.expense_max }}" data-hidden-max>
+              <input type="hidden" name="expense_min" data-hidden-min>
+              <input type="hidden" name="expense_max" data-hidden-max>
               <div class="range-presets">
                 <button type="button" data-set-max="0.4">Ultra Low (&lt;0.4%)</button>
                 <button type="button" data-set-max="1">Low (&lt;1%)</button>
@@ -70,14 +74,14 @@
 
           <details class="filter-block" open>
             <summary>Fund Age (Years)</summary>
-            <div class="range-control" data-range data-decimals="0">
+            <div class="range-control" data-range data-decimals="0" data-param-min="age_min" data-param-max="age_max">
               <div class="range-values"><span data-min-label>0</span><span data-max-label>30+</span></div>
               <div class="dual-range">
-                <input type="range" min="0" max="30" step="1" value="{{ selected.age_min }}" data-range-min>
-                <input type="range" min="0" max="30" step="1" value="{{ selected.age_max }}" data-range-max>
+                <input type="range" min="0" max="30" step="1" data-range-min data-default-min="0" data-init-value="{{ selected.age_min }}">
+                <input type="range" min="0" max="30" step="1" data-range-max data-default-max="30" data-init-value="{{ selected.age_max }}">
               </div>
-              <input type="hidden" name="age_min" value="{{ selected.age_min }}" data-hidden-min>
-              <input type="hidden" name="age_max" value="{{ selected.age_max }}" data-hidden-max>
+              <input type="hidden" name="age_min" data-hidden-min>
+              <input type="hidden" name="age_max" data-hidden-max>
               <div class="range-presets">
                 <button type="button" data-set-min="1">1Y+</button>
                 <button type="button" data-set-min="3">3Y+</button>
@@ -131,86 +135,86 @@
         <section class="screener-tab-panel" data-panel="performance">
           <details class="filter-block" open>
             <summary>1-Yr Return (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
-              <div class="range-values"><span data-min-label>-20%</span><span data-max-label>60%</span></div>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="return_1y_min" data-param-max="return_1y_max">
+              <div class="range-values"><span data-min-label>-20%</span><span data-max-label>120%</span></div>
               <div class="dual-range">
-                <input type="range" min="-20" max="60" step="0.5" value="{{ selected.return_1y_min }}" data-range-min>
-                <input type="range" min="-20" max="60" step="0.5" value="{{ selected.return_1y_max }}" data-range-max>
+                <input type="range" min="-20" max="120" step="0.5" data-range-min data-default-min="-20" data-init-value="{{ selected.return_1y_min }}">
+                <input type="range" min="-20" max="120" step="0.5" data-range-max data-default-max="120" data-init-value="{{ selected.return_1y_max }}">
               </div>
-              <input type="hidden" name="return_1y_min" value="{{ selected.return_1y_min }}" data-hidden-min>
-              <input type="hidden" name="return_1y_max" value="{{ selected.return_1y_max }}" data-hidden-max>
+              <input type="hidden" name="return_1y_min" data-hidden-min>
+              <input type="hidden" name="return_1y_max" data-hidden-max>
             </div>
           </details>
           <details class="filter-block" open>
             <summary>3-Yr CAGR (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
-              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>40%</span></div>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="cagr_3y_min" data-param-max="cagr_3y_max">
+              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>50%</span></div>
               <div class="dual-range">
-                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.cagr_3y_min }}" data-range-min>
-                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.cagr_3y_max }}" data-range-max>
+                <input type="range" min="-10" max="50" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.cagr_3y_min }}">
+                <input type="range" min="-10" max="50" step="0.5" data-range-max data-default-max="50" data-init-value="{{ selected.cagr_3y_max }}">
               </div>
-              <input type="hidden" name="cagr_3y_min" value="{{ selected.cagr_3y_min }}" data-hidden-min>
-              <input type="hidden" name="cagr_3y_max" value="{{ selected.cagr_3y_max }}" data-hidden-max>
+              <input type="hidden" name="cagr_3y_min" data-hidden-min>
+              <input type="hidden" name="cagr_3y_max" data-hidden-max>
             </div>
           </details>
           <details class="filter-block" open>
             <summary>5-Yr CAGR (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
-              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>40%</span></div>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="return_5y_min" data-param-max="return_5y_max">
+              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>50%</span></div>
               <div class="dual-range">
-                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.return_5y_min }}" data-range-min>
-                <input type="range" min="-10" max="40" step="0.5" value="{{ selected.return_5y_max }}" data-range-max>
+                <input type="range" min="-10" max="50" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.return_5y_min }}">
+                <input type="range" min="-10" max="50" step="0.5" data-range-max data-default-max="50" data-init-value="{{ selected.return_5y_max }}">
               </div>
-              <input type="hidden" name="return_5y_min" value="{{ selected.return_5y_min }}" data-hidden-min>
-              <input type="hidden" name="return_5y_max" value="{{ selected.return_5y_max }}" data-hidden-max>
+              <input type="hidden" name="return_5y_min" data-hidden-min>
+              <input type="hidden" name="return_5y_max" data-hidden-max>
             </div>
           </details>
           <details class="filter-block" open>
             <summary>3-Yr Rolling Return (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="rolling_3y_min" data-param-max="rolling_3y_max">
               <div class="range-values"><span data-min-label>-10%</span><span data-max-label>35%</span></div>
               <div class="dual-range">
-                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_3y_min }}" data-range-min>
-                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_3y_max }}" data-range-max>
+                <input type="range" min="-10" max="35" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.rolling_3y_min }}">
+                <input type="range" min="-10" max="35" step="0.5" data-range-max data-default-max="35" data-init-value="{{ selected.rolling_3y_max }}">
               </div>
-              <input type="hidden" name="rolling_3y_min" value="{{ selected.rolling_3y_min }}" data-hidden-min>
-              <input type="hidden" name="rolling_3y_max" value="{{ selected.rolling_3y_max }}" data-hidden-max>
+              <input type="hidden" name="rolling_3y_min" data-hidden-min>
+              <input type="hidden" name="rolling_3y_max" data-hidden-max>
             </div>
           </details>
           <details class="filter-block">
             <summary>5-Yr Rolling Return (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="rolling_5y_min" data-param-max="rolling_5y_max">
               <div class="range-values"><span data-min-label>-10%</span><span data-max-label>35%</span></div>
               <div class="dual-range">
-                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_5y_min }}" data-range-min>
-                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_5y_max }}" data-range-max>
+                <input type="range" min="-10" max="35" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.rolling_5y_min }}">
+                <input type="range" min="-10" max="35" step="0.5" data-range-max data-default-max="35" data-init-value="{{ selected.rolling_5y_max }}">
               </div>
-              <input type="hidden" name="rolling_5y_min" value="{{ selected.rolling_5y_min }}" data-hidden-min>
-              <input type="hidden" name="rolling_5y_max" value="{{ selected.rolling_5y_max }}" data-hidden-max>
+              <input type="hidden" name="rolling_5y_min" data-hidden-min>
+              <input type="hidden" name="rolling_5y_max" data-hidden-max>
             </div>
           </details>
           <details class="filter-block">
-            <summary>1-Yr Excess Return vs Benchmark (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+            <summary>1-Yr Alpha vs Benchmark (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="excess_1y_min" data-param-max="excess_1y_max">
               <div class="range-values"><span data-min-label>-15%</span><span data-max-label>20%</span></div>
               <div class="dual-range">
-                <input type="range" min="-15" max="20" step="0.5" value="{{ selected.excess_1y_min }}" data-range-min>
-                <input type="range" min="-15" max="20" step="0.5" value="{{ selected.excess_1y_max }}" data-range-max>
+                <input type="range" min="-15" max="20" step="0.5" data-range-min data-default-min="-15" data-init-value="{{ selected.excess_1y_min }}">
+                <input type="range" min="-15" max="20" step="0.5" data-range-max data-default-max="20" data-init-value="{{ selected.excess_1y_max }}">
               </div>
-              <input type="hidden" name="excess_1y_min" value="{{ selected.excess_1y_min }}" data-hidden-min>
-              <input type="hidden" name="excess_1y_max" value="{{ selected.excess_1y_max }}" data-hidden-max>
+              <input type="hidden" name="excess_1y_min" data-hidden-min>
+              <input type="hidden" name="excess_1y_max" data-hidden-max>
             </div>
           </details>
           <details class="filter-block">
-            <summary>3-Yr Excess Return vs Benchmark (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+            <summary>3-Yr Alpha vs Benchmark (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="excess_3y_min" data-param-max="excess_3y_max">
               <div class="range-values"><span data-min-label>-10%</span><span data-max-label>20%</span></div>
               <div class="dual-range">
-                <input type="range" min="-10" max="20" step="0.5" value="{{ selected.excess_3y_min }}" data-range-min>
-                <input type="range" min="-10" max="20" step="0.5" value="{{ selected.excess_3y_max }}" data-range-max>
+                <input type="range" min="-10" max="20" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.excess_3y_min }}">
+                <input type="range" min="-10" max="20" step="0.5" data-range-max data-default-max="20" data-init-value="{{ selected.excess_3y_max }}">
               </div>
-              <input type="hidden" name="excess_3y_min" value="{{ selected.excess_3y_min }}" data-hidden-min>
-              <input type="hidden" name="excess_3y_max" value="{{ selected.excess_3y_max }}" data-hidden-max>
+              <input type="hidden" name="excess_3y_min" data-hidden-min>
+              <input type="hidden" name="excess_3y_max" data-hidden-max>
             </div>
           </details>
         </section>
@@ -218,26 +222,26 @@
         <section class="screener-tab-panel" data-panel="risk">
           <details class="filter-block" open>
             <summary>3-Yr Volatility (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="volatility_3y_min" data-param-max="volatility_3y_max">
               <div class="range-values"><span data-min-label>0%</span><span data-max-label>40%</span></div>
               <div class="dual-range">
-                <input type="range" min="0" max="40" step="0.5" value="{{ selected.volatility_3y_min }}" data-range-min>
-                <input type="range" min="0" max="40" step="0.5" value="{{ selected.volatility_3y_max }}" data-range-max>
+                <input type="range" min="0" max="40" step="0.5" data-range-min data-default-min="0" data-init-value="{{ selected.volatility_3y_min }}">
+                <input type="range" min="0" max="40" step="0.5" data-range-max data-default-max="40" data-init-value="{{ selected.volatility_3y_max }}">
               </div>
-              <input type="hidden" name="volatility_3y_min" value="{{ selected.volatility_3y_min }}" data-hidden-min>
-              <input type="hidden" name="volatility_3y_max" value="{{ selected.volatility_3y_max }}" data-hidden-max>
+              <input type="hidden" name="volatility_3y_min" data-hidden-min>
+              <input type="hidden" name="volatility_3y_max" data-hidden-max>
             </div>
           </details>
           <details class="filter-block">
             <summary>3-Yr Sharpe Ratio</summary>
-            <div class="range-control" data-range data-decimals="2">
+            <div class="range-control" data-range data-decimals="2" data-param-min="sharpe_min" data-param-max="sharpe_max">
               <div class="range-values"><span data-min-label>-1</span><span data-max-label>3</span></div>
               <div class="dual-range">
-                <input type="range" min="-1" max="3" step="0.1" value="{{ selected.sharpe_min }}" data-range-min>
-                <input type="range" min="-1" max="3" step="0.1" value="{{ selected.sharpe_max }}" data-range-max>
+                <input type="range" min="-1" max="3" step="0.1" data-range-min data-default-min="-1" data-init-value="{{ selected.sharpe_min }}">
+                <input type="range" min="-1" max="3" step="0.1" data-range-max data-default-max="3" data-init-value="{{ selected.sharpe_max }}">
               </div>
-              <input type="hidden" name="sharpe_min" value="{{ selected.sharpe_min }}" data-hidden-min>
-              <input type="hidden" name="sharpe_max" value="{{ selected.sharpe_max }}" data-hidden-max>
+              <input type="hidden" name="sharpe_min" data-hidden-min>
+              <input type="hidden" name="sharpe_max" data-hidden-max>
               <div class="range-presets">
                 <button type="button" data-set-min="0.5">&gt;0.5</button>
                 <button type="button" data-set-min="1">High (&gt;1)</button>
@@ -246,14 +250,14 @@
           </details>
           <details class="filter-block">
             <summary>3-Yr Max Drawdown (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="drawdown_min" data-param-max="drawdown_max">
               <div class="range-values"><span data-min-label>-60%</span><span data-max-label>0%</span></div>
               <div class="dual-range">
-                <input type="range" min="-60" max="0" step="0.5" value="{{ selected.drawdown_min }}" data-range-min>
-                <input type="range" min="-60" max="0" step="0.5" value="{{ selected.drawdown_max }}" data-range-max>
+                <input type="range" min="-60" max="0" step="0.5" data-range-min data-default-min="-60" data-init-value="{{ selected.drawdown_min }}">
+                <input type="range" min="-60" max="0" step="0.5" data-range-max data-default-max="0" data-init-value="{{ selected.drawdown_max }}">
               </div>
-              <input type="hidden" name="drawdown_min" value="{{ selected.drawdown_min }}" data-hidden-min>
-              <input type="hidden" name="drawdown_max" value="{{ selected.drawdown_max }}" data-hidden-max>
+              <input type="hidden" name="drawdown_min" data-hidden-min>
+              <input type="hidden" name="drawdown_max" data-hidden-max>
               <div class="range-presets">
                 <button type="button" data-set-min="-20">Low (&gt;-20%)</button>
                 <button type="button" data-set-min="-30">Med (&gt;-30%)</button>
@@ -297,6 +301,10 @@
     </aside>
 
     <section class="screener-results">
+      <div id="compare-tray" class="compare-tray" hidden>
+        <div class="compare-tray-title">Compare (<span id="compare-count">0</span>/5):</div>
+        <div id="compare-items" class="compare-items"></div>
+      </div>
       <div class="results-toolbar">
         <div class="results-search">
           <span aria-hidden="true">⌕</span>
@@ -332,7 +340,10 @@
       </div>
 
       <div class="results-meta">
-        <span>Showing {{ total_count }} fund{{ total_count|pluralize }}</span>
+        <span>Showing <strong>{{ total_count }}</strong> fund{{ total_count|pluralize }}</span>
+        {% if selected.q or selected.house or selected.category or selected.sub_category or selected.risk %}
+        <a href="{% url 'funds:screener' %}" class="reset-filters-link">✕ Reset all filters</a>
+        {% endif %}
         <span class="sort-summary">Sorted by {{ selected.sort|title }} · {{ selected.direction|title }}</span>
       </div>
 
@@ -366,7 +377,7 @@
             <tbody>
               {% for row in snapshots %}
               <tr>
-                <td class="favorite-column"><button type="button" class="favorite-button" data-fund="{{ row.scheme.amfi_code }}" title="Save fund to favorites" aria-label="Save {{ row.fund_name }} to favorites">☆</button></td>
+                <td class="favorite-column"><button type="button" class="favorite-button" data-fund="{{ row.scheme.amfi_code }}" data-name="{{ row.fund_name }}" title="Save fund to favorites" aria-label="Save {{ row.fund_name }} to favorites">☆</button></td>
                 <td data-column="scheme">
                   <a href="{% url 'funds:detail' row.scheme.amfi_code %}" class="fund-link">{{ row.fund_name|truncatechars:66 }}</a>
                   <div class="scheme-tags">
@@ -442,6 +453,7 @@
     });
   });
 
+  // Range filter logic: only submit hidden value when slider moved from its default boundary
   document.querySelectorAll('[data-range]').forEach((control) => {
     const minRange = control.querySelector('[data-range-min]');
     const maxRange = control.querySelector('[data-range-max]');
@@ -451,22 +463,34 @@
     const maxLabel = control.querySelector('[data-max-label]');
     const decimals = Number(control.dataset.decimals || 0);
     const suffix = control.dataset.suffix || '';
+    const defaultMin = Number(minRange.dataset.defaultMin ?? minRange.min);
+    const defaultMax = Number(maxRange.dataset.defaultMax ?? maxRange.max);
+
+    // Restore from URL param if present, else use default
+    const initMin = minRange.dataset.initValue !== '' && minRange.dataset.initValue !== undefined ? Number(minRange.dataset.initValue) : defaultMin;
+    const initMax = maxRange.dataset.initValue !== '' && maxRange.dataset.initValue !== undefined ? Number(maxRange.dataset.initValue) : defaultMax;
+    minRange.value = isNaN(initMin) ? defaultMin : initMin;
+    maxRange.value = isNaN(initMax) ? defaultMax : initMax;
 
     const format = (value) => {
       const number = Number(value);
       return number.toLocaleString(undefined, {minimumFractionDigits: decimals, maximumFractionDigits: decimals}) + suffix;
     };
+
     const sync = (source) => {
       if (Number(minRange.value) > Number(maxRange.value)) {
         if (source === minRange) maxRange.value = minRange.value;
         else minRange.value = maxRange.value;
       }
-      hiddenMin.value = minRange.value;
-      hiddenMax.value = maxRange.value;
-      minLabel.textContent = format(minRange.value);
-      maxLabel.textContent = format(maxRange.value);
-      const low = ((Number(minRange.value) - Number(minRange.min)) / (Number(minRange.max) - Number(minRange.min))) * 100;
-      const high = ((Number(maxRange.value) - Number(maxRange.min)) / (Number(maxRange.max) - Number(maxRange.min))) * 100;
+      // Only write hidden value when moved away from the boundary (actual filter active)
+      const curMin = Number(minRange.value);
+      const curMax = Number(maxRange.value);
+      hiddenMin.value = curMin > defaultMin ? curMin : '';
+      hiddenMax.value = curMax < defaultMax ? curMax : '';
+      minLabel.textContent = format(curMin);
+      maxLabel.textContent = format(curMax);
+      const low = ((curMin - Number(minRange.min)) / (Number(minRange.max) - Number(minRange.min))) * 100;
+      const high = ((curMax - Number(maxRange.min)) / (Number(maxRange.max) - Number(maxRange.min))) * 100;
       control.style.setProperty('--range-low', low + '%');
       control.style.setProperty('--range-high', high + '%');
     };
@@ -476,6 +500,19 @@
     control.querySelectorAll('[data-set-max]').forEach((button) => button.addEventListener('click', () => { maxRange.value = button.dataset.setMax; sync(maxRange); }));
     sync();
   });
+
+  // Active filter counter badge
+  const countBadge = document.getElementById('active-filter-count');
+  if (countBadge) {
+    const params = new URLSearchParams(window.location.search);
+    const skipKeys = new Set(['sort', 'direction', 'page', 'export']);
+    let activeCount = 0;
+    params.forEach((v, k) => { if (v && !skipKeys.has(k)) activeCount++; });
+    if (activeCount > 0) {
+      countBadge.textContent = activeCount + ' filter' + (activeCount > 1 ? 's' : '') + ' active';
+      countBadge.hidden = false;
+    }
+  }
 
   document.querySelectorAll('.table-sort').forEach((button) => {
     button.addEventListener('click', () => {
@@ -531,20 +568,69 @@
 
   const favoriteKey = 'fund-screener-favorites';
   let favorites = JSON.parse(localStorage.getItem(favoriteKey) || '[]');
-  document.querySelectorAll('.favorite-button').forEach((button) => {
-    const syncFavorite = () => {
-      const selected = favorites.includes(button.dataset.fund);
-      button.textContent = selected ? '★' : '☆';
-      button.classList.toggle('active', selected);
-    };
-    button.addEventListener('click', () => {
-      favorites = favorites.includes(button.dataset.fund)
-        ? favorites.filter((code) => code !== button.dataset.fund)
-        : [...favorites, button.dataset.fund];
-      localStorage.setItem(favoriteKey, JSON.stringify(favorites));
-      syncFavorite();
+  if (favorites.length > 0 && typeof favorites[0] === 'string') {
+    favorites = [];
+    localStorage.setItem(favoriteKey, '[]');
+  }
+
+  const compareTray = document.getElementById('compare-tray');
+  const compareItemsContainer = document.getElementById('compare-items');
+  const compareCountSpan = document.getElementById('compare-count');
+  
+  const syncFavoriteBtn = (button) => {
+    const selected = favorites.some(f => f.id === button.dataset.fund);
+    button.textContent = selected ? '★' : '☆';
+    button.classList.toggle('active', selected);
+  };
+
+  const renderCompareTray = () => {
+    if (!compareTray) return;
+    if (favorites.length === 0) {
+      compareTray.hidden = true;
+      return;
+    }
+    compareTray.hidden = false;
+    compareCountSpan.textContent = favorites.length;
+    compareItemsContainer.innerHTML = '';
+    favorites.forEach((fav) => {
+      const el = document.createElement('div');
+      el.className = 'compare-item';
+      const shortName = fav.name.length > 40 ? fav.name.substring(0, 40) + '...' : fav.name;
+      el.innerHTML = `<span>${shortName}</span> <button type="button" class="compare-item-remove" data-id="${fav.id}" title="Remove">✕</button>`;
+      compareItemsContainer.appendChild(el);
     });
-    syncFavorite();
+    compareItemsContainer.querySelectorAll('.compare-item-remove').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        favorites = favorites.filter((f) => f.id !== btn.dataset.id);
+        localStorage.setItem(favoriteKey, JSON.stringify(favorites));
+        renderCompareTray();
+        syncCompareButton();
+        document.querySelectorAll('.favorite-button').forEach(b => {
+          if (b.dataset.fund === btn.dataset.id) syncFavoriteBtn(b);
+        });
+      });
+    });
+  };
+
+  document.querySelectorAll('.favorite-button').forEach((button) => {
+    button.addEventListener('click', () => {
+      const isSelected = favorites.some(f => f.id === button.dataset.fund);
+      if (isSelected) {
+        favorites = favorites.filter((f) => f.id !== button.dataset.fund);
+      } else {
+        if (favorites.length >= 5) {
+          alert('You can compare a maximum of 5 funds at a time.');
+          return;
+        }
+        favorites.push({ id: button.dataset.fund, name: button.dataset.name });
+      }
+      localStorage.setItem(favoriteKey, JSON.stringify(favorites));
+      syncFavoriteBtn(button);
+      renderCompareTray();
+      syncCompareButton();
+    });
+    syncFavoriteBtn(button);
   });
 
   const compareBtn = document.getElementById('compare-selected-btn');
@@ -560,12 +646,13 @@
   };
   compareBtn?.addEventListener('click', () => {
     if (favorites.length >= 2) {
-      window.open("{% url 'calculators:compare' %}?funds=" + favorites.join(','), "_blank");
+      window.open("{% url 'calculators:compare' %}?funds=" + favorites.map(f => f.id).join(','), "_blank");
     }
   });
   
   // Initial sync
   syncCompareButton();
+  renderCompareTray();
 
 })();
 </script>
