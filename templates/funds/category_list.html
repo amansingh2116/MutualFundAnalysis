@@ -3,8 +3,13 @@
 
 {% block content %}
 <div class="page-header">
-  <div class="page-title">📂 Browse Mutual Funds</div>
-  <div class="page-subtitle">{{ schemes|length }} funds shown{% if current_category %} · {{ current_category }}{% endif %}</div>
+  <div>
+    <div class="page-title">📂 Browse Mutual Funds</div>
+    <div class="page-subtitle">{{ schemes|length }} funds shown{% if current_category %} · {{ current_category }}{% endif %}</div>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-secondary" id="compare-selected-btn" disabled title="Select at least 2 funds to compare">⚖️ Compare Selected</button>
+  </div>
 </div>
 
 
@@ -15,6 +20,7 @@
     <table>
       <thead>
         <tr>
+          <th style="width: 40px; text-align: center;"></th>
           <th>Fund Name</th>
           <th>Category</th>
           <th>AUM (Cr)</th>
@@ -27,6 +33,9 @@
       <tbody>
         {% for s in schemes %}
         <tr>
+          <td style="text-align: center;">
+            <button type="button" class="favorite-button" data-fund="{{ s.amfi_code }}" style="background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:0;" title="Select for comparison">☆</button>
+          </td>
           <td>
             <a href="{% url 'funds:detail' s.amfi_code %}" class="fund-link">{{ s.scheme_name|truncatechars:60 }}</a>
             <div class="fund-house">{{ s.fund_house }}</div>
@@ -62,6 +71,47 @@
       Run <code style="color:var(--indigo-400)">python manage.py build_scheme_master</code> to fetch ~14,000 schemes from AMFI.
     </span>
   </div>
-</div>
-{% endif %}
+<script>
+(function() {
+  const favoriteKey = 'fund-screener-favorites';
+  let favorites = JSON.parse(localStorage.getItem(favoriteKey) || '[]');
+  
+  const compareBtn = document.getElementById('compare-selected-btn');
+  const syncCompareButton = () => {
+    if (!compareBtn) return;
+    if (favorites.length >= 2) {
+      compareBtn.disabled = false;
+      compareBtn.title = `Compare ${favorites.length} selected funds`;
+    } else {
+      compareBtn.disabled = true;
+      compareBtn.title = "Select at least 2 funds to compare";
+    }
+  };
+
+  document.querySelectorAll('.favorite-button').forEach((button) => {
+    const syncFavorite = () => {
+      const selected = favorites.includes(button.dataset.fund);
+      button.textContent = selected ? '★' : '☆';
+      button.style.color = selected ? 'var(--yellow-400)' : 'var(--text-muted)';
+    };
+    button.addEventListener('click', () => {
+      favorites = favorites.includes(button.dataset.fund)
+        ? favorites.filter((code) => code !== button.dataset.fund)
+        : [...favorites, button.dataset.fund];
+      localStorage.setItem(favoriteKey, JSON.stringify(favorites));
+      syncFavorite();
+      syncCompareButton();
+    });
+    syncFavorite();
+  });
+  
+  compareBtn?.addEventListener('click', () => {
+    if (favorites.length >= 2) {
+      window.open("{% url 'calculators:compare' %}?funds=" + favorites.join(','), "_blank");
+    }
+  });
+  
+  syncCompareButton();
+})();
+</script>
 {% endblock %}

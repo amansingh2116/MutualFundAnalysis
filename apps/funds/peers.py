@@ -117,7 +117,7 @@ SECTOR_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
     ("mnc", ("mnc", "multinational")),
     ("esg", ("esg", "sustainable", "responsible investing")),
     ("business_cycle", ("business cycle",)),
-    ("quant_factor", ("quant", "momentum", "alpha", "low volatility", "quality")),
+    ("quant_factor", ("quant fund", "momentum", "alpha", "low volatility", "quality")),
     ("services", ("services sector", "service industry")),
 ]
 

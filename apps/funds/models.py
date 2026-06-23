@@ -236,7 +236,22 @@ class FundScreenerSnapshot(BaseModel):
     returns_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     cagr_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     rolling_return_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    rolling_return_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     volatility_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    # Risk-adjusted metrics (from RiskMetrics 3Y)
+    sharpe_ratio = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                       help_text="3Y Sharpe ratio")
+    sortino_ratio = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                        help_text="3Y Sortino ratio")
+    max_drawdown = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                       help_text="3Y max drawdown %")
+
+    # Excess return vs benchmark (fund return - benchmark return)
+    excess_return_1y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="1Y fund CAGR minus benchmark CAGR")
+    excess_return_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="3Y fund CAGR minus benchmark CAGR")
 
     data_as_of = models.DateField(null=True, blank=True, db_index=True)
     nav_as_of = models.DateField(null=True, blank=True)
@@ -254,6 +269,9 @@ class FundScreenerSnapshot(BaseModel):
             models.Index(fields=['cagr_3y_pct']),
             models.Index(fields=['rolling_return_3y_pct']),
             models.Index(fields=['volatility_3y_pct']),
+            models.Index(fields=['sharpe_ratio']),
+            models.Index(fields=['excess_return_1y']),
+            models.Index(fields=['excess_return_3y']),
             models.Index(fields=['data_as_of']),
         ]
 

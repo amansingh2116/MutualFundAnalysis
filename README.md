@@ -15,6 +15,8 @@
 - **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, and **Quarterly Performance Analysis (Upside/Downside)**.
 - **Rolling return distributions** with win rates, medians, and min/max ranges.
 - **Composition**: Holdings, sector allocation, and asset allocation from Morningstar.
+- **Advanced Fund Screener**: Powerful data-grid to filter, sort, and export funds based on AUM, Expense Ratio, 1/3/5-year performance, Rolling Returns, Sharpe/Sortino ratios, and Max Drawdown.
+- **Compare Selected**: Multi-select funds across the Browse and Screener tabs to instantly send them to the Compare Funds calculator.
 - **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`).
 - **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `docs/PEER_MATCHING.md`).
 
@@ -144,15 +146,16 @@ python manage.py ingest_benchmarks
 ```
 > **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data locally to run the app.
 
-### 5. Refresh the Fund Screener
-The screener uses persisted snapshots so filtering, sorting, and CSV export stay fast. Refresh them manually after updating scheme metadata, NAV history, or analytics:
+### 5. Build and Refresh the Fund Screener
+The advanced screener requires a locally cached snapshot of fund performance and metadata. We provide a single pipeline command that fetches NAV, pulls metadata (AUM/Expense Ratio), computes risk metrics, and saves the snapshot for lightning-fast UI filtering.
 
 ```bash
-# Preview the target set
-python manage.py refresh_screener_data --dry-run --direct-growth-only
+# Populate the screener pipeline for the first 100 funds
+python manage.py populate_screener --limit=100
 
-# Refresh Direct Growth screener rows
-python manage.py refresh_screener_data --direct-growth-only
+# Run the complete pipeline for all direct growth funds (~2,500 schemes)
+# (Note: This respects third-party rate limits and is designed to run in the background)
+python manage.py populate_screener
 ```
 
 Generate a top-funds CSV and standalone HTML performance reports:
@@ -161,7 +164,7 @@ Generate a top-funds CSV and standalone HTML performance reports:
 python manage.py generate_screener_reports --top 10 --sort cagr_3y
 ```
 
-Reports are written under `media/reports/fund_screener/YYYY-MM-DD/`. Supported sort values are `cagr_3y`, `rolling_3y`, `return_1y`, and `aum`.
+Reports are written under `media/reports/fund_screener/YYYY-MM-DD/`. Supported sort values are `cagr_3y`, `rolling_3y`, `return_1y`, `sharpe`, and `aum`.
 
 ### 6. Run the Server
 ```bash

@@ -128,6 +128,17 @@ The most complex service. Key design decisions:
 - **ARIMA**: `statsmodels.tsa.arima.model.ARIMA` with p/d/q configurable; falls back to linear trend projection on failure
 - **Machine Learning**: Ridge regression or Random Forest on autoregressive lag features; confidence bands widen proportionally over time
 
+### F. Advanced Fund Screener (`apps/funds/screener.py`)
+Because the analytics engine is heavily computational, screening across thousands of funds requires local caching.
+- **`FundScreenerSnapshot` Model**: Denormalized table storing AUM, expense ratios, trailing returns (1Y/3Y/5Y), rolling returns (3Y/5Y), volatility, Sharpe, Sortino, Max Drawdown, and Alpha (excess return vs benchmark).
+- **`populate_screener` Command**: An integrated data pipeline that runs sequentially:
+  1. Fetches NAV history (`mfapi.in`)
+  2. Fetches metadata (`mf.captnemo.in` with sibling plan fallback)
+  3. Triggers Analytics Engine for rolling & risk computations
+  4. Generates and saves the final snapshot for the UI.
+- **Dynamic UI**: `FundScreenerView` dynamically populates HTML filter options directly from the `FundScreenerSnapshot` distinct values, allowing new Fund Houses or Benchmarks to seamlessly appear as the database builds.
+- **Compare Selected Feature**: The UI includes multi-fund selection (using browser `localStorage`) which automatically enables a direct bridge to the Portfolio Calculator for comparison.
+
 ---
 
 ## 6. URL Structure
@@ -201,7 +212,7 @@ Never let external API failures propagate to the user with a 500 error.
 All five planned phases are substantially implemented:
 - ✅ Phase 1: Data foundation (scheme master, NAV history, benchmark ingestion)
 - ✅ Phase 2: Fund detail page with full analytics
-- ✅ Phase 3: Discovery (browse by category, fund search)
+- ✅ Phase 3: Discovery (browse by category, fund search) + **Advanced Fund Screener**
 - ✅ Phase 4: Portfolio analysis (XIRR, benchmark, overlap, blended benchmark, risk metrics)
 - ✅ Phase 5: Backtesting + Recommendations (questionnaire, backtester, 5 strategy overlays)
 

@@ -177,6 +177,42 @@
               <input type="hidden" name="rolling_3y_max" value="{{ selected.rolling_3y_max }}" data-hidden-max>
             </div>
           </details>
+          <details class="filter-block">
+            <summary>5-Yr Rolling Return (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>35%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_5y_min }}" data-range-min>
+                <input type="range" min="-10" max="35" step="0.5" value="{{ selected.rolling_5y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="rolling_5y_min" value="{{ selected.rolling_5y_min }}" data-hidden-min>
+              <input type="hidden" name="rolling_5y_max" value="{{ selected.rolling_5y_max }}" data-hidden-max>
+            </div>
+          </details>
+          <details class="filter-block">
+            <summary>1-Yr Excess Return vs Benchmark (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-15%</span><span data-max-label>20%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-15" max="20" step="0.5" value="{{ selected.excess_1y_min }}" data-range-min>
+                <input type="range" min="-15" max="20" step="0.5" value="{{ selected.excess_1y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="excess_1y_min" value="{{ selected.excess_1y_min }}" data-hidden-min>
+              <input type="hidden" name="excess_1y_max" value="{{ selected.excess_1y_max }}" data-hidden-max>
+            </div>
+          </details>
+          <details class="filter-block">
+            <summary>3-Yr Excess Return vs Benchmark (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>20%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-10" max="20" step="0.5" value="{{ selected.excess_3y_min }}" data-range-min>
+                <input type="range" min="-10" max="20" step="0.5" value="{{ selected.excess_3y_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="excess_3y_min" value="{{ selected.excess_3y_min }}" data-hidden-min>
+              <input type="hidden" name="excess_3y_max" value="{{ selected.excess_3y_max }}" data-hidden-max>
+            </div>
+          </details>
         </section>
 
         <section class="screener-tab-panel" data-panel="risk">
@@ -190,6 +226,38 @@
               </div>
               <input type="hidden" name="volatility_3y_min" value="{{ selected.volatility_3y_min }}" data-hidden-min>
               <input type="hidden" name="volatility_3y_max" value="{{ selected.volatility_3y_max }}" data-hidden-max>
+            </div>
+          </details>
+          <details class="filter-block">
+            <summary>3-Yr Sharpe Ratio</summary>
+            <div class="range-control" data-range data-decimals="2">
+              <div class="range-values"><span data-min-label>-1</span><span data-max-label>3</span></div>
+              <div class="dual-range">
+                <input type="range" min="-1" max="3" step="0.1" value="{{ selected.sharpe_min }}" data-range-min>
+                <input type="range" min="-1" max="3" step="0.1" value="{{ selected.sharpe_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="sharpe_min" value="{{ selected.sharpe_min }}" data-hidden-min>
+              <input type="hidden" name="sharpe_max" value="{{ selected.sharpe_max }}" data-hidden-max>
+              <div class="range-presets">
+                <button type="button" data-set-min="0.5">&gt;0.5</button>
+                <button type="button" data-set-min="1">High (&gt;1)</button>
+              </div>
+            </div>
+          </details>
+          <details class="filter-block">
+            <summary>3-Yr Max Drawdown (%)</summary>
+            <div class="range-control" data-range data-suffix="%" data-decimals="1">
+              <div class="range-values"><span data-min-label>-60%</span><span data-max-label>0%</span></div>
+              <div class="dual-range">
+                <input type="range" min="-60" max="0" step="0.5" value="{{ selected.drawdown_min }}" data-range-min>
+                <input type="range" min="-60" max="0" step="0.5" value="{{ selected.drawdown_max }}" data-range-max>
+              </div>
+              <input type="hidden" name="drawdown_min" value="{{ selected.drawdown_min }}" data-hidden-min>
+              <input type="hidden" name="drawdown_max" value="{{ selected.drawdown_max }}" data-hidden-max>
+              <div class="range-presets">
+                <button type="button" data-set-min="-20">Low (&gt;-20%)</button>
+                <button type="button" data-set-min="-30">Med (&gt;-30%)</button>
+              </div>
             </div>
           </details>
           <details class="filter-block" open>
@@ -235,6 +303,7 @@
           <input type="search" name="q" value="{{ selected.q }}" placeholder="Search funds by name, AMC, AMFI or benchmark...">
         </div>
         <div class="results-actions">
+          <button type="button" class="toolbar-button" id="compare-selected-btn" disabled title="Select at least 2 funds to compare">⚖️ <span>Compare</span></button>
           <a class="toolbar-button" href="?{{ query_string }}{% if query_string %}&{% endif %}export=csv" title="Export filtered funds as CSV">⇩ <span>Export</span></a>
           <div class="column-menu-wrap">
             <button type="button" class="toolbar-button" id="column-menu-button" aria-expanded="false">☷ <span>View</span></button>
@@ -247,7 +316,12 @@
               <label><input type="checkbox" value="cagr3y" checked> 3-Yr CAGR</label>
               <label><input type="checkbox" value="return5y"> 5-Yr CAGR</label>
               <label><input type="checkbox" value="rolling3y"> 3-Yr Rolling</label>
+              <label><input type="checkbox" value="rolling5y"> 5-Yr Rolling</label>
               <label><input type="checkbox" value="volatility"> Volatility</label>
+              <label><input type="checkbox" value="sharpe"> Sharpe Ratio</label>
+              <label><input type="checkbox" value="excess1y"> Alpha 1Y</label>
+              <label><input type="checkbox" value="excess3y"> Alpha 3Y</label>
+              <label><input type="checkbox" value="drawdown"> Max Drawdown</label>
               <label><input type="checkbox" value="risk"> Risk</label>
               <label><input type="checkbox" value="benchmark"> Benchmark</label>
               <label><input type="checkbox" value="updated"> Updated</label>
@@ -271,13 +345,18 @@
                 <th class="favorite-column" aria-label="Favorite"></th>
                 <th data-column="scheme"><button type="button" class="table-sort" data-sort="name">Scheme Name <span>↕</span></button></th>
                 <th data-column="aum"><button type="button" class="table-sort" data-sort="aum">AUM (Cr) <span>↕</span></button></th>
-                <th data-column="expense"><button type="button" class="table-sort" data-sort="expense">Expense Ratio <span>↕</span></button></th>
-                <th data-column="age"><button type="button" class="table-sort" data-sort="age">Fund Age <span>↕</span></button></th>
-                <th data-column="return1y"><button type="button" class="table-sort" data-sort="return_1y">1-Yr Return <span>↕</span></button></th>
-                <th data-column="cagr3y"><button type="button" class="table-sort" data-sort="cagr_3y">3-Yr CAGR <span>↕</span></button></th>
-                <th data-column="return5y"><button type="button" class="table-sort" data-sort="return_5y">5-Yr CAGR <span>↕</span></button></th>
-                <th data-column="rolling3y"><button type="button" class="table-sort" data-sort="rolling_3y">3-Yr Rolling <span>↕</span></button></th>
-                <th data-column="volatility"><button type="button" class="table-sort" data-sort="volatility_3y">Volatility <span>↕</span></button></th>
+                <th data-column="expense"><button type="button" class="table-sort" data-sort="expense">Exp Ratio <span>↕</span></button></th>
+                <th data-column="age"><button type="button" class="table-sort" data-sort="age">Age <span>↕</span></button></th>
+                <th data-column="return1y"><button type="button" class="table-sort" data-sort="return_1y">1-Yr % <span>↕</span></button></th>
+                <th data-column="cagr3y"><button type="button" class="table-sort" data-sort="cagr_3y">3-Yr % <span>↕</span></button></th>
+                <th data-column="return5y"><button type="button" class="table-sort" data-sort="return_5y">5-Yr % <span>↕</span></button></th>
+                <th data-column="rolling3y"><button type="button" class="table-sort" data-sort="rolling_3y">Roll 3Y <span>↕</span></button></th>
+                <th data-column="rolling5y"><button type="button" class="table-sort" data-sort="rolling_5y">Roll 5Y <span>↕</span></button></th>
+                <th data-column="volatility"><button type="button" class="table-sort" data-sort="volatility_3y">Vol 3Y <span>↕</span></button></th>
+                <th data-column="sharpe"><button type="button" class="table-sort" data-sort="sharpe">Sharpe <span>↕</span></button></th>
+                <th data-column="excess1y"><button type="button" class="table-sort" data-sort="excess_1y">Alpha 1Y <span>↕</span></button></th>
+                <th data-column="excess3y"><button type="button" class="table-sort" data-sort="excess_3y">Alpha 3Y <span>↕</span></button></th>
+                <th data-column="drawdown"><button type="button" class="table-sort" data-sort="drawdown">Max DD <span>↕</span></button></th>
                 <th data-column="risk">Risk</th>
                 <th data-column="benchmark">Benchmark</th>
                 <th data-column="updated"><button type="button" class="table-sort" data-sort="updated">Updated <span>↕</span></button></th>
@@ -298,12 +377,17 @@
                 </td>
                 <td data-column="aum">{% if row.aum_cr != None %}{{ row.aum_cr|floatformat:0 }}{% else %}—{% endif %}</td>
                 <td data-column="expense">{% if row.expense_ratio != None %}{{ row.expense_ratio|floatformat:2 }}%{% else %}—{% endif %}</td>
-                <td data-column="age">{% if row.fund_age_years != None %}{{ row.fund_age_years|floatformat:1 }}{% else %}—{% endif %}</td>
+                <td data-column="age">{% if row.fund_age_years != None %}{{ row.fund_age_years|floatformat:1 }}y{% else %}—{% endif %}</td>
                 <td data-column="return1y" class="{% if row.returns_1y_pct > 0 %}positive{% elif row.returns_1y_pct < 0 %}negative{% endif %}">{% if row.returns_1y_pct != None %}{{ row.returns_1y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="cagr3y" class="{% if row.cagr_3y_pct > 0 %}positive{% elif row.cagr_3y_pct < 0 %}negative{% endif %}">{% if row.cagr_3y_pct != None %}{{ row.cagr_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="return5y" class="{% if row.returns_5y_pct > 0 %}positive{% elif row.returns_5y_pct < 0 %}negative{% endif %}">{% if row.returns_5y_pct != None %}{{ row.returns_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="rolling3y">{% if row.rolling_return_3y_pct != None %}{{ row.rolling_return_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="rolling5y">{% if row.rolling_return_5y_pct != None %}{{ row.rolling_return_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="volatility">{% if row.volatility_3y_pct != None %}{{ row.volatility_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="sharpe" class="{% if row.sharpe_ratio > 1 %}positive{% elif row.sharpe_ratio < 0 %}negative{% endif %}">{% if row.sharpe_ratio != None %}{{ row.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="excess1y" class="{% if row.excess_return_1y > 0 %}positive{% elif row.excess_return_1y < 0 %}negative{% endif %}">{% if row.excess_return_1y != None %}{% if row.excess_return_1y > 0 %}+{% endif %}{{ row.excess_return_1y|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="excess3y" class="{% if row.excess_return_3y > 0 %}positive{% elif row.excess_return_3y < 0 %}negative{% endif %}">{% if row.excess_return_3y != None %}{% if row.excess_return_3y > 0 %}+{% endif %}{{ row.excess_return_3y|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="drawdown" class="negative">{% if row.max_drawdown != None %}{{ row.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="risk">{% if row.risk_label %}<span class="risk-badge risk-{{ row.risk_label|lower|cut:" " }}">{{ row.risk_label }}</span>{% else %}—{% endif %}</td>
                 <td data-column="benchmark" class="benchmark-cell">{{ row.benchmark_name|default:"—"|truncatechars:34 }}</td>
                 <td data-column="updated">{% if row.data_as_of %}{{ row.data_as_of|date:"d M Y" }}{% else %}—{% endif %}</td>
@@ -462,6 +546,27 @@
     });
     syncFavorite();
   });
+
+  const compareBtn = document.getElementById('compare-selected-btn');
+  const syncCompareButton = () => {
+    if (!compareBtn) return;
+    if (favorites.length >= 2) {
+      compareBtn.disabled = false;
+      compareBtn.title = `Compare ${favorites.length} selected funds`;
+    } else {
+      compareBtn.disabled = true;
+      compareBtn.title = "Select at least 2 funds to compare";
+    }
+  };
+  compareBtn?.addEventListener('click', () => {
+    if (favorites.length >= 2) {
+      window.open("{% url 'calculators:compare' %}?funds=" + favorites.join(','), "_blank");
+    }
+  });
+  
+  // Initial sync
+  syncCompareButton();
+
 })();
 </script>
 {% endblock %}

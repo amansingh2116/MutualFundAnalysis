@@ -143,7 +143,7 @@ BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
         nse_name="NIFTY SMLCAP 100",
     ),
     "NIFTY SMALLCAP 250": BenchmarkDefinition(
-        "NIFTY SMALLCAP 250", ("NIFTYSMLCAP250.NS",),
+        "NIFTY SMALLCAP 250", (),
         aliases=("NIFTY SMLCAP 250", "SMALLCAP 250"),
         nse_name="NIFTY SMLCAP 250",
     ),
