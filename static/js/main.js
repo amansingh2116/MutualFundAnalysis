@@ -29,6 +29,7 @@ function mergePlotlyLayout(extra={}) {
 async function loadChart(containerId, apiUrl, buildFn) {
   const el = document.getElementById(containerId);
   if (!el) return;
+  if (el._fullLayout && window.Plotly) Plotly.purge(el);
   el.innerHTML = `<div class="chart-placeholder"><div class="spinner"></div><span style="color:var(--text-muted);font-size:12px">Loading chart…</span></div>`;
   try {
     const r = await fetch(apiUrl);

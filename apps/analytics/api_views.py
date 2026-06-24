@@ -351,25 +351,37 @@ def rolling_timeseries_api(request, amfi_code):
         bm_fallback = getattr(snapshot, 'benchmark_fallback_used', False) or False
 
     # ── NIFTY 50 ultimate fallback ─────────────────────────────────────────────
-    # If neither the custom override nor the fund's default benchmark produced
-    # any usable data, silently retry with NIFTY 50 so the chart always has a
-    # reference line.  A note is surfaced to the frontend so users know.
+    # If bm is empty OR has fewer rows than we need for the rolling window,
+    # try fetching NIFTY 50 from DB without a start-date filter to get all
+    # available data (our DB has 2020–2026). We always show whatever we have.
     NIFTY50_FALLBACK = 'NIFTY 50'
-    if (bm is None or bm.empty) and not bm_override:
-        try:
-            n50_result = fetch_benchmark_result(NIFTY50_FALLBACK, nav)
-            if n50_result.series is not None and not n50_result.series.empty:
-                original_bm_name = snapshot.benchmark_name or 'fund benchmark'
-                bm = n50_result.series
-                bm_name = NIFTY50_FALLBACK
-                fallback_note = (
-                    f"Primary benchmark '{original_bm_name}' is unavailable; "
-                    f"NIFTY 50 is shown as a proxy. Returns may not be directly comparable."
-                )
-                bm_note = (fallback_note + ' ' + bm_note).strip() if bm_note else fallback_note
-                bm_fallback = True
-        except Exception as exc:
-            logger.info("NIFTY 50 fallback fetch failed for %s: %s", amfi_code, exc)
+    if not bm_override:
+        _need_bm_fallback = (bm is None or bm.empty)
+        if _need_bm_fallback:
+            try:
+                from apps.funds.runtime import fetch_db_benchmark_series
+                n50_series = fetch_db_benchmark_series(NIFTY50_FALLBACK, None)  # no date filter
+                if n50_series is not None and not n50_series.empty:
+                    original_bm_name = snapshot.benchmark_name or 'fund benchmark'
+                    bm = n50_series
+                    bm_name = f'NIFTY 50 (proxy for {original_bm_name})' if original_bm_name != NIFTY50_FALLBACK else NIFTY50_FALLBACK
+                    fallback_note = (
+                        f"Primary benchmark '{original_bm_name}' is unavailable; "
+                        f"NIFTY 50 is shown as a proxy. Returns may not be directly comparable."
+                    )
+                    bm_note = (fallback_note + ' ' + bm_note).strip() if bm_note else fallback_note
+                    bm_fallback = True
+            except Exception as exc:
+                logger.info("NIFTY 50 fallback fetch failed for %s: %s", amfi_code, exc)
+        elif bm_name and bm_name.strip().upper() == NIFTY50_FALLBACK:
+            # We have NIFTY 50 from snapshot but it may be date-filtered — refresh without filter
+            try:
+                from apps.funds.runtime import fetch_db_benchmark_series
+                n50_full = fetch_db_benchmark_series(NIFTY50_FALLBACK, None)  # no date filter
+                if n50_full is not None and len(n50_full) > len(bm):
+                    bm = n50_full  # use the fuller series
+            except Exception:
+                pass
 
     if nav.empty:
         return JsonResponse({'error': 'No NAV data available.'})
@@ -414,13 +426,22 @@ def rolling_timeseries_api(request, amfi_code):
     mask = (rolling_fund.index >= start) & (rolling_fund.index <= end)
     rolling_fund = rolling_fund[mask]
 
+    # Align benchmark to fund's rolling return dates via reindex+ffill.
+    # This handles any date misalignment between fund NAV calendar and benchmark calendar.
+    if not rolling_bm.empty:
+        rolling_bm_aligned = rolling_bm.reindex(
+            rolling_bm.index.union(rolling_fund.index)
+        ).ffill().reindex(rolling_fund.index)
+    else:
+        rolling_bm_aligned = pd.Series(dtype=float, index=rolling_fund.index)
+
     # Build series
     series = []
     for dt, val in rolling_fund.items():
         bm_val = None
-        if not rolling_bm.empty and dt in rolling_bm.index:
-            bv = rolling_bm.loc[dt]
-            bm_val = round(float(bv), 4) if not pd.isna(bv) else None
+        if not rolling_bm_aligned.empty:
+            bv = rolling_bm_aligned.get(dt)
+            bm_val = round(float(bv), 4) if bv is not None and not pd.isna(bv) else None
         series.append({
             'date': dt.date().isoformat(),
             'fund': round(float(val), 4),

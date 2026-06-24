@@ -138,7 +138,7 @@ def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
 
 
 def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
-    cache_key = f"fund:snapshot:v10:{scheme.amfi_code}"
+    cache_key = f"fund:snapshot:v11:{scheme.amfi_code}"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -1538,7 +1538,40 @@ def fetch_benchmark_result(name: str | None, nav: pd.Series) -> SimpleNamespace:
     except Exception as exc:
         logger.info("Benchmark fetch error for %s: %s", name, exc)
         series, candidate = pd.Series(dtype=float), None
+    # Minimum useful rows: 1 year of data (252 trading days).
+    # Yahoo sometimes returns a tiny partial result for certain tickers/regions.
+    # In that case we fall through to the DB fallback which usually has more data.
+    YAHOO_MIN_ROWS = 252
     if candidate is not None and len(series) >= 2:
+        # Check if DB has significantly more data — prefer DB when Yahoo is tiny
+        is_tiny_yahoo = len(series) < YAHOO_MIN_ROWS
+        if is_tiny_yahoo:
+            # Try the DB fallback first; if DB has >=252 rows, use that instead.
+            # Also try NIFTY 50 as ultimate fallback if db_fallback_candidates is empty
+            # (e.g., an index with a direct but broken Yahoo ticker like ^CNX100)
+            fallback_names = list(dict.fromkeys(db_fallback_candidates)) or ['NIFTY 50']
+            for fb_name in fallback_names:
+                fb_series = fetch_db_benchmark_series(fb_name, None)  # no date filter for full history
+                if len(fb_series) >= YAHOO_MIN_ROWS:
+                    logger.info(
+                        "Yahoo returned tiny result (%d rows) for %s; preferring DB fallback %s (%d rows)",
+                        len(series), name, fb_name, len(fb_series),
+                    )
+                    is_n50_proxy = (fb_name == 'NIFTY 50' and fb_name != name)
+                    return ns(
+                        requested_name=name,
+                        actual_name=fb_name,
+                        display_name=f"NIFTY 50 (proxy for {name})" if is_n50_proxy else f"{name} via {fb_name}",
+                        ticker="database",
+                        tickers=tuple(c.yahoo_ticker for c in yahoo_candidates),
+                        source="database fallback",
+                        fallback_used=True,
+                        note=(
+                            f"No confirmed Yahoo Finance ticker for '{name}'. "
+                            "NIFTY 50 is used as a proxy - comparisons are approximate."
+                        ) if is_n50_proxy else f"{name} has no stored history; using {fb_name} as fallback.",
+                        series=fb_series,
+                    )
         fallback_used = candidate.is_fallback or candidate.is_proxy
         if candidate.is_proxy:
             display_name = f"{candidate.benchmark_name} proxy"
@@ -1570,7 +1603,8 @@ def fetch_benchmark_result(name: str | None, nav: pd.Series) -> SimpleNamespace:
         )
 
     for candidate_name in dict.fromkeys(db_fallback_candidates):
-        series = fetch_db_benchmark_series(candidate_name, start)
+        # Use no start_date filter to get all available DB history for the fallback index
+        series = fetch_db_benchmark_series(candidate_name, None)
         if len(series) >= 2:
             return ns(
                 requested_name=name,
