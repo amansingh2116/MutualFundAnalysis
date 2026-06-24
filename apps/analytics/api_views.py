@@ -297,7 +297,7 @@ def swp_simulate_api(request, amfi_code):
             clean_result[k] = v
         else:
             clean_result[k] = float(v) if hasattr(v, '__float__') else v
-    
+
     return JsonResponse(clean_result)
 
 
@@ -309,19 +309,67 @@ def rolling_timeseries_api(request, amfi_code):
       window  — rolling window in days (default 365 = 1Y)
       start   — start date YYYY-MM-DD (optional, defaults to inception)
       end     — end date YYYY-MM-DD (optional, defaults to latest NAV)
+      benchmark — optional override for benchmark data
 
     Returns:
       inception_date, latest_date, benchmark_name,
       series: [{date, fund, bm}, ...],
-      stats: {avg, median, min, max, negative_pct, dist_buckets}
+      stats: {avg, median, min, max, negative_pct, vol, dist_buckets}
     """
     import numpy as np
     scheme = get_scheme_or_404(amfi_code)
-    from apps.funds.runtime import get_runtime_snapshot
+    from apps.funds.runtime import get_runtime_snapshot, fetch_benchmark_result
 
     snapshot = get_runtime_snapshot(scheme)
     nav = snapshot.nav_series
-    bm = snapshot.benchmark_series
+
+    # Check for benchmark override via ?benchmark= query param
+    bm_override = request.GET.get('benchmark', '').strip()
+    if bm_override:
+        try:
+            bm_result = fetch_benchmark_result(bm_override, nav if not nav.empty else pd.Series(dtype=float))
+            if bm_result.series is not None and not bm_result.series.empty:
+                bm = bm_result.series
+                bm_name = bm_result.display_name or bm_override
+                bm_note = bm_result.note or ''
+                bm_fallback = bm_result.fallback_used
+            else:
+                bm = snapshot.benchmark_series
+                bm_name = snapshot.benchmark_display_name
+                bm_note = f"Could not fetch '{bm_override}'; using fund's default benchmark."
+                bm_fallback = True
+        except Exception as exc:
+            logger.info("Custom benchmark fetch failed for %s: %s", bm_override, exc)
+            bm = snapshot.benchmark_series
+            bm_name = snapshot.benchmark_display_name
+            bm_note = f"Custom benchmark '{bm_override}' unavailable; using fund's default."
+            bm_fallback = True
+    else:
+        bm = snapshot.benchmark_series
+        bm_name = snapshot.benchmark_display_name
+        bm_note = getattr(snapshot, 'benchmark_note', '') or ''
+        bm_fallback = getattr(snapshot, 'benchmark_fallback_used', False) or False
+
+    # ── NIFTY 50 ultimate fallback ─────────────────────────────────────────────
+    # If neither the custom override nor the fund's default benchmark produced
+    # any usable data, silently retry with NIFTY 50 so the chart always has a
+    # reference line.  A note is surfaced to the frontend so users know.
+    NIFTY50_FALLBACK = 'NIFTY 50'
+    if (bm is None or bm.empty) and not bm_override:
+        try:
+            n50_result = fetch_benchmark_result(NIFTY50_FALLBACK, nav)
+            if n50_result.series is not None and not n50_result.series.empty:
+                original_bm_name = snapshot.benchmark_name or 'fund benchmark'
+                bm = n50_result.series
+                bm_name = NIFTY50_FALLBACK
+                fallback_note = (
+                    f"Primary benchmark '{original_bm_name}' is unavailable; "
+                    f"NIFTY 50 is shown as a proxy. Returns may not be directly comparable."
+                )
+                bm_note = (fallback_note + ' ' + bm_note).strip() if bm_note else fallback_note
+                bm_fallback = True
+        except Exception as exc:
+            logger.info("NIFTY 50 fallback fetch failed for %s: %s", amfi_code, exc)
 
     if nav.empty:
         return JsonResponse({'error': 'No NAV data available.'})
@@ -393,6 +441,7 @@ def rolling_timeseries_api(request, amfi_code):
             'median': round(float(np.median(vals)), 2),
             'min': round(float(np.min(vals)), 2),
             'max': round(float(np.max(vals)), 2),
+            'vol': round(float(np.std(vals)), 2),
             'negative_pct': round(100 * sum(1 for v in vals if v < 0) / len(vals), 2),
             'dist': {
                 'neg': pct_in(vals, -999, 0),
@@ -412,6 +461,7 @@ def rolling_timeseries_api(request, amfi_code):
             'median': round(float(np.median(bm_vals)), 2),
             'min': round(float(np.min(bm_vals)), 2),
             'max': round(float(np.max(bm_vals)), 2),
+            'vol': round(float(np.std(bm_vals)), 2),
             'negative_pct': round(100 * sum(1 for v in bm_vals if v < 0) / len(bm_vals), 2),
             'dist': {
                 'neg': pct_in(bm_vals, -999, 0),
@@ -429,7 +479,9 @@ def rolling_timeseries_api(request, amfi_code):
         'inception_date': inception_date,
         'latest_date': latest_date,
         'scheme_name': scheme.scheme_name,
-        'benchmark_name': snapshot.benchmark_display_name,
+        'benchmark_name': bm_name,
+        'benchmark_note': bm_note,
+        'benchmark_fallback_used': bm_fallback,
         'window_days': window_days,
         'series': series,
         'stats': stats,

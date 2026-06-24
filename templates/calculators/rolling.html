@@ -3,6 +3,7 @@
 
 {% block extra_head %}
 <style>
+/* ── Window buttons ── */
 .rrc-w-btn {
   padding: 5px 12px;
   font-size: 12px;
@@ -14,16 +15,49 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
-.rrc-w-btn:hover {
-  border-color: var(--indigo-400);
-  color: var(--indigo-400);
-}
+.rrc-w-btn:hover { border-color: var(--indigo-400); color: var(--indigo-400); }
 .rrc-w-btn.rrc-active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+  background: var(--accent); border-color: var(--accent);
+  color: #fff; box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
 }
+
+/* ── Fund tray chips ── */
+.fund-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px; border-radius: 8px;
+  border: 1.5px solid; background: var(--bg-elevated);
+  margin-bottom: 6px; font-size: 12px;
+}
+.fund-chip-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.fund-chip-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.fund-chip-bm { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fund-chip-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 14px; line-height: 1; padding: 0 2px;
+  transition: color 0.15s;
+}
+.fund-chip-remove:hover { color: #ef4444; }
+
+/* ── Custom benchmark dropdown ── */
+#bm-dropdown {
+  position: absolute; z-index: 200; top: 100%; left: 0; right: 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); max-height: 220px; overflow-y: auto;
+  box-shadow: var(--shadow-md); display: none;
+}
+#bm-dropdown.open { display: block; }
+.bm-opt {
+  padding: 8px 12px; font-size: 12px; cursor: pointer;
+  color: var(--text-secondary); border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.bm-opt:last-child { border-bottom: none; }
+.bm-opt:hover, .bm-opt.active { background: var(--bg-elevated); color: var(--text-primary); }
+
+/* ── Legend swatch ── */
+.legend-swatch { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
 </style>
 {% endblock %}
 
@@ -31,22 +65,25 @@
 <div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">&rsaquo;</span><span>Rolling Return Calculator</span></div>
 <div class="page-header">
   <div class="page-title">📈 Rolling Return Calculator</div>
-  <div class="page-subtitle">Analyse how a mutual fund's rolling returns have performed over time vs its benchmark. Uses actual NAV history.</div>
+  <div class="page-subtitle">Compare rolling returns of up to 5 mutual funds vs their benchmarks. Uses actual NAV history.</div>
 </div>
 
 <div class="calc-layout">
-  <!-- ── Inputs ──────────────────────────────────────────────────────── -->
+  <!-- ── Inputs ── -->
   <div class="calc-inputs">
     <form id="rrc-form" autocomplete="off">
+
       <!-- Fund Search -->
       <div class="form-group" style="position:relative">
-        <label class="form-label">Search Mutual Fund</label>
-        <input class="form-control" id="rrc-search" type="text" placeholder="Type fund name, AMC, AMFI code or ISIN">
+        <label class="form-label">Add Fund <span style="font-size:11px;color:var(--text-muted)" id="rrc-count-hint"></span></label>
+        <input class="form-control" id="rrc-search" type="text" placeholder="Type fund name, AMC, AMFI code or ISIN" autocomplete="off">
         <div class="search-results-dropdown" id="rrc-dropdown"></div>
       </div>
-      <div id="rrc-selected-fund" style="margin-bottom:12px"></div>
 
-      <!-- Window -->
+      <!-- Fund Tray -->
+      <div id="rrc-tray" style="margin-bottom:10px"></div>
+
+      <!-- Rolling Window -->
       <div class="form-group">
         <label class="form-label">Rolling Window</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -69,16 +106,24 @@
         <input type="date" id="rrc-end" class="form-control">
       </div>
 
+      <!-- Custom Benchmark -->
+      <div class="form-group" style="position:relative">
+        <label class="form-label">Custom Benchmark <span style="font-size:10px;color:var(--text-muted)">(optional override)</span></label>
+        <input class="form-control" id="bm-input" type="text" placeholder="Default: each fund's own benchmark" autocomplete="off" readonly
+               style="cursor:pointer">
+        <div id="bm-dropdown"></div>
+      </div>
+
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
     </form>
     <div class="alert alert-info" style="margin-top:14px;font-size:12px">NAV data is fetched live from AMFI/mfapi.in. First load for a fund may take 10–20 seconds.</div>
   </div>
 
-  <!-- ── Results ─────────────────────────────────────────────────────── -->
+  <!-- ── Results ── -->
   <div class="calc-results">
     <div id="rrc-results">
       <div class="chart-placeholder" style="min-height:200px">
-        <span style="font-size:13px;color:var(--text-muted)">Search and select a fund to analyse.</span>
+        <span style="font-size:13px;color:var(--text-muted)">Add up to 5 funds and click Calculate to compare rolling returns.</span>
       </div>
     </div>
   </div>
@@ -87,14 +132,82 @@
 
 {% block extra_js %}
 <script>
-let rrcAmfiCode = null;
+// ─── Config & State ───────────────────────────────────────────────────────────
+const MAX_FUNDS = 5;
 let rrcWindowDays = 252;
 let rrcSearchTimer = null;
-let rrcInceptionDate = null;
 
-// ─── Fund Search ─────────────────────────────────────────────────────────────
+// Fund tray: [{amfi_code, name, fund_house, color, bmColor}]
+let rrcFunds = [];
+
+// Distinct, visually-distinguishable fund colors (fund line = full, benchmark = lighter version)
+const FUND_COLORS = [
+  { fund: 'rgba(251,191,36,0.95)',  bm: 'rgba(251,191,36,0.30)' },  // amber
+  { fund: 'rgba(99,102,241,0.95)',  bm: 'rgba(99,102,241,0.30)'  },  // indigo
+  { fund: 'rgba(16,185,129,0.95)',  bm: 'rgba(16,185,129,0.30)'  },  // emerald
+  { fund: 'rgba(239,68,68,0.95)',   bm: 'rgba(239,68,68,0.30)'   },  // red
+  { fund: 'rgba(168,85,247,0.95)',  bm: 'rgba(168,85,247,0.30)'  },  // violet
+];
+const FUND_BORDER_COLORS = [
+  '#fbbf24','#6366f1','#10b981','#ef4444','#a855f7'
+];
+
+// Available benchmarks for the dropdown
+const BENCHMARK_OPTIONS = [
+  'NIFTY 50','NIFTY 100','NIFTY 200','NIFTY 500',
+  'NIFTY NEXT 50','NIFTY MIDCAP 50','NIFTY MIDCAP 100','NIFTY MIDCAP 150',
+  'NIFTY SMALLCAP 50','NIFTY SMALLCAP 100','NIFTY SMALLCAP 250',
+  'NIFTY LARGE MIDCAP 250','NIFTY500 MULTICAP 50:25:25',
+  'NIFTY BANK','NIFTY IT','NIFTY PHARMA','NIFTY FMCG','NIFTY AUTO',
+  'NIFTY FINANCIAL SERVICES','NIFTY HEALTHCARE','NIFTY METAL','NIFTY REALTY',
+  'NIFTY INFRASTRUCTURE','NIFTY ENERGY','NIFTY OIL & GAS','NIFTY MEDIA',
+  'NIFTY COMMODITIES','NIFTY INDIA CONSUMPTION','NIFTY MNC',
+  'SENSEX','S&P 500','NASDAQ 100',
+];
+
+let bmOverride = ''; // '' = use each fund's own benchmark
+
+// ─── Custom Benchmark Dropdown ────────────────────────────────────────────────
+const bmInput = document.getElementById('bm-input');
+const bmDropdown = document.getElementById('bm-dropdown');
+
+function buildBmDropdown(filter = '') {
+  const fl = filter.toLowerCase();
+  const opts = ["— Use each fund's own benchmark —", ...BENCHMARK_OPTIONS].filter(
+    (o,i) => i === 0 || o.toLowerCase().includes(fl)
+  );
+  bmDropdown.innerHTML = opts.map((o, i) => {
+    const isActive = (i === 0 && !bmOverride) || o === bmOverride;
+    return `<div class="bm-opt${isActive?' active':''}" data-val="${i===0?'':o}">${escHtml(o)}</div>`;
+  }).join('');
+}
+
+bmInput.addEventListener('click', () => {
+  buildBmDropdown('');
+  bmDropdown.classList.add('open');
+  bmInput.removeAttribute('readonly');
+  bmInput.select();
+});
+bmInput.addEventListener('input', () => buildBmDropdown(bmInput.value));
+bmDropdown.addEventListener('click', e => {
+  const opt = e.target.closest('.bm-opt');
+  if (!opt) return;
+  bmOverride = opt.dataset.val;
+  bmInput.value = bmOverride || '';
+  bmInput.placeholder = bmOverride ? '' : 'Default: each fund\'s own benchmark';
+  bmInput.setAttribute('readonly','');
+  bmDropdown.classList.remove('open');
+});
+document.addEventListener('click', e => {
+  if (!bmInput.contains(e.target) && !bmDropdown.contains(e.target)) {
+    bmDropdown.classList.remove('open');
+    bmInput.setAttribute('readonly','');
+  }
+});
+
+// ─── Fund Search ──────────────────────────────────────────────────────────────
 const rrcSearchInput = document.getElementById('rrc-search');
-const rrcDropdown = document.getElementById('rrc-dropdown');
+const rrcDropdown    = document.getElementById('rrc-dropdown');
 
 rrcSearchInput.addEventListener('input', () => {
   clearTimeout(rrcSearchTimer);
@@ -117,53 +230,106 @@ async function searchRRCFunds(q) {
   rrcDropdown.classList.toggle('open', Boolean(data.results?.length));
 }
 
-rrcDropdown.addEventListener('click', async e => {
+rrcDropdown.addEventListener('click', e => {
   const item = e.target.closest('.search-result-item');
   if (!item) return;
-  rrcAmfiCode = item.dataset.code;
-  rrcSearchInput.value = '';
   rrcDropdown.classList.remove('open');
-
-  document.getElementById('rrc-selected-fund').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px">
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0">
-        ${escHtml(item.dataset.name[0] || '?').toUpperCase()}
-      </div>
-      <div style="min-width:0;flex:1">
-        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.dataset.name)}</div>
-        <div style="font-size:10px;color:var(--text-muted)">${escHtml(item.dataset.house)} &middot; AMFI ${item.dataset.code}</div>
-      </div>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="clearRRCFund()">✕</button>
-    </div>`;
-
-  // Pre-fill dates from the fund's NAV data
-  await prefillDates(rrcAmfiCode);
+  rrcSearchInput.value = '';
+  addFund(item.dataset.code, item.dataset.name, item.dataset.house);
 });
 
-async function prefillDates(code) {
-  try {
-    const r = await fetch(`/api/funds/${code}/rolling-timeseries/?window=252`);
-    const d = await r.json();
-    if (d.inception_date) {
-      rrcInceptionDate = d.inception_date;
-      document.getElementById('rrc-start').value = d.inception_date;
-      document.getElementById('rrc-start').min = d.inception_date;
-      document.getElementById('rrc-inception-hint').textContent = `(inception: ${d.inception_date})`;
-    }
-    if (d.latest_date) {
-      document.getElementById('rrc-end').value = d.latest_date;
-      document.getElementById('rrc-end').max = d.latest_date;
-    }
-  } catch {}
+document.addEventListener('click', e => {
+  if (!rrcSearchInput.contains(e.target) && !rrcDropdown.contains(e.target))
+    rrcDropdown.classList.remove('open');
+});
+
+// ─── Fund Tray Management ─────────────────────────────────────────────────────
+async function addFund(code, name, house) {
+  if (rrcFunds.length >= MAX_FUNDS) {
+    showTrayMsg(`Maximum ${MAX_FUNDS} funds reached.`);
+    return;
+  }
+  if (rrcFunds.some(f => f.amfi_code === code)) {
+    showTrayMsg('This fund is already in the comparison.');
+    return;
+  }
+  const idx = rrcFunds.length;
+  const colors = FUND_COLORS[idx];
+  rrcFunds.push({ amfi_code: code, name, house, color: colors.fund, bmColor: colors.bm, borderColor: FUND_BORDER_COLORS[idx] });
+  renderTray();
+
+  // Auto-update inception hint (use earliest inception among all funds)
+  await updateDateHints();
 }
 
-function clearRRCFund() {
-  rrcAmfiCode = null;
-  rrcInceptionDate = null;
-  document.getElementById('rrc-selected-fund').innerHTML = '';
-  document.getElementById('rrc-start').value = '';
-  document.getElementById('rrc-end').value = '';
-  document.getElementById('rrc-inception-hint').textContent = '';
+function removeFund(code) {
+  rrcFunds = rrcFunds.filter(f => f.amfi_code !== code);
+  // Re-assign colors to keep consistent ordering
+  rrcFunds.forEach((f, i) => {
+    f.color = FUND_COLORS[i].fund;
+    f.bmColor = FUND_COLORS[i].bm;
+    f.borderColor = FUND_BORDER_COLORS[i];
+  });
+  renderTray();
+  updateDateHints();
+}
+
+function renderTray() {
+  const tray = document.getElementById('rrc-tray');
+  const hint = document.getElementById('rrc-count-hint');
+  hint.textContent = rrcFunds.length > 0 ? `(${rrcFunds.length}/${MAX_FUNDS})` : '';
+
+  if (rrcFunds.length === 0) {
+    tray.innerHTML = '';
+    return;
+  }
+  tray.innerHTML = rrcFunds.map(f => `
+    <div class="fund-chip" style="border-color:${f.borderColor}44">
+      <div class="fund-chip-dot" style="background:${f.color}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="fund-chip-name">${escHtml(f.name)}</div>
+        <div class="fund-chip-bm">${escHtml(f.house)} &middot; ${f.amfi_code}</div>
+      </div>
+      <button class="fund-chip-remove" onclick="removeFund('${f.amfi_code}')" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function showTrayMsg(msg) {
+  const el = document.createElement('div');
+  el.className = 'alert alert-warning';
+  el.style.cssText = 'font-size:12px;margin-top:6px';
+  el.textContent = msg;
+  document.getElementById('rrc-tray').after(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+async function updateDateHints() {
+  if (!rrcFunds.length) return;
+  // Fetch inception dates for all funds, pick earliest
+  let earliest = null, latest = null;
+  for (const f of rrcFunds) {
+    try {
+      const r = await fetch(`/api/funds/${f.amfi_code}/rolling-timeseries/?window=252`);
+      const d = await r.json();
+      if (d.inception_date) {
+        if (!earliest || d.inception_date < earliest) earliest = d.inception_date;
+      }
+      if (d.latest_date) {
+        if (!latest || d.latest_date > latest) latest = d.latest_date;
+      }
+    } catch {}
+  }
+  if (earliest) {
+    const startEl = document.getElementById('rrc-start');
+    if (!startEl.value) startEl.value = earliest;
+    startEl.min = earliest;
+    document.getElementById('rrc-inception-hint').textContent = `(earliest inception: ${earliest})`;
+  }
+  if (latest) {
+    const endEl = document.getElementById('rrc-end');
+    if (!endEl.value) endEl.value = latest;
+    endEl.max = latest;
+  }
 }
 
 // ─── Window Buttons ───────────────────────────────────────────────────────────
@@ -172,8 +338,7 @@ document.querySelectorAll('.rrc-w-btn').forEach(btn => {
     document.querySelectorAll('.rrc-w-btn').forEach(b => b.classList.remove('rrc-active'));
     btn.classList.add('rrc-active');
     rrcWindowDays = parseInt(btn.dataset.days);
-    // Auto-refresh if a fund is already selected and dates are ready
-    if (rrcAmfiCode && document.getElementById('rrc-start').value) {
+    if (rrcFunds.length && document.getElementById('rrc-start').value) {
       document.getElementById('rrc-form').dispatchEvent(new Event('submit'));
     }
   });
@@ -182,19 +347,13 @@ document.querySelectorAll('.rrc-w-btn').forEach(btn => {
 // ─── Submit ───────────────────────────────────────────────────────────────────
 document.getElementById('rrc-form').addEventListener('submit', async e => {
   e.preventDefault();
-  if (!rrcAmfiCode) {
-    document.getElementById('rrc-results').innerHTML = `<div class="alert alert-warning">Please search and select a fund first.</div>`;
+  if (!rrcFunds.length) {
+    document.getElementById('rrc-results').innerHTML =
+      `<div class="alert alert-warning">Please add at least one fund to compare.</div>`;
     return;
   }
   const start = document.getElementById('rrc-start').value;
-  const end = document.getElementById('rrc-end').value;
-
-  // Validate date constraints
-  if (start && rrcInceptionDate && start < rrcInceptionDate) {
-    document.getElementById('rrc-results').innerHTML =
-      `<div class="alert alert-warning">⚠️ Start date (${start}) cannot be before fund inception (${rrcInceptionDate}).</div>`;
-    return;
-  }
+  const end   = document.getElementById('rrc-end').value;
   if (start && end && start >= end) {
     document.getElementById('rrc-results').innerHTML =
       `<div class="alert alert-warning">⚠️ Start date must be before end date.</div>`;
@@ -202,76 +361,131 @@ document.getElementById('rrc-form').addEventListener('submit', async e => {
   }
 
   const resultsEl = document.getElementById('rrc-results');
-  resultsEl.innerHTML = `<div class="chart-placeholder" style="min-height:300px"><div class="spinner"></div><br><span style="font-size:12px;color:var(--text-muted)">Fetching NAV data and computing rolling returns…</span></div>`;
+  resultsEl.innerHTML = `<div class="chart-placeholder" style="min-height:300px"><div class="spinner"></div><br><span style="font-size:12px;color:var(--text-muted)">Fetching NAV data for ${rrcFunds.length} fund(s)…</span></div>`;
 
-  let url = `/api/funds/${rrcAmfiCode}/rolling-timeseries/?window=${rrcWindowDays}`;
-  if (start) url += `&start=${start}`;
-  if (end) url += `&end=${end}`;
+  // Fetch all funds in parallel
+  const fetches = rrcFunds.map(f => {
+    let url = `/api/funds/${f.amfi_code}/rolling-timeseries/?window=${rrcWindowDays}`;
+    if (start) url += `&start=${start}`;
+    if (end)   url += `&end=${end}`;
+    if (bmOverride) url += `&benchmark=${encodeURIComponent(bmOverride)}`;
+    return fetch(url).then(r => r.json()).then(d => ({ fund: f, data: d })).catch(err => ({ fund: f, data: { error: String(err) } }));
+  });
 
-  try {
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (data.error) {
-      resultsEl.innerHTML = `<div class="alert alert-danger">${escHtml(data.error)}</div>`;
-      return;
-    }
-    if (!data.series?.length) {
-      resultsEl.innerHTML = `<div class="alert alert-warning">Not enough NAV data for a ${getWindowLabel(rrcWindowDays)} rolling window in the selected date range.</div>`;
-      return;
-    }
-    renderRRCResults(resultsEl, data);
-  } catch(err) {
-    resultsEl.innerHTML = `<div class="alert alert-danger">Failed to load data. Please try again.</div>`;
-  }
+  const results = await Promise.all(fetches);
+  renderMultiResults(resultsEl, results, start, end);
 });
 
 // ─── Render ───────────────────────────────────────────────────────────────────
-function renderRRCResults(container, data) {
+function renderMultiResults(container, results, start, end) {
+  // Separate errors from successes
+  const errors = results.filter(r => r.data.error);
+  const successes = results.filter(r => !r.data.error && r.data.series?.length);
+  const empty = results.filter(r => !r.data.error && !r.data.series?.length);
+
+  if (successes.length === 0) {
+    container.innerHTML = errors.map(r =>
+      `<div class="alert alert-danger">❌ ${escHtml(r.fund.name)}: ${escHtml(r.data.error)}</div>`
+    ).join('') + empty.map(r =>
+      `<div class="alert alert-warning">⚠️ ${escHtml(r.fund.name)}: Not enough NAV data for the selected window/dates.</div>`
+    ).join('');
+    return;
+  }
+
+  // Benchmark deduplication: track which benchmark names have already been plotted
+  const bmNamesSeen = new Map(); // benchmarkName → fund index that first used it
+
+  // Build traces
+  const traces = [];
+  const legendLines = [];
+
+  successes.forEach(({ fund, data }, si) => {
+    const dates = data.series.map(p => p.date);
+    const fundVals = data.series.map(p => p.fund);
+    const bmVals   = data.series.map(p => p.bm);
+    const hasBm    = bmVals.some(v => v !== null);
+    const shortName = (data.scheme_name || fund.name).replace(/ - .*/,'').slice(0, 28);
+    const bmName  = data.benchmark_name || 'Benchmark';
+
+    // Fund trace
+    traces.push({
+      x: dates, y: fundVals,
+      name: shortName,
+      type: 'scatter', mode: 'lines',
+      line: { color: fund.color, width: 2.5 },
+      hovertemplate: `%{x}: <b>%{y:.2f}%</b><extra>${escHtml(shortName)}</extra>`,
+    });
+    legendLines.push({
+      color: fund.color, dash: 'solid', label: shortName, type: 'fund'
+    });
+
+    // Benchmark trace — deduplicate by name
+    if (hasBm) {
+      const alreadySeen = bmNamesSeen.has(bmName);
+      if (!alreadySeen) {
+        bmNamesSeen.set(bmName, si);
+        traces.push({
+          x: dates, y: bmVals,
+          name: bmName,
+          type: 'scatter', mode: 'lines',
+          line: { color: fund.bmColor, width: 1.8, dash: 'dot' },
+          hovertemplate: `%{x}: <b>%{y:.2f}%</b><extra>${escHtml(bmName)}</extra>`,
+        });
+        legendLines.push({
+          color: fund.bmColor, dash: 'dot', label: bmName, type: 'bm', parent: shortName
+        });
+      }
+      // If already seen, the existing trace covers this benchmark; no duplicate needed
+    }
+  });
+
+  // Build HTML
+  const windowLabel = getWindowLabel(rrcWindowDays);
+
+  // Benchmark notes — show as alerts when fallback was used
+  const bmNotes = successes.filter(r => r.data.benchmark_note).map(r => {
+    const isFallback = r.data.benchmark_fallback_used;
+    const fundLabel = escHtml((r.data.scheme_name||r.fund.name).replace(/ - .*/,'').slice(0,25));
+    if (isFallback) {
+      return `<div class="alert alert-warning" style="padding:8px 12px;margin-bottom:6px;font-size:12px">
+        <span style="font-weight:700">⚠️ ${fundLabel}:</span> ${escHtml(r.data.benchmark_note)}
+      </div>`;
+    }
+    return `<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">ℹ️ <b>${fundLabel}:</b> ${escHtml(r.data.benchmark_note)}</div>`;
+  }).join('');
+  const errorBanner = errors.map(r =>
+    `<div class="alert alert-warning" style="margin-bottom:8px;font-size:12px">❌ ${escHtml(r.fund.name)}: ${escHtml(r.data.error)}</div>`
+  ).join('');
+  const emptyBanner = empty.map(r =>
+    `<div class="alert alert-warning" style="margin-bottom:8px;font-size:12px">⚠️ ${escHtml(r.fund.name)}: Not enough data for ${windowLabel} window.</div>`
+  ).join('');
+
   container.innerHTML = `
+    ${errorBanner}${emptyBanner}
     <div class="card" style="margin-bottom:16px">
       <div class="card-header">
-        <div class="card-title">${escHtml(data.scheme_name || 'Fund')}</div>
-        <div style="font-size:11px;color:var(--text-muted)">${getWindowLabel(rrcWindowDays)} Rolling Return vs ${escHtml(data.benchmark_name || 'Benchmark')}</div>
+        <div class="card-title">${windowLabel} Rolling Return Comparison</div>
+        <div style="font-size:11px;color:var(--text-muted)">${successes.length} fund(s) · ${start||'inception'} – ${end||'latest'}</div>
       </div>
       <div class="card-body">
-        <div id="rrc-plot" style="height:340px"></div>
+        ${bmNotes ? `<div style="margin-bottom:8px">${bmNotes}</div>` : ''}
+        <div id="rrc-plot" style="height:380px"></div>
+        <div id="rrc-legend" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:11px"></div>
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-title">Statistics &amp; Distribution</div></div>
+      <div class="card-header"><div class="card-title">Statistics &amp; Distribution — ${windowLabel} Rolling</div></div>
       <div class="card-body">
         <div id="rrc-stats"></div>
       </div>
     </div>`;
 
-  // Line chart
-  const dates = data.series.map(p => p.date);
-  const fundVals = data.series.map(p => p.fund);
-  const bmVals = data.series.map(p => p.bm);
-  const hasBm = bmVals.some(v => v !== null);
-
-  const traces = [{
-    x: dates, y: fundVals,
-    name: (data.scheme_name || 'Fund').replace(/ - .*/,'').slice(0,30),
-    type: 'scatter', mode: 'lines',
-    line: { color: 'rgba(251,191,36,0.9)', width: 2.5 },
-    hovertemplate: '%{x}: <b>%{y:.2f}%</b><extra></extra>',
-  }];
-  if (hasBm) {
-    traces.push({
-      x: dates, y: bmVals,
-      name: data.benchmark_name || 'Benchmark',
-      type: 'scatter', mode: 'lines',
-      line: { color: 'rgba(99,102,241,0.85)', width: 2 },
-      hovertemplate: '%{x}: <b>%{y:.2f}%</b><extra></extra>',
-    });
-  }
-
+  // Plot
   Plotly.newPlot('rrc-plot', traces, {
     paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
     font: { color: '#94a3b8', size: 11 },
-    legend: { x: 0, y: 1.1, orientation: 'h', font: { size: 11 } },
-    margin: { t: 30, r: 20, b: 60, l: 55 },
+    showlegend: false,
+    margin: { t: 20, r: 20, b: 60, l: 55 },
     xaxis: { showgrid: false, zeroline: false, tickangle: -30 },
     yaxis: {
       title: 'Annualised Return (%)',
@@ -282,62 +496,119 @@ function renderRRCResults(container, data) {
     hovermode: 'x unified',
   }, { responsive: true, displayModeBar: false });
 
-  // Stats + distribution
-  const s = data.stats || {};
-  const b = data.bm_stats || {};
-  const bm = data.benchmark_name || 'Benchmark';
-  const fmtPct = v => v != null ? `${v.toFixed(2)}%` : '—';
-  const colr = v => v == null ? '' : v >= 0 ? 'color:#10b981' : 'color:#ef4444';
-  const statRow = (lbl, fv, bv) => `<tr>
-    <td style="color:var(--text-secondary);font-size:12px">${lbl}</td>
-    <td style="font-weight:600;font-size:12px;${colr(fv)}">${fmtPct(fv)}</td>
-    <td style="font-size:12px;color:var(--text-muted)">${fmtPct(bv)}</td>
-  </tr>`;
-
-  const distCols = ['neg','0_8','8_10','10_12','12_15','15_20','gt20'];
-  const distLabels = {'neg':'Negative','0_8':'0–8%','8_10':'8–10%','10_12':'10–12%','12_15':'12–15%','15_20':'15–20%','gt20':'>20%'};
-  const dHds = distCols.map(k => `<th style="font-size:11px">${distLabels[k]}</th>`).join('');
-  const fCells = distCols.map(k => {
-    const v = s.dist?.[k] ?? 0;
-    const c = k === 'neg' ? 'color:#ef4444' : v > 30 ? 'color:#10b981' : '';
-    return `<td style="font-size:12px;${c}">${v.toFixed(2)}%</td>`;
+  // Custom legend
+  const legendEl = document.getElementById('rrc-legend');
+  legendEl.innerHTML = legendLines.map(l => {
+    const dashStyle = l.dash === 'dot' ? 'border-top: 2px dashed' : 'border-top: 2.5px solid';
+    return `<div style="display:flex;align-items:center;gap:5px;white-space:nowrap">
+      <span style="${dashStyle} ${l.color};width:18px;display:inline-block;margin-right:2px"></span>
+      <span style="color:var(--text-secondary)">${escHtml(l.label)}</span>
+      ${l.type==='bm' ? `<span style="font-size:10px;color:var(--text-muted)">(bm)</span>` : ''}
+    </div>`;
   }).join('');
-  const bCells = distCols.map(k => {
-    const v = b.dist?.[k] ?? null;
-    return `<td style="font-size:12px;color:var(--text-muted)">${v != null ? v.toFixed(2)+'%' : '—'}</td>`;
+
+  // Stats table
+  buildStatsTable(successes);
+}
+
+function buildStatsTable(successes) {
+  const fmtPct = v => v != null ? `${v.toFixed(2)}%` : '—';
+  const colr   = v => v == null ? '' : v >= 0 ? 'color:#10b981' : 'color:#ef4444';
+
+  const distCols   = ['neg','0_8','8_10','10_12','12_15','15_20','gt20'];
+  const distLabels = { neg:'Negative', '0_8':'0–8%', '8_10':'8–10%', '10_12':'10–12%', '12_15':'12–15%', '15_20':'15–20%', gt20:'>20%' };
+  const dHds = distCols.map(k => `<th style="font-size:11px">${distLabels[k]}</th>`).join('');
+
+  // Stats table rows
+  const statsRows = successes.map(({ fund, data }) => {
+    const s   = data.stats   || {};
+    const b   = data.bm_stats|| {};
+    const bm  = data.benchmark_name || 'Benchmark';
+    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${fund.color};margin-right:4px"></span>`;
+    return `
+      <tr style="border-top:2px solid ${fund.borderColor}44">
+        <td colspan="7" style="padding-top:10px;padding-bottom:4px">
+          <div style="font-weight:700;font-size:12px">${dot}${escHtml((data.scheme_name||fund.name).replace(/ - .*/,'').slice(0,35))}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">${escHtml(bm)}</div>
+        </td>
+      </tr>
+      <tr>
+        <th style="font-size:11px">Entity</th>
+        <th style="font-size:11px">Avg</th>
+        <th style="font-size:11px">Median</th>
+        <th style="font-size:11px">Min</th>
+        <th style="font-size:11px">Max</th>
+        <th style="font-size:11px">Volatility</th>
+        <th style="font-size:11px">Neg%</th>
+      </tr>
+      <tr>
+        <td style="font-weight:600;font-size:11px">Fund</td>
+        <td style="font-size:11px;${colr(s.avg)}">${fmtPct(s.avg)}</td>
+        <td style="font-size:11px;${colr(s.median)}">${fmtPct(s.median)}</td>
+        <td style="font-size:11px;${colr(s.min)}">${fmtPct(s.min)}</td>
+        <td style="font-size:11px;${colr(s.max)}">${fmtPct(s.max)}</td>
+        <td style="font-size:11px">${fmtPct(s.vol ?? s.std_dev)}</td>
+        <td style="font-size:11px;${(s.negative_pct||0)>0?'color:#ef4444':'color:#10b981'}">${s.negative_pct != null ? s.negative_pct.toFixed(2)+'%' : '—'}</td>
+      </tr>
+      <tr>
+        <td style="font-size:11px;color:var(--text-muted)">${escHtml(bm.slice(0,20))}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${fmtPct(b.avg)}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${fmtPct(b.median)}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${fmtPct(b.min)}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${fmtPct(b.max)}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${fmtPct(b.vol ?? b.std_dev)}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${b.negative_pct != null ? b.negative_pct.toFixed(2)+'%' : '—'}</td>
+      </tr>`;
+  }).join('');
+
+  // Distribution table rows
+  const distRows = successes.map(({ fund, data }) => {
+    const s  = data.stats || {};
+    const b  = data.bm_stats || {};
+    const bm = data.benchmark_name || 'Benchmark';
+    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${fund.color};margin-right:4px"></span>`;
+
+    const fCells = distCols.map(k => {
+      const v = s.dist?.[k] ?? 0;
+      const c = k === 'neg' ? 'color:#ef4444' : v > 30 ? 'color:#10b981' : '';
+      return `<td style="font-size:11px;${c}">${v.toFixed(1)}%</td>`;
+    }).join('');
+    const bCells = distCols.map(k => {
+      const v = b.dist?.[k] ?? null;
+      return `<td style="font-size:11px;color:var(--text-muted)">${v != null ? v.toFixed(1)+'%' : '—'}</td>`;
+    }).join('');
+
+    return `
+      <tr style="border-top:2px solid ${fund.borderColor}44">
+        <td colspan="${distCols.length+1}" style="padding-top:8px;padding-bottom:4px">
+          <span style="font-weight:700;font-size:11px">${dot}${escHtml((data.scheme_name||fund.name).replace(/ - .*/,'').slice(0,30))}</span>
+        </td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;font-size:11px">Fund</td>${fCells}
+      </tr>
+      <tr>
+        <td style="font-size:10px;color:var(--text-muted)">${escHtml(bm.slice(0,16))}</td>${bCells}
+      </tr>`;
   }).join('');
 
   document.getElementById('rrc-stats').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div>
-        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Statistics — ${getWindowLabel(rrcWindowDays)} Rolling</div>
-        <table style="width:100%;font-size:12px">
-          <thead><tr><th></th><th>Fund</th><th>${escHtml(bm)}</th></tr></thead>
-          <tbody>
-            ${statRow('Average', s.avg, b.avg)}
-            ${statRow('Median', s.median, b.median)}
-            ${statRow('Maximum', s.max, b.max)}
-            ${statRow('Minimum', s.min, b.min)}
-            <tr><td style="color:var(--text-secondary);font-size:12px">Negative %</td>
-              <td style="font-size:12px;${s.negative_pct > 0 ? 'color:#ef4444':'color:#10b981'}">${s.negative_pct?.toFixed(2) ?? '—'}%</td>
-              <td style="font-size:12px;color:var(--text-muted)">${b.negative_pct != null ? b.negative_pct.toFixed(2)+'%' : '—'}</td>
-            </tr>
-            <tr><td style="color:var(--text-secondary);font-size:12px">Data Points</td>
-              <td style="font-size:12px">${s.count ?? '—'}</td>
-              <td style="font-size:12px;color:var(--text-muted)">${b.count ?? '—'}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Statistics</div>
+        <div class="table-wrapper">
+          <table style="width:100%;font-size:12px">
+            <thead><tr><th></th><th>Avg</th><th>Median</th><th>Min</th><th>Max</th><th>Volatility</th><th>Neg%</th></tr></thead>
+            <tbody>${statsRows}</tbody>
+          </table>
+        </div>
       </div>
       <div>
         <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Distribution (% of periods)</div>
         <div class="table-wrapper">
           <table style="font-size:11px">
             <thead><tr><th>Entity</th>${dHds}</tr></thead>
-            <tbody>
-              <tr><td style="font-weight:600;font-size:11px">Fund</td>${fCells}</tr>
-              <tr><td style="font-size:11px;color:var(--text-muted)">${escHtml(bm.slice(0,16))}</td>${bCells}</tr>
-            </tbody>
+            <tbody>${distRows}</tbody>
           </table>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:10px">

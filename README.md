@@ -42,6 +42,14 @@
 
 ### 🧮 Financial Calculators
 - **SIP** and **Step-Up SIP** future value, **Lumpsum** return calculator, **SWP** depletion analysis, **XIRR** cash flows, and **Goal planner**.
+- **Rolling Return Calculator** (multi-fund): Compare up to **5 mutual funds** simultaneously on a single rolling return chart.
+  - Each fund is rendered with a distinct color; its benchmark is shown as a matching lighter dotted line on the same axis.
+  - Automatically deduplicates overlapping benchmarks (funds with the same benchmark share one benchmark line).
+  - Optional **custom benchmark override** from a curated list of 30+ NIFTY/SENSEX/global indices — or use each fund's own default.
+  - **Nifty 50 fallback**: Any benchmark without a confirmed Yahoo Finance ticker is automatically proxied to Nifty 50 with a UI note.
+  - Statistics table: Average, Median, Min, Max, **Volatility (Std Dev)**, and Negative-period % for every fund and its benchmark.
+  - Return distribution table: Percentage of periods in each return bucket (Negative, 0–8%, 8–10%, 10–12%, 12–15%, 15–20%, >20%).
+  - Date range is automatically pre-filled from the earliest fund inception date across all selected funds.
 
 ---
 
