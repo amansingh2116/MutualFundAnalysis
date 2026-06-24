@@ -137,7 +137,7 @@ Because the analytics engine is heavily computational, screening across thousand
   3. Triggers Analytics Engine for rolling & risk computations
   4. Generates and saves the final snapshot for the UI.
 - **Dynamic UI**: `FundScreenerView` dynamically populates HTML filter options directly from the `FundScreenerSnapshot` distinct values, allowing new Fund Houses or Benchmarks to seamlessly appear as the database builds.
-- **Compare Selected Feature**: The UI includes multi-fund selection (using browser `localStorage`) which automatically enables a direct bridge to the Portfolio Calculator for comparison.
+- **Compare Selected Feature**: The UI includes multi-fund selection (using browser `localStorage`) which automatically enables a direct bridge to the Unified Compare tool.
 
 ---
 
@@ -145,8 +145,12 @@ Because the analytics engine is heavily computational, screening across thousand
 
 ```
 /                           ← Home (live market strip, fund search)
+/funds/search/              ← Global scheme search (autocomplete)
+/funds/screener/            ← Advanced data-grid fund screener
 /funds/                     ← Browse by category
-/funds/<amfi_code>/         ← Fund detail page
+/funds/<amfi_code>/         ← Main fund analysis page
+/funds/<amfi_code>/peers/   ← Scored peer comparison
+/calculators/compare/       ← Unified side-by-side fund comparison (Grid layout, Best/Worst quarters overlap, Risk scatter, Sector donuts)
 /funds/<amfi_code>/pdf/     ← WeasyPrint PDF export
 
 /calculators/               ← Calculator hub
@@ -214,7 +218,7 @@ Never let external API failures propagate to the user with a 500 error.
 All five planned phases are substantially implemented:
 - ✅ Phase 1: Data foundation (scheme master, NAV history, benchmark ingestion)
 - ✅ Phase 2: Fund detail page with full analytics
-- ✅ Phase 3: Discovery (browse by category, fund search) + **Advanced Fund Screener**
+- ✅ Phase 3: Discovery (browse by category, fund search) + **Advanced Fund Screener** + **Unified Compare Tool**
 - ✅ Phase 4: Portfolio analysis (XIRR, benchmark, overlap, blended benchmark, risk metrics)
 - ✅ Phase 5: Backtesting + Recommendations (questionnaire, backtester, 5 strategy overlays)
 

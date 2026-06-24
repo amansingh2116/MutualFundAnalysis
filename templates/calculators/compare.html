@@ -1,241 +1,845 @@
 {% extends "base.html" %}
-{% block title %}Fund Comparison{% endblock %}
-{% block content %}
+{% block title %}Fund Comparison — MF Analysis{% endblock %}
+{% block extra_head %}
 <style>
-.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; font-size: 13px; }
-.compare-table th, .compare-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
-.compare-table th { background: var(--bg-elevated); font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; z-index: 10; border-top: 1px solid var(--border-subtle); }
-.compare-table tr:hover td { background: rgba(255,255,255,0.02); }
-.compare-table .section-header { background: rgba(99, 102, 241, 0.05); font-weight: 600; color: var(--indigo-400); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-top: 2px solid var(--border-subtle); }
-.compare-table .fund-col { width: 22%; border-left: 1px solid var(--border-subtle); }
-.compare-table .fund-col:last-child { border-right: 1px solid var(--border-subtle); }
-.remove-fund { color: var(--red-400, #f87171); cursor: pointer; font-size: 11px; display: inline-block; margin-top: 8px; text-decoration: none; }
-.remove-fund:hover { text-decoration: underline; }
-.empty-col { text-align: center; color: var(--text-muted); background: rgba(0,0,0,0.1); border-left: 1px dashed var(--border-subtle); }
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.cmp-page { max-width: 1400px; margin: 0 auto; }
+.cmp-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+.cmp-title { font-size:22px; font-weight:700; color:var(--text-primary); }
+.cmp-subtitle { font-size:13px; color:var(--text-muted); margin-top:2px; }
+
+/* ── Fund chips (selected funds) ──────────────────────────────────────────── */
+.fund-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.fund-chip { display:flex; align-items:center; gap:6px; padding:6px 10px 6px 12px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid; cursor:default; }
+.fund-chip .chip-remove { cursor:pointer; opacity:.7; transition:opacity .15s; font-size:14px; line-height:1; background:none; border:none; color:inherit; padding:0; }
+.fund-chip .chip-remove:hover { opacity:1; }
+.fund-chip.loading { opacity:.6; }
+.chip-0 { background:rgba(99,102,241,.12); border-color:rgba(99,102,241,.4); color:#a5b4fc; }
+.chip-1 { background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.4); color:#6ee7b7; }
+.chip-2 { background:rgba(251,191,36,.12); border-color:rgba(251,191,36,.4); color:#fde68a; }
+.chip-3 { background:rgba(236,72,153,.12); border-color:rgba(236,72,153,.4); color:#f9a8d4; }
+.chip-4 { background:rgba(34,211,238,.12); border-color:rgba(34,211,238,.4); color:#67e8f9; }
+
+/* ── Fund search ──────────────────────────────────────────────────────────── */
+.cmp-search-wrap { position:relative; max-width:500px; }
+.cmp-search-dropdown { display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; max-height:260px; overflow-y:auto; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.35); margin-top:4px; }
+.cmp-search-item { padding:9px 14px; cursor:pointer; border-bottom:1px solid var(--border-subtle); transition:background .1s; }
+.cmp-search-item:hover { background:rgba(99,102,241,.1); }
+.cmp-search-item:last-child { border-bottom:none; }
+
+/* ── Tab navigation ────────────────────────────────────────────────────────── */
+.cmp-tabs { display:flex; gap:4px; border-bottom:2px solid var(--border); margin-bottom:0; overflow-x:auto; }
+.cmp-tab { padding:9px 18px; font-size:13px; font-weight:500; color:var(--text-secondary); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-2px; white-space:nowrap; transition:color .15s, border-color .15s; }
+.cmp-tab:hover { color:var(--text-primary); }
+.cmp-tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+
+/* ── Compare table ─────────────────────────────────────────────────────────── */
+.cmp-wrap { overflow-x:auto; border-radius:0 0 10px 10px; }
+.cmp-table { width:100%; border-collapse:collapse; font-size:13px; }
+.cmp-table th, .cmp-table td { padding:10px 14px; border-bottom:1px solid var(--border-subtle); vertical-align:top; }
+.cmp-table th { position:sticky; top:0; z-index:10; background:var(--bg-elevated); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-secondary); text-align:center; white-space:normal; min-width:160px; }
+.cmp-table th.label-col { text-align:left; min-width:170px; font-size:11px; }
+.cmp-table td { text-align:center; }
+.cmp-table td.label-cell { text-align:left; color:var(--text-secondary); font-size:12px; }
+.cmp-table .section-hdr td { background:rgba(99,102,241,.06); font-weight:700; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); border-top:2px solid var(--border); padding:8px 14px; }
+.cmp-table tr:hover td { background:rgba(255,255,255,.02); }
+.cmp-table .val-pos { color:#10b981; font-weight:600; }
+.cmp-table .val-neg { color:#ef4444; font-weight:600; }
+.cmp-table .val-neutral { color:var(--text-muted); }
+
+/* ── Winner highlight ─────────────────────────────────────────────────────── */
+.winner-0 { background:rgba(99,102,241,.09) !important; }
+.winner-1 { background:rgba(16,185,129,.09) !important; }
+.winner-2 { background:rgba(251,191,36,.09) !important; }
+.winner-3 { background:rgba(236,72,153,.09) !important; }
+.winner-4 { background:rgba(34,211,238,.09) !important; }
+.winner-badge { display:inline-block; font-size:9px; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:4px; vertical-align:middle; }
+.winner-badge-0 { background:rgba(99,102,241,.3); color:#a5b4fc; }
+.winner-badge-1 { background:rgba(16,185,129,.3); color:#6ee7b7; }
+.winner-badge-2 { background:rgba(251,191,36,.3); color:#fde68a; }
+.winner-badge-3 { background:rgba(236,72,153,.3); color:#f9a8d4; }
+.winner-badge-4 { background:rgba(34,211,238,.3); color:#67e8f9; }
+
+/* Fund column header colors */
+.fund-th-0 { color:#a5b4fc !important; border-bottom:2px solid rgba(99,102,241,.6) !important; }
+.fund-th-1 { color:#6ee7b7 !important; border-bottom:2px solid rgba(16,185,129,.6) !important; }
+.fund-th-2 { color:#fde68a !important; border-bottom:2px solid rgba(251,191,36,.6) !important; }
+.fund-th-3 { color:#f9a8d4 !important; border-bottom:2px solid rgba(236,72,153,.6) !important; }
+.fund-th-4 { color:#67e8f9 !important; border-bottom:2px solid rgba(34,211,238,.6) !important; }
+
+/* ── Chart containers ─────────────────────────────────────────────────────── */
+.cmp-chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px; }
+.cmp-chart-box { background:var(--bg-elevated); border-radius:10px; padding:16px; }
+.cmp-chart-title { font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:10px; text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
+@media(max-width:900px) { .cmp-chart-grid { grid-template-columns:1fr; } }
+
+/* ── Stars ────────────────────────────────────────────────────────────────── */
+.stars { color:#f59e0b; letter-spacing:-1px; }
+
+/* ── Spinner row ─────────────────────────────────────────────────────────── */
+.cmp-loading-row td { text-align:center; padding:60px; color:var(--text-muted); }
+.mini-spinner { width:20px; height:20px; border:2px solid rgba(99,102,241,.2); border-top-color:#6366f1; border-radius:50%; animation:spin .8s linear infinite; display:inline-block; vertical-align:middle; margin-right:8px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.cmp-empty { text-align:center; padding:80px 20px; color:var(--text-muted); }
+.cmp-empty-icon { font-size:56px; margin-bottom:16px; }
+.cmp-empty-title { font-size:18px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; }
+
+/* ── Excess return badge ──────────────────────────────────────────────────── */
+.excess-pos { color:#10b981; font-size:11px; }
+.excess-neg { color:#ef4444; font-size:11px; }
+.excess-tag { display:inline; font-size:10px; opacity:.8; }
+
+/* ── Objective text ────────────────────────────────────────────────────────── */
+.objective-text { font-size:11px; color:var(--text-muted); max-width:200px; line-height:1.5; text-align:left; }
+.progress-fill.green { background: #10b981; }
+.progress-fill.amber { background: #f59e0b; }
+.progress-fill.indigo { background: #6366f1; }
 </style>
+{% endblock %}
 
-<div class="breadcrumb">
-  <a href="{% url 'calculators:hub' %}">Calculators & Tools</a><span class="breadcrumb-sep">›</span><span>Fund Comparison</span>
-</div>
-<div class="page-header">
-  <div class="page-title">⚖️ Compare Mutual Funds</div>
-  <div class="page-subtitle">Compare up to 4 funds side-by-side based on returns, risk, and portfolio metrics.</div>
-</div>
+{% block content %}
+<div class="cmp-page">
+  <div class="breadcrumb">
+    <a href="{% url 'calculators:hub' %}">Calculators &amp; Tools</a><span class="breadcrumb-sep">›</span><span>Fund Comparison</span>
+  </div>
 
-<div class="card" style="margin-bottom:20px; overflow:visible; z-index: 20; position:relative;">
-  <div class="card-body">
-    <div id="fund-search-container" style="position:relative; max-width: 600px;">
-      <label class="form-label" style="color:var(--indigo-400)">Add Fund to Comparison (Max 4)</label>
-      <input type="text" class="form-control" id="fund-search-input" placeholder="Type to search (e.g., Parag Parikh Flexi)..." autocomplete="off" style="border-color:var(--indigo-500)">
-      <div id="fund-search-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.2);margin-top:4px"></div>
+  <!-- Header -->
+  <div class="cmp-header">
+    <div>
+      <div class="cmp-title">⚖️ Compare Mutual Funds</div>
+      <div class="cmp-subtitle">Side-by-side analysis — returns, risk, portfolio, and more. Up to 5 funds.</div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="card" style="margin-bottom:16px; overflow:visible; z-index:30; position:relative;">
+    <div class="card-body" style="padding:14px 16px;">
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div class="cmp-search-wrap" style="flex:1; min-width:260px;">
+          <input type="text" class="form-control" id="cmp-search-input"
+                 placeholder="🔍 Add fund to compare..." autocomplete="off">
+          <div id="cmp-search-dropdown" class="cmp-search-dropdown"></div>
+        </div>
+        <div id="cmp-add-hint" style="font-size:12px; color:var(--text-muted);">
+          <span id="cmp-count">0</span>/5 funds selected
+        </div>
+      </div>
+      <!-- Fund chips -->
+      <div id="fund-chips" class="fund-chips" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="card" id="cmp-card" style="overflow:visible;">
+    <!-- Tabs -->
+    <div class="cmp-tabs" id="cmp-tabs" style="padding:0 4px; border-bottom:2px solid var(--border);">
+      <button class="cmp-tab active" data-tab="overview">🏦 Overview</button>
+      <button class="cmp-tab" data-tab="returns">📈 Returns</button>
+      <button class="cmp-tab" data-tab="risk">⚡ Risk</button>
+      <button class="cmp-tab" data-tab="portfolio">💼 Portfolio</button>
+      
+    </div>
+
+    <!-- Tab content -->
+    <div id="cmp-content">
+      <div class="cmp-empty" id="cmp-empty-state">
+        <div class="cmp-empty-icon">⚖️</div>
+        <div class="cmp-empty-title">No funds selected</div>
+        <div>Use the search box above to add up to 5 mutual funds for comparison.</div>
+      </div>
     </div>
   </div>
 </div>
-
-{% if compare_data %}
-<div class="card" style="overflow-x:auto;">
-  <table class="compare-table">
-    <thead>
-      <tr>
-        <th style="width:12%; border-left: 1px solid var(--border-subtle);">Parameter</th>
-        {% for fund in compare_data %}
-        <th class="fund-col">
-          <div style="font-size:15px; color:var(--text-primary); margin-bottom:4px;">{{ fund.scheme_name }}</div>
-          <div style="font-size:11px; font-weight:normal;">{{ fund.category }}</div>
-          <a href="#" class="remove-fund" onclick="removeFund('{{ fund.amfi_code }}'); return false;">Remove ✕</a>
-        </th>
-        {% endfor %}
-        {% if compare_data|length < 4 %}
-          {% for i in "1234"|make_list %}
-            {% if forloop.counter > compare_data|length %}
-            <th class="fund-col empty-col" style="vertical-align: middle;">
-              <span style="font-size:24px; opacity: 0.3;">+</span><br>
-              <span style="font-size:12px;">Add Fund</span>
-            </th>
-            {% endif %}
-          {% endfor %}
-        {% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      <!-- SCHEME INFO -->
-      <tr><td colspan="5" class="section-header">Scheme Information</td></tr>
-      <tr>
-        <td>Fund House</td>
-        {% for fund in compare_data %}<td>{{ fund.fund_house|default:"—" }}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>AUM (Cr)</td>
-        {% for fund in compare_data %}<td>{% if fund.aum %}₹{{ fund.aum|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Expense Ratio
-          <button class="info-btn" aria-label="Expense Ratio" data-t-title="Expense Ratio" data-t-what="The annual fee charged by the fund house. Lower is better, as it directly impacts your final returns.">ⓘ</button>
-        </td>
-        {% for fund in compare_data %}<td>{% if fund.expense_ratio %}{{ fund.expense_ratio }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Inception Date</td>
-        {% for fund in compare_data %}<td>{{ fund.inception_date|date:"d M Y"|default:"—" }}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Min SIP / Lumpsum</td>
-        {% for fund in compare_data %}<td>₹{{ fund.min_sip|default:"—" }} / ₹{{ fund.min_lumpsum|default:"—" }}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Lock-in Period</td>
-        {% for fund in compare_data %}<td>{% if fund.lock_in_period %}{{ fund.lock_in_period }} days{% else %}None{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-
-      <!-- RETURNS -->
-      <tr><td colspan="5" class="section-header">Performance (Trailing)</td></tr>
-      <tr>
-        <td>1 Year</td>
-        {% for fund in compare_data %}<td class="{% if fund.trailing.1Y|default:0 > 0 %}positive{% elif fund.trailing.1Y|default:0 < 0 %}negative{% endif %}">{% if fund.trailing.1Y %}{{ fund.trailing.1Y|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>3 Year</td>
-        {% for fund in compare_data %}<td class="{% if fund.trailing.3Y|default:0 > 0 %}positive{% elif fund.trailing.3Y|default:0 < 0 %}negative{% endif %}">{% if fund.trailing.3Y %}{{ fund.trailing.3Y|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>5 Year</td>
-        {% for fund in compare_data %}<td class="{% if fund.trailing.5Y|default:0 > 0 %}positive{% elif fund.trailing.5Y|default:0 < 0 %}negative{% endif %}">{% if fund.trailing.5Y %}{{ fund.trailing.5Y|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Since Inception</td>
-        {% for fund in compare_data %}<td class="{% if fund.trailing.SI|default:0 > 0 %}positive{% elif fund.trailing.SI|default:0 < 0 %}negative{% endif %}">{% if fund.trailing.SI %}{{ fund.trailing.SI|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-
-      <!-- RISK & RATIOS -->
-      <tr><td colspan="5" class="section-header">Risk & Ratios (3 Year)</td></tr>
-      <tr>
-        <td>Std Deviation
-          <button class="info-btn" aria-label="Standard Deviation" data-t-title="Standard Deviation (Volatility)" data-t-what="Measures how much the fund's returns fluctuate from its average return. Higher = more volatile/risky." data-t-interp="A fund with 15% average return and 20% std dev will swing much wildly than one with 15% return and 10% std dev. Compare only within the same category.">ⓘ</button>
-        </td>
-        {% for fund in compare_data %}<td>{% if fund.risk.std_dev_ann %}{{ fund.risk.std_dev_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Sharpe Ratio
-          <button class="info-btn" aria-label="Sharpe Ratio" data-t-title="Sharpe Ratio" data-t-what="Measures risk-adjusted return (how much excess return you get for the total risk taken)." data-t-interp="<strong>Higher is better.</strong> A Sharpe ratio > 1 is generally considered good. It shows whether a fund's high returns are due to smart decisions or just taking excessive risk.">ⓘ</button>
-        </td>
-        {% for fund in compare_data %}<td>{% if fund.risk.sharpe_ratio %}{{ fund.risk.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Sortino Ratio
-          <button class="info-btn" aria-label="Sortino Ratio" data-t-title="Sortino Ratio" data-t-what="Similar to Sharpe ratio, but only penalises downside volatility (returns dropping below risk-free rate) instead of all volatility." data-t-interp="<strong>Higher is better.</strong> It's often a better metric than Sharpe because investors generally don't care about 'upside risk' (prices going up rapidly).">ⓘ</button>
-        </td>
-        {% for fund in compare_data %}<td>{% if fund.risk.sortino_ratio %}{{ fund.risk.sortino_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Max Drawdown
-          <button class="info-btn" aria-label="Max Drawdown" data-t-title="Maximum Drawdown" data-t-what="The maximum observed loss from a peak to a trough of a portfolio before a new peak is attained." data-t-interp="<strong>Closer to 0% is better.</strong> -20% means the fund lost 20% of its value during its worst historical crash in the period. Indicates the absolute worst-case scenario.">ⓘ</button>
-        </td>
-        {% for fund in compare_data %}<td>{% if fund.risk.max_drawdown %}{{ fund.risk.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Beta
-          <button class="info-btn" aria-label="Beta" data-t-title="Beta" data-t-what="Measures the fund's volatility relative to its benchmark index (which always has a Beta of 1.0)." data-t-interp="<strong>Beta = 1:</strong> Moves exactly with the market.<br><strong>Beta > 1:</strong> More volatile than market (falls harder in crashes, rises faster in rallies).<br><strong>Beta < 1:</strong> Less volatile (cushions falls, but lags in rallies).">ⓘ</button>
-        </td>
-        {% for fund in compare_data %}<td>{% if fund.risk.beta %}{{ fund.risk.beta|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      <tr>
-        <td>Alpha
-          <button class="info-btn" aria-label="Alpha" data-t-title="Jensen's Alpha" data-t-what="Measures the extra return generated by the fund manager compared to the benchmark index, given the amount of risk taken." data-t-interp="<strong>Positive Alpha (>0):</strong> The manager added value and beat the market.<br><strong>Negative Alpha (<0):</strong> The manager underperformed the market given the risk taken. Higher is better.">ⓘ</button>
-        </td>
-        {% for fund in compare_data %}<td>{% if fund.risk.alpha_ann %}{{ fund.risk.alpha_ann|floatformat:2 }}%{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-      
-      <!-- PORTFOLIO -->
-      <tr><td colspan="5" class="section-header">Portfolio</td></tr>
-      <tr>
-        <td>P/E Ratio (Avg)</td>
-        {% for fund in compare_data %}<td>{% if fund.pe_ratio %}{{ fund.pe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
-        {% if compare_data|length < 4 %}<td colspan="{{ 4|add:"-"|add:compare_data|length }}" class="empty-col"></td>{% endif %}
-      </tr>
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="card">
-  <div class="card-body chart-placeholder" style="min-height:300px">
-    <span class="placeholder-icon">⚖️</span>
-    <span style="font-size:14px;color:var(--text-muted);display:block;margin-bottom:10px;">No funds selected for comparison.</span>
-    <span style="font-size:13px;color:var(--text-muted)">Use the search box above to add up to 4 mutual funds.</span>
-  </div>
-</div>
-{% endif %}
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-let currentFunds = "{{ amfi_codes_str }}".split(',').filter(x => x.length > 0);
+// ── State ──────────────────────────────────────────────────────────────────
+const INITIAL_CODES = "{{ amfi_codes_str }}".split(',').filter(x => x.trim().length > 0);
+let funds = []; // [{amfi_code, data, loading, error}]
+let activeTab = 'overview';
 
-const searchInput = document.getElementById('fund-search-input');
-const searchDropdown = document.getElementById('fund-search-dropdown');
-let searchTimeout;
+const FUND_COLORS = [
+  { line: 'rgba(99,102,241,1)', area: 'rgba(99,102,241,0.15)', hex: '#818cf8' },
+  { line: 'rgba(16,185,129,1)', area: 'rgba(16,185,129,0.15)', hex: '#34d399' },
+  { line: 'rgba(251,191,36,1)', area: 'rgba(251,191,36,0.15)', hex: '#fde047' },
+  { line: 'rgba(236,72,153,1)', area: 'rgba(236,72,153,0.15)', hex: '#f472b6' },
+  { line: 'rgba(34,211,238,1)', area: 'rgba(34,211,238,0.15)', hex: '#22d3ee' },
+];
 
-searchInput.addEventListener('input', (e) => {
-  clearTimeout(searchTimeout);
-  const q = e.target.value.trim();
-  if (q.length < 2) { searchDropdown.style.display = 'none'; return; }
+// ── Bootstrap ──────────────────────────────────────────────────────────────
+INITIAL_CODES.forEach(code => addFund(code));
+setupSearch();
+setupTabs();
+
+// ── Fund management ────────────────────────────────────────────────────────
+function addFund(code) {
+  if (!code) return;
+  if (funds.find(f => f.amfi_code === code)) { showToast('Fund already in comparison.'); return; }
+  if (funds.length >= 5) { showToast('Maximum 5 funds allowed.'); return; }
+  const entry = { amfi_code: code, data: null, loading: true, error: null };
+  funds.push(entry);
+  renderChips();
+  renderTable();
+  fetchFundData(code);
+}
+
+function removeFund(code) {
+  funds = funds.filter(f => f.amfi_code !== code);
+  // Update URL
+  const newUrl = funds.length
+    ? `?funds=${funds.map(f => f.amfi_code).join(',')}`
+    : window.location.pathname;
+  history.replaceState(null, '', newUrl);
+  renderChips();
+  renderTable();
+}
+
+async function fetchFundData(code) {
+  try {
+    const r = await fetch(`/api/funds/${code}/compare-summary/`);
+    const d = await r.json();
+    const entry = funds.find(f => f.amfi_code === code);
+    if (!entry) return;
+    if (d.error) { entry.error = d.error; entry.loading = false; }
+    else { entry.data = d; entry.loading = false; }
+  } catch(e) {
+    const entry = funds.find(f => f.amfi_code === code);
+    if (entry) { entry.error = 'Failed to load fund data'; entry.loading = false; }
+  }
+  // Update URL with fund codes
+  history.replaceState(null, '', `?funds=${funds.map(f => f.amfi_code).join(',')}`);
+  renderChips();
+  renderTable();
+}
+
+// ── Search ─────────────────────────────────────────────────────────────────
+function setupSearch() {
+  const inp = document.getElementById('cmp-search-input');
+  const dd  = document.getElementById('cmp-search-dropdown');
+  let t;
+  inp.addEventListener('input', e => {
+    clearTimeout(t);
+    const q = e.target.value.trim();
+    if (q.length < 2) { dd.style.display = 'none'; return; }
+    t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+        const d = await r.json();
+        if (!d.results?.length) {
+          dd.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:12px;">No results found.</div>';
+        } else {
+          dd.innerHTML = d.results.map(f => `
+            <div class="cmp-search-item" onclick="addFund('${f.amfi_code}'); document.getElementById('cmp-search-input').value=''; document.getElementById('cmp-search-dropdown').style.display='none';">
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${f.fund_house} · ${f.amfi_code}</div>
+            </div>`).join('');
+        }
+        dd.style.display = 'block';
+      } catch{}
+    }, 280);
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.cmp-search-wrap')) dd.style.display = 'none';
+  });
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function setupTabs() {
+  document.querySelectorAll('.cmp-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      document.querySelectorAll('.cmp-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTable();
+    });
+  });
+}
+
+// ── Render chips ───────────────────────────────────────────────────────────
+function renderChips() {
+  const container = document.getElementById('fund-chips');
+  document.getElementById('cmp-count').textContent = funds.length;
+  container.innerHTML = funds.map((f, i) => `
+    <div class="fund-chip chip-${i} ${f.loading ? 'loading' : ''}">
+      <span>${f.data ? shortName(f.data.scheme_name) : f.amfi_code}${f.loading ? ' ⏳' : ''}${f.error ? ' ⚠️' : ''}</span>
+      <button class="chip-remove" onclick="removeFund('${f.amfi_code}')" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+// ── Render table ───────────────────────────────────────────────────────────
+function renderTable() {
+  const content = document.getElementById('cmp-content');
+  const empty   = document.getElementById('cmp-empty-state');
+
+  if (funds.length === 0) {
+    content.innerHTML = '';
+    content.appendChild(empty || createEmptyState());
+    return;
+  }
+
+  const allLoaded = funds.every(f => !f.loading);
+  const ready     = funds.filter(f => f.data && !f.loading);
+
+  // Build table
+  const cols = funds.length;
+  let html = `<div class="cmp-wrap"><table class="cmp-table">
+    <thead><tr>
+      <th class="label-col">Parameter</th>
+      ${funds.map((f, i) => `<th class="fund-th-${i}">${f.data ? escHtml(f.data.scheme_name).replace(/ - Direct Plan.*/i,'').replace(/ Growth.*/i,'') : f.amfi_code}<br><span style="font-size:10px;font-weight:400;opacity:.7">${f.data ? escHtml(f.data.fund_house) : '...'}</span></th>`).join('')}
+    </tr></thead>
+    <tbody>`;
+
+  if (funds.some(f => f.loading)) {
+    html += `<tr class="cmp-loading-row"><td colspan="${cols+1}">
+      <span class="mini-spinner"></span> Loading fund data…
+    </td></tr>`;
+  }
+
+  if (activeTab === 'overview')   html += renderOverviewRows(funds);
+  if (activeTab === 'returns')    html += renderReturnsRows(funds);
+  if (activeTab === 'risk')       html += renderRiskRows(funds);
+  if (activeTab === 'portfolio')  html += renderPortfolioRows(funds);
+
+  html += `</tbody></table></div>`;
+  content.innerHTML = html;
+
+  // Initialize tooltips on the newly inserted HTML
+  if (window.initInfoTooltips) {
+    window.initInfoTooltips(content);
+  }
+
+  // Post-render: initialize any charts inside tables
+  if (ready.length > 0) {
+    if (activeTab === 'returns') {
+      plotNavChart(ready);
+      plotCalendarChart(ready);
+      plotRollingChart(ready);
+    } else if (activeTab === 'risk') {
+      plotRadarChart(ready);
+    } else if (activeTab === 'portfolio') {
+      plotSectorDonuts(ready);
+    }
+  }
+}
+
+// ── Tab: Overview ──────────────────────────────────────────────────────────
+function renderOverviewRows(funds) {
+  const rows = [
+    { label: 'Category', key: 'category', fmt: v => v || '—' },
+    { label: 'Plan', key: 'plan', fmt: v => v || '—' },
+    { label: 'Inception', key: 'inception_date', fmt: v => v ? fmtDate(v) : '—' },
+    { label: 'AUM (₹ Cr) <button class="info-btn" data-t-title="Assets Under Management (AUM)" data-t-what="Total market value of the investments managed by the fund." data-t-interp="Larger AUM indicates popularity, but for Small Cap funds, very large AUM can hinder performance.">ⓘ</button>', key: 'aum', fmt: v => v ? `₹${Number(v).toLocaleString('en-IN', {maximumFractionDigits:0})}` : '—', higher_better: true },
+    { label: 'Expense Ratio <button class="info-btn" data-t-title="Expense Ratio" data-t-what="The annual fee charged by the fund house." data-t-interp="Lower is better, as it directly impacts your final returns.">ⓘ</button>', key: 'expense_ratio', fmt: v => v != null ? `${v}%` : '—', lower_better: true },
+    { label: 'Benchmark', key: 'benchmark_name', fmt: v => v || '—' },
+    { label: 'Fund Manager', key: 'fund_manager', fmt: v => v ? v.replace(/;/g, ', ') : '—' },
+    { label: 'Min SIP', key: 'min_sip', fmt: v => v ? `₹${Number(v).toLocaleString('en-IN')}` : '—', lower_better: true },
+    { label: 'Min Lumpsum', key: 'min_lumpsum', fmt: v => v ? `₹${Number(v).toLocaleString('en-IN')}` : '—', lower_better: true },
+    { label: 'Lock-in', key: 'lock_in_label', fmt: v => v || 'None' },
+    { label: 'Tax Period', key: 'tax_period_days', fmt: v => v > 0 ? `${v} days` : 'None' },
+    { label: 'Portfolio Turnover <button class="info-btn" data-t-title="Portfolio Turnover Ratio" data-t-what="Measures how frequently the fund manager buys and sells securities." data-t-interp="Lower is better. High turnover (>100%) implies higher trading costs and taxes.">ⓘ</button>', key: 'portfolio_turnover', fmt: v => v != null ? `${v}%` : '—', lower_better: true },
+    { label: 'CRISIL Rating <button class="info-btn" data-t-title="CRISIL Rating" data-t-what="Overall rating assigned by CRISIL based on performance and risk." data-t-interp="5-star is highest. 1-star is lowest.">ⓘ</button>', key: 'crisil_rating', fmt: v => v || '—' },
+    { label: 'Morningstar <button class="info-btn" data-t-title="Morningstar Rating" data-t-what="Overall rating assigned by Morningstar." data-t-interp="5-star is highest.">ⓘ</button>', key: 'ms_rating', fmt: v => v ? '★'.repeat(v) + '☆'.repeat(5-v) : '—', higher_better: true },
+  ];
+
+  let out = sectionHeader('🏦 Scheme Information', funds.length);
+  rows.forEach(row => {
+    const values = funds.map(f => f.data ? row.fmt(f.data[row.key]) : null);
+    const numValues = funds.map(f => f.data ? (f.data[row.key] != null ? parseFloat(f.data[row.key]) : null) : null);
+    const winnerIdx = getWinnerIndex(numValues, row.higher_better, row.lower_better);
+    out += buildRow(row.label, values, winnerIdx, funds);
+  });
+
+  out += sectionHeader('📋 Investment Objective', funds.length);
+  out += `<tr><td class="label-cell">Objective</td>${funds.map(f => `
+    <td><div class="objective-text">${f.data ? escHtml((f.data.investment_objective || '').slice(0,220)) + ((f.data.investment_objective||'').length > 220 ? '…' : '') : '—'}</div></td>`).join('')}</tr>`;
+
+
+  return out;
+}
+
+// ── Tab: Returns ───────────────────────────────────────────────────────────
+function renderReturnsRows(funds) {
+  const periods = [
+    { key: '1M',  label: '1 Month' },
+    { key: '3M',  label: '3 Month' },
+    { key: '6M',  label: '6 Month' },
+    { key: '1Y',  label: '1 Year' },
+    { key: '2Y',  label: '2 Year' },
+    { key: '3Y',  label: '3 Year' },
+    { key: '5Y',  label: '5 Year' },
+    { key: '7Y',  label: '7 Year' },
+    { key: '10Y', label: '10 Year' },
+    { key: 'SI',  label: 'Since Inception' },
+  ];
+
+  let out = sectionHeader('📈 NAV Growth — Rebased to 100 (3Y)', funds.length);
+  out += `<tr><td colspan="${funds.length+1}" style="padding:0;"><div id="cmp-nav-chart" style="height:320px;min-height:220px;background:var(--bg-card);border-radius:6px;margin:10px 14px;"></div></td></tr>`;
+  out += sectionHeader('📈 Trailing Returns (CAGR % vs Benchmark)', funds.length);
+  periods.forEach(p => {
+    const values = funds.map(f => {
+      if (!f.data) return null;
+      const t = f.data.trailing[p.key];
+      if (!t) return null;
+      const excess = t.excess;
+      return `<span class="${t.fund >= 0 ? 'val-pos' : 'val-neg'}">${t.fund != null ? t.fund + '%' : '—'}</span>
+              ${t.bm != null ? `<br><span class="val-neutral" style="font-size:10px">BM: ${t.bm}%</span>` : ''}
+              ${excess != null ? `<br><span class="${excess >= 0 ? 'excess-pos' : 'excess-neg'} excess-tag">${excess >= 0 ? '▲' : '▼'} ${Math.abs(excess)}%</span>` : ''}`;
+    });
+    const numVals = funds.map(f => f.data ? (f.data.trailing[p.key]?.fund ?? null) : null);
+    const winnerIdx = getWinnerIndex(numVals, true);
+    out += buildRawRow(p.label, values, winnerIdx, funds);
+  });
+
+  out += sectionHeader('🔄 Rolling Returns', funds.length);
+  const rollWindows = ['1Y','3Y','5Y'];
+  rollWindows.forEach(w => {
+    out += `<tr class="section-hdr"><td colspan="${funds.length+1}" style="font-size:11px;padding:8px 14px;background:rgba(255,255,255,.02);color:var(--text-muted)">${w} Rolling Window</td></tr>`;
+    [
+      { k:'mean', l:'Mean Return', hb:true },
+      { k:'median', l:'Median Return', hb:true },
+      { k:'min', l:'Min Return <button class="info-btn" data-t-title="Minimum Return" data-t-what="The worst return observed in any rolling window of this duration." data-t-interp="Higher is better. Shows the worst-case scenario.">ⓘ</button>', hb:true },
+      { k:'max', l:'Max Return', hb:true },
+      { k:'win_rate_0', l:'Win Rate (>0%) <button class="info-btn" data-t-title="Win Rate (>0%)" data-t-what="Percentage of times the fund gave positive returns over this rolling window." data-t-interp="Higher is better. Indicates consistency in preserving capital.">ⓘ</button>', hb:true },
+      { k:'win_rate_12', l:'Win Rate (>12%) <button class="info-btn" data-t-title="Win Rate (>12%)" data-t-what="Percentage of times the fund gave returns greater than 12% over this rolling window." data-t-interp="Higher is better. Indicates consistency in generating high returns.">ⓘ</button>', hb:true },
+    ].forEach(m => {
+      const values = funds.map(f => {
+        if (!f.data) return null;
+        const r = f.data.rolling[w];
+        if (!r) return '—';
+        const v = r[m.k];
+        return v != null ? `<span class="${v >= 0 ? 'val-pos' : 'val-neg'}">${v}%</span>` : '—';
+      });
+      const numVals = funds.map(f => f.data?.rolling[w]?.[m.k] ?? null);
+      const wi = getWinnerIndex(numVals, m.hb);
+      out += buildRawRow(m.l, values, wi, funds);
+    });
+  });
+
+    out += `<tr><td colspan="${funds.length+1}" style="padding:0;"><div id="cmp-rolling-chart" style="height:280px;min-height:220px;background:var(--bg-card);border-radius:6px;margin:10px 14px;"></div></td></tr>`;
+  out += sectionHeader('📅 Calendar Returns', funds.length);
+  out += `<tr><td colspan="${funds.length+1}" style="padding:0;"><div id="cmp-calendar-chart" style="height:320px;min-height:220px;background:var(--bg-card);border-radius:6px;margin:10px 14px;"></div></td></tr>`;
+
+
+  return out;
+}
+
+// ── Tab: Risk ──────────────────────────────────────────────────────────────
+function renderRiskRows(funds) {
+  const metrics3 = [
+    { k:'std_dev',         l:'Std Dev (Volatility) <button class="info-btn" data-t-title="Standard Deviation" data-t-what="Measures how much the fund\'s returns fluctuate from its average return. Higher = more volatile/risky." data-t-interp="Lower is better. A fund with 15% average return and 20% std dev will swing much wildly than one with 15% return and 10% std dev. Compare only within the same category.">ⓘ</button>', lb:true, fmt: v => v != null ? `${v}%` : '—' },
+    { k:'sharpe',          l:'Sharpe Ratio <button class="info-btn" data-t-title="Sharpe Ratio" data-t-what="Measures risk-adjusted return (how much excess return you get for the total risk taken)." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good. It shows whether a fund\'s high returns are due to smart decisions or just taking excessive risk.">ⓘ</button>', hb:true, fmt: v => v != null ? v : '—' },
+    { k:'sortino',         l:'Sortino Ratio <button class="info-btn" data-t-title="Sortino Ratio" data-t-what="Similar to Sharpe ratio, but only penalises downside volatility (returns dropping below risk-free rate) instead of all volatility." data-t-interp="Higher is better. It\'s often a better metric than Sharpe because investors generally don\'t care about \'upside risk\' (prices going up rapidly).">ⓘ</button>', hb:true, fmt: v => v != null ? v : '—' },
+    { k:'max_drawdown',    l:'Max Drawdown <button class="info-btn" data-t-title="Maximum Drawdown" data-t-what="The maximum observed loss from a peak to a trough of a portfolio before a new peak is attained." data-t-interp="Closer to 0% is better. -20% means the fund lost 20% of its value during its worst historical crash in the period. Indicates the absolute worst-case scenario.">ⓘ</button>', hb:true, fmt: v => v != null ? `${v}%` : '—' }, // Changed to hb:true because -10% is better than -30%
+    { k:'beta',            l:'Beta <button class="info-btn" data-t-title="Beta" data-t-what="Measures the fund\'s volatility relative to its benchmark index (which always has a Beta of 1.0)." data-t-interp="Beta = 1: Moves exactly with the market.<br>Beta > 1: More volatile than market (falls harder in crashes, rises faster in rallies).<br>Beta < 1: Less volatile (cushions falls, but lags in rallies).">ⓘ</button>', fmt: v => v != null ? v : '—' },
+    { k:'alpha',           l:'Alpha (Annualised) <button class="info-btn" data-t-title="Jensen\'s Alpha" data-t-what="Measures the extra return generated by the fund manager compared to the benchmark index, given the amount of risk taken." data-t-interp="Positive Alpha (>0): The manager added value and beat the market.<br>Negative Alpha (<0): The manager underperformed the market given the risk taken. Higher is better.">ⓘ</button>', hb:true, fmt: v => v != null ? `${v}%` : '—' },
+    { k:'r_squared',       l:'R² (vs Benchmark) <button class="info-btn" data-t-title="R-Squared" data-t-what="Indicates what percentage of a fund\'s movements are explained by movements in its benchmark index." data-t-interp="Scale of 0 to 100. A high R² (85-100) means the fund closely tracks the index. A low R² means the fund\'s returns are disconnected from the index.">ⓘ</button>', hb:true, fmt: v => v != null ? `${v}%` : '—' },
+    { k:'tracking_error',  l:'Tracking Error <button class="info-btn" data-t-title="Tracking Error" data-t-what="Measures how consistently a fund follows its benchmark index." data-t-interp="For Index Funds: Lower is better (should be < 0.5%).<br>For Active Funds: Higher indicates the manager is deviating from the index to generate alpha.">ⓘ</button>', lb:true, fmt: v => v != null ? `${v}%` : '—' },
+    { k:'info_ratio',      l:'Information Ratio <button class="info-btn" data-t-title="Information Ratio" data-t-what="Measures a fund manager\'s ability to generate excess returns relative to a benchmark, divided by the tracking error (consistency)." data-t-interp="Higher is better. A ratio > 0.5 is good, > 1.0 is exceptional. Shows if the manager is consistently beating the benchmark or just got lucky once.">ⓘ</button>', hb:true, fmt: v => v != null ? v : '—' },
+    { k:'upside_capture',  l:'Upside Capture <button class="info-btn" data-t-title="Upside Capture Ratio" data-t-what="Measures the manager\'s performance in up-markets relative to the index." data-t-interp="Higher is better. > 100% means the fund gained MORE than the benchmark during bull markets.">ⓘ</button>', hb:true, fmt: v => v != null ? `${v}%` : '—' },
+    { k:'downside_capture',l:'Downside Capture <button class="info-btn" data-t-title="Downside Capture Ratio" data-t-what="Measures the manager\'s performance in down-markets relative to the index." data-t-interp="Lower is better. < 100% means the fund lost LESS than the benchmark during bear markets. A great fund has high upside capture and low downside capture.">ⓘ</button>', lb:true, fmt: v => v != null ? `${v}%` : '—' },
+  ];
+
+  let out = '';
+  ['3Y','5Y'].forEach(period => {
+    const rKey = `risk_${period.toLowerCase()}`;
+    out += sectionHeader(`⚡ Risk Metrics — ${period} Period`, funds.length);
+    metrics3.forEach(m => {
+      const values = funds.map(f => {
+        if (!f.data) return null;
+        const rm = f.data[rKey];
+        if (!rm) return '—';
+        const v = rm[m.k];
+        return m.fmt(v);
+      });
+      const numVals = funds.map(f => {
+        const rm = f.data?.[rKey];
+        return rm ? (rm[m.k] ?? null) : null;
+      });
+      const wi = getWinnerIndex(numVals, m.hb, m.lb);
+      out += buildRow(m.l, values, wi, funds, { colorize: m.k, period: rKey });
+    });
+  });
+
+  out += sectionHeader(`📅 Quarterly Performance <button class="info-btn" data-t-title="Quarterly Performance" data-t-what="Counts all calendar quarters (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec) and classifies them as positive or negative based on the fund's return in that quarter." data-t-interp="A fund with a high positive % across many years shows consistent all-weather performance. Compare this metric across funds to gauge consistency.">ⓘ</button>`, funds.length);
+  [
+    { l:'Positive Quarters', k:'positive_count', hb:true },
+    { l:'Negative Quarters', k:'negative_count', lb:true },
+    { l:'Positive %', k:'positive_pct', hb:true, fmt: v => v != null ? `${v}%` : '—' },
+  ].forEach(m => {
+    const values = funds.map(f => {
+      if (!f.data) return null;
+      const q = f.data.quarterly;
+      const v = q?.[m.k];
+      return m.fmt ? m.fmt(v) : (v != null ? v : '—');
+    });
+    const numVals = funds.map(f => f.data?.quarterly?.[m.k] ?? null);
+    const wi = getWinnerIndex(numVals, m.hb, m.lb);
+    out += buildRow(m.l, values, wi, funds);
+  });
+
+  // Quarterly overlap (Top 5 / Worst 5)
+  let allQ = [];
+  funds.forEach(f => {
+    if (f.data?.quarterly?.all) allQ.push(...f.data.quarterly.all);
+  });
   
-  searchTimeout = setTimeout(async () => {
-    try {
-      const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=5`);
-      const d = await r.json();
-      if (!d.results || !d.results.length) {
-        searchDropdown.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--text-muted)">No funds found.</div>';
-      } else {
-        searchDropdown.innerHTML = d.results.map(f => `
-          <div class="fund-search-item" style="padding:8px 12px;cursor:pointer;border-radius:4px;border-bottom:1px solid var(--border-subtle)" 
-               onclick="addFund('${f.amfi_code}')">
-            <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${f.fund_house}</div>
-          </div>
-        `).join('');
+  // Find top 5 best quarters across all funds
+  let uniqueQuarters = [...new Set(allQ.map(q => q.label))];
+  // Calculate average return across funds for each quarter to determine "best" and "worst" globally
+  let qStats = uniqueQuarters.map(label => {
+    let returns = funds.map(f => f.data?.quarterly?.all?.find(x => x.label === label)?.return).filter(x => x != null);
+    let avg = returns.length ? returns.reduce((a,b)=>a+b,0)/returns.length : 0;
+    return {label, avg};
+  });
+  
+  qStats.sort((a,b) => b.avg - a.avg);
+  let top5 = qStats.slice(0, 5).map(x => x.label).sort();
+  let worst5 = qStats.slice(-5).map(x => x.label).sort();
+
+  if (top5.length > 0) {
+    out += sectionHeader(`🌟 Top Overlapping Best Quarters <button class="info-btn" data-t-title="Best Quarter Overlap Analysis" data-t-what="We find the top 5 quarters where the AVERAGE return across all selected funds was the highest. These are boom periods. We then compare how each individual fund performed during those specific quarters." data-t-interp="A fund that consistently delivers strong returns even during its peers' best quarters is a top performer. If a fund shows '—', it didn't exist during that quarter.">ⓘ</button>`, funds.length);
+    top5.forEach(label => {
+      const values = funds.map(f => {
+        if (!f.data) return null;
+        const q = f.data.quarterly?.all?.find(x => x.label === label);
+        return q ? `<span class="${q.return >= 0 ? 'val-pos' : 'val-neg'}">${q.return}%</span>` : '—';
+      });
+      const numVals = funds.map(f => f.data?.quarterly?.all?.find(x => x.label === label)?.return ?? null);
+      const wi = getWinnerIndex(numVals, true);
+      out += buildRawRow(`Quarter ${label}`, values, wi, funds);
+    });
+  }
+
+  if (worst5.length > 0) {
+    out += sectionHeader(`📉 Top Overlapping Worst Quarters <button class="info-btn" data-t-title="Worst Quarter Overlap Analysis" data-t-what="We find the 5 quarters where the AVERAGE return across all selected funds was the worst (lowest/most negative). These are crash or drawdown periods. We then compare how each fund held up during those specific bad quarters." data-t-interp="A fund with the smallest negative return (or even a positive return) during the worst quarters shows excellent downside protection. The 'Best' badge marks the least-bad performer.">ⓘ</button>`, funds.length);
+    worst5.forEach(label => {
+      const values = funds.map(f => {
+        if (!f.data) return null;
+        const q = f.data.quarterly?.all?.find(x => x.label === label);
+        return q ? `<span class="${q.return >= 0 ? 'val-pos' : 'val-neg'}">${q.return}%</span>` : '—';
+      });
+      const numVals = funds.map(f => f.data?.quarterly?.all?.find(x => x.label === label)?.return ?? null);
+      // In worst quarters, the one with the highest return (least negative) is the winner
+      const wi = getWinnerIndex(numVals, true);
+      out += buildRawRow(`Quarter ${label}`, values, wi, funds);
+    });
+  }
+
+
+  return out;
+}
+
+// ── Tab: Portfolio ─────────────────────────────────────────────────────────
+function renderPortfolioRows(funds) {
+  let out = sectionHeader('💼 Portfolio Concentration', funds.length);
+
+  [
+    { l:'No. of Holdings <button class="info-btn" data-t-title="Number of Holdings" data-t-what="Total number of distinct stocks/bonds the fund holds." data-t-interp="Fewer holdings (<30) = concentrated/high risk. More holdings (>60) = diversified/lower risk but may lead to average returns.">ⓘ</button>', k:'holdings_count', fmt: v => v || '—', hb:false },
+    { l:'Top-10 Weight <button class="info-btn" data-t-title="Top 10 Weight" data-t-what="Percentage of total money invested in the top 10 largest holdings." data-t-interp="Higher % means the fund is heavily dependent on a few companies (concentrated). Lower % means it is widely diversified.">ⓘ</button>',  k:'top10_weight',  fmt: v => v != null ? `${v}%` : '—', lb:true },
+    { l:'Avg P/E Ratio <button class="info-btn" data-t-title="Price to Earnings (P/E) Ratio" data-t-what="The weighted average P/E ratio of the stocks in the fund. Measures how expensive the portfolio is." data-t-interp="Value funds typically have low P/E. Growth funds typically have high P/E.">ⓘ</button>',  k:'pe_ratio',      fmt: v => v != null ? v : '—' },
+    { l:'Portfolio Turnover <button class="info-btn" data-t-title="Portfolio Turnover Ratio" data-t-what="Measures how frequently the fund manager buys and sells securities within a year." data-t-interp="Lower is generally better. High turnover (>100%) implies higher trading costs and taxes, requiring higher gross returns to compensate.">ⓘ</button>', k:'portfolio_turnover', fmt: v => v != null ? `${v}%` : '—', lb:true },
+  ].forEach(m => {
+    const values = funds.map(f => f.data ? m.fmt(f.data[m.k]) : null);
+    const numVals = funds.map(f => f.data ? (f.data[m.k] ?? null) : null);
+    const wi = getWinnerIndex(numVals, m.hb, m.lb);
+    out += buildRow(m.l, values, wi, funds);
+  });
+
+  // Holdings as-of
+  out += `<tr><td class="label-cell">Data As Of</td>${funds.map(f => `<td style="font-size:11px;color:var(--text-muted)">${f.data?.holdings_as_of ? fmtDate(f.data.holdings_as_of) : '—'}</td>`).join('')}</tr>`;
+
+  // Top holdings
+  out += sectionHeader('🏆 Top 10 Holdings', funds.length);
+  for (let i = 0; i < 10; i++) {
+    out += `<tr><td class="label-cell" style="font-size:11px">#${i+1}</td>${funds.map(f => {
+      const h = f.data?.top_holdings?.[i];
+      return `<td style="font-size:11px">${h ? `<strong>${escHtml(h.name)}</strong><br><span style="color:var(--text-muted)">${h.sector ? escHtml(h.sector) : ''} — ${h.weight != null ? h.weight + '%' : ''}</span>` : '—'}</td>`;
+    }).join('')}</tr>`;
+  }
+
+  // Sector allocation
+  out += sectionHeader('🏭 Top Sector Allocations', funds.length);
+  const allSectors = [...new Set(funds.flatMap(f => (f.data?.sector_alloc || []).map(s => s.sector)))].slice(0, 12);
+  allSectors.forEach(sector => {
+    const values = funds.map(f => {
+      if (!f.data) return null;
+      const s = f.data.sector_alloc?.find(x => x.sector === sector);
+      return s ? `${s.weight}%` : '—';
+    });
+    const numVals = funds.map(f => f.data?.sector_alloc?.find(x => x.sector === sector)?.weight ?? null);
+    const wi = getWinnerIndex(numVals, true);
+    out += buildRow(sector, values, wi, funds);
+  });
+
+  // Market cap
+  out += sectionHeader('📊 Market Cap Blend', funds.length);
+  ['large','mid','small','other'].forEach(cap => {
+    const label = cap.charAt(0).toUpperCase() + cap.slice(1) + ' Cap';
+    const values = funds.map(f => {
+      if (!f.data?.mcap) return 'NaN';
+      const v = f.data.mcap[cap];
+      return v != null ? `${v}%` : 'NaN';
+    });
+    const numVals = funds.map(f => f.data?.mcap?.[cap] ?? null);
+    out += buildRow(label, values, null, funds);
+  });
+
+  out += sectionHeader('🏭 Sector Allocation', funds.length);
+  out += `<tr><td class="label-cell">Donut Chart</td>${funds.map((f, i) => {
+    if (!f.data || !f.data.sector_alloc?.length) return '<td style="color:var(--text-muted);text-align:center">—</td>';
+    return `<td style="padding:10px;"><div id="cmp-sector-donut-${i}" style="height:180px;width:100%;min-width:180px;background:var(--bg-card);border-radius:6px;"></div></td>`;
+  }).join('')}</tr>`;
+  
+  // Sector bars
+  out += `<tr><td class="label-cell">Top Sectors</td>${funds.map(f => {
+    if (!f.data || !f.data.sector_alloc?.length) return '<td style="color:var(--text-muted);text-align:center">—</td>';
+    let bars = f.data.sector_alloc.slice(0, 6).map(s => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:11px">
+        <span style="color:var(--text-secondary);max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(s.sector)}">${escHtml(s.sector)}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:40px"><div class="progress-bar"><div class="progress-fill" style="width:${s.weight}%"></div></div></div>
+          <span style="font-weight:600;min-width:30px;text-align:right">${s.weight}%</span>
+        </div>
+      </div>
+    `).join('');
+    return `<td style="vertical-align:top;padding:10px 16px;">${bars}</td>`;
+  }).join('')}</tr>`;
+
+  out += sectionHeader('📊 Asset Allocation (Equity/Debt/Cash)', funds.length);
+  out += `<tr><td class="label-cell">Asset Split</td>${funds.map(f => {
+    if (!f.data || !f.data.asset_alloc) return '<td style="color:var(--text-muted);text-align:center">—</td>';
+    const a = f.data.asset_alloc;
+    let bars = '';
+    ['equity', 'debt', 'cash'].forEach(t => {
+      if (a[t] > 0) {
+        let colorClass = t === 'equity' ? 'indigo' : (t === 'debt' ? 'green' : 'amber');
+        bars += `
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--text-secondary);text-transform:capitalize">${t}</span><strong>${a[t]}%</strong></div>
+          <div class="progress-bar"><div class="progress-fill ${colorClass}" style="width:${a[t]}%"></div></div>
+        </div>`;
       }
-      searchDropdown.style.display = 'block';
-    } catch(e) {}
-  }, 300);
-});
+    });
+    return `<td style="vertical-align:top;padding:10px 16px;">${bars}</td>`;
+  }).join('')}</tr>`;
 
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('#fund-search-container')) searchDropdown.style.display = 'none';
-});
+  // Debt fund metrics
+  out += sectionHeader('💳 Debt Fund Metrics <button class="info-btn" data-t-title="Debt Metrics" data-t-what="These metrics are only applicable to Debt and Hybrid mutual funds." data-t-interp="Yield to Maturity (YTM) indicates expected returns. Modified Duration indicates interest rate risk. Average Maturity indicates time to maturity. Credit Quality indicates default risk.">ⓘ</button>', funds.length);
+  [
+    { l:'Yield to Maturity (YTM) <button class="info-btn" data-t-title="Yield to Maturity" data-t-what="The expected annual rate of return if all bonds in the portfolio are held to maturity." data-t-interp="Higher YTM means higher potential return, but usually comes with higher credit risk (lower quality bonds).">ⓘ</button>'},
+    { l:'Modified Duration <button class="info-btn" data-t-title="Modified Duration" data-t-what="Measures the portfolio\'s sensitivity to interest rate changes." data-t-interp="If duration is 3 years, a 1% rise in interest rates will cause the fund\'s NAV to drop by ~3%. Lower duration = lower interest rate risk.">ⓘ</button>'},
+    { l:'Average Maturity <button class="info-btn" data-t-title="Average Maturity" data-t-what="The weighted average time until the bonds in the portfolio mature and pay back the principal." data-t-interp="Longer maturity funds are more volatile and sensitive to interest rate changes.">ⓘ</button>'},
+    { l:'Credit Quality <button class="info-btn" data-t-title="Average Credit Quality" data-t-what="The average credit rating of the bonds in the portfolio (e.g., AAA, AA, SOV)." data-t-interp="AAA and SOV (Sovereign) are the safest. AA and below carry higher default risk.">ⓘ</button>'},
+  ].forEach(metric => {
+    out += `<tr><td class="label-cell">${metric.l}</td>${funds.map(f => {
+      return `<td style="color:var(--text-muted);font-size:12px">NaN</td>`;
+    }).join('')}</tr>`;
+  });
 
-window.addFund = function(amfi) {
-  if (currentFunds.includes(amfi)) {
-    alert("Fund is already in comparison.");
-    return;
-  }
-  if (currentFunds.length >= 4) {
-    alert("You can only compare up to 4 funds at a time.");
-    return;
-  }
-  currentFunds.push(amfi);
-  window.location.href = `?funds=${currentFunds.join(',')}`;
+  return out;
+}
+
+// ── Plotly helpers ─────────────────────────────────────────────────────────
+const PLOTLY_LAYOUT = {
+  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+  font:{ color:'#94a3b8', size:11 },
+  margin:{ t:20, r:10, b:50, l:50 },
+  legend:{ x:0, y:1.1, orientation:'h', font:{size:10} },
+  xaxis:{ showgrid:false, zeroline:false },
+  yaxis:{ gridcolor:'rgba(148,163,184,0.08)', zeroline:false },
 };
+const PLOTLY_OPTS = { responsive:true, displayModeBar:false };
 
-window.removeFund = function(amfi) {
-  currentFunds = currentFunds.filter(f => f !== amfi);
-  window.location.href = `?funds=${currentFunds.join(',')}`;
-};
+function plotNavChart(ready) {
+  const traces = ready.map((f, i) => {
+    const hist = f.data.nav_history || [];
+    if (!hist.length) return null;
+    const base = hist[0].nav;
+    return {
+      x: hist.map(h => h.date),
+      y: hist.map(h => round2(h.nav / base * 100)),
+      name: shortName(f.data.scheme_name),
+      type:'scatter', mode:'lines',
+      line:{ color:FUND_COLORS[funds.findIndex(fn => fn.amfi_code === f.amfi_code) % 5].line, width:2 },
+      hovertemplate:'%{x}: <b>%{y:.1f}</b><extra></extra>',
+    };
+  }).filter(Boolean);
+  if (traces.length && document.getElementById('cmp-nav-chart')) {
+    Plotly.newPlot('cmp-nav-chart', traces, {...PLOTLY_LAYOUT, margin:{t:10,r:10,b:50,l:50}, yaxis:{...PLOTLY_LAYOUT.yaxis, ticksuffix:''}}, PLOTLY_OPTS);
+  }
+}
+
+function plotCalendarChart(ready) {
+  const allYears = [...new Set(ready.flatMap(f => (f.data.calendar||[]).map(c => c.year)))].sort();
+  const traces = ready.map((f, i) => {
+    const idx = funds.findIndex(fn => fn.amfi_code === f.amfi_code) % 5;
+    return {
+      x: allYears,
+      y: allYears.map(yr => f.data.calendar?.find(c => c.year===yr)?.fund ?? null),
+      name: shortName(f.data.scheme_name),
+      type:'bar',
+      marker:{ color:FUND_COLORS[idx].line },
+      hovertemplate:'%{x}: <b>%{y:.2f}%</b><extra></extra>',
+    };
+  });
+  if (traces.length && document.getElementById('cmp-calendar-chart')) {
+    Plotly.newPlot('cmp-calendar-chart', traces, {...PLOTLY_LAYOUT, barmode:'group', yaxis:{...PLOTLY_LAYOUT.yaxis, ticksuffix:'%'}}, PLOTLY_OPTS);
+  }
+}
+
+function plotRadarChart(ready) {
+  const dims = ['std_dev','sharpe','sortino','alpha','upside_capture','downside_capture'];
+  const labels = ['Std Dev','Sharpe','Sortino','Alpha','Upside Cap','Downside Cap'];
+  const traces = ready.map((f, i) => {
+    const idx = funds.findIndex(fn => fn.amfi_code === f.amfi_code) % 5;
+    const r = f.data.risk_3y;
+    const vals = dims.map(d => r?.[d] ?? 0);
+    return {
+      type:'scatterpolar', r:[...vals, vals[0]], theta:[...labels, labels[0]],
+      name: shortName(f.data.scheme_name), mode:'lines+markers', fill:'toself',
+      fillcolor:FUND_COLORS[idx].area,
+      line:{ color:FUND_COLORS[idx].line },
+    };
+  });
+  if (traces.length && document.getElementById('cmp-radar-chart')) {
+    Plotly.newPlot('cmp-radar-chart', traces, {
+      paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+      font:{ color:'#94a3b8', size:11 }, margin:{t:20,r:20,b:20,l:20},
+      polar:{ bgcolor:'transparent', radialaxis:{ visible:true, color:'rgba(148,163,184,0.2)' }, angularaxis:{ color:'rgba(148,163,184,0.2)' } },
+      legend:{ x:0, y:1.15, orientation:'h' },
+      showlegend:true,
+    }, PLOTLY_OPTS);
+  }
+}
+
+function plotSectorDonuts(ready) {
+  ready.forEach((f) => {
+    const i = funds.findIndex(fn => fn.amfi_code === f.amfi_code);
+    const containerId = `cmp-sector-donut-${i}`;
+    if (!document.getElementById(containerId)) return;
+    
+    if (!f.data.sector_alloc || f.data.sector_alloc.length === 0) return;
+    const labels = f.data.sector_alloc.map(s => s.sector);
+    const values = f.data.sector_alloc.map(s => parseFloat(s.weight));
+    
+    const trace = {
+      values: values,
+      labels: labels,
+      type: 'pie',
+      hole: 0.6,
+      textinfo: 'none',
+      hoverinfo: 'label+percent',
+      marker: {
+        colors: ['#6366f1', '#34d399', '#f59e0b', '#f43f5e', '#38bdf8', '#a855f7', '#fb7185', '#2dd4bf', '#a3e635', '#facc15', '#60a5fa']
+      }
+    };
+    
+    const layout = {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      margin: { t: 20, r: 20, b: 20, l: 20 },
+      showlegend: false,
+      annotations: [{
+        text: 'Sectors',
+        showarrow: false,
+        font: { size: 12, color: '#94a3b8' }
+      }]
+    };
+    
+    try {
+      Plotly.newPlot(containerId, [trace], layout, {responsive:true, displayModeBar:false});
+    } catch(err) {
+      console.error(err);
+    }
+  });
+}
+
+function plotRollingChart(ready) {
+  const windows = ['1Y','3Y','5Y'];
+  const traces = [];
+  ready.forEach((f, i) => {
+    const idx = funds.findIndex(fn => fn.amfi_code === f.amfi_code) % 5;
+    const r = f.data.rolling;
+    if (!r || Object.keys(r).length === 0) return;
+    const means   = windows.map(w => r[w]?.mean ?? null);
+    const medians  = windows.map(w => r[w]?.median ?? null);
+    const sname = shortName(f.data.scheme_name);
+    
+    if (means.some(x => x !== null)) {
+      traces.push({
+        x:windows, y:means, name:`${sname} (Mean)`, type:'bar',
+        marker:{ color:FUND_COLORS[idx].line, opacity:.85 },
+      });
+    }
+    if (medians.some(x => x !== null)) {
+      traces.push({
+        x:windows, y:medians, name:`${sname} (Median)`, type:'bar',
+        marker:{ color:FUND_COLORS[idx].area, opacity:.85, line:{color:FUND_COLORS[idx].line,width:1} },
+      });
+    }
+  });
+  if (traces.length && document.getElementById('cmp-rolling-chart')) {
+    Plotly.newPlot('cmp-rolling-chart', traces, {...PLOTLY_LAYOUT, barmode:'group', xaxis:{...PLOTLY_LAYOUT.xaxis, type:'category'}, yaxis:{...PLOTLY_LAYOUT.yaxis, ticksuffix:'%'}}, PLOTLY_OPTS);
+  }
+}
+
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function sectionHeader(title, numFunds) {
+  return `<tr class="section-hdr"><td colspan="${numFunds + 1}">${title}</td></tr>`;
+}
+
+function getWinnerIndex(numVals, higher_better=true, lower_better=false) {
+  if (!higher_better && !lower_better) return null;
+  const valid = numVals.map((v, i) => ({v,i})).filter(x => typeof x.v === 'number' && !isNaN(x.v));
+  if (valid.length === 0) return null;
+  valid.sort((a,b) => higher_better ? b.v - a.v : a.v - b.v);
+  if (valid.length > 1 && valid[0].v === valid[1].v) return null; // tie
+  return valid[0].i;
+}
+
+function buildRow(label, values, winnerIdx, funds, extraOpts={}) {
+  return `<tr><td class="label-cell">${label}</td>${values.map((v, i) => {
+    if (funds[i].loading) return '<td><span class="pulse-line"></span></td>';
+    if (funds[i].error) return '<td style="color:var(--red-400)">Error</td>';
+    if (v === null || v === '—' || v === 'NaN') return '<td style="color:var(--text-muted)">—</td>';
+    const isWinner = winnerIdx === i;
+    return `<td class="${isWinner ? 'winner-'+(i%5) : ''}">${v}${isWinner ? ' <span class="winner-badge winner-badge-'+(i%5)+'">Best</span>' : ''}</td>`;
+  }).join('')}</tr>`;
+}
+
+function buildRawRow(label, rawHtmlValues, winnerIdx, funds) {
+  return `<tr><td class="label-cell">${label}</td>${rawHtmlValues.map((v, i) => {
+    if (funds[i].loading) return '<td><span class="pulse-line"></span></td>';
+    if (funds[i].error) return '<td style="color:var(--red-400)">Error</td>';
+    if (v === null || v === '—' || v === 'NaN') return '<td style="color:var(--text-muted)">—</td>';
+    const isWinner = winnerIdx === i;
+    return `<td class="${isWinner ? 'winner-'+(i%5) : ''}">${v}${isWinner ? ' <br><span class="winner-badge winner-badge-'+(i%5)+'" style="margin-left:0;margin-top:4px">Best</span>' : ''}</td>`;
+  }).join('')}</tr>`;
+}
+
+function shortName(name) {
+  if (!name) return '';
+  return name.replace(/ - Direct Plan - Growth.*$/i,'').replace(/ - Growth.*$/i,'').replace(/ Direct.*$/i,'').slice(0,40);
+}
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+}
+function round2(v) { return Math.round(v * 100) / 100; }
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, { position:'fixed',bottom:'24px',right:'24px',background:'var(--bg-elevated)',color:'var(--text-primary)',padding:'10px 18px',borderRadius:'8px',border:'1px solid var(--border)',fontSize:'13px',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.3)' });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
 </script>
 {% endblock %}

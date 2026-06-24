@@ -16,7 +16,7 @@
 - **Rolling return distributions** with win rates, medians, and min/max ranges.
 - **Composition**: Holdings, sector allocation, and asset allocation from Morningstar.
 - **Advanced Fund Screener**: Powerful data-grid to filter, sort, and export funds based on AUM, Expense Ratio, 1/3/5-year performance, Rolling Returns, Sharpe/Sortino ratios, and Max Drawdown.
-- **Compare Selected**: Multi-select funds across the Browse and Screener tabs to instantly send them to the Compare Funds calculator.
+- **Compare Selected**: Multi-select up to 5 funds across the Browse and Screener tabs to instantly send them to the **Compare Funds calculator**. Compare them side-by-side across Overview, Returns, Risk, and Portfolio tabs. Includes dynamic Overlapping Best/Worst Quarters analysis, Sector Allocation mini-donuts, Risk vs Return scatter plots, and intelligent benchmark fallback (using NIFTY COMPOSITE DEBT INDEX for debt funds).
 - **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`).
 - **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `docs/PEER_MATCHING.md`).
 
@@ -48,7 +48,7 @@
   - Each fund is rendered with a distinct color; its benchmark is shown as a matching lighter dotted line on the same axis.
   - Automatically deduplicates overlapping benchmarks (funds with the same benchmark share one benchmark line).
   - Optional **custom benchmark override** from a curated list of 30+ NIFTY/SENSEX/global indices — or use each fund's own default.
-  - **Nifty 50 fallback**: Any benchmark without a confirmed Yahoo Finance ticker is automatically proxied to Nifty 50 with a UI note.
+  - **Intelligent fallback**: Any benchmark without a confirmed Yahoo Finance ticker is automatically proxied. Equity/Hybrid funds fall back to Nifty 50, while Debt/Liquid funds fall back to NIFTY COMPOSITE DEBT INDEX, accompanied by a UI note.
   - Statistics table: Average, Median, Min, Max, **Volatility (Std Dev)**, and Negative-period % for every fund and its benchmark.
   - Return distribution table: Percentage of periods in each return bucket (Negative, 0–8%, 8–10%, 10–12%, 12–15%, 15–20%, >20%).
   - Date range is automatically pre-filled from the earliest fund inception date across all selected funds.

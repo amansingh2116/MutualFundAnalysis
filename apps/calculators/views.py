@@ -62,51 +62,15 @@ def stp_view(request):
 def compare_view(request):
     """
     Side-by-side fund comparison view.
-    Accepts ?funds=120503,118285 (up to 4 funds).
+    Accepts ?funds=120503,118285 (up to 5 funds).
+    Data is loaded client-side via /api/funds/<code>/compare-summary/ API.
     """
-    from apps.funds.runtime import get_runtime_snapshot
-    from apps.funds.services import get_or_fetch_scheme
-    
     funds_param = request.GET.get('funds', '')
-    amfi_codes = [c.strip() for c in funds_param.split(',') if c.strip()][:4]
-    
-    compare_data = []
-    
-    for code in amfi_codes:
-        scheme = get_or_fetch_scheme(code)
-        if not scheme:
-            continue
-            
-        snap = get_runtime_snapshot(scheme)
-        
-        # Calculate some PE ratio if holding data has forward_pe
-        pe_ratios = [h.forward_pe for h in snap.top_holdings if getattr(h, 'forward_pe', None)]
-        avg_pe = sum(pe_ratios)/len(pe_ratios) if pe_ratios else None
-        
-        fund_data = {
-            'amfi_code': scheme.amfi_code,
-            'scheme_name': scheme.scheme_name,
-            'fund_house': scheme.fund_house,
-            'category': getattr(snap, 'category', None),
-            'aum': getattr(snap.meta, 'aum', None),
-            'expense_ratio': getattr(snap.meta, 'expense_ratio', None),
-            'exit_load': 'See KIM', # Not explicitly in meta model easily available
-            'lock_in_period': getattr(snap.meta, 'lock_in_period', None),
-            'tax_period': getattr(snap.meta, 'tax_period', None),
-            'min_lumpsum': getattr(snap.meta, 'lump_min', None),
-            'min_sip': getattr(snap.meta, 'sip_min', None),
-            'inception_date': getattr(snap.meta, 'start_date', None),
-            'objective': getattr(snap.meta, 'investment_objective', None),
-            'crisil_rating': getattr(snap.meta, 'crisil_rating', None),
-            'ms_rating': getattr(snap.meta, 'ms_rating', None),
-            'pe_ratio': avg_pe,
-            'trailing': {r.period: r.cagr_pct for r in snap.trailing_returns} if snap.trailing_returns else {},
-            'rolling': snap.rolling_returns.get('3Y') if snap.rolling_returns else None,
-            'risk': snap.risk_3y, # Default to 3Y risk metrics
-        }
-        compare_data.append(fund_data)
-        
-    return render(request, 'calculators/compare.html', {'compare_data': compare_data, 'amfi_codes_str': ','.join(amfi_codes)})
+    amfi_codes = [c.strip() for c in funds_param.split(',') if c.strip()][:5]
+    return render(request, 'calculators/compare.html', {
+        'amfi_codes': amfi_codes,
+        'amfi_codes_str': ','.join(amfi_codes),
+    })
 
 
 # ── Calculator API Endpoints ──────────────────────────────────

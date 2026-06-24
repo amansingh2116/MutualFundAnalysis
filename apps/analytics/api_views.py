@@ -605,6 +605,7 @@ def peer_comparison_api(request, amfi_code):
     Query params:
       max   — number of peers to return (default 5, max 8)
     """
+    import math
     from django.core.cache import cache as django_cache
 
     scheme = get_scheme_or_404(amfi_code)
@@ -642,7 +643,9 @@ def peer_comparison_api(request, amfi_code):
 
             def _f(obj, attr):
                 v = getattr(obj, attr, None) if obj else None
-                return round(float(v), 2) if v is not None else None
+                if v is None: return None
+                fv = float(v)
+                return None if math.isnan(fv) else round(fv, 2)
 
             # ── Returns ─────────────────────────────────────────────────────
             trailing = {
@@ -759,3 +762,229 @@ def rolling_chart_api(request, amfi_code):
         'windows': windows,
         'benchmark_name': snapshot.benchmark_display_name,
     })
+
+
+@require_GET
+def compare_summary_api(request, amfi_code):
+    """
+    Comprehensive fund summary for compare page.
+    Returns all data needed for side-by-side comparison:
+    overview, returns, risk, portfolio, calendar, rolling, quarterly, NAV history.
+    Cached for 30 minutes.
+    """
+    import math
+    from django.core.cache import cache as django_cache
+
+    scheme = get_scheme_or_404(amfi_code)
+    cache_key = f"fund:compare-summary:v2:{amfi_code}"
+    cached = django_cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
+    try:
+        from apps.funds.runtime import get_runtime_snapshot
+
+        snap = get_runtime_snapshot(scheme)
+        meta = snap.meta
+
+        # ── Helper ───────────────────────────────────────────────────────────
+        def _f(obj, attr, digits=2):
+            v = getattr(obj, attr, None) if obj else None
+            if v is None: return None
+            fv = float(v)
+            return None if math.isnan(fv) else round(fv, digits)
+
+        def _s(obj, attr):
+            v = getattr(obj, attr, None) if obj else None
+            return str(v) if v is not None else None
+
+        # ── Trailing returns ─────────────────────────────────────────────────
+        trailing = {}
+        for r in (snap.trailing_returns or []):
+            if r.cagr_pct is not None:
+                trailing[r.period] = {
+                    'fund': round(float(r.cagr_pct), 2),
+                    'bm': round(float(r.bm_cagr), 2) if r.bm_cagr is not None else None,
+                    'excess': round(float(r.excess), 2) if r.excess is not None else None,
+                }
+
+        # ── Calendar returns ─────────────────────────────────────────────────
+        calendar = [
+            {
+                'year': r.year,
+                'fund': round(float(r.return_pct), 2) if r.return_pct is not None else None,
+                'bm': round(float(r.bm_return), 2) if r.bm_return is not None else None,
+                'outperformed': bool(r.outperformed) if r.outperformed is not None else None,
+            }
+            for r in sorted(snap.calendar_returns or [], key=lambda x: x.year)
+        ]
+
+        # ── Rolling return stats ─────────────────────────────────────────────
+        rolling = {}
+        for key, r in (snap.rolling_returns or {}).items():
+            rolling[key] = {
+                'min':         round(float(r.min_pct), 2) if r.min_pct is not None else None,
+                'max':         round(float(r.max_pct), 2) if r.max_pct is not None else None,
+                'mean':        round(float(r.mean_pct), 2) if r.mean_pct is not None else None,
+                'median':      round(float(getattr(r, 'median_pct', r.mean_pct)), 2) if r.mean_pct is not None else None,
+                'std':         round(float(r.std_dev), 2) if r.std_dev is not None else None,
+                'win_rate_0':  round(float(r.win_rate_0), 1) if r.win_rate_0 is not None else None,
+                'win_rate_12': round(float(r.win_rate_12), 1) if r.win_rate_12 is not None else None,
+            }
+
+        # ── Risk metrics ─────────────────────────────────────────────────────
+        def _risk_dict(rm):
+            if not rm:
+                return None
+            return {
+                'std_dev':         _f(rm, 'std_dev_ann'),
+                'sharpe':          _f(rm, 'sharpe_ratio'),
+                'sortino':         _f(rm, 'sortino_ratio'),
+                'max_drawdown':    _f(rm, 'max_drawdown'),
+                'beta':            _f(rm, 'beta'),
+                'alpha':           _f(rm, 'alpha_ann'),
+                'r_squared':       _f(rm, 'r_squared'),
+                'tracking_error':  _f(rm, 'tracking_error'),
+                'info_ratio':      _f(rm, 'info_ratio'),
+                'upside_capture':  _f(rm, 'upside_capture'),
+                'downside_capture':_f(rm, 'downside_capture'),
+            }
+
+        # ── Quarterly performance ────────────────────────────────────────────
+        quarterly_raw = snap.quarterly_performance or {}
+        q_fund_up = quarterly_raw.get('upside', [])
+        q_fund_down = quarterly_raw.get('downside', [])
+        q_fund = q_fund_up + q_fund_down
+
+        good_quarters = [q for q in q_fund if q.get('fund_return', 0) and q['fund_return'] > 0]
+        bad_quarters  = [q for q in q_fund if q.get('fund_return', 0) and q['fund_return'] < 0]
+        best_q  = max(q_fund, key=lambda x: x.get('fund_return', -999), default=None) if q_fund else None
+        worst_q = min(q_fund, key=lambda x: x.get('fund_return', 999), default=None) if q_fund else None
+        quarterly = {
+            'positive_count': len(good_quarters),
+            'negative_count': len(bad_quarters),
+            'positive_pct': round(100 * len(good_quarters) / len(q_fund), 1) if q_fund else None,
+            'best':  {'label': best_q.get('quarter'), 'return': round(best_q['fund_return'], 2)} if best_q else None,
+            'worst': {'label': worst_q.get('quarter'), 'return': round(worst_q['fund_return'], 2)} if worst_q else None,
+            'all':   [{'label': q.get('quarter'), 'return': round(q['fund_return'], 2)} for q in q_fund if 'fund_return' in q]
+        }
+
+        # ── Portfolio ────────────────────────────────────────────────────────
+        top_holdings = [
+            {
+                'name':   h.security_name,
+                'sector': h.sector or '',
+                'weight': round(float(h.weight_pct), 2) if h.weight_pct is not None else None,
+                'pe':     round(float(h.forward_pe), 1) if getattr(h, 'forward_pe', None) else None,
+            }
+            for h in (snap.top_holdings or [])[:10]
+        ]
+        sector_alloc = [
+            {'sector': s.sector, 'weight': round(float(s.weight_pct), 2)}
+            for s in (snap.sector_alloc or [])[:12]
+        ]
+        pe_ratios = [h.forward_pe for h in (snap.top_holdings or []) if getattr(h, 'forward_pe', None)]
+        avg_pe = round(sum(pe_ratios) / len(pe_ratios), 1) if pe_ratios else None
+        top10_weight = round(sum(h.get('weight', 0) or 0 for h in top_holdings[:10]), 2)
+
+        # Asset Allocation
+        asset_alloc = None
+        if snap.asset_alloc:
+            asset_alloc = {item.label.lower(): round(float(item.weight_pct), 1) for item in snap.asset_alloc}
+
+        # Market cap from MarketCapAllocation DB
+        mcap = None
+        try:
+            from apps.holdings.models import MarketCapAllocation
+            mca = MarketCapAllocation.objects.filter(scheme=scheme).order_by('-as_of_month').first()
+            if mca:
+                mcap = {
+                    'large': float(mca.large_pct) if mca.large_pct else None,
+                    'mid':   float(mca.mid_pct)   if mca.mid_pct   else None,
+                    'small': float(mca.small_pct) if mca.small_pct else None,
+                    'other': float(mca.other_pct) if mca.other_pct else None,
+                }
+        except Exception:
+            pass
+
+        # ── NAV history (thin — last 1095 days = 3Y for chart) ────────────────
+        nav_rows = snap.nav_rows or []
+        cutoff = date.today() - timedelta(days=1095)
+        nav_history = [
+            r for r in nav_rows
+            if date.fromisoformat(r['date']) >= cutoff
+        ]
+        # Downsample to weekly to keep payload small
+        if len(nav_history) > 200:
+            step = max(1, len(nav_history) // 200)
+            nav_history = nav_history[::step]
+
+        # ── Category detection for debt metrics note ─────────────────────────
+        cat = (snap.category or scheme.scheme_category or '').lower()
+        is_debt_or_hybrid = any(k in cat for k in ['debt', 'bond', 'hybrid', 'credit', 'liquid', 'overnight', 'ultra short', 'short dur', 'medium dur', 'long dur', 'gilt', 'floating'])
+
+        # ── Lock-in label ────────────────────────────────────────────────────
+        lock_in_days = int(getattr(meta, 'lock_in_period', None) or 0)
+        if lock_in_days >= 1095:
+            lock_in_label = f'{lock_in_days // 365} Years (ELSS)'
+        elif lock_in_days > 0:
+            lock_in_label = f'{lock_in_days} Days'
+        else:
+            lock_in_label = 'None'
+
+        payload = {
+            'amfi_code':    scheme.amfi_code,
+            'scheme_name':  scheme.scheme_name,
+            'fund_house':   scheme.fund_house,
+            'category':     snap.category or scheme.scheme_category,
+            'plan':         'Direct' if scheme.is_direct else 'Regular',
+            'benchmark_name': snap.benchmark_display_name,
+
+            # Overview
+            'inception_date':       _s(meta, 'start_date'),
+            'aum':                  _f(meta, 'aum', 0),
+            'expense_ratio':        _f(meta, 'expense_ratio'),
+            'fund_manager':         _s(meta, 'fund_manager') or '',
+            'investment_objective': (_s(meta, 'investment_objective') or '')[:400],
+            'crisil_rating':        _s(meta, 'crisil_rating') or '',
+            'ms_rating':            getattr(meta, 'ms_rating', None),
+            'lock_in_days':         lock_in_days,
+            'lock_in_label':        lock_in_label,
+            'tax_period_days':      int(getattr(meta, 'tax_period', None) or 0),
+            'min_sip':              _f(meta, 'sip_min', 0),
+            'min_lumpsum':          _f(meta, 'lump_min', 0),
+            'portfolio_turnover':   _f(meta, 'portfolio_turnover'),
+            'is_debt_or_hybrid':    is_debt_or_hybrid,
+
+            # Returns
+            'trailing':  trailing,
+            'calendar':  calendar,
+            'rolling':   rolling,
+
+            # Risk
+            'risk_3y': _risk_dict(snap.risk_3y),
+            'risk_5y': _risk_dict(snap.risk_5y),
+
+            # Quarterly
+            'quarterly': quarterly,
+
+            # Portfolio
+            'top_holdings':     top_holdings,
+            'sector_alloc':     sector_alloc,
+            'asset_alloc':      asset_alloc,
+            'mcap':             mcap,
+            'pe_ratio':         avg_pe,
+            'top10_weight':     top10_weight,
+            'holdings_count':   snap.total_holdings_count,
+            'holdings_as_of':   snap.holdings_month.isoformat() if snap.holdings_month else None,
+
+            # Chart data
+            'nav_history': nav_history,
+        }
+
+        django_cache.set(cache_key, payload, 60 * 30)
+        return JsonResponse(payload)
+
+    except Exception as exc:
+        logger.error("[%s] compare_summary_api failed: %s", amfi_code, exc, exc_info=True)
+        return JsonResponse({'error': str(exc), 'amfi_code': amfi_code}, status=500)

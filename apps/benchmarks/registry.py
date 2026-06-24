@@ -40,6 +40,12 @@ NIFTY50_FALLBACK_NOTE = (
     "NIFTY 50 (^NSEI) is used as a proxy — comparisons are approximate."
 )
 
+DEBT_FALLBACK = "NIFTY COMPOSITE DEBT INDEX"
+DEBT_FALLBACK_NOTE = (
+    "No confirmed Yahoo Finance ticker for this benchmark index. "
+    "NIFTY COMPOSITE DEBT INDEX is used as a proxy — comparisons are approximate."
+)
+
 
 @dataclass(frozen=True)
 class BenchmarkDefinition:
@@ -201,61 +207,61 @@ BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
         aliases=("NIFTY COMPOSITE DEBT", "NIFTY COMPOSITE DEBT INDEX A-III"),
     ),
 
-    # ── Debt indices without confirmed Yahoo tickers → NIFTY 50 fallback ─────
+    # ── Debt indices without confirmed Yahoo tickers → Debt fallback ─────
     "NIFTY LIQUID INDEX": BenchmarkDefinition(
         "NIFTY LIQUID INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY LIQUID", "LIQUID INDEX", "CRISIL LIQUID FUND INDEX"),
     ),
     "NIFTY MONEY MARKET INDEX": BenchmarkDefinition(
         "NIFTY MONEY MARKET INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY MONEY MARKET", "MONEY MARKET INDEX"),
     ),
     "NIFTY ULTRA SHORT DURATION DEBT INDEX": BenchmarkDefinition(
         "NIFTY ULTRA SHORT DURATION DEBT INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY ULTRA SHORT DURATION", "ULTRA SHORT DURATION INDEX"),
     ),
     "NIFTY LOW DURATION DEBT INDEX": BenchmarkDefinition(
         "NIFTY LOW DURATION DEBT INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY LOW DURATION", "LOW DURATION INDEX"),
     ),
     "NIFTY SHORT DURATION DEBT INDEX": BenchmarkDefinition(
         "NIFTY SHORT DURATION DEBT INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY SHORT DURATION", "SHORT DURATION INDEX",
                  "CRISIL SHORT TERM BOND FUND INDEX"),
     ),
     "NIFTY MEDIUM DURATION DEBT INDEX": BenchmarkDefinition(
         "NIFTY MEDIUM DURATION DEBT INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY MEDIUM DURATION", "MEDIUM DURATION INDEX"),
     ),
     "NIFTY MEDIUM TO LONG DURATION DEBT INDEX": BenchmarkDefinition(
         "NIFTY MEDIUM TO LONG DURATION DEBT INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("MEDIUM TO LONG DURATION INDEX",),
     ),
     "NIFTY LONG DURATION DEBT INDEX": BenchmarkDefinition(
         "NIFTY LONG DURATION DEBT INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY LONG DURATION", "LONG DURATION INDEX"),
     ),
     "NIFTY CORPORATE BOND INDEX": BenchmarkDefinition(
         "NIFTY CORPORATE BOND INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("CORPORATE BOND INDEX", "NIFTY CORP BOND"),
     ),
     "NIFTY CREDIT RISK BOND INDEX": BenchmarkDefinition(
         "NIFTY CREDIT RISK BOND INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("CREDIT RISK INDEX", "NIFTY CREDIT RISK"),
     ),
     "NIFTY BANKING & PSU DEBT INDEX": BenchmarkDefinition(
         "NIFTY BANKING & PSU DEBT INDEX", (),
-        fallback=NIFTY50_FALLBACK,
+        fallback=DEBT_FALLBACK,
         aliases=("BANKING PSU DEBT INDEX", "NIFTY BANKING AND PSU DEBT"),
     ),
     "NIFTY ALL DURATION G-SEC INDEX": BenchmarkDefinition(
@@ -765,7 +771,7 @@ def _iter_benchmark_candidates(
         if is_fallback:
             note = (
                 f"'{requested_name}' has no reliable Yahoo Finance ticker; "
-                f"using '{current_name}' (NIFTY 50) as proxy."
+                f"using '{current_name}' as proxy."
             )
         yield BenchmarkCandidate(
             requested_name, current_name, ticker, definition.field,
