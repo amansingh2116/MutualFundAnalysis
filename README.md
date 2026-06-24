@@ -41,7 +41,9 @@
 - Direct one-click integration to run a **5-year historical backtest** on the suggested portfolio.
 
 ### 🧮 Financial Calculators
-- **SIP** and **Step-Up SIP** future value, **Lumpsum** return calculator, **SWP** depletion analysis, **XIRR** cash flows, and **Goal planner**.
+- **SIP**, **Step-Up SIP**, **Lumpsum**, and **SWP** calculators.
+- **STP Calculator**: Systematic Transfer Plan to project transferring funds from a source to a target scheme over time.
+- **XIRR** cash flows, and **Goal planner**.
 - **Rolling Return Calculator** (multi-fund): Compare up to **5 mutual funds** simultaneously on a single rolling return chart.
   - Each fund is rendered with a distinct color; its benchmark is shown as a matching lighter dotted line on the same axis.
   - Automatically deduplicates overlapping benchmarks (funds with the same benchmark share one benchmark line).

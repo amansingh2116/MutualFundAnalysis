@@ -55,6 +55,10 @@ def step_sip_view(request):
     return render(request, 'calculators/step_sip.html')
 
 
+def stp_view(request):
+    return render(request, 'calculators/stp.html')
+
+
 def compare_view(request):
     """
     Side-by-side fund comparison view.
@@ -468,6 +472,73 @@ def calc_step_sip_api(request):
 
 
 @require_http_methods(["POST"])
+def calc_stp_api(request):
+    """Generic STP Calculator: corpus, transfer_amount, rates → history of source/target values."""
+    d = _parse_body(request)
+    try:
+        corpus = float(d.get('corpus', 1000000))
+        transfer = float(d.get('transfer_amount', 10000))
+        rate_source = float(d.get('expected_rate_source', 6)) / 100 / 12
+        rate_target = float(d.get('expected_rate_target', 12)) / 100 / 12
+        
+        balance_source = corpus
+        balance_target = 0.0
+        months = 0
+        history = []
+        total_transferred = 0.0
+
+        history.append({
+            'month': 0,
+            'source_balance': round(corpus, 2),
+            'target_balance': 0.0,
+            'transferred_cumulative': 0.0,
+            'combined_value': round(corpus, 2)
+        })
+
+        while balance_source > 0 and months < 600:
+            # Grow source by 1 month
+            balance_source += balance_source * rate_source
+            
+            # Determine actual transfer amount (can't transfer more than balance)
+            actual_transfer = min(transfer, balance_source)
+            balance_source -= actual_transfer
+            
+            # Target receives transfer, then grows? Or grows then receives?
+            # Standard: Target grows, then receives new transfer
+            balance_target += balance_target * rate_target
+            balance_target += actual_transfer
+            
+            total_transferred += actual_transfer
+            months += 1
+            
+            history.append({
+                'month': months,
+                'source_balance': round(balance_source, 2),
+                'target_balance': round(balance_target, 2),
+                'transferred_cumulative': round(total_transferred, 2),
+                'combined_value': round(balance_source + balance_target, 2)
+            })
+
+            if balance_source <= 0.01:
+                break
+
+        return JsonResponse({
+            'months_sustained': months,
+            'years_sustained': round(months / 12, 1),
+            'total_transferred': round(total_transferred, 2),
+            'corpus': corpus,
+            'transfer_amount': transfer,
+            'source_remaining': round(balance_source, 2),
+            'target_accumulated': round(balance_target, 2),
+            'combined_value': round(balance_source + balance_target, 2),
+            'total_profit': round((balance_source + balance_target) - corpus, 2),
+            'history': history,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@require_http_methods(["POST"])
 def calc_xirr_api(request):
     """XIRR: cashflows[] + dates[] → annualised IRR."""
     d = _parse_body(request)
@@ -506,17 +577,36 @@ def _get_nav_series(amfi_code: str):
     return series, inception, latest_nav, latest_date
 
 
-def _sip_dates_in_range(start: pd.Timestamp, end: pd.Timestamp, frequency: str) -> list:
-    """Generate SIP instalment dates (first of month or quarter) within [start, end]."""
+def _sip_dates_in_range(start: pd.Timestamp, end: pd.Timestamp, frequency: str, day: int = 1) -> list:
+    """Generate SIP/STP instalment dates within [start, end].
+    If `day` is provided, sets the instalment to that day of the month.
+    Handles month-end boundaries (e.g. Feb 30 -> Feb 28)."""
+    import calendar
     dates = []
     months_step = 3 if frequency == 'quarterly' else 1
-    current = start.replace(day=1)
+    
+    # Set to the requested day, clamped to the valid days of the current month
+    max_day = calendar.monthrange(start.year, start.month)[1]
+    safe_day = min(day, max_day)
+    current = start.replace(day=safe_day)
+    
+    # If the adjusted start is before the actual start, bump to the next period
+    if current < start:
+        month = current.month + months_step
+        year = current.year + (month - 1) // 12
+        month = (month - 1) % 12 + 1
+        max_day = calendar.monthrange(year, month)[1]
+        safe_day = min(day, max_day)
+        current = current.replace(year=year, month=month, day=safe_day)
+
     while current <= end:
         dates.append(current)
         month = current.month + months_step
         year = current.year + (month - 1) // 12
         month = (month - 1) % 12 + 1
-        current = current.replace(year=year, month=month)
+        max_day = calendar.monthrange(year, month)[1]
+        safe_day = min(day, max_day)
+        current = current.replace(year=year, month=month, day=safe_day)
     return dates
 
 
@@ -834,3 +924,165 @@ def calc_nav_lumpsum_api(request):
 def calc_nav_step_sip_api(request):
     """Historical Step-Up SIP: same as calc_nav_sip_api; step_up_pct applies each year."""
     return calc_nav_sip_api(request)
+
+
+@require_http_methods(["POST"])
+def calc_nav_stp_api(request):
+    """Historical STP: Transfer fixed amount periodically from source fund to target fund."""
+    d = _parse_body(request)
+    try:
+        amfi_source = str(d.get('amfi_code_source', '')).strip()
+        amfi_target = str(d.get('amfi_code_target', '')).strip()
+        lumpsum_amount = float(d.get('lumpsum_amount', 1000000))
+        lumpsum_date_str = d.get('lumpsum_date', '')
+        transfer_amount = float(d.get('transfer_amount', 10000))
+        frequency = d.get('frequency', 'monthly').lower()
+        stp_day = int(d.get('stp_day', 1))
+        start_str = d.get('start_date', '')
+        end_str = d.get('end_date', '')
+
+        if not amfi_source or not amfi_target:
+            return JsonResponse({'error': 'Source and Target fund AMFI codes are required.'}, status=400)
+        if amfi_source == amfi_target:
+            return JsonResponse({'error': 'Source and Target funds cannot be the same.'}, status=400)
+
+        nav_src, inc_src, lat_nav_src, lat_date_src = _get_nav_series(amfi_source)
+        nav_tgt, inc_tgt, lat_nav_tgt, lat_date_tgt = _get_nav_series(amfi_target)
+
+        if nav_src is None or nav_tgt is None:
+            return JsonResponse({'error': 'NAV data not available for one or both funds.'}, status=404)
+
+        lumpsum_ts = pd.Timestamp(lumpsum_date_str) if lumpsum_date_str else nav_src.index[0]
+        start_ts = pd.Timestamp(start_str) if start_str else (lumpsum_ts + pd.DateOffset(months=1))
+        end_ts = pd.Timestamp(end_str) if end_str else min(nav_src.index[-1], nav_tgt.index[-1])
+
+        # Clamp to valid NAV boundaries
+        if lumpsum_ts < nav_src.index[0]: lumpsum_ts = nav_src.index[0]
+        if end_ts > nav_src.index[-1]: end_ts = nav_src.index[-1]
+        if end_ts > nav_tgt.index[-1]: end_ts = nav_tgt.index[-1]
+
+        # Initial lumpsum in Source
+        entry_nav_src = float(nav_src.asof(lumpsum_ts))
+        if entry_nav_src <= 0:
+            return JsonResponse({'error': 'Invalid entry NAV for source fund on lumpsum date.'}, status=400)
+        
+        src_units = lumpsum_amount / entry_nav_src
+        tgt_units = 0.0
+
+        stp_table = []
+        total_transferred = 0.0
+        exhausted_date = None
+
+        # Cashflows for combined XIRR calculation: [-Lumpsum, Final_Value]
+        # For Source XIRR: [-Lumpsum, +Transfers..., +Final_Source_Value]
+        # For Target XIRR: [-Transfers..., +Final_Target_Value]
+        cf_src = [-lumpsum_amount]
+        dt_src = [lumpsum_ts.to_pydatetime()]
+        cf_tgt = []
+        dt_tgt = []
+
+        for stp_date in _sip_dates_in_range(start_ts, end_ts, frequency, day=stp_day):
+            val_src = nav_src.asof(stp_date)
+            val_tgt = nav_tgt.asof(stp_date)
+            
+            if pd.isna(val_src) or pd.isna(val_tgt) or val_src <= 0 or val_tgt <= 0:
+                continue
+            
+            if src_units <= 0:
+                break
+
+            # Cannot transfer more than the remaining balance in source
+            max_transfer = src_units * float(val_src)
+            actual_transfer = min(transfer_amount, max_transfer)
+            
+            units_redeemed = actual_transfer / float(val_src)
+            units_bought = actual_transfer / float(val_tgt)
+            
+            src_units -= units_redeemed
+            tgt_units += units_bought
+            total_transferred += actual_transfer
+            
+            src_value = src_units * float(val_src)
+            tgt_value = tgt_units * float(val_tgt)
+            
+            cf_src.append(actual_transfer)
+            dt_src.append(stp_date.to_pydatetime())
+            cf_tgt.append(-actual_transfer)
+            dt_tgt.append(stp_date.to_pydatetime())
+            
+            stp_table.append({
+                'date': stp_date.date().isoformat(),
+                'src_nav': round(float(val_src), 4),
+                'tgt_nav': round(float(val_tgt), 4),
+                'transfer_amount': round(actual_transfer, 2),
+                'src_units_remaining': round(src_units, 4),
+                'tgt_units_accumulated': round(tgt_units, 4),
+                'src_value': round(src_value, 2),
+                'tgt_value': round(tgt_value, 2),
+                'combined_value': round(src_value + tgt_value, 2)
+            })
+
+            if src_units <= 0.001:
+                exhausted_date = stp_date.date().isoformat()
+                break
+
+        # Final values
+        final_nav_src = float(nav_src.asof(end_ts))
+        final_nav_tgt = float(nav_tgt.asof(end_ts))
+        final_src_value = src_units * final_nav_src
+        final_tgt_value = tgt_units * final_nav_tgt
+        combined_final_value = final_src_value + final_tgt_value
+
+        if final_src_value > 0:
+            cf_src.append(final_src_value)
+            dt_src.append(end_ts.to_pydatetime())
+        if final_tgt_value > 0:
+            cf_tgt.append(final_tgt_value)
+            dt_tgt.append(end_ts.to_pydatetime())
+            
+        xirr_src = _compute_xirr_safe(cf_src, dt_src) if len(cf_src) > 1 else 0
+        xirr_tgt = _compute_xirr_safe(cf_tgt, dt_tgt) if len(cf_tgt) > 1 else 0
+        
+        cf_combined = [-lumpsum_amount, combined_final_value]
+        dt_combined = [lumpsum_ts.to_pydatetime(), end_ts.to_pydatetime()]
+        xirr_combined = _compute_xirr_safe(cf_combined, dt_combined)
+
+        from apps.funds.services import get_or_fetch_scheme
+        scheme_src = get_or_fetch_scheme(amfi_source)
+        scheme_tgt = get_or_fetch_scheme(amfi_target)
+
+        return JsonResponse({
+            'src_scheme_name': scheme_src.scheme_name if scheme_src else amfi_source,
+            'tgt_scheme_name': scheme_tgt.scheme_name if scheme_tgt else amfi_target,
+            'amfi_source': amfi_source,
+            'amfi_target': amfi_target,
+            'lumpsum_amount': lumpsum_amount,
+            'lumpsum_date': lumpsum_ts.date().isoformat(),
+            'transfer_amount': transfer_amount,
+            'transfer_count': len(stp_table),
+            'total_transferred': round(total_transferred, 2),
+            
+            'src_final_value': round(final_src_value, 2),
+            'src_units_remaining': round(src_units, 4),
+            'src_profit': round(final_src_value + total_transferred - lumpsum_amount, 2),
+            'src_abs_return': round(((final_src_value + total_transferred - lumpsum_amount) / lumpsum_amount) * 100, 2) if lumpsum_amount else 0,
+            'src_xirr': xirr_src,
+            
+            'tgt_final_value': round(final_tgt_value, 2),
+            'tgt_units_accumulated': round(tgt_units, 4),
+            'tgt_profit': round(final_tgt_value - total_transferred, 2),
+            'tgt_abs_return': round(((final_tgt_value - total_transferred) / total_transferred) * 100, 2) if total_transferred else 0,
+            'tgt_xirr': xirr_tgt,
+            
+            'combined_final_value': round(combined_final_value, 2),
+            'combined_profit': round(combined_final_value - lumpsum_amount, 2),
+            'combined_abs_return': round(((combined_final_value - lumpsum_amount) / lumpsum_amount) * 100, 2) if lumpsum_amount else 0,
+            'combined_xirr': xirr_combined,
+            
+            'start_date': start_ts.date().isoformat(),
+            'end_date': end_ts.date().isoformat(),
+            'exhausted_date': exhausted_date,
+            'stp_table': stp_table,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)

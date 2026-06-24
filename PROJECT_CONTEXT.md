@@ -154,6 +154,7 @@ Because the analytics engine is heavily computational, screening across thousand
 /calculators/xirr/          ← XIRR calculator
 /calculators/tax/           ← Tax calculator
 /calculators/rolling/       ← Multi-fund Rolling Return Calculator (compare up to 5 funds, custom benchmark override, color-coded chart with deduped benchmarks, volatility stats + distribution table)
+/calculators/stp/           ← STP Calculator (Generic and Historical NAV modes with source/target XIRR computations)
 (etc.)
 
 /recommendations/           ← Risk profiling questionnaire
