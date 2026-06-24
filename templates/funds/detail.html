@@ -1319,7 +1319,7 @@ async function simulateSIP() {
         <div><div class="metric-key">Avg Buy Cost</div><div class="metric-val" style="font-size:14px">₹${d.avg_cost?.toFixed(4)}</div></div>
       </div>
       <div id="sip-donut" style="height:220px"></div>`;
-    renderSIPChart(document.getElementById('sip-donut'), d);
+    renderSIPChart(document.getElementById('sip-donut'), { invested: d.total_invested, current_value: d.current_value });
   } catch { result.innerHTML = `<div class="alert alert-danger">Simulation failed. Ensure NAV data is loaded.</div>`; }
 }
 
