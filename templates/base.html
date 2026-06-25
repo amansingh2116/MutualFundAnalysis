@@ -11,7 +11,7 @@
 
   <!-- Design System -->
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=1.1">
 
   <!-- CDN Dependencies -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" defer></script>
@@ -56,6 +56,23 @@
       </a>
       <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name == 'backtester' %}active{% endif %}">
         <span class="nav-icon">⚗️</span> Backtester
+      </a>
+
+      <div class="nav-section-label" style="margin-top:12px">Research</div>
+      <a href="{% url 'funds:research_benchmarks' %}" class="nav-item {% if request.resolver_match.url_name == 'research_benchmarks' %}active{% endif %}">
+        <span class="nav-icon">📡</span> Benchmarks
+      </a>
+      <a href="{% url 'funds:research_category_meter' %}" class="nav-item {% if request.resolver_match.url_name == 'research_category_meter' %}active{% endif %}">
+        <span class="nav-icon">📊</span> Category Returns
+      </a>
+      <a href="{% url 'funds:research_categories' %}" class="nav-item {% if request.resolver_match.url_name == 'research_categories' or request.resolver_match.url_name == 'research_category_detail' %}active{% endif %}">
+        <span class="nav-icon">🔬</span> Category Analysis
+      </a>
+      <a href="{% url 'funds:research_quartiles' %}" class="nav-item {% if request.resolver_match.url_name == 'research_quartiles' %}active{% endif %}">
+        <span class="nav-icon">🎯</span> Quartile Rankings
+      </a>
+      <a href="{% url 'funds:research_top_funds' %}" class="nav-item {% if request.resolver_match.url_name == 'research_top_funds' %}active{% endif %}">
+        <span class="nav-icon">🏆</span> Top Funds
       </a>
 
       <div class="nav-section-label" style="margin-top:12px">Admin</div>

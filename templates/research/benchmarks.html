@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+{% block title %}Benchmark Monitor{% endblock %}
+{% block meta_description %}Deep-dive analysis of benchmark indices — returns, volatility, Sharpe ratio, and max drawdown.{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:24px">
+  <div>
+    <h1 style="font-size:24px;font-weight:700;margin:0">📡 Benchmark Monitor</h1>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Personalised index returns, risk metrics, and drawdown analysis</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    {% if user.is_authenticated %}
+    <button class="btn btn-secondary btn-sm" id="manage-watchlist-btn" onclick="openWatchlistModal()">
+      ⚙️ Manage Watchlist
+    </button>
+    {% else %}
+    <a href="{% url 'login' %}" class="btn btn-secondary btn-sm">Sign in to save watchlist</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if not selected_returns %}
+<div class="empty-state" style="padding:60px 24px;text-align:center">
+  <div style="font-size:48px;margin-bottom:16px">📡</div>
+  <h3 style="margin:0 0 8px">No benchmark data yet</h3>
+  <p style="color:var(--text-muted)">Run <code>python manage.py populate_benchmark_returns</code> then <code>python manage.py ingest_benchmarks</code> to populate index data.</p>
+</div>
+{% else %}
+
+{# Tab bar #}
+<div class="tabs" style="margin-bottom:20px">
+  <button class="tab-btn active" id="tab-returns" onclick="switchTab('returns')">Returns</button>
+  <button class="tab-btn" id="tab-risk" onclick="switchTab('risk')">Risk Metrics</button>
+  <button class="tab-btn" id="tab-drawdown" onclick="switchTab('drawdown')">Max Drawdown</button>
+</div>
+
+{# ── Returns Table ── #}
+<div id="panel-returns">
+  <div class="tabs" style="margin-bottom:16px; border-bottom: none;">
+    <button class="tab-btn active" style="font-size:12px; padding:6px 12px" id="bench-subtab-trailing" onclick="switchBenchReturnsSubTab('trailing')">Trailing Returns</button>
+    <button class="tab-btn" style="font-size:12px; padding:6px 12px" id="bench-subtab-calendar" onclick="switchBenchReturnsSubTab('calendar')">Calendar Returns</button>
+    <button class="tab-btn" style="font-size:12px; padding:6px 12px" id="bench-subtab-rolling" onclick="switchBenchReturnsSubTab('rolling')">Rolling Returns</button>
+  </div>
+  
+  <div class="card" style="overflow-x:auto" id="bench-returns-trailing">
+    <table class="data-table" id="bench-returns-table">
+      <thead>
+        <tr>
+          <th class="sortable" onclick="sortTable('bench-returns-table',0)">Index ↕</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',1)">1W%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',2)">1M%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',3)">3M%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',4)">6M%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',5)">YTD%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',6)">1Y%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',7)">3Y%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',8)">5Y%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',9)">10Y%</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',10)">Since Launch%</th>
+          <th class="num">As Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for br in selected_returns %}
+        <tr>
+          <td style="font-weight:600;white-space:nowrap">{{ br.index.name }}</td>
+          <td class="num {% if br.ret_1w %}{% if br.ret_1w > 0 %}text-success{% elif br.ret_1w < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_1w|floatformat:2|default:"—" }}{% if br.ret_1w %}%{% endif %}</td>
+          <td class="num {% if br.ret_1m %}{% if br.ret_1m > 0 %}text-success{% elif br.ret_1m < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_1m|floatformat:2|default:"—" }}{% if br.ret_1m %}%{% endif %}</td>
+          <td class="num {% if br.ret_3m %}{% if br.ret_3m > 0 %}text-success{% elif br.ret_3m < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_3m|floatformat:2|default:"—" }}{% if br.ret_3m %}%{% endif %}</td>
+          <td class="num {% if br.ret_6m %}{% if br.ret_6m > 0 %}text-success{% elif br.ret_6m < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_6m|floatformat:2|default:"—" }}{% if br.ret_6m %}%{% endif %}</td>
+          <td class="num {% if br.ret_ytd %}{% if br.ret_ytd > 0 %}text-success{% elif br.ret_ytd < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_ytd|floatformat:2|default:"—" }}{% if br.ret_ytd %}%{% endif %}</td>
+          <td class="num {% if br.ret_1y %}{% if br.ret_1y > 0 %}text-success{% elif br.ret_1y < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_1y|floatformat:2|default:"—" }}{% if br.ret_1y %}%{% endif %}</td>
+          <td class="num {% if br.ret_3y %}{% if br.ret_3y > 0 %}text-success{% elif br.ret_3y < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_3y|floatformat:2|default:"—" }}{% if br.ret_3y %}%{% endif %}</td>
+          <td class="num {% if br.ret_5y %}{% if br.ret_5y > 0 %}text-success{% elif br.ret_5y < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_5y|floatformat:2|default:"—" }}{% if br.ret_5y %}%{% endif %}</td>
+          <td class="num {% if br.ret_10y %}{% if br.ret_10y > 0 %}text-success{% elif br.ret_10y < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_10y|floatformat:2|default:"—" }}{% if br.ret_10y %}%{% endif %}</td>
+          <td class="num {% if br.ret_since_launch %}{% if br.ret_since_launch > 0 %}text-success{% elif br.ret_since_launch < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_since_launch|floatformat:2|default:"—" }}{% if br.ret_since_launch %}%{% endif %}</td>
+          <td class="num" style="color:var(--text-muted);font-size:11px">{{ br.data_as_of|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="card" style="overflow-x:auto; display:none;" id="bench-returns-calendar">
+    <table class="data-table" id="calendar-table">
+      <thead id="calendar-head">
+        <tr><th>Index</th></tr>
+      </thead>
+      <tbody id="calendar-body">
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="card" style="overflow-x:auto; display:none;" id="bench-returns-rolling">
+    <table class="data-table" id="rolling-table">
+      <thead>
+        <tr>
+          <th>Index</th>
+          <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Average" data-t-what="Average 1-Year Rolling Return">&#9432;</button></th>
+          <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Average" data-t-what="Average 3-Year Rolling Return">&#9432;</button></th>
+          <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Average" data-t-what="Average 5-Year Rolling Return">&#9432;</button></th>
+          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Maximum 1-Year Rolling Return">&#9432;</button></th>
+          <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max" data-t-what="Maximum 3-Year Rolling Return">&#9432;</button></th>
+          <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max" data-t-what="Maximum 5-Year Rolling Return">&#9432;</button></th>
+          <th class="num">1Y Positive% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Positive%" data-t-what="Percentage of 1-Year rolling periods with positive returns">&#9432;</button></th>
+        </tr>
+      </thead>
+      <tbody id="rolling-body">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Risk Metrics Table ── #}
+<div id="panel-risk" style="display:none">
+  <div class="card" style="overflow-x:auto">
+    <table class="data-table" id="bench-risk-table">
+      <thead>
+        <tr>
+          <th>Index</th>
+          <th class="num">1Y CAGR%</th>
+          <th class="num">1Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Volatility" data-t-what="Annualised Volatility (Standard Deviation) over 1 year">&#9432;</button></th>
+          <th class="num">1Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Sharpe Ratio" data-t-what="Sharpe Ratio (Risk-Adjusted Return) over 1 year">&#9432;</button></th>
+          <th class="num">3Y CAGR%</th>
+          <th class="num">3Y Vol%</th>
+          <th class="num">3Y Sharpe</th>
+          <th class="num">5Y CAGR%</th>
+          <th class="num">5Y Vol%</th>
+          <th class="num">5Y Sharpe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in selected_returns %}
+        <tr>
+          <td style="font-weight:600;white-space:nowrap">{{ r.index.name }}</td>
+          <td class="num {% if r.ret_1y %}{% if r.ret_1y > 0 %}text-success{% else %}text-danger{% endif %}{% endif %}">{{ r.ret_1y|floatformat:2|default:"—" }}{% if r.ret_1y %}%{% endif %}</td>
+          <td class="num">{{ r.volatility_1y|floatformat:2|default:"—" }}{% if r.volatility_1y %}%{% endif %}</td>
+          <td class="num {% if r.sharpe_1y %}{% if r.sharpe_1y > 1 %}text-success{% elif r.sharpe_1y < 0.5 %}text-danger{% endif %}{% endif %}">{{ r.sharpe_1y|floatformat:2|default:"—" }}</td>
+          <td class="num {% if r.ret_3y %}{% if r.ret_3y > 0 %}text-success{% else %}text-danger{% endif %}{% endif %}">{{ r.ret_3y|floatformat:2|default:"—" }}{% if r.ret_3y %}%{% endif %}</td>
+          <td class="num">{{ r.volatility_3y|floatformat:2|default:"—" }}{% if r.volatility_3y %}%{% endif %}</td>
+          <td class="num {% if r.sharpe_3y %}{% if r.sharpe_3y > 1 %}text-success{% elif r.sharpe_3y < 0.5 %}text-danger{% endif %}{% endif %}">{{ r.sharpe_3y|floatformat:2|default:"—" }}</td>
+          <td class="num {% if r.ret_5y %}{% if r.ret_5y > 0 %}text-success{% else %}text-danger{% endif %}{% endif %}">{{ r.ret_5y|floatformat:2|default:"—" }}{% if r.ret_5y %}%{% endif %}</td>
+          <td class="num">{{ r.volatility_5y|floatformat:2|default:"—" }}{% if r.volatility_5y %}%{% endif %}</td>
+          <td class="num {% if r.sharpe_5y %}{% if r.sharpe_5y > 1 %}text-success{% elif r.sharpe_5y < 0.5 %}text-danger{% endif %}{% endif %}">{{ r.sharpe_5y|floatformat:2|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Drawdown Table ── #}
+<div id="panel-drawdown" style="display:none">
+  <div class="card" style="overflow-x:auto">
+    <table class="data-table" id="bench-dd-table">
+      <thead>
+        <tr>
+          <th>Index</th>
+          <th class="num">1Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 1 year">&#9432;</button></th>
+          <th class="num">3Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 3 years">&#9432;</button></th>
+          <th class="num">5Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 5 years">&#9432;</button></th>
+          <th class="num">1Y Return%</th>
+          <th class="num">3Y CAGR%</th>
+          <th class="num">5Y CAGR%</th>
+          <th class="num">3Y Sharpe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in selected_returns %}
+        <tr>
+          <td style="font-weight:600;white-space:nowrap">{{ r.index.name }}</td>
+          <td class="num text-danger">{{ r.max_drawdown_1y|floatformat:2|default:"—" }}{% if r.max_drawdown_1y %}%{% endif %}</td>
+          <td class="num text-danger">{{ r.max_drawdown_3y|floatformat:2|default:"—" }}{% if r.max_drawdown_3y %}%{% endif %}</td>
+          <td class="num text-danger">{{ r.max_drawdown_5y|floatformat:2|default:"—" }}{% if r.max_drawdown_5y %}%{% endif %}</td>
+          <td class="num {% if r.ret_1y > 0 %}text-success{% else %}text-danger{% endif %}">{{ r.ret_1y|floatformat:2|default:"—" }}{% if r.ret_1y %}%{% endif %}</td>
+          <td class="num {% if r.ret_3y > 0 %}text-success{% else %}text-danger{% endif %}">{{ r.ret_3y|floatformat:2|default:"—" }}{% if r.ret_3y %}%{% endif %}</td>
+          <td class="num {% if r.ret_5y > 0 %}text-success{% else %}text-danger{% endif %}">{{ r.ret_5y|floatformat:2|default:"—" }}{% if r.ret_5y %}%{% endif %}</td>
+          <td class="num">{{ r.sharpe_3y|floatformat:2|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Watchlist Modal ── #}
+{% if user.is_authenticated %}
+<div id="watchlist-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
+  <div class="card" style="width:560px;max-height:80vh;overflow-y:auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">⚙️ Manage Benchmark Watchlist</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeWatchlistModal()">✕</button>
+    </div>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Select the indices you want to track. Your selection is saved to your profile.</p>
+    <input type="text" id="index-search" placeholder="Search indices…" oninput="filterIndexList(this.value)"
+           style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);margin-bottom:12px;box-sizing:border-box">
+    <div id="index-list" style="display:flex;flex-direction:column;gap:6px">
+      {% for item in all_index_names %}
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 8px;border-radius:6px;background:var(--surface-2)" data-name="{{ item.name|lower }}">
+        <input type="checkbox" class="index-cb" value="{{ item.id }}" style="accent-color:var(--indigo-400)">
+        <span style="font-size:13px">{{ item.name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeWatchlistModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWatchlist()">Save Watchlist</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const WATCHLIST_IDS = {{ watchlist_ids|safe }};
+const SAVE_URL = '{% url "funds:benchmark_watchlist_api" %}';
+
+function switchTab(tab) {
+  ['returns','risk','drawdown'].forEach(t => {
+    document.getElementById('panel-' + t).style.display = (t === tab) ? '' : 'none';
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
+}
+
+function switchBenchReturnsSubTab(subtab) {
+  ['trailing','calendar','rolling'].forEach(t => {
+    document.getElementById('bench-returns-' + t).style.display = (t === subtab) ? 'block' : 'none';
+    document.getElementById('bench-subtab-' + t).classList.toggle('active', t === subtab);
+  });
+}
+
+/* Simple numeric table sorter */
+function sortTable(tableId, colIdx) {
+  const table = document.getElementById(tableId);
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  const asc = table.dataset.sortCol == colIdx && table.dataset.sortDir == 'asc';
+  rows.sort((a, b) => {
+    const av = parseFloat(a.cells[colIdx].textContent) || -Infinity;
+    const bv = parseFloat(b.cells[colIdx].textContent) || -Infinity;
+    return asc ? bv - av : av - bv;
+  });
+  rows.forEach(r => table.querySelector('tbody').appendChild(r));
+  table.dataset.sortCol = colIdx;
+  table.dataset.sortDir = asc ? 'desc' : 'asc';
+}
+
+/* Watchlist modal */
+function openWatchlistModal() {
+  const modal = document.getElementById('watchlist-modal');
+  modal.style.display = 'flex';
+  // Pre-check saved watchlist
+  document.querySelectorAll('.index-cb').forEach(cb => {
+    cb.checked = WATCHLIST_IDS.includes(parseInt(cb.value));
+  });
+}
+function closeWatchlistModal() {
+  document.getElementById('watchlist-modal').style.display = 'none';
+}
+function filterIndexList(q) {
+  document.querySelectorAll('#index-list label').forEach(lbl => {
+    lbl.style.display = lbl.dataset.name.includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+async function saveWatchlist() {
+  const ids = Array.from(document.querySelectorAll('.index-cb:checked')).map(cb => parseInt(cb.value));
+  const resp = await fetch(SAVE_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+    body: JSON.stringify({watchlist: ids}),
+  });
+  if (resp.ok) {
+    closeWatchlistModal();
+    location.reload();
+  } else {
+    alert('Failed to save. Please try again.');
+  }
+}
+function getCookie(name) {
+  const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+  return v ? v[2] : null;
+}
+
+// ── Heatmap Rendering ──
+const BENCH_DATA = {{ benchmarks_json|safe }};
+
+function getYears() {
+  const years = new Set();
+  BENCH_DATA.forEach(d => Object.keys(d.calendar || {}).forEach(y => years.add(y)));
+  return Array.from(years).sort().reverse();
+}
+
+function heatColor(val, min, max) {
+  if (val === null || val === undefined) return 'transparent';
+  const range = Math.max(max - min, 1);
+  const t = (val - min) / range;
+  if (val < 0) {
+    const intensity = Math.min(Math.abs(val) / 25, 1);
+    return `rgba(239,68,68,${0.15 + intensity * 0.6})`;
+  }
+  if (t < 0.33) return `rgba(251,191,36,${0.2 + t * 1.2})`;
+  if (t < 0.66) return `rgba(34,197,94,${0.2 + t * 0.8})`;
+  return `rgba(16,185,129,${0.3 + t * 0.5})`;
+}
+
+function fmt(v, suffix='%') {
+  if (v === null || v === undefined) return '<span style="color:var(--text-muted)">—</span>';
+  const cls = v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '';
+  return `<span class="${cls}">${v.toFixed(2)}${suffix}</span>`;
+}
+
+function renderCalendar() {
+  const years = getYears();
+  if (years.length === 0) return; // No data yet
+  
+  const thead = document.getElementById('calendar-head');
+  thead.innerHTML = `<tr><th>Index</th>${years.map(y => `<th class="num">${y}</th>`).join('')}</tr>`;
+  
+  const minMax = {};
+  years.forEach(y => {
+    const vals = BENCH_DATA.map(d => d.calendar[y]).filter(v => v != null);
+    minMax[y] = {min: Math.min(...vals), max: Math.max(...vals)};
+  });
+  
+  const body = document.getElementById('calendar-body');
+  body.innerHTML = '';
+  BENCH_DATA.forEach(d => {
+    const tr = document.createElement('tr');
+    let html = `<td style="font-weight:600;white-space:nowrap">${d.name}</td>`;
+    years.forEach(y => {
+      const val = d.calendar[y] ?? null;
+      const mm = minMax[y] || {min:0, max:1};
+      const bg = heatColor(val, mm.min, mm.max);
+      html += `<td class="num" style="background:${bg}">${fmt(val)}</td>`;
+    });
+    tr.innerHTML = html;
+    body.appendChild(tr);
+  });
+}
+
+function renderRolling() {
+  const periods = ['1Y', '3Y', '5Y'];
+  const minMax = {};
+  periods.forEach(p => {
+    const vals = BENCH_DATA.map(d => d.rolling && d.rolling[p] ? d.rolling[p].avg : null).filter(v => v != null);
+    minMax[p] = {min: Math.min(...vals), max: Math.max(...vals)};
+  });
+
+  const body = document.getElementById('rolling-body');
+  body.innerHTML = '';
+  BENCH_DATA.forEach(d => {
+    const tr = document.createElement('tr');
+    let html = `<td style="font-weight:600;white-space:nowrap">${d.name}</td>`;
+    
+    // Average
+    periods.forEach(p => {
+      const val = (d.rolling && d.rolling[p]) ? d.rolling[p].avg : null;
+      const mm = minMax[p] || {min:0, max:1};
+      const bg = heatColor(val, mm.min, mm.max);
+      html += `<td class="num" style="background:${bg}">${fmt(val)}</td>`;
+    });
+    
+    // Max
+    periods.forEach(p => {
+      const val = (d.rolling && d.rolling[p]) ? d.rolling[p].max : null;
+      html += `<td class="num">${fmt(val)}</td>`;
+    });
+    
+    // Positive %
+    const pos = (d.rolling && d.rolling['1Y']) ? d.rolling['1Y'].pos_pct : null;
+    html += `<td class="num" style="color:var(--text-muted)">${pos != null ? pos.toFixed(1) + '%' : '—'}</td>`;
+    
+    tr.innerHTML = html;
+    body.appendChild(tr);
+  });
+}
+
+// Initial render
+renderCalendar();
+renderRolling();
+</script>
+{% endblock %}

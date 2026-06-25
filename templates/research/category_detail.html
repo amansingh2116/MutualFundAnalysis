@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% block title %}{{ sub_category }} — Category Deep Dive{% endblock %}
+{% block meta_description %}Full fund analysis for {{ sub_category }} mutual funds — returns, risk, fees, and rankings.{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="empty-state" style="padding:60px 24px;text-align:center">
+  <h3>{{ error }}</h3>
+  <a href="{% url 'funds:research_categories' %}" class="btn btn-primary" style="margin-top:16px">← Back to Categories</a>
+</div>
+{% else %}
+
+{# Breadcrumb #}
+<nav style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+  <a href="{% url 'funds:home' %}" style="color:var(--text-muted);text-decoration:none">Home</a> →
+  <a href="{% url 'funds:research_categories' %}" style="color:var(--text-muted);text-decoration:none">Category Analysis</a> →
+  <span style="color:var(--text-primary)">{{ sub_category }}</span>
+</nav>
+
+{# Header #}
+<div class="page-header" style="margin-bottom:20px;align-items:flex-start">
+  <div>
+    <h1 style="font-size:24px;font-weight:700;margin:0">{{ sub_category }}</h1>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">
+      {{ funds_count }} fund{{ funds_count|pluralize }}
+      {% if category_snap %} · {{ category_snap.category_group }}{% endif %}
+    </p>
+  </div>
+  {% if peer_categories %}
+  <div>
+    <select onchange="if(this.value) window.location='/research/categories/'+this.value+'/';"
+            style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px">
+      <option value="">Switch category…</option>
+      {% for pc in peer_categories %}
+      <option value="{{ pc.scheme_sub_category|lower|slugify }}">{{ pc.scheme_sub_category }} ({{ pc.fund_count }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+</div>
+
+{# Category snapshot summary #}
+{% if category_snap %}
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px">
+  {% for label, val, suffix, cls in summary_metrics %}
+  {% empty %}
+  {# Summary metrics rendered via JS from the snap data below #}
+  {% endfor %}
+</div>
+<div id="cat-summary-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px"></div>
+<script>
+const CAT_SNAP = {
+  avg_1y: {{ category_snap.avg_return_1y|default:"null" }},
+  avg_3y: {{ category_snap.avg_return_3y|default:"null" }},
+  avg_5y: {{ category_snap.avg_return_5y|default:"null" }},
+  avg_vol: {{ category_snap.avg_volatility|default:"null" }},
+  avg_sharpe: {{ category_snap.avg_sharpe|default:"null" }},
+  avg_drawdown: {{ category_snap.avg_max_drawdown|default:"null" }},
+  avg_score: {{ category_snap.avg_model_score|default:"null" }},
+  fund_count: {{ category_snap.fund_count }},
+};
+const metrics = [
+  ['Avg 1Y Return', CAT_SNAP.avg_1y, '%', CAT_SNAP.avg_1y > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg 3Y CAGR', CAT_SNAP.avg_3y, '%', CAT_SNAP.avg_3y > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg 5Y CAGR', CAT_SNAP.avg_5y, '%', CAT_SNAP.avg_5y > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg Volatility', CAT_SNAP.avg_vol, '%', 'var(--warning)'],
+  ['Avg Sharpe', CAT_SNAP.avg_sharpe, '', 'var(--indigo-400)'],
+  ['Avg Max Drawdown', CAT_SNAP.avg_drawdown, '%', 'var(--danger)'],
+  ['Avg Model Score', CAT_SNAP.avg_score, '/100', 'var(--indigo-400)'],
+];
+const strip = document.getElementById('cat-summary-strip');
+metrics.forEach(([label, val, suffix, color]) => {
+  if (val === null) return;
+  strip.innerHTML += `
+    <div style="background:var(--surface-2);border-radius:10px;padding:14px;border:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text-muted)">${label}</div>
+      <div style="font-size:22px;font-weight:800;color:${color}">${val.toFixed(2)}${suffix}</div>
+    </div>`;
+});
+</script>
+{% endif %}
+
+{# Tabs #}
+<div class="tabs" style="margin-bottom:16px">
+  <button class="tab-btn active" id="tab-snapshot" onclick="switchCatTab('snapshot')">Snapshot</button>
+  <button class="tab-btn" id="tab-returns" onclick="switchCatTab('returns')">Returns</button>
+  <button class="tab-btn" id="tab-risk" onclick="switchCatTab('risk')">Risk</button>
+  <button class="tab-btn" id="tab-portfolio" onclick="switchCatTab('portfolio')">Portfolio Analysis</button>
+  <button class="tab-btn" id="tab-fees" onclick="switchCatTab('fees')">Fees &amp; Details</button>
+</div>
+
+{# Returns Sub-tabs #}
+<div id="returns-subtabs" class="tabs" style="display:none; margin-bottom:16px; border-bottom: none;">
+  <button class="tab-btn active" style="font-size:12px; padding:6px 12px" id="subtab-trailing" onclick="switchReturnsSubTab('trailing')">Trailing Returns</button>
+  <button class="tab-btn" style="font-size:12px; padding:6px 12px" id="subtab-calendar" onclick="switchReturnsSubTab('calendar')">Calendar Returns</button>
+  <button class="tab-btn" style="font-size:12px; padding:6px 12px" id="subtab-rolling" onclick="switchReturnsSubTab('rolling')">Rolling Returns</button>
+</div>
+
+{# Fund table #}
+<div class="card" style="overflow-x:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 12px">
+    <input type="text" id="fund-search" placeholder="Search funds…" oninput="filterFunds(this.value)"
+           style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px;width:260px">
+    <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+  <div id="table-container">
+    <table class="data-table" id="cat-detail-table">
+      <thead id="cat-thead"></thead>
+      <tbody id="cat-tbody">
+        <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Category Average Rolling Returns Banner (hidden by default) #}
+<div id="rolling-returns-banner" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
+  <h3 style="margin:0 0 12px;font-size:14px;color:var(--text-primary)">Category Average Rolling Returns <button type="button" class="info-btn" aria-label="Info" data-t-title="Category Average Rolling Returns" data-t-what="Average of all funds' rolling returns over 1Y, 3Y, and 5Y windows. Includes average, min, max, and the percentage of times the rolling return was positive.">&#9432;</button></h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px" id="rolling-returns-grid">
+  </div>
+</div>
+<script>
+  // Populate category rolling returns
+  const CAT_ROLLING = {{ category_snap.rolling_returns_json|safe|default:"{}" }};
+</script>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const SLUG = '{{ slug }}';
+const API_BASE = `/research/categories/${SLUG}/funds/`;
+let currentTab = 'snapshot';
+let currentReturnsSubTab = 'trailing';
+let currentData = [];
+
+const HEADERS = {
+  snapshot: ['Fund Name', 'Fund House', 'Score <button type="button" class="info-btn" aria-label="Info" data-t-title="Score" data-t-what="Antigravity Proprietary Fund Score (0-100)">&#9432;</button>', 'Rating', '1Y Rank', 'Risk', 'AUM (Cr)', 'Expense%'],
+  returns_trailing: ['Fund Name', '1W%', '1M%', '3M%', '6M%', '1Y%', '3Y% CAGR', '5Y% CAGR', '1Y Rank'],
+  returns_calendar: ['Fund Name'], // Appended dynamically
+  returns_rolling:  ['Fund Name', '1Y Avg', '3Y Avg', '5Y Avg', '1Y Min', '3Y Min', '5Y Min', '1Y Rank'],
+  portfolio: ['Fund Name'], // Appended dynamically
+  risk:     ['Fund Name', 'Volatility% <button type="button" class="info-btn" aria-label="Info" data-t-title="Volatility" data-t-what="Annualised Standard Deviation (Risk)">&#9432;</button>', 'Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Sharpe" data-t-what="Sharpe Ratio: Risk-adjusted return">&#9432;</button>', 'Sortino <button type="button" class="info-btn" aria-label="Info" data-t-title="Sortino" data-t-what="Sortino Ratio: Downside risk-adjusted return">&#9432;</button>', 'Max DD% <button type="button" class="info-btn" aria-label="Info" data-t-title="Max Drawdown" data-t-what="Maximum Drawdown: Largest peak-to-trough drop">&#9432;</button>', 'Alpha% <button type="button" class="info-btn" aria-label="Info" data-t-title="Alpha" data-t-what="Excess return over benchmark">&#9432;</button>', 'Q Vol', 'Q Sharpe'],
+  fees:     ['Fund Name', 'Expense%', 'AUM (Cr)', 'Age (Yrs)', 'Benchmark', 'Risk'],
+};
+
+function qBadge(q) {
+  if (!q) return '—';
+  const colors = {1:'var(--success)',2:'#3b82f6',3:'var(--warning)',4:'var(--danger)'};
+  return `<span style="background:${colors[q]||'var(--border)'};color:#fff;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700">Q${q}</span>`;
+}
+function scoreBadge(score, badge) {
+  if (!score) return '—';
+  const colors = {Strong:'var(--success)',Good:'#3b82f6',Fair:'var(--warning)',Weak:'var(--danger)',Poor:'var(--danger)'};
+  const color = colors[badge] || 'var(--text-muted)';
+  return `<span style="color:${color};font-weight:700">${score.toFixed(1)}</span> <span style="font-size:11px;color:${color}">${badge||''}</span>`;
+}
+function retCell(v) {
+  if (v === null || v === undefined) return '—';
+  return `<span style="color:${v>0?'var(--success)':v<0?'var(--danger)':'inherit'}">${v.toFixed(2)}%</span>`;
+}
+function rankCell(rank, total) {
+  if (!rank) return '—';
+  return `${rank}/${total||'?'}`;
+}
+
+function renderTable(data) {
+  let headers = HEADERS[currentTab] || [];
+  if (currentTab === 'returns') headers = HEADERS['returns_' + currentReturnsSubTab];
+  
+  // Dynamic headers for Portfolio and Calendar Returns
+  let topSectors = [];
+  let calYears = [];
+  if (currentTab === 'portfolio') {
+      const sectorAgg = {};
+      data.forEach(f => {
+          if(f.sectors) {
+              Object.keys(f.sectors).forEach(s => sectorAgg[s] = (sectorAgg[s]||0) + f.sectors[s]);
+          }
+      });
+      topSectors = Object.keys(sectorAgg).sort((a,b)=>sectorAgg[b]-sectorAgg[a]).slice(0, 8);
+      headers = ['Fund Name', ...topSectors];
+  } else if (currentTab === 'returns' && currentReturnsSubTab === 'calendar') {
+      const yrSet = new Set();
+      data.forEach(f => { if(f.calendar) Object.keys(f.calendar).forEach(y => yrSet.add(y)); });
+      calYears = Array.from(yrSet).sort().reverse();
+      headers = ['Fund Name', ...calYears];
+  }
+
+  document.getElementById('cat-thead').innerHTML =
+    '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  
+  if (typeof window.initInfoTooltips === 'function') {
+      window.initInfoTooltips(document.getElementById('cat-thead'));
+  }
+  
+  const tbody = document.getElementById('cat-tbody');
+  tbody.innerHTML = '';
+  
+  // Compute category averages for portfolio
+  const catAverages = {};
+  if (currentTab === 'portfolio') {
+      topSectors.forEach(s => {
+          let sum = 0, count = 0;
+          data.forEach(f => { if(f.sectors && f.sectors[s] !== undefined) { sum += f.sectors[s]; count++; } });
+          catAverages[s] = count ? (sum / count) : 0;
+      });
+  }
+
+  data.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.dataset.name = (f.name + ' ' + f.house).toLowerCase();
+    let cells = '';
+    if (currentTab === 'snapshot') {
+      cells = `
+        <td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
+        <td style="color:var(--text-muted);font-size:12px">${f.house}</td>
+        <td>${scoreBadge(f.score, f.badge)}</td>
+        <td>${f.risk_label||'—'}</td>
+        <td>${rankCell(f.rank_1y, f.total)}</td>
+        <td>${f.risk_label||'—'}</td>
+        <td>${f.aum ? f.aum.toFixed(0) : '—'}</td>
+        <td>${f.expense ? f.expense.toFixed(2)+'%' : '—'}</td>`;
+    } else if (currentTab === 'returns') {
+      if (currentReturnsSubTab === 'trailing') {
+        cells = `
+          <td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
+          <td>${retCell(f.ret_1w)}</td><td>${retCell(f.ret_1m)}</td>
+          <td>${retCell(f.ret_3m)}</td><td>${retCell(f.ret_6m)}</td>
+          <td>${retCell(f.ret_1y)}</td><td>${retCell(f.ret_3y)}</td>
+          <td>${retCell(f.ret_5y)}</td><td>${rankCell(f.rank_1y,f.total)}</td>`;
+      } else if (currentReturnsSubTab === 'calendar') {
+        cells = `<td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>` +
+                calYears.map(y => `<td>${f.calendar && f.calendar[y] ? retCell(f.calendar[y]) : '—'}</td>`).join('');
+      } else if (currentReturnsSubTab === 'rolling') {
+        cells = `
+          <td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
+          <td>${f.rolling && f.rolling['1Y'] ? retCell(f.rolling['1Y'].avg) : '—'}</td>
+          <td>${f.rolling && f.rolling['3Y'] ? retCell(f.rolling['3Y'].avg) : '—'}</td>
+          <td>${f.rolling && f.rolling['5Y'] ? retCell(f.rolling['5Y'].avg) : '—'}</td>
+          <td>${f.rolling && f.rolling['1Y'] ? retCell(f.rolling['1Y'].min) : '—'}</td>
+          <td>${f.rolling && f.rolling['3Y'] ? retCell(f.rolling['3Y'].min) : '—'}</td>
+          <td>${f.rolling && f.rolling['5Y'] ? retCell(f.rolling['5Y'].min) : '—'}</td>
+          <td>${rankCell(f.rank_1y,f.total)}</td>`;
+      }
+    } else if (currentTab === 'portfolio') {
+        cells = `<td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>` +
+                topSectors.map(s => {
+                    const val = f.sectors && f.sectors[s] ? f.sectors[s] : 0;
+                    return `<td><div style="background:rgba(59,130,246,${Math.min(val/50, 0.5)}); border-radius:4px; padding:2px 4px; display:inline-block">${val.toFixed(2)}%</div></td>`;
+                }).join('');
+    } else if (currentTab === 'risk') {
+      cells = `
+        <td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
+        <td>${f.volatility ? f.volatility.toFixed(2)+'%' : '—'}</td>
+        <td>${f.sharpe ? f.sharpe.toFixed(2) : '—'}</td>
+        <td>${f.sortino ? f.sortino.toFixed(2) : '—'}</td>
+        <td style="color:var(--danger)">${f.max_drawdown ? f.max_drawdown.toFixed(2)+'%' : '—'}</td>
+        <td>${retCell(f.alpha)}</td>
+        <td>${qBadge(f.q_vol)}</td><td>${qBadge(f.q_sharpe)}</td>`;
+    } else if (currentTab === 'fees') {
+      cells = `
+        <td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
+        <td>${f.expense ? f.expense.toFixed(2)+'%' : '—'}</td>
+        <td>${f.aum ? f.aum.toFixed(0) : '—'}</td>
+        <td>${f.age ? f.age.toFixed(1) : '—'}</td>
+        <td style="font-size:12px;color:var(--text-muted)">${f.benchmark||'—'}</td>
+        <td>${f.risk_label||'—'}</td>`;
+    }
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+  
+  if (currentTab === 'portfolio') {
+      const tr = document.createElement('tr');
+      tr.style.fontWeight = '700';
+      tr.style.background = 'var(--surface-2)';
+      tr.innerHTML = `<td>Category Average</td>` + 
+                     topSectors.map(s => `<td>${catAverages[s].toFixed(2)}%</td>`).join('');
+      tbody.appendChild(tr);
+  }
+}
+
+async function loadTab(tab) {
+  document.getElementById('cat-tbody').innerHTML =
+    '<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>';
+  const resp = await fetch(`${API_BASE}?tab=${tab}`);
+  const json = await resp.json();
+  currentData = json.funds || [];
+  renderTable(currentData);
+}
+
+function switchCatTab(tab) {
+  currentTab = tab;
+  ['snapshot','returns','risk','portfolio','fees'].forEach(t => {
+    const btn = document.getElementById('tab-' + t);
+    if(btn) btn.classList.toggle('active', t === tab);
+  });
+  
+  document.getElementById('returns-subtabs').style.display = (tab === 'returns') ? 'flex' : 'none';
+
+  // Show/hide rolling returns banner
+  const banner = document.getElementById('rolling-returns-banner');
+  if (banner) {
+    if (tab === 'returns' && Object.keys(CAT_ROLLING).length > 0) {
+      banner.style.display = 'block';
+      const grid = document.getElementById('rolling-returns-grid');
+      grid.innerHTML = '';
+      ['1Y', '3Y', '5Y'].forEach(p => {
+        if (CAT_ROLLING[p]) {
+            grid.innerHTML += `
+              <div style="background:var(--bg-elevated);border-radius:8px;padding:12px">
+                <div style="font-size:12px;color:var(--text-muted);font-weight:600;margin-bottom:8px">${p} Rolling Stats</div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span style="color:var(--text-secondary)">Average</span><span style="font-weight:600">${CAT_ROLLING[p].avg.toFixed(2)}%</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span style="color:var(--text-secondary)">Max / Min</span><span><span style="color:var(--success)">${CAT_ROLLING[p].max.toFixed(2)}%</span> / <span style="color:var(--danger)">${CAT_ROLLING[p].min.toFixed(2)}%</span></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:12px">
+                  <span style="color:var(--text-secondary)">% Positive</span><span style="color:var(--indigo-400);font-weight:600">${CAT_ROLLING[p].pos_pct.toFixed(1)}%</span>
+                </div>
+              </div>
+            `;
+        }
+      });
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  loadTab(tab);
+}
+
+function switchReturnsSubTab(subtab) {
+  currentReturnsSubTab = subtab;
+  ['trailing', 'calendar', 'rolling'].forEach(t => {
+      document.getElementById('subtab-' + t).classList.toggle('active', t === subtab);
+  });
+  renderTable(currentData);
+}
+
+function filterFunds(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#cat-tbody tr').forEach(tr => {
+    tr.style.display = (tr.dataset.name||'').includes(q) ? '' : 'none';
+  });
+}
+
+function exportCSV() {
+  const rows = [HEADERS[currentTab]];
+  currentData.forEach(f => rows.push(Object.values(f).map(v => v ?? '')));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `${SLUG}-${currentTab}.csv`;
+  a.click();
+}
+
+// Initial load
+loadTab('snapshot');
+</script>
+{% endblock %}

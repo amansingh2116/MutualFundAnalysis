@@ -6,10 +6,21 @@ app_name = 'funds'
 
 urlpatterns = [
     path('', views.HomeView.as_view(), name='home'),
+    path('home/category-funds/', views.home_category_funds, name='home_category_funds'),
     path('funds/', views.CategoryListView.as_view(), name='category_list'),
     path('funds/screener/', views.FundScreenerView.as_view(), name='screener'),
     path('funds/screener/<str:amfi_code>/report/', views.screener_report_view, name='screener_report'),
     path('funds/search/', views.fund_search_api, name='search'),
     path('funds/<str:amfi_code>/', views.FundDetailView.as_view(), name='detail'),
     path('funds/<str:amfi_code>/export/', views.export_pdf_view, name='export_pdf'),
+
+    # ── Research Hub ────────────────────────────────────────────────────────
+    path('research/benchmarks/', views.ResearchBenchmarksView.as_view(), name='research_benchmarks'),
+    path('research/benchmarks/watchlist/', views.benchmark_watchlist_api, name='benchmark_watchlist_api'),
+    path('research/category-meter/', views.ResearchCategoryMeterView.as_view(), name='research_category_meter'),
+    path('research/categories/', views.ResearchCategoriesView.as_view(), name='research_categories'),
+    path('research/categories/<str:slug>/', views.ResearchCategoryDetailView.as_view(), name='research_category_detail'),
+    path('research/categories/<str:slug>/funds/', views.category_detail_funds_api, name='category_detail_funds_api'),
+    path('research/quartiles/', views.ResearchQuartilesView.as_view(), name='research_quartiles'),
+    path('research/top-funds/', views.ResearchTopFundsView.as_view(), name='research_top_funds'),
 ]

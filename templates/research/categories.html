@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Category Analysis{% endblock %}
+{% block meta_description %}Browse and search all mutual fund categories with performance, risk, and score analytics.{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px">
+  <div>
+    <h1 style="font-size:24px;font-weight:700;margin:0">🔬 Category Analysis</h1>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Deep-dive into any mutual fund category</p>
+  </div>
+</div>
+
+<div style="margin-bottom:16px">
+  <input type="text" id="cat-search" placeholder="🔍 Search categories…"
+         oninput="filterCategories(this.value)"
+         style="width:100%;max-width:420px;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px">
+</div>
+
+{% if not category_groups %}
+<div class="empty-state" style="padding:60px 24px;text-align:center">
+  <div style="font-size:48px;margin-bottom:16px">🔬</div>
+  <h3 style="margin:0 0 8px">No category data yet</h3>
+  <p style="color:var(--text-muted)">Run <code>python manage.py populate_home_dashboard</code> to build category snapshots.</p>
+</div>
+{% else %}
+{% for grp, items in category_groups %}
+<div class="cat-group-section" data-group="{{ grp }}">
+  <h3 style="font-size:16px;font-weight:700;margin:24px 0 12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em">
+    {{ grp }}
+  </h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+    {% for item in items %}
+    {% with snap=item.snap slug=item.slug %}
+    <a href="{% url 'funds:research_category_detail' slug %}"
+       class="cat-card cat-item"
+       data-name="{{ snap.scheme_sub_category|lower }}"
+       style="background:var(--surface-2);border-radius:12px;border:1px solid var(--border);padding:16px;text-decoration:none;display:block;transition:border-color 0.2s,transform 0.15s">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;color:var(--text-primary);font-size:14px;margin-bottom:2px">{{ snap.scheme_sub_category }}</div>
+          <div style="color:var(--text-muted);font-size:12px">{{ snap.fund_count }} fund{{ snap.fund_count|pluralize }}</div>
+        </div>
+        {% if snap.avg_model_score %}
+        <div style="background:var(--surface-3);padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;color:{% if snap.avg_model_score >= 70 %}var(--success){% elif snap.avg_model_score >= 50 %}var(--warning){% else %}var(--danger){% endif %}">
+          {{ snap.avg_model_score|floatformat:0 }} Score
+        </div>
+        {% endif %}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px">
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-muted)">1Y Avg</div>
+          <div style="font-weight:700;font-size:13px;color:{% if snap.avg_return_1y and snap.avg_return_1y > 0 %}var(--success){% elif snap.avg_return_1y %}var(--danger){% else %}var(--text-muted){% endif %}">
+            {{ snap.avg_return_1y|floatformat:1|default:"—" }}{% if snap.avg_return_1y %}%{% endif %}
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-muted)">3Y Avg</div>
+          <div style="font-weight:700;font-size:13px;color:{% if snap.avg_return_3y and snap.avg_return_3y > 0 %}var(--success){% elif snap.avg_return_3y %}var(--danger){% else %}var(--text-muted){% endif %}">
+            {{ snap.avg_return_3y|floatformat:1|default:"—" }}{% if snap.avg_return_3y %}%{% endif %}
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-muted)">5Y Avg</div>
+          <div style="font-weight:700;font-size:13px;color:{% if snap.avg_return_5y and snap.avg_return_5y > 0 %}var(--success){% elif snap.avg_return_5y %}var(--danger){% else %}var(--text-muted){% endif %}">
+            {{ snap.avg_return_5y|floatformat:1|default:"—" }}{% if snap.avg_return_5y %}%{% endif %}
+          </div>
+        </div>
+      </div>
+      {% if snap.pct_strong is not None %}
+      <div style="margin-top:10px;height:4px;border-radius:2px;background:var(--border);overflow:hidden;display:flex">
+        <div style="width:{{ snap.pct_strong }}%;background:var(--success)"></div>
+        <div style="width:{{ snap.pct_good }}%;background:#3b82f6"></div>
+        <div style="width:{{ snap.pct_fair }}%;background:var(--warning)"></div>
+        <div style="width:{{ snap.pct_weak }}%;background:var(--danger)"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:5px;font-size:10px;color:var(--text-muted)">
+        <span style="color:var(--success)">■ {{ snap.pct_strong|floatformat:0 }}% Strong</span>
+        <span style="color:#3b82f6">■ {{ snap.pct_good|floatformat:0 }}% Good</span>
+        <span style="color:var(--warning)">■ {{ snap.pct_fair|floatformat:0 }}% Fair</span>
+        <span style="color:var(--danger)">■ {{ snap.pct_weak|floatformat:0 }}% Weak</span>
+      </div>
+      {% endif %}
+      <div style="margin-top:10px;font-size:11px;color:var(--indigo-400);font-weight:600">View Deep Dive →</div>
+    </a>
+    {% endwith %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterCategories(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.cat-item').forEach(el => {
+    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
+  });
+  document.querySelectorAll('.cat-group-section').forEach(sec => {
+    const visible = Array.from(sec.querySelectorAll('.cat-item')).some(el => el.style.display !== 'none');
+    sec.style.display = visible ? '' : 'none';
+  });
+}
+document.querySelectorAll('.cat-card').forEach(card => {
+  card.addEventListener('mouseenter', () => { card.style.borderColor='var(--indigo-400)'; card.style.transform='translateY(-2px)'; });
+  card.addEventListener('mouseleave', () => { card.style.borderColor='var(--border)'; card.style.transform=''; });
+});
+</script>
+{% endblock %}

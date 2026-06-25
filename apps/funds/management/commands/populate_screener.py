@@ -7,6 +7,8 @@ All-in-one pipeline command that:
      with rate limiting and automatic fallback to mftool if captnemo fails
   3. Computes all analytics (trailing returns, rolling returns, risk metrics) from NAV
   4. Builds/refreshes the FundScreenerSnapshot
+  5. Computes and saves the full model score (FundModelScore) using DB-only portfolio data
+  6. Calls populate_home_dashboard (CategorySnapshot + quartile ranks) unless skipped
 
 Usage:
     python manage.py populate_screener
@@ -16,6 +18,8 @@ Usage:
     python manage.py populate_screener --skip-nav             (skip NAV fetch)
     python manage.py populate_screener --skip-metadata        (skip captnemo metadata)
     python manage.py populate_screener --skip-analytics       (skip compute_all_metrics)
+    python manage.py populate_screener --skip-model-score     (skip FundModelScore compute)
+    python manage.py populate_screener --skip-home-dashboard  (skip populate_home_dashboard)
     python manage.py populate_screener --force-nav            (re-fetch NAV even if up to date)
     python manage.py populate_screener --force-metadata       (re-fetch metadata even if fresh)
 """
@@ -31,7 +35,7 @@ from adapters.captnemo_adapter import CaptnemoAdapter
 from apps.analytics.engine import compute_all_metrics
 from apps.core.utils import parse_amfi_date
 from apps.funds.models import NAVHistory, Scheme, SchemeMeta
-from apps.funds.screener import refresh_snapshot_for_scheme
+from apps.funds.screener import refresh_snapshot_for_scheme, compute_and_save_model_score
 
 logger = logging.getLogger("mfanalysis")
 
@@ -54,6 +58,10 @@ class Command(BaseCommand):
         parser.add_argument("--skip-nav", action="store_true")
         parser.add_argument("--skip-metadata", action="store_true")
         parser.add_argument("--skip-analytics", action="store_true")
+        parser.add_argument("--skip-model-score", action="store_true",
+                            help="Skip FundModelScore computation (faster, no scoring)")
+        parser.add_argument("--skip-home-dashboard", action="store_true",
+                            help="Skip populate_home_dashboard auto-call at end")
         parser.add_argument("--force-nav", action="store_true")
         parser.add_argument("--force-metadata", action="store_true")
 
@@ -64,6 +72,8 @@ class Command(BaseCommand):
         skip_nav = options["skip_nav"]
         skip_metadata = options["skip_metadata"]
         skip_analytics = options["skip_analytics"]
+        skip_model_score = options["skip_model_score"]
+        skip_home_dashboard = options["skip_home_dashboard"]
         force_nav = options["force_nav"]
         force_metadata = options["force_metadata"]
 
@@ -81,7 +91,8 @@ class Command(BaseCommand):
             f"populate_screener: {total} schemes | "
             f"nav={'SKIP' if skip_nav else 'YES'} "
             f"meta={'SKIP' if skip_metadata else 'YES'} "
-            f"analytics={'SKIP' if skip_analytics else 'YES'}"
+            f"analytics={'SKIP' if skip_analytics else 'YES'} "
+            f"score={'SKIP' if skip_model_score else 'YES'}"
         ))
 
         amfi_adapter = AMFIAdapter()
@@ -89,7 +100,7 @@ class Command(BaseCommand):
         stale_cutoff = date.today() - timedelta(days=METADATA_STALE_DAYS)
         today = date.today()
 
-        nav_ok = nav_err = meta_ok = meta_err = meta_skip = analytics_ok = analytics_err = snap_ok = snap_err = 0
+        nav_ok = nav_err = meta_ok = meta_err = meta_skip = analytics_ok = analytics_err = snap_ok = snap_err = score_ok = score_err = 0
 
         for index, scheme in enumerate(qs, 1):
             # ── 1. NAV ingestion ──────────────────────────────────────────────
@@ -196,6 +207,15 @@ class Command(BaseCommand):
                 snap_err += 1
                 logger.error(f"[{scheme.amfi_code}] snapshot error: {exc}")
 
+            # ── 5. Model score (DB-only portfolio, Option B) ────────────────────
+            if not skip_model_score:
+                try:
+                    compute_and_save_model_score(scheme_with_meta)
+                    score_ok += 1
+                except Exception as exc:
+                    score_err += 1
+                    logger.error(f"[{scheme.amfi_code}] model score error: {exc}")
+
             # Progress reporting every 50 schemes
             if index % 50 == 0:
                 self.stdout.write(
@@ -208,11 +228,25 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"\n=== populate_screener complete ===\n"
-            f"NAV:       ok={nav_ok}  err={nav_err}\n"
-            f"Metadata:  ok={meta_ok}  skip={meta_skip}  err={meta_err}\n"
-            f"Analytics: ok={analytics_ok}  err={analytics_err}\n"
-            f"Snapshots: ok={snap_ok}  err={snap_err}"
+            f"NAV:         ok={nav_ok}  err={nav_err}\n"
+            f"Metadata:    ok={meta_ok}  skip={meta_skip}  err={meta_err}\n"
+            f"Analytics:   ok={analytics_ok}  err={analytics_err}\n"
+            f"Snapshots:   ok={snap_ok}  err={snap_err}\n"
+            f"Model Score: ok={score_ok}  err={score_err}"
         ))
+
+        # ── Auto-call populate_home_dashboard ──────────────────────────────────
+        if not skip_home_dashboard and not amfi_code:
+            # Only run for full runs, not single-scheme targeted updates
+            self.stdout.write("\nRunning populate_home_dashboard...")
+            try:
+                from django.core.management import call_command
+                call_command("populate_home_dashboard", verbosity=0)
+                self.stdout.write(self.style.SUCCESS("populate_home_dashboard: complete"))
+            except Exception as exc:
+                self.stdout.write(
+                    self.style.WARNING(f"populate_home_dashboard failed: {exc}")
+                )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

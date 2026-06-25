@@ -16,8 +16,15 @@
 - **Rolling return distributions** with win rates, medians, and min/max ranges.
 - **Composition**: Holdings, sector allocation, and asset allocation from Morningstar.
 - **Advanced Fund Screener**: Powerful data-grid to filter, sort, and export funds based on AUM, Expense Ratio, 1/3/5-year performance, Rolling Returns, Sharpe/Sortino ratios, and Max Drawdown.
+- **Home Page Dashboard**: A comprehensive landing page with 6 distinct sections:
+  - **Benchmark Monitor**: Live 1Y/3Y/5Y/YTD returns for major indices.
+  - **Category Return Meter**: Interactive min-max-avg bar charts across fund categories.
+  - **Top Performing Funds**: Extensible basket tabs (e.g., "Best Large Caps", "Low Cost Index Funds").
+  - **Category Analysis**: Score distribution (Strong/Good/Fair/Weak), risk, and return stats per category.
+  - **Browse by Category**: Mega-chip grid linked directly to screener filters.
+  - **Quartile Rankings**: Dynamic Q1-Q4 rankings and percentile ranks for all funds in a category.
+- **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`). *Note: Currently, the system uses DB-only composition data (Option B) for speed, but will transition to full API scoring (Option A) in the future for maximum accuracy.*
 - **Compare Selected**: Multi-select up to 5 funds across the Browse and Screener tabs to instantly send them to the **Compare Funds calculator**. Compare them side-by-side across Overview, Returns, Risk, and Portfolio tabs. Includes dynamic Overlapping Best/Worst Quarters analysis, Sector Allocation mini-donuts, Risk vs Return scatter plots, and intelligent benchmark fallback (using NIFTY COMPOSITE DEBT INDEX for debt funds).
-- **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`).
 - **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `docs/PEER_MATCHING.md`).
 
 ### 💼 Portfolio Analysis
@@ -156,17 +163,46 @@ python manage.py ingest_benchmarks
 ```
 > **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data locally to run the app.
 
-### 5. Build and Refresh the Fund Screener
-The advanced screener requires a locally cached snapshot of fund performance and metadata. We provide a single pipeline command that fetches NAV, pulls metadata (AUM/Expense Ratio), computes risk metrics, and saves the snapshot for lightning-fast UI filtering.
+### 5. Build and Refresh the Data Pipelines (Screener & Home Dashboard)
+The platform uses a denormalised snapshot architecture to power the **Advanced Fund Screener** and the **Home Dashboard** instantly, without running heavy live computations on thousands of funds. You must run these data pipelines to populate the platform's advanced features.
 
+#### Pipeline 1: The Fund Screener & Analytics Pipeline
+This pipeline processes all active mutual funds, fetches their historical NAVs, computes advanced metrics (Trailing, Rolling, and Calendar Returns, Sharpe, Sortino, Drawdown, etc.), and saves them to the `FundScreenerSnapshot` table.
 ```bash
-# Populate the screener pipeline for the first 100 funds
+# Process a small batch for testing:
 python manage.py populate_screener --limit=100
 
-# Run the complete pipeline for all direct growth funds (~2,500 schemes)
-# (Note: This respects third-party rate limits and is designed to run in the background)
+# Process all direct-growth funds (~2,500 schemes).
+# This respects API rate limits and handles gracefully falling back on errors.
 python manage.py populate_screener
+
+# Process without updating analytics or scores (fast update just for metadata)
+python manage.py populate_screener --skip-analytics --skip-score
 ```
+*Note: `populate_screener` will automatically trigger `populate_home_dashboard` at the end unless you pass `--skip-home-dashboard`.*
+
+#### Pipeline 2: Benchmark Monitor Pipeline
+This pipeline computes the calendar year returns, rolling returns (1Y, 3Y, 5Y), and risk metrics for all ingested benchmark indices (including NIFTY and newly added BSE indices like BSE 500, BSE Bankex, etc.)
+```bash
+# Fetch raw historical NAVs for all registered indices via Yahoo Finance/NSE
+python manage.py ingest_benchmarks
+
+# Compute returns and metrics, saving to the BenchmarkReturns table
+python manage.py populate_benchmark_returns
+```
+
+#### Pipeline 3: Home Dashboard Aggregation
+This pipeline aggregates the `FundScreenerSnapshot` data to generate category-level statistics (Average returns, Risk distribution, Score allocations) and calculates Quartile Rankings for every fund within its sub-category.
+```bash
+# Update category statistics and quartile rankings
+python manage.py populate_home_dashboard
+```
+
+#### Understanding the Pipeline Workflow
+For daily maintenance, the optimal execution order is:
+1. `python manage.py ingest_benchmarks` (fetches new market data)
+2. `python manage.py populate_benchmark_returns` (updates index stats)
+3. `python manage.py populate_screener` (updates all fund metrics and cascades into home dashboard updates)
 
 Generate a top-funds CSV and standalone HTML performance reports:
 

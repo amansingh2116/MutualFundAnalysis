@@ -672,3 +672,44 @@ def _compute_xirr(cashflows: list, dates: list) -> Optional[float]:
         return rate if math.isfinite(rate) else None
     except (ValueError, RuntimeError):
         return None
+
+def compute_rolling_return_stats(nav_series: pd.Series) -> dict:
+    """
+    Compute rolling return statistics (Avg, Max, Min, % Positive)
+    for 1Y (252), 3Y (756), and 5Y (1260) rolling windows.
+    Returns a dictionary of stats.
+    """
+    stats = {}
+    if nav_series.empty or len(nav_series) < 252:
+        return stats
+
+    for label, window in ROLLING_WINDOWS.items():
+        if len(nav_series) < window:
+            continue
+            
+        # Calculate trailing rolling returns
+        # using exact day shift if we assume series is daily indexed
+        # For simplicity, we assume nav_series is a dense daily business series, 
+        # so pct_change(periods=window) works.
+        rolling_returns = nav_series.pct_change(periods=window).dropna() * 100
+        
+        if rolling_returns.empty:
+            continue
+            
+        # If window > 1Y, we typically annualize rolling returns for 3Y, 5Y.
+        # But for pct_change, it's cumulative. Let's annualize them.
+        years = window / 252.0
+        if years > 1.0:
+            # CAGR rolling = ( (1 + cumulative_return) ^ (1/years) ) - 1
+            # rolling_returns is in %, so convert back to decimal to annualize
+            rolling_returns = (((rolling_returns / 100.0 + 1.0) ** (1.0 / years)) - 1.0) * 100
+
+        stats[label] = {
+            'avg': round(rolling_returns.mean(), 2),
+            'max': round(rolling_returns.max(), 2),
+            'min': round(rolling_returns.min(), 2),
+            'pos_pct': round((rolling_returns > 0).mean() * 100, 1)
+        }
+        
+    return stats
+

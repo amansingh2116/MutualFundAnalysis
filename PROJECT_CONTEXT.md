@@ -51,7 +51,7 @@ Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV dat
 | **captnemo** (`mf.captnemo.in`) | Metadata (expense ratio, AUM, manager, inception) | Try exact ISIN first, sibling plan as fallback |
 | **mstarpy** (Morningstar) | Holdings, sector/asset allocation | Run via subprocess |
 | **NSE India API** | Live and historical benchmark indices | Session warmup required (2 GETs) |
-| **yfinance / yahooquery** | Benchmark fallback, Yahoo ticker resolution | Rate-limited; sleep 2s before yfinance calls |
+| **yfinance / yahooquery** | Benchmark fallback, BSE Indices | Rate-limited; handles BSE benchmarks (e.g. BSE-500.BO) and global indices |
 
 ---
 
@@ -128,15 +128,22 @@ The most complex service. Key design decisions:
 - **ARIMA**: `statsmodels.tsa.arima.model.ARIMA` with p/d/q configurable; falls back to linear trend projection on failure
 - **Machine Learning**: Ridge regression or Random Forest on autoregressive lag features; confidence bands widen proportionally over time
 
-### F. Advanced Fund Screener (`apps/funds/screener.py`)
+### F. Advanced Fund Screener & Home Dashboard Pipeline (`apps/funds/screener.py`)
 Because the analytics engine is heavily computational, screening across thousands of funds requires local caching.
-- **`FundScreenerSnapshot` Model**: Denormalized table storing AUM, expense ratios, trailing returns (1Y/3Y/5Y), rolling returns (3Y/5Y), volatility, Sharpe, Sortino, Max Drawdown, and Alpha (excess return vs benchmark).
+- **`FundScreenerSnapshot` Model**: Denormalized table storing AUM, expense ratios, trailing returns (1Y/3Y/5Y), rolling returns (3Y/5Y), calendar returns (`calendar_returns_json`), volatility, Sharpe, Sortino, Max Drawdown, Alpha, short-term returns (1W/1M/3M/6M), and quartile/percentile ranks.
+- **`FundModelScore` Model**: Stores the 100-point dynamic scoring results per scheme across Performance, Risk, Cost, and Composition pillars. 
+  - *Note on Scoring:* Currently, the pipeline uses DB-only composition data (Option B) for speed (funds without local holdings are marked UNRATED for composition). In the future, we will transition to full API scoring (Option A) for more comprehensive portfolio analysis.
 - **`populate_screener` Command**: An integrated data pipeline that runs sequentially:
   1. Fetches NAV history (`mfapi.in`)
   2. Fetches metadata (`mf.captnemo.in` with sibling plan fallback)
-  3. Triggers Analytics Engine for rolling & risk computations
+  3. Triggers Analytics Engine for rolling, calendar & risk computations
   4. Generates and saves the final snapshot for the UI.
-- **Dynamic UI**: `FundScreenerView` dynamically populates HTML filter options directly from the `FundScreenerSnapshot` distinct values, allowing new Fund Houses or Benchmarks to seamlessly appear as the database builds.
+  5. Computes and saves the `FundModelScore`.
+  6. Automatically calls `populate_home_dashboard` at the end (unless `--skip-home-dashboard` is passed).
+- **Home Dashboard Pipeline**:
+  - **`populate_benchmark_returns`**: Computes trailing, calendar, and rolling returns for benchmark indices (stored in `BenchmarkReturns`), driving the Home Dashboard's Benchmark Monitor. Includes NSE and major BSE indices.
+  - **`populate_home_dashboard`**: Aggregates `FundScreenerSnapshot` data by category to create `CategorySnapshot` records (avg/min/max returns, risk, score distribution) and computes quartile rankings for all funds within their sub-categories.
+- **Dynamic UI**: `FundScreenerView` dynamically populates HTML filter options directly from the `FundScreenerSnapshot` distinct values, allowing new Fund Houses or Benchmarks to seamlessly appear as the database builds. Both `category_detail.html` and `benchmarks.html` ingest `calendar_returns_json` and `rolling_returns_json` to render interactive heatmaps on the frontend.
 - **Compare Selected Feature**: The UI includes multi-fund selection (using browser `localStorage`) which automatically enables a direct bridge to the Unified Compare tool.
 
 ---

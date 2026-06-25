@@ -14,8 +14,11 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import DetailView, ListView, TemplateView
 
-from apps.funds.models import FundScreenerSnapshot, NAVHistory, Scheme, SchemeMeta
-from apps.funds.screener import benchmark_options
+from apps.funds.models import (
+    CategorySnapshot, FundModelScore, FundScreenerSnapshot,
+    NAVHistory, Scheme, SchemeMeta,
+)
+from apps.funds.screener import benchmark_options, TOP_FUND_BASKETS
 from apps.funds.screener_reports import render_fund_report_html
 
 logger = logging.getLogger('mfanalysis')
@@ -24,6 +27,8 @@ NAV_RANGE_OPTIONS = [
     ('1M', 30), ('3M', 91), ('6M', 182),
     ('1Y', 365), ('3Y', 1095), ('5Y', 1826), ('MAX', None),
 ]
+
+CATEGORY_GROUPS_ORDERED = ['Equity', 'Debt', 'Hybrid', 'Other', 'Solution Oriented']
 
 
 class HomeView(TemplateView):
@@ -43,12 +48,229 @@ class HomeView(TemplateView):
                 .order_by('-count')[:18]
             )
         except Exception:
-            # App works fine even if DB is empty on first run
             ctx['total_funds'] = None
             ctx['fund_houses'] = None
             ctx['last_nav_date'] = None
             ctx['categories'] = []
+
+        # ── Section 1: Benchmark Returns Monitor ──────────────────────────────
+        try:
+            from apps.benchmarks.models import BenchmarkReturns
+            bench_qs = (
+                BenchmarkReturns.objects
+                .select_related('index')
+                .filter(index__is_active=True)
+                .order_by('index__name')
+            )
+            ctx['benchmark_returns'] = list(bench_qs)
+        except Exception:
+            ctx['benchmark_returns'] = []
+
+        # ── Section 2 + 4: Category Snapshots ────────────────────────────────
+        try:
+            snap_qs = CategorySnapshot.objects.order_by(
+                'category_group', 'scheme_sub_category'
+            )
+            # Group by category_group for Section 4
+            cat_groups: dict[str, list] = {}
+            for snap in snap_qs:
+                cat_groups.setdefault(snap.category_group, []).append(snap)
+            # Ordered dict for template
+            ctx['category_snapshots_by_group'] = [
+                (grp, cat_groups[grp])
+                for grp in CATEGORY_GROUPS_ORDERED
+                if grp in cat_groups
+            ]
+            # Flat list for Section 2 (category return meter) as JSON
+            ctx['category_snapshots_json'] = json.dumps([
+                {
+                    'group': s.category_group,
+                    'name': s.scheme_sub_category,
+                    'avg_1y': _flt(s.avg_return_1y),
+                    'max_1y': _flt(s.max_return_1y),
+                    'min_1y': _flt(s.min_return_1y),
+                    'med_1y': _flt(s.median_return_1y),
+                    'avg_3y': _flt(s.avg_return_3y),
+                    'max_3y': _flt(s.max_return_3y),
+                    'min_3y': _flt(s.min_return_3y),
+                    'med_3y': _flt(s.median_return_3y),
+                    'avg_5y': _flt(s.avg_return_5y),
+                    'max_5y': _flt(s.max_return_5y),
+                    'min_5y': _flt(s.min_return_5y),
+                    'med_5y': _flt(s.median_return_5y),
+                    'fund_count': s.fund_count,
+                    'avg_score': _flt(s.avg_model_score),
+                    'pct_strong': _flt(s.pct_strong),
+                    'pct_good': _flt(s.pct_good),
+                    'pct_fair': _flt(s.pct_fair),
+                    'pct_weak': _flt(s.pct_weak),
+                }
+                for s in snap_qs
+            ])
+        except Exception as exc:
+            logger.warning("HomeView: category snapshots failed: %s", exc)
+            ctx['category_snapshots_by_group'] = []
+            ctx['category_snapshots_json'] = '[]'
+
+        # ── Section 3: Top Performing Funds (Extensible Baskets) ───────────────
+        try:
+            top_baskets = []
+            for basket_name, basket_filter in TOP_FUND_BASKETS.items():
+                funds = (
+                    FundScreenerSnapshot.objects
+                    .filter(is_direct=True, **basket_filter)
+                    .exclude(returns_5y_pct=None)
+                    .order_by('-returns_5y_pct')
+                    .select_related('scheme')
+                    .only(
+                        'fund_name', 'fund_house', 'expense_ratio',
+                        'returns_1y_pct', 'returns_3y_pct', 'returns_5y_pct',
+                        'aum_cr', 'scheme_sub_category', 'scheme',
+                    )[:8]
+                )
+                if funds:
+                    top_baskets.append({
+                        'name': basket_name,
+                        'slug': basket_name.lower().replace(' ', '-'),
+                        'funds': list(funds),
+                        'filter': basket_filter,
+                    })
+            ctx['top_fund_baskets'] = top_baskets
+        except Exception as exc:
+            logger.warning("HomeView: top baskets failed: %s", exc)
+            ctx['top_fund_baskets'] = []
+
+        # ── Section 5: Browse counts per sub-category ─────────────────────────
+        try:
+            from apps.funds.screener import SUB_CATEGORY_PATTERNS
+            sub_cat_counts = dict(
+                FundScreenerSnapshot.objects
+                .filter(is_direct=True)
+                .values_list('scheme_sub_category')
+                .annotate(cnt=Count('id'))
+            )
+            # Ordered sub-category list per group for browse grid
+            browse_groups: dict[str, list] = {}
+            for label, _, group in SUB_CATEGORY_PATTERNS:
+                browse_groups.setdefault(group, []).append({
+                    'name': label,
+                    'count': sub_cat_counts.get(label, 0),
+                })
+            ctx['browse_groups'] = [
+                (grp, browse_groups[grp])
+                for grp in CATEGORY_GROUPS_ORDERED
+                if grp in browse_groups
+            ]
+        except Exception as exc:
+            logger.warning("HomeView: browse groups failed: %s", exc)
+            ctx['browse_groups'] = []
+
+        # ── Section 6: Quartile Rankings — default sub-category ──────────────
+        # Pre-load the most popular sub-category to avoid JS needing an extra request
+        try:
+            sub_cats = list(
+                FundScreenerSnapshot.objects
+                .filter(is_direct=True)
+                .exclude(scheme_sub_category='')
+                .values('scheme_sub_category')
+                .annotate(cnt=Count('id'))
+                .order_by('-cnt')
+                .values_list('scheme_sub_category', flat=True)[:1]
+            )
+            default_sub_cat = sub_cats[0] if sub_cats else ''
+            ctx['default_sub_cat'] = default_sub_cat
+
+            # All distinct sub-categories for the dropdown
+            ctx['all_sub_categories'] = list(
+                FundScreenerSnapshot.objects
+                .filter(is_direct=True)
+                .exclude(scheme_sub_category='')
+                .values('scheme_sub_category')
+                .annotate(cnt=Count('id'))
+                .order_by('scheme_sub_category')
+                .values_list('scheme_sub_category', flat=True)
+            )
+        except Exception:
+            ctx['default_sub_cat'] = ''
+            ctx['all_sub_categories'] = []
+
         return ctx
+
+
+def _flt(val) -> float | None:
+    """Convert Decimal/None to float for JSON serialisation."""
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def home_category_funds(request):
+    """
+    AJAX endpoint for Section 6 — Quartile Rankings.
+    GET /home/category-funds/?sub_category=Mid+Cap+Fund
+    Returns JSON list of fund rows with quartile fields.
+    """
+    sub_category = request.GET.get('sub_category', '').strip()
+    if not sub_category:
+        return JsonResponse({'error': 'sub_category required'}, status=400)
+
+    try:
+        funds = list(
+            FundScreenerSnapshot.objects
+            .filter(scheme_sub_category=sub_category, is_direct=True)
+            .select_related('scheme')
+            .order_by('rank_return_1y', 'fund_name')
+            .only(
+                'fund_name', 'fund_house', 'scheme_sub_category',
+                'returns_1y_pct', 'returns_3y_pct', 'returns_5y_pct',
+                'quartile_return_1y', 'quartile_return_3y', 'quartile_return_5y',
+                'quartile_volatility', 'quartile_sharpe', 'quartile_sortino',
+                'quartile_model_score',
+                'rank_return_1y', 'rank_return_3y', 'rank_return_5y',
+                'rank_count_in_cat',
+                'scheme',
+            )
+        )
+
+        # Attach model score badge from FundModelScore
+        scheme_ids = [f.scheme_id for f in funds]
+        score_map = dict(
+            FundModelScore.objects
+            .filter(scheme_id__in=scheme_ids)
+            .values_list('scheme_id', 'final_score')
+        )
+
+        data = []
+        for f in funds:
+            data.append({
+                'name': f.fund_name,
+                'house': f.fund_house,
+                'amfi': f.scheme.amfi_code,
+                'ret_1y': _flt(f.returns_1y_pct),
+                'ret_3y': _flt(f.returns_3y_pct),
+                'ret_5y': _flt(f.returns_5y_pct),
+                'q_ret_1y': f.quartile_return_1y,
+                'q_ret_3y': f.quartile_return_3y,
+                'q_ret_5y': f.quartile_return_5y,
+                'q_vol': f.quartile_volatility,
+                'q_sharpe': f.quartile_sharpe,
+                'q_sortino': f.quartile_sortino,
+                'q_score': f.quartile_model_score,
+                'rank_1y': f.rank_return_1y,
+                'rank_3y': f.rank_return_3y,
+                'rank_5y': f.rank_return_5y,
+                'total': f.rank_count_in_cat,
+                'score': _flt(score_map.get(f.scheme_id)),
+            })
+
+        return JsonResponse({'sub_category': sub_category, 'funds': data})
+
+    except Exception as exc:
+        logger.error("home_category_funds error: %s", exc)
+        return JsonResponse({'error': 'server error'}, status=500)
 
 
 class CategoryListView(TemplateView):
@@ -451,3 +673,421 @@ def export_pdf_view(request, amfi_code):
         logger.error(f"PDF export failed for {amfi_code}: {e}")
         messages.error(request, f'PDF generation failed: {e}')
         return redirect('funds:detail', amfi_code=amfi_code)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# RESEARCH HUB VIEWS
+# ════════════════════════════════════════════════════════════════════════════
+
+class ResearchBenchmarksView(TemplateView):
+    """
+    Research > Benchmarks: Full benchmark monitor with risk metrics.
+    User's benchmark watchlist (personalized selection) is loaded from
+    UserBenchmarkProfile; unauthenticated users see all active benchmarks.
+    """
+    template_name = 'research/benchmarks.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.benchmarks.models import BenchmarkIndex, BenchmarkReturns, UserBenchmarkProfile
+        try:
+            # All active indices with returns data
+            all_returns = list(
+                BenchmarkReturns.objects
+                .select_related('index')
+                .filter(index__is_active=True)
+                .order_by('index__name')
+            )
+            ctx['all_benchmark_returns'] = all_returns
+
+            # User watchlist
+            watchlist_ids = []
+            if self.request.user.is_authenticated:
+                profile = UserBenchmarkProfile.objects.filter(user=self.request.user).first()
+                if profile and profile.watchlist:
+                    watchlist_ids = profile.watchlist
+
+            # If user has a watchlist, filter to those; else default to all with data
+            if watchlist_ids:
+                ctx['selected_returns'] = [
+                    r for r in all_returns if r.index_id in watchlist_ids
+                ]
+            else:
+                ctx['selected_returns'] = all_returns
+                
+            # Serialize for JS heatmap rendering
+            benchmarks_js = []
+            for r in ctx['selected_returns']:
+                benchmarks_js.append({
+                    'id': r.index_id,
+                    'name': r.index.name,
+                    'calendar': r.calendar_returns_json or {},
+                    'rolling': r.rolling_returns_json or {},
+                })
+            ctx['benchmarks_json'] = json.dumps(benchmarks_js)
+
+            ctx['watchlist_ids'] = json.dumps(watchlist_ids)
+            ctx['all_index_names'] = [
+                {'id': r.index_id, 'name': r.index.name} for r in all_returns
+            ]
+        except Exception as exc:
+            logger.warning('ResearchBenchmarksView error: %s', exc)
+            ctx['all_benchmark_returns'] = []
+            ctx['selected_returns'] = []
+            ctx['watchlist_ids'] = '[]'
+            ctx['all_index_names'] = []
+        return ctx
+
+
+def benchmark_watchlist_api(request):
+    """
+    POST /research/benchmarks/watchlist/ — Save user's benchmark watchlist.
+    Expects JSON body: {"watchlist": [id1, id2, ...]}
+    Requires authentication.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Login required'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        from apps.benchmarks.models import BenchmarkIndex, UserBenchmarkProfile
+        data = json.loads(request.body)
+        watchlist = data.get('watchlist', [])
+        # Validate: only store valid BenchmarkIndex PKs
+        valid_ids = list(
+            BenchmarkIndex.objects.filter(pk__in=watchlist, is_active=True)
+            .values_list('pk', flat=True)
+        )
+        profile, _ = UserBenchmarkProfile.objects.get_or_create(user=request.user)
+        profile.watchlist = valid_ids
+        profile.save()
+        return JsonResponse({'saved': True, 'count': len(valid_ids)})
+    except Exception as exc:
+        logger.error('benchmark_watchlist_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+class ResearchCategoryMeterView(TemplateView):
+    """
+    Research > Category Returns: Full tabular heatmap of category returns.
+    Supports trailing / annual / quarterly tabs.
+    """
+    template_name = 'research/category_meter.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        try:
+            snap_qs = CategorySnapshot.objects.order_by('category_group', 'scheme_sub_category')
+            ctx['category_snapshots_json'] = json.dumps([
+                {
+                    'group': s.category_group,
+                    'name': s.scheme_sub_category,
+                    'fund_count': s.fund_count,
+                    'avg_1y': _flt(s.avg_return_1y),
+                    'avg_3y': _flt(s.avg_return_3y),
+                    'avg_5y': _flt(s.avg_return_5y),
+                    'med_1y': _flt(s.median_return_1y),
+                    'med_3y': _flt(s.median_return_3y),
+                    'med_5y': _flt(s.median_return_5y),
+                    'min_1y': _flt(s.min_return_1y),
+                    'max_1y': _flt(s.max_return_1y),
+                    'min_3y': _flt(s.min_return_3y),
+                    'max_3y': _flt(s.max_return_3y),
+                    'min_5y': _flt(s.min_return_5y),
+                    'max_5y': _flt(s.max_return_5y),
+                    'avg_vol': _flt(s.avg_volatility),
+                    'avg_sharpe': _flt(s.avg_sharpe),
+                    'avg_drawdown': _flt(s.avg_max_drawdown),
+                    'calendar': s.calendar_returns_json or {},
+                    'trailing': s.quarterly_returns_json or {},
+                    'rolling': s.rolling_returns_json or {},
+                    'slug': _make_slug(s.scheme_sub_category),
+                }
+                for s in snap_qs
+            ])
+            ctx['groups'] = CATEGORY_GROUPS_ORDERED
+        except Exception as exc:
+            logger.warning('ResearchCategoryMeterView error: %s', exc)
+            ctx['category_snapshots_json'] = '[]'
+            ctx['groups'] = []
+        return ctx
+
+
+class ResearchCategoriesView(TemplateView):
+    """
+    Research > Category Analysis: Browse all categories with search.
+    """
+    template_name = 'research/categories.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        try:
+            snap_qs = CategorySnapshot.objects.order_by('category_group', 'scheme_sub_category')
+            cat_groups: dict[str, list] = {}
+            for snap in snap_qs:
+                slug = _make_slug(snap.scheme_sub_category)
+                cat_groups.setdefault(snap.category_group, []).append({
+                    'snap': snap,
+                    'slug': slug,
+                })
+            ctx['category_groups'] = [
+                (grp, cat_groups[grp])
+                for grp in CATEGORY_GROUPS_ORDERED
+                if grp in cat_groups
+            ]
+        except Exception as exc:
+            logger.warning('ResearchCategoriesView error: %s', exc)
+            ctx['category_groups'] = []
+        return ctx
+
+
+def _make_slug(name: str) -> str:
+    """Convert a sub-category name to a safe URL slug."""
+    return (
+        name.lower()
+        .replace("'", '')   # strip apostrophes before replacing spaces
+        .replace(' ', '-')
+        .replace('/', '-')
+        .replace('&', 'and')
+        .replace('--', '-')
+        .strip('-')
+    )
+
+
+def _slug_to_sub_category(slug: str) -> str:
+    """Reverse a slug back to a scheme_sub_category name."""
+    # Fuzzy: find closest match using _make_slug
+    all_cats = list(CategorySnapshot.objects.values_list('scheme_sub_category', flat=True))
+    for cat in all_cats:
+        if _make_slug(cat) == slug:
+            return cat
+    # Fallback: iexact on normalized slug (handles simple cases)
+    normalized = slug.replace('-', ' ')
+    qs = CategorySnapshot.objects.filter(scheme_sub_category__iexact=normalized)
+    if qs.exists():
+        return qs.first().scheme_sub_category
+    return ''
+
+
+class ResearchCategoryDetailView(TemplateView):
+    """
+    Research > Category Deep Dive: Full tabbed analysis for a specific category.
+    Tabs: Snapshot (all funds), Returns, Risk, Portfolio (composition), Fees.
+    """
+    template_name = 'research/category_detail.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        slug = kwargs.get('slug', '')
+        sub_category = _slug_to_sub_category(slug)
+        if not sub_category:
+            ctx['error'] = 'Category not found'
+            return ctx
+
+        ctx['sub_category'] = sub_category
+        ctx['slug'] = slug
+
+        try:
+            snap = CategorySnapshot.objects.filter(scheme_sub_category=sub_category).first()
+            ctx['category_snap'] = snap
+        except Exception:
+            ctx['category_snap'] = None
+
+        try:
+            funds = list(
+                FundScreenerSnapshot.objects
+                .filter(scheme_sub_category=sub_category, is_direct=True)
+                .select_related('scheme')
+                .order_by('rank_return_1y', 'fund_name')
+            )
+            ctx['funds'] = funds
+            ctx['funds_count'] = len(funds)
+
+            # Attach model scores
+            scheme_ids = [f.scheme_id for f in funds]
+            score_map = dict(
+                FundModelScore.objects
+                .filter(scheme_id__in=scheme_ids)
+                .values_list('scheme_id', 'final_score')
+            )
+            badge_map = dict(
+                FundModelScore.objects
+                .filter(scheme_id__in=scheme_ids)
+                .values_list('scheme_id', 'score_badge')
+            )
+            ctx['score_map'] = score_map
+            ctx['badge_map'] = badge_map
+
+            # All sub-categories for the same group (for navigation)
+            if snap:
+                ctx['peer_categories'] = list(
+                    CategorySnapshot.objects
+                    .filter(category_group=snap.category_group)
+                    .exclude(scheme_sub_category=sub_category)
+                    .order_by('scheme_sub_category')
+                    .values('scheme_sub_category', 'fund_count')
+                )
+        except Exception as exc:
+            logger.warning('ResearchCategoryDetailView error: %s', exc)
+            ctx['funds'] = []
+            ctx['funds_count'] = 0
+        return ctx
+
+
+def category_detail_funds_api(request, slug):
+    """
+    AJAX: GET /research/categories/<slug>/funds/?tab=returns
+    Returns JSON of all funds in the category, filtered by tab type.
+    """
+    sub_category = _slug_to_sub_category(slug)
+    if not sub_category:
+        return JsonResponse({'error': 'not found'}, status=404)
+    tab = request.GET.get('tab', 'snapshot')
+    try:
+        funds = list(
+            FundScreenerSnapshot.objects
+            .filter(scheme_sub_category=sub_category, is_direct=True)
+            .select_related('scheme')
+            .order_by('rank_return_1y', 'fund_name')
+        )
+        scheme_ids = [f.scheme_id for f in funds]
+        score_map = dict(
+            FundModelScore.objects
+            .filter(scheme_id__in=scheme_ids)
+            .values_list('scheme_id', 'final_score')
+        )
+        badge_map = dict(
+            FundModelScore.objects
+            .filter(scheme_id__in=scheme_ids)
+            .values_list('scheme_id', 'score_badge')
+        )
+
+        alloc_map = {}
+        if tab == 'portfolio':
+            from apps.holdings.models import SectorAllocation
+            allocs = SectorAllocation.objects.filter(scheme_id__in=scheme_ids)
+            for a in allocs:
+                alloc_map.setdefault(a.scheme_id, {})[a.sector] = float(a.weight_pct) if a.weight_pct else 0.0
+
+        data = []
+        for f in funds:
+            base = {
+                'name': f.fund_name,
+                'house': f.fund_house,
+                'amfi': f.scheme.amfi_code,
+                'score': _flt(score_map.get(f.scheme_id)),
+                'badge': badge_map.get(f.scheme_id, ''),
+                'rank_1y': f.rank_return_1y,
+                'total': f.rank_count_in_cat,
+                'aum': _flt(f.aum_cr),
+                'expense': _flt(f.expense_ratio),
+                'age': _flt(f.fund_age_years),
+                'risk_label': f.risk_label,
+            }
+            if tab == 'returns':
+                base.update({
+                    'ret_1w': _flt(f.returns_1w_pct),
+                    'ret_1m': _flt(f.returns_1m_pct),
+                    'ret_3m': _flt(f.returns_3m_pct),
+                    'ret_6m': _flt(f.returns_6m_pct),
+                    'ret_1y': _flt(f.returns_1y_pct),
+                    'ret_3y': _flt(f.returns_3y_pct),
+                    'ret_5y': _flt(f.returns_5y_pct),
+                    'rank_1y': f.rank_return_1y,
+                    'rank_3y': f.rank_return_3y,
+                    'rank_5y': f.rank_return_5y,
+                    'q_ret_1y': f.quartile_return_1y,
+                    'q_ret_3y': f.quartile_return_3y,
+                    'q_ret_5y': f.quartile_return_5y,
+                    'rolling': f.rolling_returns_json,
+                    'calendar': f.calendar_returns_json,
+                })
+            elif tab == 'risk':
+                base.update({
+                    'volatility': _flt(f.volatility_3y_pct),
+                    'sharpe': _flt(f.sharpe_ratio),
+                    'sortino': _flt(f.sortino_ratio),
+                    'max_drawdown': _flt(f.max_drawdown),
+                    'alpha': _flt(f.excess_return_3y),
+                    'q_vol': f.quartile_volatility,
+                    'q_sharpe': f.quartile_sharpe,
+                    'q_sortino': f.quartile_sortino,
+                })
+            elif tab == 'fees':
+                base.update({
+                    'expense': _flt(f.expense_ratio),
+                    'aum': _flt(f.aum_cr),
+                    'age': _flt(f.fund_age_years),
+                    'benchmark': f.benchmark_name,
+                })
+            elif tab == 'portfolio':
+                base.update({
+                    'sectors': alloc_map.get(f.scheme_id, {})
+                })
+            data.append(base)
+
+        return JsonResponse({'sub_category': sub_category, 'tab': tab, 'funds': data})
+    except Exception as exc:
+        logger.error('category_detail_funds_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+class ResearchQuartilesView(TemplateView):
+    """
+    Research > Quartile Rankings: Full standalone page with category filter.
+    """
+    template_name = 'research/quartile_rankings.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        try:
+            ctx['all_sub_categories'] = list(
+                FundScreenerSnapshot.objects
+                .filter(is_direct=True)
+                .exclude(scheme_sub_category='')
+                .values('scheme_sub_category')
+                .annotate(cnt=Count('id'))
+                .order_by('scheme_sub_category')
+                .values_list('scheme_sub_category', flat=True)
+            )
+            ctx['default_sub_cat'] = self.request.GET.get('cat', '')
+            if not ctx['default_sub_cat'] and ctx['all_sub_categories']:
+                ctx['default_sub_cat'] = ctx['all_sub_categories'][0]
+        except Exception as exc:
+            logger.warning('ResearchQuartilesView error: %s', exc)
+            ctx['all_sub_categories'] = []
+            ctx['default_sub_cat'] = ''
+        return ctx
+
+
+class ResearchTopFundsView(TemplateView):
+    """
+    Research > Top Performing Funds: Full basket tabs page.
+    """
+    template_name = 'research/top_funds.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        try:
+            from apps.funds.screener import TOP_FUND_BASKETS
+            top_baskets = []
+            for basket_name, basket_filter in TOP_FUND_BASKETS.items():
+                funds = (
+                    FundScreenerSnapshot.objects
+                    .filter(is_direct=True, **basket_filter)
+                    .exclude(returns_5y_pct=None)
+                    .order_by('-returns_5y_pct')
+                    .select_related('scheme')
+                    [:20]  # Full page shows 20 vs 8 on home
+                )
+                if funds:
+                    top_baskets.append({
+                        'name': basket_name,
+                        'slug': basket_name.lower().replace(' ', '-'),
+                        'funds': list(funds),
+                    })
+            ctx['top_fund_baskets'] = top_baskets
+        except Exception as exc:
+            logger.warning('ResearchTopFundsView error: %s', exc)
+            ctx['top_fund_baskets'] = []
+        return ctx

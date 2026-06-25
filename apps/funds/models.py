@@ -253,6 +253,44 @@ class FundScreenerSnapshot(BaseModel):
     excess_return_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                            help_text="3Y fund CAGR minus benchmark CAGR")
 
+    # ── Short-period returns (from SchemeMeta captnemo data) ─────────────────
+    returns_1w_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                         help_text="1-week return %")
+    returns_1m_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                         help_text="1-month return %")
+    returns_3m_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                         help_text="3-month return %")
+    returns_6m_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                         help_text="6-month return %")
+
+    # ── Quartile ranks within scheme_sub_category (1=top, 4=bottom) ──────────
+    quartile_return_1y   = models.IntegerField(null=True, blank=True, db_index=True,
+                                               help_text="Q1–Q4 rank for 1Y return within sub-category")
+    quartile_return_3y   = models.IntegerField(null=True, blank=True, db_index=True,
+                                               help_text="Q1–Q4 rank for 3Y return within sub-category")
+    quartile_return_5y   = models.IntegerField(null=True, blank=True, db_index=True,
+                                               help_text="Q1–Q4 rank for 5Y return within sub-category")
+    quartile_volatility  = models.IntegerField(null=True, blank=True,
+                                               help_text="Q1–Q4 rank for volatility (lower vol = Q1)")
+    rolling_returns_json = models.JSONField(default=dict, blank=True,
+                                            help_text="Avg rolling return stats (1Y/3Y/5Y) for the scheme")
+    calendar_returns_json = models.JSONField(default=dict, blank=True,
+                                             help_text="Calendar year returns for the scheme")
+    quartile_sharpe      = models.IntegerField(null=True, blank=True,
+                                               help_text="Q1–Q4 rank for Sharpe ratio (higher = Q1)")
+    quartile_sortino     = models.IntegerField(null=True, blank=True,
+                                               help_text="Q1–Q4 rank for Sortino ratio (higher = Q1)")
+    quartile_model_score = models.IntegerField(null=True, blank=True, db_index=True,
+                                               help_text="Q1–Q4 rank for model score (higher = Q1)")
+
+    # ── Numeric rank for display (e.g. '12/97') ───────────────────────────────
+    rank_return_1y    = models.IntegerField(null=True, blank=True,
+                                            help_text="Numeric rank within sub-category for 1Y return")
+    rank_return_3y    = models.IntegerField(null=True, blank=True)
+    rank_return_5y    = models.IntegerField(null=True, blank=True)
+    rank_count_in_cat = models.IntegerField(null=True, blank=True,
+                                            help_text="Total peers in this sub-category at rank time")
+
     data_as_of = models.DateField(null=True, blank=True, db_index=True)
     nav_as_of = models.DateField(null=True, blank=True)
     analytics_as_of = models.DateField(null=True, blank=True)
@@ -273,7 +311,152 @@ class FundScreenerSnapshot(BaseModel):
             models.Index(fields=['excess_return_1y']),
             models.Index(fields=['excess_return_3y']),
             models.Index(fields=['data_as_of']),
+            models.Index(fields=['quartile_return_1y']),
+            models.Index(fields=['quartile_return_3y']),
+            models.Index(fields=['quartile_return_5y']),
+            models.Index(fields=['quartile_model_score']),
         ]
 
     def __str__(self):
         return f"Screener: {self.fund_name}"
+
+
+class FundModelScore(BaseModel):
+    """
+    Full scorer output (from apps.analytics.scorer.score_fund) stored per scheme.
+
+    Stored separately from FundScreenerSnapshot so the scorer can evolve
+    independently — bump score_version and rerun populate_screener to refresh.
+
+    Uses DB-only portfolio data (Option B): Composition pillar is UNRATED for
+    funds whose holdings haven't been fetched into the Holding table yet.
+    Performance + Risk + Cost pillars are always computed from analytics tables.
+    """
+    scheme        = models.OneToOneField(
+        Scheme, on_delete=models.CASCADE, related_name='model_score',
+    )
+    score_version = models.CharField(max_length=10, default='1.0',
+                                     help_text="scorer.MODEL_VERSION at compute time")
+    final_score   = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                        help_text="Overall composite score 0–100")
+    confidence    = models.CharField(max_length=20, blank=True,
+                                     help_text="RATED / PROVISIONAL / UNRATED")
+    score_badge   = models.CharField(max_length=20, blank=True,
+                                     help_text="Strong / Good / Fair / Weak / Poor")
+
+    # ── Pillar scores ─────────────────────────────────────────────────────────
+    score_performance = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    score_risk        = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    score_cost        = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    score_composition = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+
+    # ── Pillar status ─────────────────────────────────────────────────────────
+    perf_status  = models.CharField(max_length=20, blank=True)
+    risk_status  = models.CharField(max_length=20, blank=True)
+    cost_status  = models.CharField(max_length=20, blank=True)
+    comp_status  = models.CharField(max_length=20, blank=True)
+
+    # ── Red flags ─────────────────────────────────────────────────────────────
+    red_flags_json  = models.JSONField(default=list, blank=True,
+                                       help_text="List of red flag dicts from scorer")
+    red_flag_penalty = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+
+    overall_interpretation = models.TextField(blank=True)
+    nav_days               = models.IntegerField(null=True, blank=True)
+    computed_at            = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Fund Model Score'
+        indexes = [
+            models.Index(fields=['final_score']),
+            models.Index(fields=['confidence']),
+        ]
+
+    def __str__(self):
+        return f"Score: {self.scheme.amfi_code} | {self.final_score} ({self.confidence})"
+
+
+class CategorySnapshot(BaseModel):
+    """
+    Pre-computed aggregate metrics per SEBI sub-category.
+    Populated by: python manage.py populate_home_dashboard
+    One row per scheme_sub_category (direct Growth plans only).
+    """
+    category_group      = models.CharField(max_length=40, db_index=True)
+    scheme_sub_category = models.CharField(max_length=120, unique=True, db_index=True)
+    benchmark_name      = models.CharField(max_length=160, blank=True)
+    fund_count          = models.IntegerField(default=0)
+
+    # ── Return statistics (1Y) ────────────────────────────────────────────────
+    avg_return_1y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    max_return_1y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    min_return_1y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    median_return_1y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    excess_return_1y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    # ── Return statistics (3Y) ────────────────────────────────────────────────
+    avg_return_3y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    max_return_3y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    min_return_3y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    median_return_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    excess_return_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    # ── Return statistics (5Y) ────────────────────────────────────────────────
+    avg_return_5y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    max_return_5y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    min_return_5y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    median_return_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    # ── Risk statistics ───────────────────────────────────────────────────────
+    avg_volatility   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    avg_sharpe       = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    avg_sortino      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    avg_max_drawdown = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    # ── Score distribution ────────────────────────────────────────────────────
+    avg_model_score  = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    pct_strong       = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                           help_text="% funds with score >= 75")
+    pct_good         = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                           help_text="% funds with score 55–75")
+    pct_fair         = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                           help_text="% funds with score 40–55")
+    pct_weak         = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                           help_text="% funds with score < 40")
+
+    data_as_of = models.DateField(null=True, blank=True, db_index=True)
+
+    # ── Pre-computed time-series returns (for tabular heatmap UI) ───────────────
+    calendar_returns_json = models.JSONField(
+        default=dict, blank=True,
+        help_text=(
+            "Avg category CAGR % by calendar year. "
+            'Format: {"2018": 12.3, "2019": 8.1, ...}'
+        ),
+    )
+    quarterly_returns_json = models.JSONField(
+        default=dict, blank=True,
+        help_text=(
+            "Avg category trailing return % for standard periods. "
+            'Format: {"1W": 0.5, "1M": 1.2, "3M": 4.5, "6M": 8.0, "1Y": 14.2, "3Y": 11.1, "5Y": 13.5}'
+        ),
+    )
+    rolling_returns_json = models.JSONField(
+        default=dict, blank=True,
+        help_text=(
+            "Avg category rolling return stats (1Y/3Y/5Y). "
+            'Format: {"1Y": {"avg": 12.3, "max": 20.1, "min": -5.4, "pos_pct": 80.5}, ...}'
+        ),
+    )
+
+    class Meta:
+        verbose_name = 'Category Snapshot'
+        verbose_name_plural = 'Category Snapshots'
+        ordering = ['category_group', 'scheme_sub_category']
+        indexes = [
+            models.Index(fields=['category_group']),
+            models.Index(fields=['data_as_of']),
+        ]
+
+    def __str__(self):
+        return f"CategorySnapshot: {self.scheme_sub_category} ({self.fund_count} funds)"

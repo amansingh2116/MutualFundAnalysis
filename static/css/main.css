@@ -1256,3 +1256,120 @@ input[type="range"]::-webkit-slider-thumb {
     right: 12px !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   RESEARCH HUB UTILITIES
+   ════════════════════════════════════════════════════════════════ */
+
+/* Surface aliases used by Research page inline styles */
+:root {
+  --surface-2: var(--bg-elevated);
+  --surface-3: var(--bg-card-hover);
+}
+
+/* .page-header — flex row header used on all Research pages */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+/* .empty-state — zero-data placeholder */
+.empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 60px 24px;
+}
+.empty-state h3 { color: var(--text-primary); margin-bottom: 8px; }
+
+/* .data-table — styled table for Research pages */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table thead th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  background: var(--bg-surface);
+}
+.data-table thead th.sortable { cursor: pointer; user-select: none; }
+.data-table thead th.sortable:hover { color: var(--text-secondary); }
+.data-table thead th.num { text-align: right; }
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.data-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table td {
+  padding: 10px 14px;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+.data-table td.num { text-align: right; }
+
+/* Numeric cell alignment shortcut */
+.num { text-align: right !important; }
+
+/* Return colour helpers */
+.text-success { color: var(--emerald-400) !important; }
+.text-danger  { color: var(--red-400)     !important; }
+.text-warning { color: var(--amber-400)   !important; }
+.text-info    { color: var(--indigo-400)  !important; }
+
+/* .chip / .chip-active group filter pills */
+.chip {
+  padding: 5px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.chip:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+.chip.chip-active {
+  background: var(--accent-glow);
+  color: var(--indigo-400);
+  border-color: var(--border-accent);
+}
+
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-card-hover);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+  cursor: help;
+  margin-left: 4px;
+  vertical-align: text-top;
+}
+.info-icon:hover {
+  background: var(--indigo-500);
+  color: #ffffff;
+}

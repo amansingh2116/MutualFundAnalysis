@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Category Returns{% endblock %}
+{% block meta_description %}Heat-map table of mutual fund category returns — trailing, annual, and quarterly.{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px">
+  <div>
+    <h1 style="font-size:24px;font-weight:700;margin:0">📊 Category Return Meter</h1>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Average category returns across trailing, annual, and quarterly periods</p>
+  </div>
+</div>
+
+{# Group filter chips #}
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px" id="group-filter">
+  <button class="chip chip-active" onclick="filterGroup('all', this)">All</button>
+  {% for grp in groups %}
+  <button class="chip" onclick="filterGroup('{{ grp }}', this)">{{ grp }}</button>
+  {% endfor %}
+</div>
+
+{# Tab bar #}
+<div class="tabs" style="margin-bottom:16px">
+  <button class="tab-btn active" id="tab-trailing" onclick="switchMeterTab('trailing')">Trailing Returns</button>
+  <button class="tab-btn" id="tab-annual" onclick="switchMeterTab('annual')">Annual Returns</button>
+  <button class="tab-btn" id="tab-rolling" onclick="switchMeterTab('rolling')">Rolling Returns</button>
+</div>
+
+{# ── Trailing Returns Table ── #}
+<div id="panel-trailing">
+  <div class="card" style="overflow-x:auto">
+    <table class="data-table" id="trailing-table">
+      <thead>
+        <tr>
+          <th style="min-width:200px">Category</th>
+          <th class="num">Funds</th>
+          <th class="num">1W%</th>
+          <th class="num">1M%</th>
+          <th class="num">3M%</th>
+          <th class="num">6M%</th>
+          <th class="num">1Y%</th>
+          <th class="num">3Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y% CAGR" data-t-what="Compound Annual Growth Rate over the last 3 years">&#9432;</button></th>
+          <th class="num">5Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y% CAGR" data-t-what="Compound Annual Growth Rate over the last 5 years">&#9432;</button></th>
+          <th class="num">Avg Vol <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Volatility" data-t-what="Average Annualised Volatility (Standard Deviation) of funds in the category">&#9432;</button></th>
+          <th class="num">Avg Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Sharpe" data-t-what="Average Sharpe Ratio (Risk-Adjusted Return) of funds in the category">&#9432;</button></th>
+          <th class="num">Avg Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Max Drawdown" data-t-what="Average Maximum Drawdown (peak-to-trough drop) of funds in the category">&#9432;</button></th>
+        </tr>
+      </thead>
+      <tbody id="trailing-body"></tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Annual Returns Table ── #}
+<div id="panel-annual" style="display:none">
+  <div class="card" style="overflow-x:auto">
+    <table class="data-table" id="annual-table">
+      <thead id="annual-head">
+        <tr><th style="min-width:200px">Category</th></tr>
+      </thead>
+      <tbody id="annual-body"></tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Rolling Returns Table ── #}
+<div id="panel-rolling" style="display:none">
+  <div class="card" style="overflow-x:auto">
+    <table class="data-table" id="rolling-table">
+      <thead>
+        <tr>
+          <th style="min-width:200px">Category</th>
+          <th class="num">Funds</th>
+          <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Average" data-t-what="Average 1-Year Rolling Return over the fund's history">&#9432;</button></th>
+          <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Average" data-t-what="Average 3-Year Rolling Return">&#9432;</button></th>
+          <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Average" data-t-what="Average 5-Year Rolling Return">&#9432;</button></th>
+          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Maximum 1-Year Rolling Return observed">&#9432;</button></th>
+          <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max" data-t-what="Maximum 3-Year Rolling Return observed">&#9432;</button></th>
+          <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max" data-t-what="Maximum 5-Year Rolling Return observed">&#9432;</button></th>
+          <th class="num">1Y Positive% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Positive%" data-t-what="Percentage of 1-Year rolling periods with positive returns">&#9432;</button></th>
+        </tr>
+      </thead>
+      <tbody id="rolling-body"></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ALL_DATA = {{ category_snapshots_json|safe }};
+let currentGroup = 'all';
+
+// Build year columns from data
+function getYears() {
+  const years = new Set();
+  ALL_DATA.forEach(d => Object.keys(d.calendar || {}).forEach(y => years.add(y)));
+  return Array.from(years).sort();
+}
+
+function heatColor(val, min, max) {
+  if (val === null || val === undefined) return 'transparent';
+  const range = Math.max(max - min, 1);
+  const t = (val - min) / range; // 0=min, 1=max
+  if (val < 0) {
+    const intensity = Math.min(Math.abs(val) / 25, 1);
+    return `rgba(239,68,68,${0.15 + intensity * 0.6})`;
+  }
+  if (t < 0.33) return `rgba(251,191,36,${0.2 + t * 1.2})`;
+  if (t < 0.66) return `rgba(34,197,94,${0.2 + t * 0.8})`;
+  return `rgba(16,185,129,${0.3 + t * 0.5})`;
+}
+
+function fmt(v, suffix='%') {
+  if (v === null || v === undefined) return '<span style="color:var(--text-muted)">—</span>';
+  const cls = v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '';
+  return `<span class="${cls}">${v.toFixed(2)}${suffix}</span>`;
+}
+
+function renderTrailing() {
+  const data = currentGroup === 'all' ? ALL_DATA : ALL_DATA.filter(d => d.group === currentGroup);
+  const tr = ALL_DATA.map(d => d.trailing);
+  const body = document.getElementById('trailing-body');
+  body.innerHTML = '';
+  const periods = ['1W','1M','3M','6M','1Y','3Y','5Y'];
+  // Compute min/max per period for heatmap
+  const minMax = {};
+  periods.forEach(p => {
+    const vals = data.map(d => d.trailing[p]).filter(v => v != null);
+    minMax[p] = {min: Math.min(...vals), max: Math.max(...vals)};
+  });
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+    const cat_url = `/research/categories/${d.slug}/`;
+    let html = `<td><a href="${cat_url}" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${d.name}</a><br><span style="color:var(--text-muted);font-size:11px">${d.group}</span></td>`;
+    html += `<td class="num">${d.fund_count}</td>`;
+    periods.forEach(p => {
+      const val = d.trailing[p] ?? null;
+      const mm = minMax[p];
+      const bg = heatColor(val, mm.min, mm.max);
+      html += `<td class="num" style="background:${bg}">${fmt(val)}</td>`;
+    });
+    // Vol, Sharpe, Drawdown
+    html += `<td class="num">${fmt(d.avg_vol)}</td>`;
+    html += `<td class="num">${d.avg_sharpe != null ? d.avg_sharpe.toFixed(2) : '—'}</td>`;
+    html += `<td class="num text-danger">${fmt(d.avg_drawdown)}</td>`;
+    tr.innerHTML = html;
+    body.appendChild(tr);
+  });
+}
+
+function renderAnnual() {
+  const years = getYears();
+  const data = currentGroup === 'all' ? ALL_DATA : ALL_DATA.filter(d => d.group === currentGroup);
+  // Build header
+  const thead = document.getElementById('annual-head');
+  thead.innerHTML = `<tr><th style="min-width:200px">Category</th>${years.map(y => `<th class="num">${y}</th>`).join('')}</tr>`;
+  // Min/max per year for heat coloring
+  const minMax = {};
+  years.forEach(y => {
+    const vals = data.map(d => d.calendar[y]).filter(v => v != null);
+    minMax[y] = {min: Math.min(...vals), max: Math.max(...vals)};
+  });
+  const body = document.getElementById('annual-body');
+  body.innerHTML = '';
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+    const cat_url = `/research/categories/${d.slug}/`;
+    let html = `<td><a href="${cat_url}" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${d.name}</a><br><span style="color:var(--text-muted);font-size:11px">${d.group}</span></td>`;
+    years.forEach(y => {
+      const val = d.calendar[y] ?? null;
+      const mm = minMax[y] || {min:0, max:1};
+      const bg = heatColor(val, mm.min, mm.max);
+      html += `<td class="num" style="background:${bg}">${fmt(val)}</td>`;
+    });
+    tr.innerHTML = html;
+    body.appendChild(tr);
+  });
+}
+
+function renderRolling() {
+  const data = currentGroup === 'all' ? ALL_DATA : ALL_DATA.filter(d => d.group === currentGroup);
+  const periods = ['1Y', '3Y', '5Y'];
+  
+  // Compute min/max per period for avg heatmap
+  const minMax = {};
+  periods.forEach(p => {
+    const vals = data.map(d => d.rolling && d.rolling[p] ? d.rolling[p].avg : null).filter(v => v != null);
+    minMax[p] = {min: Math.min(...vals), max: Math.max(...vals)};
+  });
+
+  const body = document.getElementById('rolling-body');
+  body.innerHTML = '';
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+    const cat_url = `/research/categories/${d.slug}/`;
+    let html = `<td><a href="${cat_url}" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${d.name}</a><br><span style="color:var(--text-muted);font-size:11px">${d.group}</span></td>`;
+    html += `<td class="num">${d.fund_count}</td>`;
+    
+    // Average
+    periods.forEach(p => {
+      const val = (d.rolling && d.rolling[p]) ? d.rolling[p].avg : null;
+      const mm = minMax[p] || {min:0, max:1};
+      const bg = heatColor(val, mm.min, mm.max);
+      html += `<td class="num" style="background:${bg}">${fmt(val)}</td>`;
+    });
+    
+    // Max
+    periods.forEach(p => {
+      const val = (d.rolling && d.rolling[p]) ? d.rolling[p].max : null;
+      html += `<td class="num">${fmt(val)}</td>`;
+    });
+    
+    // Positive %
+    const pos = (d.rolling && d.rolling['1Y']) ? d.rolling['1Y'].pos_pct : null;
+    html += `<td class="num" style="color:var(--text-muted)">${pos != null ? pos.toFixed(1) + '%' : '—'}</td>`;
+    
+    tr.innerHTML = html;
+    body.appendChild(tr);
+  });
+}
+
+function switchMeterTab(tab) {
+  ['trailing','annual','rolling'].forEach(t => {
+    document.getElementById('panel-' + t).style.display = (t === tab) ? '' : 'none';
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'annual') renderAnnual();
+  else if (tab === 'rolling') renderRolling();
+  else renderTrailing();
+}
+
+function filterGroup(group, btn) {
+  currentGroup = group;
+  document.querySelectorAll('#group-filter .chip').forEach(b => b.classList.remove('chip-active'));
+  btn.classList.add('chip-active');
+  const activeTab = document.querySelector('.tab-btn.active').id.replace('tab-', '');
+  if (activeTab === 'trailing') renderTrailing();
+  else if (activeTab === 'rolling') renderRolling();
+  else renderAnnual();
+}
+
+// Initial render
+renderTrailing();
+</script>
+{% endblock %}

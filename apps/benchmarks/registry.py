@@ -98,6 +98,16 @@ class BenchmarkResolution:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
+    # ── Custom / Broad Market ──
+    "BSE 100": BenchmarkDefinition("BSE 100", yahoo_tickers=("BSE-100.BO",)),
+    "BSE 150 MidCap Index": BenchmarkDefinition("BSE 150 MidCap Index", yahoo_tickers=("BSE-150.BO",)),
+    "BSE 200": BenchmarkDefinition("BSE 200", yahoo_tickers=("BSE-200.BO",)),
+    "BSE 250 LargeMidCap Index": BenchmarkDefinition("BSE 250 LargeMidCap Index", yahoo_tickers=("BSE-250.BO",)),
+    "BSE 250 SmallCap Index": BenchmarkDefinition("BSE 250 SmallCap Index", yahoo_tickers=("BSE-250.BO",)),
+    "BSE 500": BenchmarkDefinition("BSE 500", yahoo_tickers=("BSE-500.BO",)),
+    "BSE Bankex": BenchmarkDefinition("BSE Bankex", yahoo_tickers=("BSE-BANKEX.BO",)),
+    "SENSEX": BenchmarkDefinition("SENSEX", yahoo_tickers=("^BSESN",)),
+
 
     # ── Broad Market ──────────────────────────────────────────────────────────
     "NIFTY 50": BenchmarkDefinition(

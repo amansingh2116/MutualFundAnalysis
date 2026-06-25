@@ -56,3 +56,100 @@ class BenchmarkNAV(BaseModel):
 
     def __str__(self):
         return f"{self.index.name} | {self.date} | {self.close}"
+
+
+class BenchmarkReturns(BaseModel):
+    """
+    Pre-computed return snapshot for each BenchmarkIndex.
+    Populated by: python manage.py populate_benchmark_returns
+
+    Since-launch return uses the earliest BenchmarkNAV date as proxy for
+    the index launch date (dynamic — no hardcoded map needed).
+    """
+    index    = models.OneToOneField(
+        BenchmarkIndex, on_delete=models.CASCADE, related_name='returns',
+    )
+
+    # ── Period returns (CAGR %) ───────────────────────────────────────────────
+    ret_1w           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="1-week simple return %")
+    ret_1m           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="1-month simple return %")
+    ret_3m           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="3-month simple return %")
+    ret_6m           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="6-month simple return %")
+    ret_ytd          = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="Year-to-date return % (Jan 1 to today)")
+    ret_1y           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="1-year CAGR %")
+    ret_3y           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="3-year CAGR %")
+    ret_5y           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="5-year CAGR %")
+    ret_10y          = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="10-year CAGR %")
+    ret_since_launch = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="CAGR from first BenchmarkNAV date to today")
+
+    # ── Risk metrics (annualised) ─────────────────────────────────────────────
+    volatility_1y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="1Y annualised volatility %")
+    volatility_3y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="3Y annualised volatility %")
+    volatility_5y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="5Y annualised volatility %")
+    sharpe_1y        = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="1Y Sharpe ratio")
+    sharpe_3y        = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="3Y Sharpe ratio")
+    sharpe_5y        = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="5Y Sharpe ratio")
+    max_drawdown_1y  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="1Y max drawdown %")
+    max_drawdown_3y  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="3Y max drawdown %")
+    max_drawdown_5y  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="5Y max drawdown %")
+
+    # ── Time-series returns ───────────────────────────────────────────────────
+    calendar_returns_json = models.JSONField(default=dict, blank=True,
+                                             help_text="Calendar year returns for the index")
+    rolling_returns_json = models.JSONField(default=dict, blank=True,
+                                            help_text="Rolling return stats (1Y/3Y/5Y) for the index")
+
+    # ── Metadata ──────────────────────────────────────────────────────────────
+    launch_date  = models.DateField(null=True, blank=True,
+                                    help_text="Earliest BenchmarkNAV date (proxy for index launch)")
+    data_as_of   = models.DateField(null=True, blank=True,
+                                    help_text="Date of most recent BenchmarkNAV used")
+    nav_count    = models.IntegerField(default=0,
+                                       help_text="Number of BenchmarkNAV rows used")
+
+    class Meta:
+        verbose_name = 'Benchmark Returns'
+        verbose_name_plural = 'Benchmark Returns'
+
+    def __str__(self):
+        return f"Returns: {self.index.name} | as_of={self.data_as_of}"
+
+
+class UserBenchmarkProfile(BaseModel):
+    """
+    Stores a user's personalized list of benchmark indices to display
+    on the Research > Benchmarks page.
+    Each user gets one row; the watchlist is a JSON list of BenchmarkIndex IDs.
+    """
+    user         = models.OneToOneField(
+        'auth.User', on_delete=models.CASCADE, related_name='benchmark_profile',
+    )
+    watchlist    = models.JSONField(
+        default=list, blank=True,
+        help_text="Ordered list of BenchmarkIndex PKs the user has selected.",
+    )
+
+    class Meta:
+        verbose_name = 'User Benchmark Profile'
+
+    def __str__(self):
+        return f"BenchmarkProfile: {self.user.username} ({len(self.watchlist)} indices)"
