@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Net Worth Calculator{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Net Worth Calculator</span>
+</div>
+<div class="page-header">
+  <div class="page-title">🏛️ Net Worth Calculator</div>
+  <div class="page-subtitle">Tally your assets, subtract your debts and what is left is your Net Worth. This is calculated locally on your device.</div>
+</div>
+
+<div class="calc-layout" style="grid-template-columns: 2fr 1fr;">
+  <!-- Left Side: Inputs -->
+  <div class="calc-inputs" style="padding: 24px;">
+    
+    <div class="grid-2" style="gap: 24px; align-items: start;">
+      <!-- Assets Section -->
+      <div>
+        <h3 style="color: var(--emerald-400); margin-top: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Assets</h3>
+        
+        <h4 style="font-size: 14px; margin-top: 16px; margin-bottom: 8px; color: var(--indigo-400);">Cash & Cash Equivalents</h4>
+        <div class="form-group"><label class="form-label">Cash</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Bank Deposits</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        
+        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Investments</h4>
+        <div class="form-group"><label class="form-label">Mutual Funds</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Stock Market</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Bonds/Debentures</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Stock/Bonds held personally</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Digital gold and other commodities</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Other debt investments</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+
+        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Retirement & Insurance</h4>
+        <div class="form-group"><label class="form-label">EPF</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">PPF</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">NPS Balance</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Pension Plan Balance</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Life Insurance</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Annuity (Surrender Value)</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Other</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+
+        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Real Estate & Physical Assets</h4>
+        <div class="form-group"><label class="form-label">Primary Home Market Value</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Real Estate (Other)</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Jewellery/ gemstones/ precious metals</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Collectibles</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Furnishings / Art</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Other Assets</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+      </div>
+
+      <!-- Liabilities Section -->
+      <div>
+        <h3 style="color: var(--rose-400); margin-top: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Liabilities</h3>
+        
+        <h4 style="font-size: 14px; margin-top: 16px; margin-bottom: 8px; color: var(--indigo-400);">Loans & Debts</h4>
+        <div class="form-group"><label class="form-label">Home Loan (residual)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Auto Loan (residual)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Student Loan (residual)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Business Loan / Line of Credit</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Investment debt margin</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Other debts</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+
+        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Current Payables</h4>
+        <div class="form-group"><label class="form-label">Credit Card Balance(s)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Back-taxes/taxes payable outstanding</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side: Results -->
+  <div class="calc-results" style="position: sticky; top: 20px; align-self: start; padding: 24px;">
+    <h3 style="margin-top: 0; margin-bottom: 24px; font-size: 18px;">Summary</h3>
+    
+    <div style="background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:12px; padding:20px; margin-bottom:16px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+        <span style="font-weight: 600; color: var(--text-secondary);">Total Assets</span>
+        <span id="tot-assets" style="font-weight: 700; color: var(--emerald-400); font-size: 16px;">₹ 0</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px;">
+        <span style="font-weight: 600; color: var(--text-secondary);">Total Liability</span>
+        <span id="tot-liabilities" style="font-weight: 700; color: var(--rose-400); font-size: 16px;">₹ 0</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 700; font-size: 18px; color: var(--text-primary);">Your Net Worth</span>
+        <span id="net-worth" style="font-weight: 800; font-size: 24px; color: var(--indigo-400);">₹ 0</span>
+      </div>
+    </div>
+    
+    <button type="button" class="btn btn-secondary" onclick="resetCalculator()" style="width: 100%; justify-content: center;">Reset Calculator</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function formatCurrency(val) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+  }).format(val);
+}
+
+function calculateNetWorth() {
+  let assets = 0;
+  let liabilities = 0;
+  
+  document.querySelectorAll('.nw-asset').forEach(input => {
+    assets += parseFloat(input.value) || 0;
+  });
+  
+  document.querySelectorAll('.nw-liability').forEach(input => {
+    liabilities += parseFloat(input.value) || 0;
+  });
+  
+  const netWorth = assets - liabilities;
+  
+  document.getElementById('tot-assets').textContent = formatCurrency(assets);
+  document.getElementById('tot-liabilities').textContent = formatCurrency(liabilities);
+  document.getElementById('net-worth').textContent = formatCurrency(netWorth);
+  
+  const nwElement = document.getElementById('net-worth');
+  if (netWorth < 0) {
+    nwElement.style.color = 'var(--rose-400)';
+  } else {
+    nwElement.style.color = 'var(--indigo-400)';
+  }
+}
+
+function resetCalculator() {
+  document.querySelectorAll('.nw-asset, .nw-liability').forEach(input => {
+    input.value = 0;
+  });
+  calculateNetWorth();
+}
+
+// Attach listeners to all inputs to recalculate instantly
+document.querySelectorAll('.nw-asset, .nw-liability').forEach(input => {
+  input.addEventListener('input', calculateNetWorth);
+  
+  // Select all text on focus for easier typing
+  input.addEventListener('focus', function() {
+    this.select();
+  });
+});
+
+// Run calculation initially
+calculateNetWorth();
+</script>
+{% endblock %}

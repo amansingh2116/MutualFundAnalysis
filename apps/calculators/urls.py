@@ -17,6 +17,7 @@ urlpatterns = [
     path('step-sip/', views.step_sip_view, name='step_sip'),
     path('compare/', views.compare_view, name='compare'),
     path('stp/', views.stp_view, name='stp'),
+    path('net-worth/', views.net_worth_view, name='net_worth'),
     # API endpoints
     path('api/sip/', views.calc_sip_api, name='api_sip'),
     path('api/lumpsum/', views.calc_lumpsum_api, name='api_lumpsum'),

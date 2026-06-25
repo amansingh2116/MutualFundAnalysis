@@ -23,6 +23,10 @@ def rolling_view(request):
     return render(request, 'calculators/rolling.html')
 
 
+def net_worth_view(request):
+    return render(request, 'calculators/net_worth.html')
+
+
 def sip_view(request):
     return render(request, 'calculators/sip.html')
 
