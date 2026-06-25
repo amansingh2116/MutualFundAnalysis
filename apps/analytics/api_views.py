@@ -516,7 +516,7 @@ def analysis_api(request, amfi_code):
     Fund analysis scorecard API.
 
     Returns a full multi-factor scorecard for the fund:
-      - 5-pillar scores (Performance, Risk, Cost, Composition, Red Flags)
+      - 6-pillar scores (Performance, Risk, Cost, Composition, Debt, Manager) and Red Flags
       - Overall composite score
       - Confidence level (Rated / Provisional / Unrated)
       - Category rank
@@ -567,6 +567,8 @@ def analysis_api(request, amfi_code):
             "risk":               _pillar_json(result.risk),
             "cost":               _pillar_json(result.cost),
             "composition":        _pillar_json(result.composition),
+            "manager":            _pillar_json(result.manager),
+            "debt":               _pillar_json(result.debt),
             "red_flags": {
                 "flags":         result.red_flags["flags"],
                 "total_penalty": result.red_flags["total_penalty"],

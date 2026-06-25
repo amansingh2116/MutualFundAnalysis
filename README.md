@@ -23,7 +23,7 @@
   - **Category Analysis**: Score distribution (Strong/Good/Fair/Weak), risk, and return stats per category.
   - **Browse by Category**: Mega-chip grid linked directly to screener filters.
   - **Quartile Rankings**: Dynamic Q1-Q4 rankings and percentile ranks for all funds in a category.
-- **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`). *Note: Currently, the system uses DB-only composition data (Option B) for speed, but will transition to full API scoring (Option A) in the future for maximum accuracy.*
+- **Scorecard System (v2)**: 100-point category-normalized, 6-pillar dynamic scoring model evaluating Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, and Manager Quality & Governance (see `documentation/SCORING_MODEL.md`). *Note: Currently, the system uses DB-only composition data (Option B) for speed, but will transition to full API scoring (Option A) in the future for maximum accuracy.*
 - **Compare Selected**: Multi-select up to 5 funds across the Browse and Screener tabs to instantly send them to the **Compare Funds calculator**. Compare them side-by-side across Overview, Returns, Risk, and Portfolio tabs. Includes dynamic Overlapping Best/Worst Quarters analysis, Sector Allocation mini-donuts, Risk vs Return scatter plots, and intelligent benchmark fallback (using NIFTY COMPOSITE DEBT INDEX for debt funds).
 - **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `documentation/PEER_MATCHING.md`).
 

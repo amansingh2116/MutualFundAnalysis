@@ -131,7 +131,7 @@ The most complex service. Key design decisions:
 ### F. Advanced Fund Screener & Home Dashboard Pipeline (`apps/funds/screener.py`)
 Because the analytics engine is heavily computational, screening across thousands of funds requires local caching.
 - **`FundScreenerSnapshot` Model**: Denormalized table storing AUM, expense ratios, trailing returns (1Y/3Y/5Y), rolling returns (3Y/5Y), calendar returns (`calendar_returns_json`), volatility, Sharpe, Sortino, Max Drawdown, Alpha, short-term returns (1W/1M/3M/6M), 5Y risk metrics (`volatility_5y_pct`, `sharpe_ratio_5y`, etc.), and quartile/percentile ranks.
-- **`FundModelScore` Model**: Stores the 100-point dynamic scoring results per scheme across Performance, Risk, Cost, and Composition pillars. 
+- **`FundModelScore` Model**: Stores the 100-point dynamic scoring results per scheme across Performance, Risk, Cost, Composition, Debt Quality, and Manager Quality pillars. 
   - *Note on Scoring:* Currently, the pipeline uses DB-only composition data (Option B) for speed (funds without local holdings are marked UNRATED for composition). In the future, we will transition to full API scoring (Option A) for more comprehensive portfolio analysis.
 - **`populate_screener` Command**: An integrated data pipeline that runs sequentially:
   1. Fetches NAV history (`mfapi.in`)

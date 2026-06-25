@@ -1052,7 +1052,7 @@
         <!-- Text summary -->
         <div style="flex:1;min-width:220px">
           <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:6px">Overall Score
-            <button class="info-btn" aria-label="Overall Score" data-t-title="Overall Fund Score (0–100)" data-t-what="A composite score computed from 4 pillars: Performance (30%), Risk/Stability (28%), Cost (12%), and Composition (15%), minus any Red Flag penalties (up to 15 pts)." data-t-interp="<strong>80–100:</strong> Excellent fund, top decile. <strong>60–80:</strong> Good. <strong>40–60:</strong> Average, check reasons. <strong>&lt;40:</strong> Poor." data-t-note="This is a quantitative model score, not investment advice. Always review the methodology notes below.">ⓘ</button>
+            <button class="info-btn" aria-label="Overall Score" data-t-title="Overall Fund Score (0–100)" data-t-what="A composite score computed from 6 pillars: Performance (30%), Risk/Stability (25%), Cost (15%), Composition (15%), Manager Quality (15%), and Debt Quality (10% for debt/hybrid), minus any Red Flag penalties (up to 20 pts). Weights shift by fund type — index funds have no Manager pillar." data-t-interp="<strong>80–100:</strong> Outstanding fund, top decile. <strong>65–79:</strong> Strong. <strong>50–64:</strong> Good. <strong>35–49:</strong> Fair. <strong>&lt;35:</strong> Weak or Poor." data-t-note="This is a quantitative model score (v2), not investment advice. Always review the methodology notes below.">ⓘ</button>
           </div>
           <div style="font-size:15px;font-weight:600;line-height:1.6;color:var(--text-primary)" id="overall-interp"></div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap" id="meta-badges"></div>
@@ -1060,7 +1060,7 @@
         <!-- Rank -->
         <div id="rank-card" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px 24px;text-align:center;flex-shrink:0">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Category Rank
-            <button class="info-btn" aria-label="Category Rank" data-t-title="Category Rank" data-t-what="This fund's rank among all funds in the same SEBI category (e.g., Large Cap, Flexi Cap) in our database, sorted by their composite score." data-t-interp="Rank #1 of 50 = best-scoring fund in its category. Lower rank number = better.">ⓘ</button>
+            <button class="info-btn" aria-label="Category Rank" data-t-title="Category Rank" data-t-what="This fund's rank among all funds in the same SEBI category (e.g., Large Cap, Flexi Cap) in our database, sorted by their composite v2 model score." data-t-interp="Rank #1 of 50 = best-scoring fund in its category. Percentile shows how you rank within the peer group — Top 5% = in the top 5 out of 100 peers. Lower rank number = better.">ⓘ</button>
           </div>
           <div id="rank-display" style="font-size:32px;font-weight:800;color:#6366f1;line-height:1">—</div>
           <div id="rank-total" style="font-size:11px;color:var(--text-muted);margin-top:2px"></div>
@@ -1164,6 +1164,52 @@
         </div>
       </div>
 
+      <!-- Manager Quality -->
+      <div class="card" id="card-manager">
+        <div class="card-header">
+          <div class="card-title">🧑‍💼 Manager Quality
+            <button class="info-btn" aria-label="Manager Score" data-t-title="Manager Quality Pillar" data-t-what="Evaluates the fund manager's tenure, average alpha, and the overall governance quality of the AMC. Carries 10% weight." data-t-interp="Higher score indicates an experienced manager consistently outperforming benchmarks, backed by a highly-rated AMC.">ⓘ</button>
+          </div>
+          <span id="badge-manager" class="pill"></span>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:10px;border-radius:5px">
+                <div id="bar-manager" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
+              </div>
+            </div>
+            <div id="score-manager" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div id="interp-manager" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
+          <div id="details-manager" class="metrics-dl" style="gap:6px"></div>
+          <div id="missing-manager" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Debt Quality -->
+      <div class="card" id="card-debt">
+        <div class="card-header">
+          <div class="card-title">🏦 Debt Quality
+            <button class="info-btn" aria-label="Debt Score" data-t-title="Debt Quality Pillar" data-t-what="Evaluates the credit rating profile, modified duration mismatch, yield to maturity, and sovereign/AAA liquidity of debt instruments. Replaces Composition for Debt funds." data-t-interp="A higher score indicates safer, highly-rated bonds with lower interest rate risk relative to the category.">ⓘ</button>
+          </div>
+          <span id="badge-debt" class="pill"></span>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:10px;border-radius:5px">
+                <div id="bar-debt" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
+              </div>
+            </div>
+            <div id="score-debt" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div id="interp-debt" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
+          <div id="details-debt" class="metrics-dl" style="gap:6px"></div>
+          <div id="missing-debt" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
+        </div>
+      </div>
+
     </div><!-- /pillar grid -->
 
     <!-- ── Red Flags Panel ─────────────────────────────────────── -->
@@ -1200,14 +1246,17 @@
         <div class="card-body" style="font-size:12px;color:var(--text-secondary);line-height:1.8">
           <p><strong>Model Version:</strong> <span id="model-ver"></span> &nbsp;·&nbsp; <strong>NAV Days:</strong> <span id="nav-days-display"></span></p>
           <h4 style="color:var(--text-primary);margin:12px 0 6px">Scoring Framework</h4>
-          <p>This scorecard uses a <strong>category-normalized, multi-factor model</strong> to evaluate funds across 5 independent pillars. Each pillar is scored 0–100 and combined using fixed weights:</p>
+          <p>This scorecard uses a <strong>category-normalized, multi-factor model (v2)</strong> to evaluate funds across <strong>6 independent pillars</strong>. Each pillar is scored 0–100 and combined using category-adaptive weights:</p>
           <ul style="padding-left:18px;margin:6px 0">
-            <li><strong>Performance (30%)</strong> — Trailing CAGR (1Y/3Y/5Y), rolling win rate, excess return vs benchmark.</li>
-            <li><strong>Risk / Stability (28%)</strong> — Sortino ratio, max drawdown, downside capture ratio, Sharpe ratio. Emphasises downside control over total volatility.</li>
-            <li><strong>Cost (12%)</strong> — Expense ratio vs category-type norms, AUM size factor.</li>
-            <li><strong>Composition (15%)</strong> — Top-10 concentration, total holdings count, sector HHI (diversification index).</li>
-            <li><strong>Red Flag Penalty (up to −15 pts)</strong> — Structural risks deducted from the composite: missing benchmark, very high ER, low AUM, extreme concentration, insufficient data.</li>
+            <li><strong>Performance (30%)</strong> — Trailing CAGR (1Y/3Y/5Y), rolling win rates (3Y &amp; 5Y vs 0%), excess return vs benchmark, return consistency (calendar year std dev).</li>
+            <li><strong>Risk / Stability (25%)</strong> — Sortino ratio, max drawdown, downside capture, Sharpe ratio, Information Ratio, Beta, Up/Down asymmetry. Emphasises downside control over total volatility.</li>
+            <li><strong>Cost (15%)</strong> — Expense ratio vs category-type norms (direct vs regular, equity/debt/index/hybrid), AUM scale factor.</li>
+            <li><strong>Composition &amp; Liquidity (15%, equity/hybrid only)</strong> — Top-10 concentration, total holdings count, sector HHI, portfolio liquidity (large/mid/small-cap weightings), portfolio turnover.</li>
+            <li><strong>Debt Quality (15%, debt funds; 5% hybrid)</strong> — Credit rating profile, modified duration mismatch, yield-to-maturity vs category, % sovereign/AAA holdings.</li>
+            <li><strong>Manager Quality (15%)</strong> — Manager tenure, alpha track record, AMC governance score, number of funds managed, closet indexing check (R²).</li>
+            <li><strong>Red Flag Penalty (up to −20 pts)</strong> — Structural risks deducted from composite: missing benchmark, very high ER, low AUM, extreme concentration, SEBI regulatory action, high turnover without IR justification.</li>
           </ul>
+          <p style="font-size:11px;color:var(--text-muted)">Weight table differs for Index/ETF (higher Cost weight, no Manager/Composition) and Debt funds (no Composition, higher Cost). Skipped pillars are excluded and weights redistributed.</p>
           <h4 style="color:var(--text-primary);margin:12px 0 6px">Normalization &amp; Fallbacks</h4>
           <p>Each metric is linearly normalized to [0, 100] using fixed thresholds calibrated for the Indian mutual fund market. When data is missing for a pillar, the score for that pillar is excluded and weights are redistributed across available pillars. The confidence level (<strong>Rated / Provisional / Unrated</strong>) reflects data coverage.</p>
           <h4 style="color:var(--text-primary);margin:12px 0 6px">Category Rank</h4>
@@ -1433,10 +1482,12 @@ const BADGE_COLORS = {
   weak: '#f97316', poor: '#ef4444', 'n/a': '#64748b',
 };
 const PILLAR_META = {
-  performance:  { label: 'Performance',  color: '#6366f1', weight: 0.30 },
-  risk:         { label: 'Risk',         color: '#34d399', weight: 0.28 },
-  cost:         { label: 'Cost',         color: '#f59e0b', weight: 0.12 },
-  composition:  { label: 'Composition',  color: '#f87171', weight: 0.15 },
+  performance:  { label: 'Performance',    color: '#6366f1', weight: 0.30 },
+  risk:         { label: 'Risk',           color: '#34d399', weight: 0.25 },
+  cost:         { label: 'Cost',           color: '#f59e0b', weight: 0.15 },
+  composition:  { label: 'Composition',    color: '#f87171', weight: 0.15 },
+  manager:      { label: 'Manager',        color: '#a78bfa', weight: 0.15 },
+  debt:         { label: 'Debt Quality',   color: '#38bdf8', weight: 0.05 },
 };
 const CONFIDENCE_STYLES = {
   RATED:       { label: 'Rated',       bg: 'rgba(16,185,129,0.15)',  color: '#10b981', emoji: '✅' },
@@ -1526,7 +1577,8 @@ function renderRank(rankData) {
   if (!rankEl) return;
   if (rankData && rankData.rank) {
     rankEl.textContent = '#' + rankData.rank;
-    totalEl.textContent = `of ${rankData.total} funds`;
+    const pctText = rankData.percentile != null ? ` · Top ${(100 - rankData.percentile + 0.1).toFixed(0)}%` : '';
+    totalEl.textContent = `of ${rankData.total} funds${pctText}`;
     catEl.textContent = rankData.category || '';
   } else {
     rankEl.textContent = '—';
@@ -1565,12 +1617,17 @@ function renderScoreBreakdown(data) {
   const bar = document.getElementById('score-breakdown-bar');
   const legend = document.getElementById('score-breakdown-legend');
   if (!bar || !legend) return;
-  const pillars = [
+  // Use all 6 pillars; skip ones with null score (SKIPPED for this fund type)
+  const allPillars = [
     { key:'performance', ...PILLAR_META.performance },
     { key:'risk',        ...PILLAR_META.risk },
     { key:'cost',        ...PILLAR_META.cost },
     { key:'composition', ...PILLAR_META.composition },
+    { key:'manager',     ...PILLAR_META.manager },
+    { key:'debt',        ...PILLAR_META.debt },
   ];
+  // Only include pillars that are not SKIPPED
+  const pillars = allPillars.filter(p => data[p.key]?.status !== 'SKIPPED');
   const total = pillars.reduce((s, p) => s + (data[p.key]?.score != null ? p.weight : 0), 0) || 1;
   bar.innerHTML = pillars.map(p => {
     const score = data[p.key]?.score;
@@ -1625,7 +1682,7 @@ async function loadAnalysisScorecard() {
     if (nd) nd.textContent = d.nav_days ? `${d.nav_days} trading days (~${(d.nav_days/252).toFixed(1)} years)` : '—';
 
     // Pillars
-    ['performance','risk','cost','composition'].forEach(p => renderAnalysisPillar(p, d[p] || {}));
+    ['performance','risk','cost','composition','manager','debt'].forEach(p => renderAnalysisPillar(p, d[p] || {}));
 
     // Red flags
     renderRedFlags(d.red_flags || {flags:[], total_penalty:0});

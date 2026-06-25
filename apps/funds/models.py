@@ -344,7 +344,7 @@ class FundModelScore(BaseModel):
     scheme        = models.OneToOneField(
         Scheme, on_delete=models.CASCADE, related_name='model_score',
     )
-    score_version = models.CharField(max_length=10, default='1.0',
+    score_version = models.CharField(max_length=10, default='2.0',
                                      help_text="scorer.MODEL_VERSION at compute time")
     final_score   = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
                                         help_text="Overall composite score 0–100")
@@ -358,12 +358,16 @@ class FundModelScore(BaseModel):
     score_risk        = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
     score_cost        = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
     score_composition = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    score_debt        = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    score_manager     = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
 
     # ── Pillar status ─────────────────────────────────────────────────────────
     perf_status  = models.CharField(max_length=20, blank=True)
     risk_status  = models.CharField(max_length=20, blank=True)
     cost_status  = models.CharField(max_length=20, blank=True)
     comp_status  = models.CharField(max_length=20, blank=True)
+    debt_status  = models.CharField(max_length=20, blank=True)
+    manager_status = models.CharField(max_length=20, blank=True)
 
     # ── Red flags ─────────────────────────────────────────────────────────────
     red_flags_json  = models.JSONField(default=list, blank=True,
