@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Net Worth Calculator{% endblock %}
+{% block title %}Net Worth Calculator — MF Analysis{% endblock %}
 
 {% block content %}
 <div class="breadcrumb">
@@ -7,145 +7,356 @@
 </div>
 <div class="page-header">
   <div class="page-title">🏛️ Net Worth Calculator</div>
-  <div class="page-subtitle">Tally your assets, subtract your debts and what is left is your Net Worth. This is calculated locally on your device.</div>
+  <div class="page-subtitle">Tally your assets, subtract your debts — what remains is your Net Worth. All calculations run locally on your device.</div>
 </div>
 
-<div class="calc-layout" style="grid-template-columns: 2fr 1fr;">
-  <!-- Left Side: Inputs -->
-  <div class="calc-inputs" style="padding: 24px;">
-    
-    <div class="grid-2" style="gap: 24px; align-items: start;">
-      <!-- Assets Section -->
-      <div>
-        <h3 style="color: var(--emerald-400); margin-top: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Assets</h3>
-        
-        <h4 style="font-size: 14px; margin-top: 16px; margin-bottom: 8px; color: var(--indigo-400);">Cash & Cash Equivalents</h4>
-        <div class="form-group"><label class="form-label">Cash</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Bank Deposits</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        
-        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Investments</h4>
-        <div class="form-group"><label class="form-label">Mutual Funds</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Stock Market</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Bonds/Debentures</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Stock/Bonds held personally</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Digital gold and other commodities</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Other debt investments</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+<style>
+.nw-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 20px 0 10px;
+}
+.nw-section-title.assets { color: #34d399; background: rgba(52,211,153,0.08); border-left: 3px solid #34d399; }
+.nw-section-title.liabilities { color: #f87171; background: rgba(248,113,113,0.08); border-left: 3px solid #f87171; }
+.nw-section-title.investments { color: #818cf8; background: rgba(129,140,248,0.08); border-left: 3px solid #818cf8; }
+.nw-section-title.retirement { color: #fbbf24; background: rgba(251,191,36,0.08); border-left: 3px solid #fbbf24; }
+.nw-section-title.misc { color: #38bdf8; background: rgba(56,189,248,0.08); border-left: 3px solid #38bdf8; }
+.nw-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(148,163,184,0.06);
+}
+.nw-row:last-child { border-bottom: none; }
+.nw-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nw-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  transition: border-color 0.15s;
+  width: 160px;
+  flex-shrink: 0;
+}
+.nw-input-wrap:focus-within { border-color: #818cf8; }
+.nw-input-wrap span { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.nw-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  width: 100%;
+  text-align: right;
+}
+/* Remove arrows from number inputs */
+.nw-input::-webkit-inner-spin-button,
+.nw-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.nw-input[type="number"] { -moz-appearance: textfield; }
 
-        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Retirement & Insurance</h4>
-        <div class="form-group"><label class="form-label">EPF</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">PPF</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">NPS Balance</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Pension Plan Balance</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Life Insurance</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Annuity (Surrender Value)</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Other</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+.nw-summary-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.nw-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+}
+.nw-summary-row + .nw-summary-row { border-top: 1px solid var(--border-subtle); }
+.nw-summary-label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+.nw-summary-val { font-size: 16px; font-weight: 700; }
+.nw-networth-val {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #818cf8, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.1;
+}
+.nw-breakdown-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(148,163,184,0.12);
+  overflow: hidden;
+  margin: 6px 0 2px;
+}
+.nw-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.nw-cat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.nw-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+</style>
 
-        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Real Estate & Physical Assets</h4>
-        <div class="form-group"><label class="form-label">Primary Home Market Value</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Real Estate (Other)</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Jewellery/ gemstones/ precious metals</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Collectibles</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Furnishings / Art</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Other Assets</label><input class="form-control nw-asset" type="number" min="0" value="0"></div>
+<div style="display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start;">
+  <!-- Left: inputs -->
+  <div>
+    <!-- ─── ASSETS ─────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title" style="color: #34d399;">💚 Assets</div>
       </div>
+      <div class="card-body" style="padding: 16px 20px;">
 
-      <!-- Liabilities Section -->
-      <div>
-        <h3 style="color: var(--rose-400); margin-top: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Liabilities</h3>
-        
-        <h4 style="font-size: 14px; margin-top: 16px; margin-bottom: 8px; color: var(--indigo-400);">Loans & Debts</h4>
-        <div class="form-group"><label class="form-label">Home Loan (residual)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Auto Loan (residual)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Student Loan (residual)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Business Loan / Line of Credit</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Investment debt margin</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Other debts</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <!-- Cash & Liquid -->
+        <div class="nw-section-title assets">Cash & Liquid Assets</div>
+        <div class="nw-row"><span class="nw-label">Cash</span><div class="nw-input-wrap"><span>₹</span><input id="a_cash" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Bank Deposits (FD/RD/Savings)</span><div class="nw-input-wrap"><span>₹</span><input id="a_deposits" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Other debt investments</span><div class="nw-input-wrap"><span>₹</span><input id="a_debt_inv" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Bonds / Debentures</span><div class="nw-input-wrap"><span>₹</span><input id="a_bonds" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
 
-        <h4 style="font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: var(--indigo-400);">Current Payables</h4>
-        <div class="form-group"><label class="form-label">Credit Card Balance(s)</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
-        <div class="form-group"><label class="form-label">Back-taxes/taxes payable outstanding</label><input class="form-control nw-liability" type="number" min="0" value="0"></div>
+        <!-- Insurance -->
+        <div class="nw-section-title assets">Insurance & Annuities</div>
+        <div class="nw-row"><span class="nw-label">Life Insurance (surrender value)</span><div class="nw-input-wrap"><span>₹</span><input id="a_life_ins" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Annuity (Surrender Value)</span><div class="nw-input-wrap"><span>₹</span><input id="a_annuity" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+
+        <!-- Investments -->
+        <div class="nw-section-title investments">Market Investments</div>
+        <div class="nw-row"><span class="nw-label">Stock Market / Equities</span><div class="nw-input-wrap"><span>₹</span><input id="a_stocks" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Mutual Funds</span><div class="nw-input-wrap"><span>₹</span><input id="a_mf" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Stocks / Bonds held personally</span><div class="nw-input-wrap"><span>₹</span><input id="a_bonds_personal" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Real Estate (Investment property)</span><div class="nw-input-wrap"><span>₹</span><input id="a_re_inv" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Digital Gold & other commodities</span><div class="nw-input-wrap"><span>₹</span><input id="a_gold" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
+
+        <!-- Retirement -->
+        <div class="nw-section-title retirement">Retirement Accounts</div>
+        <div class="nw-row"><span class="nw-label">EPF (Employee Provident Fund)</span><div class="nw-input-wrap"><span>₹</span><input id="a_epf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">PPF (Public Provident Fund)</span><div class="nw-input-wrap"><span>₹</span><input id="a_ppf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">NPS Balance</span><div class="nw-input-wrap"><span>₹</span><input id="a_nps" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Pension Plan Balance</span><div class="nw-input-wrap"><span>₹</span><input id="a_pension" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Other Retirement Savings</span><div class="nw-input-wrap"><span>₹</span><input id="a_ret_other" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
+
+        <!-- Miscellaneous -->
+        <div class="nw-section-title misc">Miscellaneous Assets</div>
+        <div class="nw-row"><span class="nw-label">Primary Home Market Value</span><div class="nw-input-wrap"><span>₹</span><input id="a_home" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Collectibles</span><div class="nw-input-wrap"><span>₹</span><input id="a_collectibles" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Furnishings / Art</span><div class="nw-input-wrap"><span>₹</span><input id="a_furnishings" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Other Assets</span><div class="nw-input-wrap"><span>₹</span><input id="a_other" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Jewellery / gemstones / precious metals</span><div class="nw-input-wrap"><span>₹</span><input id="a_jewellery" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+      </div>
+    </div>
+
+    <!-- ─── LIABILITIES ────────────────────────────────────────── -->
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-header">
+        <div class="card-title" style="color: #f87171;">❤️ Liabilities</div>
+      </div>
+      <div class="card-body" style="padding: 16px 20px;">
+        <div class="nw-section-title liabilities">Secured Loans</div>
+        <div class="nw-row"><span class="nw-label">Home Loan (residual)</span><div class="nw-input-wrap"><span>₹</span><input id="l_home" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Auto Loan (residual)</span><div class="nw-input-wrap"><span>₹</span><input id="l_auto" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Business Loan / Line of Credit</span><div class="nw-input-wrap"><span>₹</span><input id="l_business" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Investment debt / Margin</span><div class="nw-input-wrap"><span>₹</span><input id="l_margin" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+
+        <div class="nw-section-title liabilities">Unsecured Loans & Payables</div>
+        <div class="nw-row"><span class="nw-label">Credit Card Balance(s)</span><div class="nw-input-wrap"><span>₹</span><input id="l_cc" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Student Loan (residual)</span><div class="nw-input-wrap"><span>₹</span><input id="l_student" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Personal Loans</span><div class="nw-input-wrap"><span>₹</span><input id="l_personal" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Back-taxes / taxes payable outstanding</span><div class="nw-input-wrap"><span>₹</span><input id="l_taxes" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Other debts</span><div class="nw-input-wrap"><span>₹</span><input id="l_other" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
       </div>
     </div>
   </div>
 
-  <!-- Right Side: Results -->
-  <div class="calc-results" style="position: sticky; top: 20px; align-self: start; padding: 24px;">
-    <h3 style="margin-top: 0; margin-bottom: 24px; font-size: 18px;">Summary</h3>
-    
-    <div style="background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:12px; padding:20px; margin-bottom:16px;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-        <span style="font-weight: 600; color: var(--text-secondary);">Total Assets</span>
-        <span id="tot-assets" style="font-weight: 700; color: var(--emerald-400); font-size: 16px;">₹ 0</span>
+  <!-- Right: sticky results panel -->
+  <div style="position: sticky; top: 70px;">
+    <div class="nw-summary-card">
+      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 16px;">Summary</div>
+      <div class="nw-summary-row">
+        <span class="nw-summary-label">Total Assets</span>
+        <span id="tot-assets" class="nw-summary-val" style="color:#34d399;">₹ 0</span>
       </div>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px;">
-        <span style="font-weight: 600; color: var(--text-secondary);">Total Liability</span>
-        <span id="tot-liabilities" style="font-weight: 700; color: var(--rose-400); font-size: 16px;">₹ 0</span>
+      <div class="nw-summary-row">
+        <span class="nw-summary-label">Total Liabilities</span>
+        <span id="tot-liabilities" class="nw-summary-val" style="color:#f87171;">₹ 0</span>
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-weight: 700; font-size: 18px; color: var(--text-primary);">Your Net Worth</span>
-        <span id="net-worth" style="font-weight: 800; font-size: 24px; color: var(--indigo-400);">₹ 0</span>
+      <div class="nw-summary-row" style="padding-top: 18px; margin-top: 4px; border-top: 2px solid var(--border);">
+        <div>
+          <div style="font-weight: 700; font-size: 14px; color: var(--text-primary); margin-bottom: 4px;">Your Net Worth</div>
+          <div id="nw-status" style="font-size: 11px; color: var(--text-muted);"></div>
+        </div>
+        <span id="net-worth" class="nw-networth-val">₹ 0</span>
       </div>
     </div>
-    
-    <button type="button" class="btn btn-secondary" onclick="resetCalculator()" style="width: 100%; justify-content: center;">Reset Calculator</button>
+
+    <!-- Asset Donut Chart -->
+    <div class="card" style="margin-bottom: 12px;">
+      <div class="card-header"><div class="card-title" style="font-size:13px;">Asset Breakdown</div></div>
+      <div class="card-body" style="padding: 12px 16px;">
+        <div id="nw-donut" style="height:180px;"></div>
+        <div id="nw-legend" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+
+    <!-- Category bars -->
+    <div class="card" style="margin-bottom: 12px;">
+      <div class="card-header"><div class="card-title" style="font-size:13px;">Category Totals</div></div>
+      <div class="card-body" style="padding: 10px 16px;" id="nw-cat-bars">
+        <div style="font-size:12px;color:var(--text-muted);text-align:center;padding:16px;">Enter values to see breakdown</div>
+      </div>
+    </div>
+
+    <!-- Solvency ratio -->
+    <div class="nw-summary-card" style="padding: 16px;">
+      <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:12px;">Solvency Ratio</div>
+      <div id="nw-solvency-bar" style="height:6px; border-radius:3px; background:rgba(148,163,184,0.12); overflow:hidden; margin-bottom:8px;">
+        <div id="nw-solvency-fill" style="height:100%; border-radius:3px; width:0%; background:linear-gradient(90deg,#f87171,#fbbf24,#34d399); transition:width .4s;"></div>
+      </div>
+      <div id="nw-solvency-text" style="font-size:12px; color:var(--text-muted);">Assets ÷ Liabilities: — </div>
+    </div>
+
+    <button onclick="resetCalculator()" class="btn btn-secondary" style="width:100%; justify-content:center; margin-top:4px;">🔄 Reset Calculator</button>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function formatCurrency(val) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(val);
-}
+const CATS = [
+  { label: 'Cash & Liquid',   ids: ['a_cash','a_deposits','a_debt_inv','a_bonds','a_life_ins','a_annuity'], color: '#34d399' },
+  { label: 'Investments',     ids: ['a_stocks','a_mf','a_bonds_personal','a_re_inv','a_gold'],             color: '#818cf8' },
+  { label: 'Retirement',      ids: ['a_epf','a_ppf','a_nps','a_pension','a_ret_other'],                    color: '#fbbf24' },
+  { label: 'Real Estate',     ids: ['a_home'],                                                              color: '#38bdf8' },
+  { label: 'Physical Assets', ids: ['a_collectibles','a_furnishings','a_other','a_jewellery'],             color: '#f472b6' },
+];
+
+const inp = id => parseFloat(document.getElementById(id)?.value || 0) || 0;
+const fmt = v => new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(v);
 
 function calculateNetWorth() {
-  let assets = 0;
-  let liabilities = 0;
-  
-  document.querySelectorAll('.nw-asset').forEach(input => {
-    assets += parseFloat(input.value) || 0;
-  });
-  
-  document.querySelectorAll('.nw-liability').forEach(input => {
-    liabilities += parseFloat(input.value) || 0;
-  });
-  
-  const netWorth = assets - liabilities;
-  
-  document.getElementById('tot-assets').textContent = formatCurrency(assets);
-  document.getElementById('tot-liabilities').textContent = formatCurrency(liabilities);
-  document.getElementById('net-worth').textContent = formatCurrency(netWorth);
-  
-  const nwElement = document.getElementById('net-worth');
-  if (netWorth < 0) {
-    nwElement.style.color = 'var(--rose-400)';
+  let assets = 0, liabilities = 0;
+  document.querySelectorAll('.nw-asset').forEach(el => assets += parseFloat(el.value) || 0);
+  document.querySelectorAll('.nw-liability').forEach(el => liabilities += parseFloat(el.value) || 0);
+  const nw = assets - liabilities;
+
+  document.getElementById('tot-assets').textContent = fmt(assets);
+  document.getElementById('tot-liabilities').textContent = fmt(liabilities);
+  const nwEl = document.getElementById('net-worth');
+  nwEl.textContent = fmt(nw);
+  nwEl.style.background = nw >= 0 ? 'linear-gradient(135deg,#818cf8,#34d399)' : 'linear-gradient(135deg,#f87171,#fbbf24)';
+  nwEl.style.webkitTextFillColor = 'transparent';
+  nwEl.style.webkitBackgroundClip = 'text';
+  document.getElementById('nw-status').textContent = nw >= 0 ? '✅ Positive Net Worth' : '⚠️ Negative Net Worth — review liabilities';
+
+  // Solvency ratio
+  const solvEl = document.getElementById('nw-solvency-text');
+  const fillEl = document.getElementById('nw-solvency-fill');
+  if (liabilities > 0) {
+    const ratio = (assets / liabilities).toFixed(2);
+    solvEl.textContent = `Assets ÷ Liabilities = ${ratio}x  ${parseFloat(ratio) >= 1 ? '(Solvent ✅)' : '(Insolvent ⚠️)'}`;
+    const pct = Math.min(100, (parseFloat(ratio) / 3) * 100);
+    fillEl.style.width = pct + '%';
   } else {
-    nwElement.style.color = 'var(--indigo-400)';
+    solvEl.textContent = `No liabilities — fully unencumbered`;
+    fillEl.style.width = '100%';
   }
+
+  // Category breakdown
+  const catData = CATS.map(c => ({
+    label: c.label,
+    color: c.color,
+    total: c.ids.reduce((s, id) => s + inp(id), 0),
+  })).filter(c => c.total > 0);
+
+  renderCatBars(catData, assets);
+  renderDonut(catData, liabilities);
+}
+
+function renderCatBars(catData, total) {
+  const el = document.getElementById('nw-cat-bars');
+  if (!catData.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:16px;">Enter values to see breakdown</div>';
+    return;
+  }
+  el.innerHTML = catData.map(c => {
+    const pct = total > 0 ? (c.total / total * 100).toFixed(1) : 0;
+    return `<div class="nw-cat-row">
+      <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+        <div class="nw-cat-dot" style="background:${c.color}"></div>
+        <span style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.label}</span>
+      </div>
+      <span style="font-size:11px;color:var(--text-muted);margin:0 8px;">${pct}%</span>
+      <span style="font-size:12px;font-weight:600;color:var(--text-primary);min-width:80px;text-align:right;">${fmt(c.total)}</span>
+    </div>
+    <div class="nw-breakdown-bar"><div class="nw-bar-fill" style="width:${pct}%;background:${c.color};"></div></div>`;
+  }).join('');
+}
+
+function renderDonut(catData, liabilities) {
+  const el = document.getElementById('nw-donut');
+  const legendEl = document.getElementById('nw-legend');
+  if (!catData.length) { el.innerHTML = ''; legendEl.innerHTML = ''; return; }
+
+  // Add liabilities as a wedge if any
+  const donutData = [...catData];
+  if (liabilities > 0) donutData.push({ label: 'Liabilities', color: '#f87171', total: liabilities });
+
+  const traces = [{
+    values: donutData.map(d => d.total),
+    labels: donutData.map(d => d.label),
+    type: 'pie', hole: 0.55,
+    textinfo: 'none',
+    hovertemplate: '<b>%{label}</b><br>%{value:,}<br>%{percent}<extra></extra>',
+    marker: { colors: donutData.map(d => d.color) },
+  }];
+
+  const totalAll = donutData.reduce((s, d) => s + d.total, 0);
+  Plotly.newPlot(el, traces, {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    showlegend: false,
+    margin: { t: 0, r: 0, b: 0, l: 0 },
+    annotations: [{
+      text: 'Assets', showarrow: false,
+      font: { color: '#94a3b8', size: 11 }
+    }]
+  }, { responsive: true, displayModeBar: false });
+
+  legendEl.innerHTML = donutData.map(d => `
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;font-size:11px;">
+      <div style="width:8px;height:8px;border-radius:2px;flex-shrink:0;background:${d.color}"></div>
+      <span style="color:var(--text-secondary);flex:1;">${d.label}</span>
+      <span style="color:var(--text-primary);font-weight:600;">${totalAll ? (d.total/totalAll*100).toFixed(1) : 0}%</span>
+    </div>`).join('');
 }
 
 function resetCalculator() {
-  document.querySelectorAll('.nw-asset, .nw-liability').forEach(input => {
-    input.value = 0;
-  });
+  document.querySelectorAll('.nw-input').forEach(el => el.value = 0);
   calculateNetWorth();
 }
 
-// Attach listeners to all inputs to recalculate instantly
-document.querySelectorAll('.nw-asset, .nw-liability').forEach(input => {
-  input.addEventListener('input', calculateNetWorth);
-  
-  // Select all text on focus for easier typing
-  input.addEventListener('focus', function() {
-    this.select();
-  });
+// Wire up all inputs
+document.querySelectorAll('.nw-input').forEach(el => {
+  el.addEventListener('input', calculateNetWorth);
+  el.addEventListener('focus', function() { this.select(); });
 });
 
-// Run calculation initially
+// Initial calculation
 calculateNetWorth();
 </script>
 {% endblock %}

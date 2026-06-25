@@ -591,7 +591,35 @@ class FundDetailView(DetailView):
             'manager_context': runtime.manager_context,
             'nav_range_options': NAV_RANGE_OPTIONS,
         })
+
+        # ── Category Average lookup ────────────────────────────────────────────
+        try:
+            sub_cat = (
+                FundScreenerSnapshot.objects
+                .filter(scheme=scheme)
+                .values_list('scheme_sub_category', flat=True)
+                .first()
+            ) or scheme.scheme_category or ''
+            cat_snap = None
+            if sub_cat:
+                cat_snap = CategorySnapshot.objects.filter(
+                    scheme_sub_category__iexact=sub_cat
+                ).first()
+            ctx['category_snap'] = cat_snap
+            ctx['category_name'] = sub_cat
+            # Pre-serialize rolling_returns_json and calendar_returns_json for template use
+            ctx['cat_rolling_json'] = json.dumps(cat_snap.rolling_returns_json or {}) if cat_snap else '{}'
+            ctx['cat_calendar_json'] = json.dumps(cat_snap.calendar_returns_json or {}) if cat_snap else '{}'
+            ctx['cat_trailing_json'] = json.dumps(cat_snap.quarterly_returns_json or {}) if cat_snap else '{}'
+        except Exception:
+            ctx['category_snap'] = None
+            ctx['category_name'] = ''
+            ctx['cat_rolling_json'] = '{}'
+            ctx['cat_calendar_json'] = '{}'
+            ctx['cat_trailing_json'] = '{}'
+
         return ctx
+
 
 
 def fund_search_api(request):

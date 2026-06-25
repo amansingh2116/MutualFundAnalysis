@@ -202,10 +202,15 @@ class BenchmarkAdapter(BaseAdapter):
         time.sleep(2)   # avoid rate limit — confirmed necessary in notebook
         try:
             ticker = yf.Ticker(yahoo_ticker)
-            if from_date:
-                hist = ticker.history(start=from_date.isoformat())
-            else:
-                hist = ticker.history(period='max')
+            # Always fetch period='max' to prevent yfinance timezone-checking failures
+            # when start date is prior to the ticker's historical inception date.
+            hist = ticker.history(period='max')
+            if hist is not None and not hist.empty and from_date:
+                # Remove timezone info from index to compare with from_date
+                if hasattr(hist.index, 'tz') and hist.index.tz is not None:
+                    hist.index = hist.index.tz_localize(None)
+                # Filter to records >= from_date
+                hist = hist[hist.index.date >= from_date]
 
             if hist is None or hist.empty:
                 return []

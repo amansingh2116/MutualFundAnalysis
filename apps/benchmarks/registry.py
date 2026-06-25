@@ -100,12 +100,12 @@ class BenchmarkResolution:
 BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
     # ── Custom / Broad Market ──
     "BSE 100": BenchmarkDefinition("BSE 100", yahoo_tickers=("BSE-100.BO",)),
-    "BSE 150 MidCap Index": BenchmarkDefinition("BSE 150 MidCap Index", yahoo_tickers=("BSE-150.BO",)),
+    "BSE 150 MidCap Index": BenchmarkDefinition("BSE 150 MidCap Index", yahoo_tickers=("MID150.BO",)),
     "BSE 200": BenchmarkDefinition("BSE 200", yahoo_tickers=("BSE-200.BO",)),
-    "BSE 250 LargeMidCap Index": BenchmarkDefinition("BSE 250 LargeMidCap Index", yahoo_tickers=("BSE-250.BO",)),
-    "BSE 250 SmallCap Index": BenchmarkDefinition("BSE 250 SmallCap Index", yahoo_tickers=("BSE-250.BO",)),
+    "BSE 250 LargeMidCap Index": BenchmarkDefinition("BSE 250 LargeMidCap Index", yahoo_tickers=("LMI250.BO",)),
+    "BSE 250 SmallCap Index": BenchmarkDefinition("BSE 250 SmallCap Index", yahoo_tickers=("SML250.BO",)),
     "BSE 500": BenchmarkDefinition("BSE 500", yahoo_tickers=("BSE-500.BO",)),
-    "BSE Bankex": BenchmarkDefinition("BSE Bankex", yahoo_tickers=("BSE-BANKEX.BO",)),
+    "BSE Bankex": BenchmarkDefinition("BSE Bankex", yahoo_tickers=("BSE-BANK.BO",)),
     "SENSEX": BenchmarkDefinition("SENSEX", yahoo_tickers=("^BSESN",)),
 
 
@@ -159,7 +159,7 @@ BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
         nse_name="NIFTY SMLCAP 100",
     ),
     "NIFTY SMALLCAP 250": BenchmarkDefinition(
-        "NIFTY SMALLCAP 250", (),
+        "NIFTY SMALLCAP 250", ("NIFTYSMLCAP250.NS",),
         aliases=("NIFTY SMLCAP 250", "SMALLCAP 250"),
         nse_name="NIFTY SMLCAP 250",
     ),
@@ -211,9 +211,10 @@ BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
         aliases=("NIFTY 10YR GSEC", "NIFTY 10 YEAR G-SEC", "NIFTY GSEC 10 YEAR"),
     ),
 
-    # ── Dynamic Bond (confirmed closest) ─────────────────────────────────────
+    # ── Dynamic Bond (no valid Yahoo ticker — NSE not publicly available) ────────
     "NIFTY COMPOSITE DEBT INDEX": BenchmarkDefinition(
-        "NIFTY COMPOSITE DEBT INDEX", ("NIFTYGSCOMPOSITE.NS",),
+        "NIFTY COMPOSITE DEBT INDEX", (),
+        fallback=DEBT_FALLBACK,
         aliases=("NIFTY COMPOSITE DEBT", "NIFTY COMPOSITE DEBT INDEX A-III"),
     ),
 
@@ -437,7 +438,37 @@ BENCHMARK_DEFINITIONS: dict[str, BenchmarkDefinition] = {
         aliases=("MSCI ACWI", "MSCI WORLD INDEX"),
     ),
 
-    # ── FX ───────────────────────────────────────────────────────────────────
+    # ── FX ───────────────────────────────────────────────────────────────────    # ── Excel Seeded Indices ──
+    "MSCI ACWI": BenchmarkDefinition("MSCI ACWI", ("ACWI",), aliases=("MSCI ACWI TRI", "MSCI WORLD", "MSCI WORLD INDEX")),
+    "S&P GLOBAL 1200": BenchmarkDefinition("S&P GLOBAL 1200", ("^SPG1200",)),
+    "S&P GLOBAL AGRIBUSINESS INDEX": BenchmarkDefinition("S&P GLOBAL AGRIBUSINESS INDEX", ("^SPAGRDP",)),
+    "NIFTY TOTAL MARKET": BenchmarkDefinition("NIFTY TOTAL MARKET", ("NIFTY_TOTAL_MKT.NS",), aliases=("NIFTY TOTAL MARKET TRI",)),
+    "NIFTY MIDCAP SELECT": BenchmarkDefinition("NIFTY MIDCAP SELECT", ("NIFTY_MID_SELECT.NS",), aliases=("NIFTY MIDCAP SELECT TRI",)),
+    "NIFTY MIDSMALLCAP 400": BenchmarkDefinition("NIFTY MIDSMALLCAP 400", ("NIFTYMIDSML400.NS",), aliases=("NIFTY MIDSMALLCAP 400 TRI",)),
+    "NIFTY MICROCAP 250": BenchmarkDefinition("NIFTY MICROCAP 250", ("NIFTY_MICROCAP250.NS",), aliases=("NIFTY MICROCAP 250 TRI",)),
+    "BSE ALLCAP": BenchmarkDefinition("BSE AllCap", ("ALLCAP.BO",)),
+    "BSE MID CAP": BenchmarkDefinition("BSE Mid Cap", ("BSE-MIDCAP.BO",)),
+    "BSE SMALL CAP": BenchmarkDefinition("BSE Small Cap", ("BSE-SMLCAP.BO",)),
+    "BSE LAGECAP": BenchmarkDefinition("BSE LargeCap", ("LRGCAP.BO",)),
+    "BSE LARGEMIDCAP": BenchmarkDefinition("BSE LargeMidCap", ("LMI250.BO",)),
+    "BSE MIDCAP SELECT INDEX": BenchmarkDefinition("BSE Midcap Select Index", ("MIDSEL.BO",)),
+    "BSE 150 MIDCAP INDEX": BenchmarkDefinition("BSE 150 MidCap Index", ("MID150.BO",)),
+    "BSE MID SMALL CAP INDEX": BenchmarkDefinition("BSE Mid Small Cap Index", ("BSE-MIDCAP.BO",)),
+    "BSE SENSEX NEXT 50": BenchmarkDefinition("BSE SENSEX Next 50", ("SNXT50.BO",)),
+    "BSE SENSEX 50": BenchmarkDefinition("BSE SENSEX 50", ("SNSX50.BO",)),
+    "BSE BHARAT 22 INDEX": BenchmarkDefinition("BSE Bharat 22 Index", ("BHRT22.BO",)),
+    "BSE PSU": BenchmarkDefinition("BSE PSU", ("BSE-PSU.BO",)),
+    "BSE POWER": BenchmarkDefinition("BSE POWER", ("BSE-POWER.BO",)),
+    "BSE HEALTHCARE": BenchmarkDefinition("BSE Healthcare", ("BSE-HC.BO",)),
+    "BSE FINANCIAL SERVICES": BenchmarkDefinition("BSE Financial Services", ("FINSER.BO",)),
+    "BSE IT": BenchmarkDefinition("BSE IT", ("BSE-IT.BO",)),
+    "BSE FMCG": BenchmarkDefinition("BSE FMCG", ("BSE-FMCG.BO",)),
+    "BSE TECK": BenchmarkDefinition("BSE Teck", ("BSE-TECK.BO",)),
+    "BSE INDIA INFRASTRUCTURE INDEX": BenchmarkDefinition("BSE India Infrastructure Index", ("INFRASTRUCTURE.BO",)),
+    "BSE ENHANCED VALUE INDEX": BenchmarkDefinition("BSE Enhanced Value Index", ("BSEEVI.BO",)),
+    "BSE QUALITY INDEX": BenchmarkDefinition("BSE Quality Index", ("BSEQUI.BO",)),
+    "BSE LOW VOLATILITY INDEX": BenchmarkDefinition("BSE Low Volatility Index", ("BSELVI.BO",)),
+
     "USD/INR": BenchmarkDefinition(
         "USD/INR", ("USDINR=X",),
         aliases=("INR/USD", "USDINR"),
@@ -692,8 +723,8 @@ def normalize_benchmark_name(value: str | None) -> str | None:
         aliases = (definition.name, *definition.aliases)
         if cleaned in {re.sub(r"\s+", " ", alias.upper()) for alias in aliases}:
             return name
-    # Partial match on canonical name
-    for name in BENCHMARK_DEFINITIONS:
+    # Partial match on canonical name (sort by length descending to prevent substring collisions)
+    for name in sorted(BENCHMARK_DEFINITIONS.keys(), key=len, reverse=True):
         if cleaned in name or name in cleaned:
             return name
     return None
@@ -889,6 +920,12 @@ def fetch_yahoo_history_for_benchmark(
             series.attrs["benchmark_candidate"] = candidate
             return series, candidate
 
+    # --- OPTIMIZATION: NiftyIndices and NSE only support Nifty indices ---
+    canonical = normalize_benchmark_name(name)
+    if not canonical or "NIFTY" not in canonical.upper():
+        return pd.Series(dtype=float), None
+    # --------------------------------------------------------------------
+
     import time as _time
     if _time.monotonic() >= deadline:
         logger.info("Benchmark fetch deadline exceeded for %s (skipping niftyindices+nse)", name)
@@ -935,14 +972,8 @@ def fetch_yahoo_history_for_candidate(
         import yfinance as yf
         configure_yfinance_cache(yf)
         ticker = yf.Ticker(candidate.yahoo_ticker)
-        kwargs = {"auto_adjust": False}
-        if start_date:
-            kwargs["start"] = start_date.isoformat() if hasattr(start_date, "isoformat") else str(start_date)
-            if end_date:
-                parsed_end = pd.Timestamp(end_date).date()
-                kwargs["end"] = (parsed_end + timedelta(days=1)).isoformat()
-        else:
-            kwargs["period"] = period
+        # Always fetch period='max' to prevent timezone lookup failures for early dates
+        kwargs = {"auto_adjust": False, "period": "max"}
         import time
         hist = None
         for attempt in range(3):
@@ -960,6 +991,16 @@ def fetch_yahoo_history_for_candidate(
             hist = pd.DataFrame()
         field = "Adj Close" if candidate.is_proxy and hist is not None and "Adj Close" in hist else candidate.field
         series = _extract_close_series(hist, field)
+        if not series.empty:
+            # Settle timezones before comparing index dates
+            if hasattr(series.index, 'tz') and series.index.tz is not None:
+                series.index = series.index.tz_localize(None)
+            if start_date:
+                s_dt = pd.Timestamp(start_date).date()
+                series = series[series.index.date >= s_dt]
+            if end_date:
+                e_dt = pd.Timestamp(end_date).date()
+                series = series[series.index.date <= e_dt]
         if len(series) < min_rows:
             logger.info(
                 "Benchmark candidate %s/%s skipped: only %s rows",

@@ -36,9 +36,15 @@ class Command(BaseCommand):
             )
         # ---- Fetch historical NAV for each benchmark ----
         today = date.today()
+        cutoff_date = today - timedelta(days=7)
         # start year chosen to cover typical mutual fund history
         start_year = 2000
         for bench in BenchmarkIndex.objects.all():
+            latest_nav = bench.nav_history.order_by('-date').first()
+            if latest_nav and latest_nav.date >= cutoff_date:
+                self.stdout.write(f"Skipping {bench.name} (already has recent data up to {latest_nav.date})")
+                continue
+
             self.stdout.write(f"Fetching history for {bench.name}")
             start = date(start_year, 1, 1)
             while start < today:
@@ -53,25 +59,31 @@ class Command(BaseCommand):
                     # Attempt yfinance fallback using the mapped Yahoo ticker if available
                     if bench.yahoo_ticker:
                         self.stdout.write(f"  Falling back to yfinance for {bench.yahoo_ticker}")
+                        # Fetch the entire history from 'start' to today in one call
                         rows = adapter.fetch_yfinance_history(bench.yahoo_ticker, start)
                         if rows:
                             for row in rows:
                                 nav_date = row.get('date')
                                 close = row.get('close')
-                                if nav_date and close is not None and nav_date <= end:
+                                if nav_date and close is not None:
                                     BenchmarkNAV.objects.update_or_create(
                                         index=bench,
                                         date=nav_date,
                                         defaults={"close": float(close), "source": "yfinance"},
                                     )
-                    if not rows:
-                        self.stdout.write(f"  Falling back to benchmark registry providers for {bench.name}")
-                        series, candidate = fetch_yahoo_history_for_benchmark(bench.name, start_date=start, end_date=end, min_rows=1)
-                        rows = [
-                            {"date": idx.date(), "close": float(value)}
-                            for idx, value in series.items()
-                            if start <= idx.date() <= end
-                        ]
+                            # Fast-forward start to today to terminate the loop for this benchmark
+                            start = today
+                            continue
+
+                    # If yfinance wasn't attempted or returned no data, try registry providers
+                    self.stdout.write(f"  Falling back to benchmark registry providers for {bench.name}")
+                    series, candidate = fetch_yahoo_history_for_benchmark(bench.name, start_date=start, end_date=today, min_rows=1)
+                    rows = [
+                        {"date": idx.date(), "close": float(value)}
+                        for idx, value in series.items()
+                        if start <= idx.date() <= today
+                    ]
+                    if rows:
                         source = candidate.source if candidate else "registry"
                         for row in rows:
                             BenchmarkNAV.objects.update_or_create(
@@ -79,7 +91,8 @@ class Command(BaseCommand):
                                 date=row["date"],
                                 defaults={"close": float(row["close"]), "source": source},
                             )
-                    start = end + timedelta(days=1)
+                    # Fast-forward start to today because we've queried the entire history to today
+                    start = today
                     continue
                 for row in rows:
                     nav_date = row.get('date')

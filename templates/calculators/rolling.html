@@ -363,13 +363,19 @@ document.getElementById('rrc-form').addEventListener('submit', async e => {
   const resultsEl = document.getElementById('rrc-results');
   resultsEl.innerHTML = `<div class="chart-placeholder" style="min-height:300px"><div class="spinner"></div><br><span style="font-size:12px;color:var(--text-muted)">Fetching NAV data for ${rrcFunds.length} fund(s)…</span></div>`;
 
-  // Fetch all funds in parallel
+  // Fetch all funds in parallel, also fetch category avg
   const fetches = rrcFunds.map(f => {
     let url = `/api/funds/${f.amfi_code}/rolling-timeseries/?window=${rrcWindowDays}`;
     if (start) url += `&start=${start}`;
     if (end)   url += `&end=${end}`;
     if (bmOverride) url += `&benchmark=${encodeURIComponent(bmOverride)}`;
-    return fetch(url).then(r => r.json()).then(d => ({ fund: f, data: d })).catch(err => ({ fund: f, data: { error: String(err) } }));
+    const catFetch = fetch(`/api/funds/${f.amfi_code}/category-avg/`)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null);
+    return Promise.all([
+      fetch(url).then(r => r.json()).catch(err => ({ error: String(err) })),
+      catFetch
+    ]).then(([d, catAvg]) => ({ fund: f, data: d, catAvg }));
   });
 
   const results = await Promise.all(fetches);
@@ -480,6 +486,55 @@ function renderMultiResults(container, results, start, end) {
       </div>
     </div>`;
 
+  // Build category average reference lines
+  const shapes = [];
+  const annotations = [];
+  let annotXOffset = 0.98;
+
+  successes.forEach(({ fund, data, catAvg }) => {
+    if (catAvg && catAvg.rolling && catAvg.rolling[windowLabel]) {
+      const catAvgVal = catAvg.rolling[windowLabel].avg;
+      if (catAvgVal != null) {
+        shapes.push({
+          type: 'line',
+          xref: 'paper',
+          x0: 0,
+          x1: 1,
+          yref: 'y',
+          y0: catAvgVal,
+          y1: catAvgVal,
+          line: {
+            color: fund.color,
+            width: 2,
+            dash: 'dash'
+          }
+        });
+        
+        const shortCat = (catAvg.sub_category || 'Category').replace(/ Mutual Fund/i, '').replace(/ Fund/i, '').slice(0, 15);
+        annotations.push({
+          xref: 'paper',
+          x: annotXOffset,
+          yref: 'y',
+          y: catAvgVal,
+          text: `${shortCat} Cat: ${catAvgVal.toFixed(2)}%`,
+          showarrow: false,
+          yanchor: 'bottom',
+          xanchor: 'right',
+          font: {
+            color: fund.color,
+            size: 10,
+            weight: 'bold'
+          },
+          bgcolor: 'rgba(15, 23, 42, 0.85)',
+          bordercolor: fund.color,
+          borderwidth: 1,
+          borderpad: 4
+        });
+        annotXOffset -= 0.18;
+      }
+    }
+  });
+
   // Plot
   Plotly.newPlot('rrc-plot', traces, {
     paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
@@ -494,6 +549,8 @@ function renderMultiResults(container, results, start, end) {
       ticksuffix: '%',
     },
     hovermode: 'x unified',
+    shapes: shapes,
+    annotations: annotations,
   }, { responsive: true, displayModeBar: false });
 
   // Custom legend
@@ -520,11 +577,23 @@ function buildStatsTable(successes) {
   const dHds = distCols.map(k => `<th style="font-size:11px">${distLabels[k]}</th>`).join('');
 
   // Stats table rows
-  const statsRows = successes.map(({ fund, data }) => {
+  const statsRows = successes.map(({ fund, data, catAvg }) => {
     const s   = data.stats   || {};
     const b   = data.bm_stats|| {};
     const bm  = data.benchmark_name || 'Benchmark';
+    const catSubCat = catAvg?.sub_category || '';
+    const catR = catAvg?.rolling?.[getWindowLabel(rrcWindowDays)] || {};
     const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${fund.color};margin-right:4px"></span>`;
+    const catRow = catAvg ? `
+      <tr>
+        <td style="font-size:11px;color:var(--amber-400)">Cat Avg <span style="font-size:9px;color:var(--text-muted)">(${escHtml(catSubCat.slice(0,18))})</span></td>
+        <td style="font-size:11px;color:var(--amber-400)">${catR.avg != null ? catR.avg.toFixed(2)+'%' : '—'}</td>
+        <td style="font-size:11px;color:var(--amber-400)">${catR.median != null ? catR.median.toFixed(2)+'%' : '—'}</td>
+        <td style="font-size:11px;color:var(--amber-400)">${catR.min != null ? catR.min.toFixed(2)+'%' : '—'}</td>
+        <td style="font-size:11px;color:var(--amber-400)">${catR.max != null ? catR.max.toFixed(2)+'%' : '—'}</td>
+        <td style="font-size:11px;color:var(--amber-400)">—</td>
+        <td style="font-size:11px;color:var(--amber-400)">—</td>
+      </tr>` : '';
     return `
       <tr style="border-top:2px solid ${fund.borderColor}44">
         <td colspan="7" style="padding-top:10px;padding-bottom:4px">
@@ -558,7 +627,8 @@ function buildStatsTable(successes) {
         <td style="font-size:11px;color:var(--text-muted)">${fmtPct(b.max)}</td>
         <td style="font-size:11px;color:var(--text-muted)">${fmtPct(b.vol ?? b.std_dev)}</td>
         <td style="font-size:11px;color:var(--text-muted)">${b.negative_pct != null ? b.negative_pct.toFixed(2)+'%' : '—'}</td>
-      </tr>`;
+      </tr>
+      ${catRow}`;
   }).join('');
 
   // Distribution table rows

@@ -932,6 +932,45 @@ def compare_summary_api(request, amfi_code):
         else:
             lock_in_label = 'None'
 
+        # ── Category average lookup ──────────────────────────────────────────
+        category_avg = None
+        try:
+            from apps.funds.models import CategorySnapshot, FundScreenerSnapshot
+            sub_cat = (
+                FundScreenerSnapshot.objects
+                .filter(scheme=scheme)
+                .values_list('scheme_sub_category', flat=True)
+                .first() or ''
+            )
+            if sub_cat:
+                cat_snap = CategorySnapshot.objects.filter(
+                    scheme_sub_category__iexact=sub_cat
+                ).first()
+                if cat_snap:
+                    category_avg = {
+                        'sub_category': sub_cat,
+                        'fund_count': cat_snap.fund_count,
+                        'trailing': {
+                            '1Y': float(cat_snap.avg_return_1y) if cat_snap.avg_return_1y else None,
+                            '3Y': float(cat_snap.avg_return_3y) if cat_snap.avg_return_3y else None,
+                            '5Y': float(cat_snap.avg_return_5y) if cat_snap.avg_return_5y else None,
+                        },
+                        'calendar': cat_snap.calendar_returns_json or {},
+                        'rolling': cat_snap.rolling_returns_json or {},
+                        'risk': {
+                            'std_dev':      float(cat_snap.avg_volatility) if cat_snap.avg_volatility else None,
+                            'sharpe':       float(cat_snap.avg_sharpe) if cat_snap.avg_sharpe else None,
+                            'sortino':      float(cat_snap.avg_sortino) if cat_snap.avg_sortino else None,
+                            'max_drawdown': float(cat_snap.avg_max_drawdown) if cat_snap.avg_max_drawdown else None,
+                            'std_dev_5y':   float(cat_snap.avg_volatility_5y) if cat_snap.avg_volatility_5y else None,
+                            'sharpe_5y':    float(cat_snap.avg_sharpe_5y) if cat_snap.avg_sharpe_5y else None,
+                            'sortino_5y':   float(cat_snap.avg_sortino_5y) if cat_snap.avg_sortino_5y else None,
+                            'max_drawdown_5y': float(cat_snap.avg_max_drawdown_5y) if cat_snap.avg_max_drawdown_5y else None,
+                        },
+                    }
+        except Exception as _exc:
+            logger.warning('[compare_summary_api] category_avg lookup failed: %s', _exc)
+
         payload = {
             'amfi_code':    scheme.amfi_code,
             'scheme_name':  scheme.scheme_name,
@@ -982,9 +1021,69 @@ def compare_summary_api(request, amfi_code):
             'nav_history': nav_history,
         }
 
+        payload['category_avg'] = category_avg
+
         django_cache.set(cache_key, payload, 60 * 30)
         return JsonResponse(payload)
 
     except Exception as exc:
         logger.error("[%s] compare_summary_api failed: %s", amfi_code, exc, exc_info=True)
         return JsonResponse({'error': str(exc), 'amfi_code': amfi_code}, status=500)
+
+
+@require_GET
+def fund_category_avg_api(request, amfi_code):
+    """
+    Lightweight endpoint: return category average data for a fund's sub-category.
+    Used by Rolling Return Calculator and any future consumers.
+    GET /api/funds/<amfi_code>/category-avg/
+    Response: {sub_category, fund_count, trailing, rolling, calendar, risk}
+    """
+    scheme = get_scheme_or_404(amfi_code)
+    try:
+        from apps.funds.models import CategorySnapshot, FundScreenerSnapshot
+        sub_cat = (
+            FundScreenerSnapshot.objects
+            .filter(scheme=scheme)
+            .values_list('scheme_sub_category', flat=True)
+            .first() or ''
+        )
+        if not sub_cat:
+            # Fallback to scheme_category
+            sub_cat = scheme.scheme_category or ''
+        if not sub_cat:
+            return JsonResponse({'error': 'no category found'}, status=404)
+
+        cat_snap = CategorySnapshot.objects.filter(
+            scheme_sub_category__iexact=sub_cat
+        ).first()
+        if not cat_snap:
+            return JsonResponse({'error': f'no CategorySnapshot for {sub_cat}'}, status=404)
+
+        return JsonResponse({
+            'sub_category': sub_cat,
+            'fund_count': cat_snap.fund_count,
+            'trailing': {
+                '1Y': float(cat_snap.avg_return_1y) if cat_snap.avg_return_1y else None,
+                '3Y': float(cat_snap.avg_return_3y) if cat_snap.avg_return_3y else None,
+                '5Y': float(cat_snap.avg_return_5y) if cat_snap.avg_return_5y else None,
+                'med_1y': float(cat_snap.median_return_1y) if cat_snap.median_return_1y else None,
+                'med_3y': float(cat_snap.median_return_3y) if cat_snap.median_return_3y else None,
+                'med_5y': float(cat_snap.median_return_5y) if cat_snap.median_return_5y else None,
+            },
+            'rolling': cat_snap.rolling_returns_json or {},
+            'calendar': cat_snap.calendar_returns_json or {},
+            'risk': {
+                'std_dev':      float(cat_snap.avg_volatility) if cat_snap.avg_volatility else None,
+                'sharpe':       float(cat_snap.avg_sharpe) if cat_snap.avg_sharpe else None,
+                'sortino':      float(cat_snap.avg_sortino) if cat_snap.avg_sortino else None,
+                'max_drawdown': float(cat_snap.avg_max_drawdown) if cat_snap.avg_max_drawdown else None,
+                'std_dev_5y':   float(cat_snap.avg_volatility_5y) if cat_snap.avg_volatility_5y else None,
+                'sharpe_5y':    float(cat_snap.avg_sharpe_5y) if cat_snap.avg_sharpe_5y else None,
+                'sortino_5y':   float(cat_snap.avg_sortino_5y) if cat_snap.avg_sortino_5y else None,
+                'max_drawdown_5y': float(cat_snap.avg_max_drawdown_5y) if cat_snap.avg_max_drawdown_5y else None,
+            },
+        })
+    except Exception as exc:
+        logger.error('[fund_category_avg_api] %s: %s', amfi_code, exc)
+        return JsonResponse({'error': str(exc)}, status=500)

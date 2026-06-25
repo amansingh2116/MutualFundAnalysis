@@ -377,15 +377,17 @@ function renderReturnsRows(funds) {
 
   let out = sectionHeader('📈 NAV Growth — Rebased to 100 (3Y)', funds.length);
   out += `<tr><td colspan="${funds.length+1}" style="padding:0;"><div id="cmp-nav-chart" style="height:320px;min-height:220px;background:var(--bg-card);border-radius:6px;margin:10px 14px;"></div></td></tr>`;
-  out += sectionHeader('📈 Trailing Returns (CAGR % vs Benchmark)', funds.length);
+  out += sectionHeader('📈 Trailing Returns (CAGR % vs Benchmark & Category)', funds.length);
   periods.forEach(p => {
     const values = funds.map(f => {
       if (!f.data) return null;
       const t = f.data.trailing[p.key];
+      const catAvg = f.data.category_avg?.trailing?.[p.key];
       if (!t) return null;
       const excess = t.excess;
       return `<span class="${t.fund >= 0 ? 'val-pos' : 'val-neg'}">${t.fund != null ? t.fund + '%' : '—'}</span>
               ${t.bm != null ? `<br><span class="val-neutral" style="font-size:10px">BM: ${t.bm}%</span>` : ''}
+              ${catAvg != null ? `<br><span style="font-size:10px;color:var(--amber-400)">Cat: ${catAvg.toFixed(2)}%</span>` : ''}
               ${excess != null ? `<br><span class="${excess >= 0 ? 'excess-pos' : 'excess-neg'} excess-tag">${excess >= 0 ? '▲' : '▼'} ${Math.abs(excess)}%</span>` : ''}`;
     });
     const numVals = funds.map(f => f.data ? (f.data.trailing[p.key]?.fund ?? null) : null);
@@ -393,7 +395,7 @@ function renderReturnsRows(funds) {
     out += buildRawRow(p.label, values, winnerIdx, funds);
   });
 
-  out += sectionHeader('🔄 Rolling Returns', funds.length);
+  out += sectionHeader('🔄 Rolling Returns (vs Category Average)', funds.length);
   const rollWindows = ['1Y','3Y','5Y'];
   rollWindows.forEach(w => {
     out += `<tr class="section-hdr"><td colspan="${funds.length+1}" style="font-size:11px;padding:8px 14px;background:rgba(255,255,255,.02);color:var(--text-muted)">${w} Rolling Window</td></tr>`;
@@ -408,9 +410,13 @@ function renderReturnsRows(funds) {
       const values = funds.map(f => {
         if (!f.data) return null;
         const r = f.data.rolling[w];
+        const catR = f.data.category_avg?.rolling?.[w];
         if (!r) return '—';
         const v = r[m.k];
-        return v != null ? `<span class="${v >= 0 ? 'val-pos' : 'val-neg'}">${v}%</span>` : '—';
+        const catV = catR ? catR[m.k === 'mean' ? 'avg' : m.k] : null;
+        const mainVal = v != null ? `<span class="${v >= 0 ? 'val-pos' : 'val-neg'}">${v}%</span>` : '—';
+        const catTag = catV != null ? `<br><span style="font-size:10px;color:var(--amber-400)">Cat: ${catV.toFixed ? catV.toFixed(2) : catV}%</span>` : '';
+        return mainVal + catTag;
       });
       const numVals = funds.map(f => f.data?.rolling[w]?.[m.k] ?? null);
       const wi = getWinnerIndex(numVals, m.hb);
@@ -452,7 +458,19 @@ function renderRiskRows(funds) {
         const rm = f.data[rKey];
         if (!rm) return '—';
         const v = rm[m.k];
-        return m.fmt(v);
+        const catRisk = f.data.category_avg?.risk;
+        const catKeyMap = {
+          'std_dev': period === '3Y' ? 'std_dev' : 'std_dev_5y',
+          'sharpe': period === '3Y' ? 'sharpe' : 'sharpe_5y',
+          'sortino': period === '3Y' ? 'sortino' : 'sortino_5y',
+          'max_drawdown': period === '3Y' ? 'max_drawdown' : 'max_drawdown_5y'
+        };
+        const catV = catRisk && catKeyMap[m.k] ? catRisk[catKeyMap[m.k]] : null;
+        const mainVal = m.fmt(v);
+        const catTag = (catV != null)
+          ? `<br><span style="font-size:10px;color:var(--amber-400)">Cat: ${catV.toFixed ? catV.toFixed(2) : catV}${m.k === 'std_dev' || m.k === 'max_drawdown' ? '%' : ''}</span>`
+          : '';
+        return mainVal + catTag;
       });
       const numVals = funds.map(f => {
         const rm = f.data?.[rKey];
@@ -781,8 +799,47 @@ function plotRollingChart(ready) {
       });
     }
   });
+
+  // Build category average reference lines for bar chart
+  const shapes = [];
+  const annotations = [];
+  const seenCats = new Map(); // sub_category -> color
+  ready.forEach((f) => {
+    const idx = funds.findIndex(fn => fn.amfi_code === f.amfi_code) % 5;
+    const catAvg = f.data.category_avg;
+    if (!catAvg || !catAvg.rolling) return;
+    const subCat = catAvg.sub_category || '';
+    if (seenCats.has(subCat)) return;
+    seenCats.set(subCat, FUND_COLORS[idx].line);
+    windows.forEach((w, wi) => {
+      const catVal = catAvg.rolling[w]?.avg;
+      if (catVal == null) return;
+      shapes.push({
+        type: 'line',
+        x0: wi - 0.45, x1: wi + 0.45, y0: catVal, y1: catVal,
+        xref: 'x', yref: 'y',
+        line: { color: FUND_COLORS[idx].line, width: 2.5, dash: 'dash' }
+      });
+    });
+    const shortCat = subCat.replace(/ Fund$/i,'').slice(0,18);
+    const noteY = 0.98 - (seenCats.size - 1) * 0.09;
+    annotations.push({
+      xref: 'paper', x: 0.01, yref: 'paper', y: noteY,
+      text: `\u2500\u2500 Cat Avg (${shortCat})`,
+      showarrow: false, xanchor: 'left', yanchor: 'top',
+      font: { color: FUND_COLORS[idx].line, size: 10 },
+      bgcolor: 'rgba(15,23,42,0.75)', borderpad: 3,
+    });
+  });
+
   if (traces.length && document.getElementById('cmp-rolling-chart')) {
-    Plotly.newPlot('cmp-rolling-chart', traces, {...PLOTLY_LAYOUT, barmode:'group', xaxis:{...PLOTLY_LAYOUT.xaxis, type:'category'}, yaxis:{...PLOTLY_LAYOUT.yaxis, ticksuffix:'%'}}, PLOTLY_OPTS);
+    Plotly.newPlot('cmp-rolling-chart', traces, {
+      ...PLOTLY_LAYOUT, barmode:'group',
+      xaxis:{...PLOTLY_LAYOUT.xaxis, type:'category'},
+      yaxis:{...PLOTLY_LAYOUT.yaxis, ticksuffix:'%'},
+      shapes: shapes,
+      annotations: annotations,
+    }, PLOTLY_OPTS);
   }
 }
 

@@ -25,7 +25,7 @@
   - **Quartile Rankings**: Dynamic Q1-Q4 rankings and percentile ranks for all funds in a category.
 - **Scorecard System**: 100-point dynamic scoring model across Performance, Risk, Cost, and Composition pillars (see `docs/SCORING_MODEL.md`). *Note: Currently, the system uses DB-only composition data (Option B) for speed, but will transition to full API scoring (Option A) in the future for maximum accuracy.*
 - **Compare Selected**: Multi-select up to 5 funds across the Browse and Screener tabs to instantly send them to the **Compare Funds calculator**. Compare them side-by-side across Overview, Returns, Risk, and Portfolio tabs. Includes dynamic Overlapping Best/Worst Quarters analysis, Sector Allocation mini-donuts, Risk vs Return scatter plots, and intelligent benchmark fallback (using NIFTY COMPOSITE DEBT INDEX for debt funds).
-- **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `docs/PEER_MATCHING.md`).
+- **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `documentation/PEER_MATCHING.md`).
 
 ### 💼 Portfolio Analysis
 - Upload CAS (Consolidated Account Statement) Excel/CSV files, or enter transactions **manually**.
@@ -40,7 +40,7 @@
 - Five strategy variants: **Base Plan, Trend Filter (12-month), MA Filter (10-month), Volatility Control, Composite Signal**.
 - Tactical overlays automatically redirect equity SIPs to a **debt parking fund** when macroeconomic/momentum signals deteriorate.
 - Per-strategy metrics: CAGR, XIRR, Final Corpus, Max Drawdown, Sharpe, Sortino, Volatility.
-- See `docs/backtester_analysis.md` for full mathematical and architectural details.
+- See `documentation/backtester_analysis.md` for full mathematical and architectural details.
 
 ### 🎯 Recommendations & Risk Profiling
 - Risk-profiling **questionnaire** (experience, horizon, loss tolerance, goals) mapping to optimal Equity/Debt/Gold allocation ratios.
@@ -51,8 +51,10 @@
 - **SIP**, **Step-Up SIP**, **Lumpsum**, and **SWP** calculators.
 - **STP Calculator**: Systematic Transfer Plan to project transferring funds from a source to a target scheme over time.
 - **XIRR** cash flows, and **Goal planner**.
+- **Net Worth Calculator**: Comprehensive dynamic tool to tally 25+ asset classes (Cash, Investments, EPF/PPF/NPS, Real Estate) and 9 liability classes (Home/Auto Loans, CC). Features live Ploly donut charts, category progress bars, and solvency ratios.
 - **Rolling Return Calculator** (multi-fund): Compare up to **5 mutual funds** simultaneously on a single rolling return chart.
   - Each fund is rendered with a distinct color; its benchmark is shown as a matching lighter dotted line on the same axis.
+  - Category Averages are also displayed as horizontal dashed lines for deeper comparison.
   - Automatically deduplicates overlapping benchmarks (funds with the same benchmark share one benchmark line).
   - Optional **custom benchmark override** from a curated list of 30+ NIFTY/SENSEX/global indices — or use each fund's own default.
   - **Intelligent fallback**: Any benchmark without a confirmed Yahoo Finance ticker is automatically proxied. Equity/Hybrid funds fall back to Nifty 50, while Debt/Liquid funds fall back to NIFTY COMPOSITE DEBT INDEX, accompanied by a UI note.
@@ -101,7 +103,7 @@ MutualFundAnalysis/
 │   ├── funds/               ← Scheme master, NAV history, runtime snapshots, peer matching, tests
 │   ├── analytics/           ← Core financial math engine (`engine.py`, rolling returns, metrics)
 │   ├── benchmarks/          ← Benchmark index registry and NAV history tracking
-│   ├── calculators/         ← Stateless financial logic for SIP, Lumpsum, SWP, Goals
+│   ├── calculators/         ← Stateless financial logic for SIP, Lumpsum, SWP, Goals, Net Worth
 │   ├── recommendations/     ← Risk profiling questionnaire and fund suggestion engine
 │   └── portfolio/           ← CAS parsing, XIRR processing, and the Backtester simulation engine
 │
@@ -109,11 +111,13 @@ MutualFundAnalysis/
 ├── templates/               ← Django HTML templates (UI layout)
 ├── static/                  ← Vanilla CSS styles and JS scripts (Plotly charts, Tooltips)
 │
-└── docs/                    ← Deep-dive technical documentation
+└── documentation/           ← Deep-dive technical documentation
+    ├── DATA_PIPELINE_AND_COMMANDS.md ← Master guide on how to run ingestions, analytics, and pipelines
+    ├── PROJECT_CONTEXT.md   ← Full architectural overview for developers
+    ├── DEPLOYMENT.md        ← Render.com deployment and local setup
     ├── backtester_analysis.md ← Backtester math, simulation rules, and API payload reference
-    ├── PEER_MATCHING.md       ← Peer comparison matching rules and validation notes
-    ├── SCORING_MODEL.md       ← Comprehensive rules for the 100-point Fund scoring model
-    └── DEPLOYMENT.md          ← Original deployment reference documentation
+    ├── PEER_MATCHING.md     ← Peer comparison matching rules and validation notes
+    └── SCORING_MODEL.md     ← Comprehensive rules for the 100-point Fund scoring model
 ```
 
 ---

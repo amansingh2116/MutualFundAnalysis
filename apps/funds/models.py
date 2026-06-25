@@ -238,6 +238,7 @@ class FundScreenerSnapshot(BaseModel):
     rolling_return_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     rolling_return_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     volatility_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    volatility_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
 
     # Risk-adjusted metrics (from RiskMetrics 3Y)
     sharpe_ratio = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
@@ -246,6 +247,14 @@ class FundScreenerSnapshot(BaseModel):
                                         help_text="3Y Sortino ratio")
     max_drawdown = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                        help_text="3Y max drawdown %")
+
+    # 5Y Risk metrics
+    sharpe_ratio_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                          help_text="5Y Sharpe ratio")
+    sortino_ratio_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="5Y Sortino ratio")
+    max_drawdown_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                          help_text="5Y max drawdown %")
 
     # Excess return vs benchmark (fund return - benchmark return)
     excess_return_1y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
@@ -412,6 +421,11 @@ class CategorySnapshot(BaseModel):
     avg_sharpe       = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     avg_sortino      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     avg_max_drawdown = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    avg_volatility_5y   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    avg_sharpe_5y       = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    avg_sortino_5y      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    avg_max_drawdown_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
 
     # ── Score distribution ────────────────────────────────────────────────────
     avg_model_score  = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)

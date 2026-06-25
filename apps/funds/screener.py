@@ -133,6 +133,7 @@ def refresh_snapshot_for_scheme(scheme):
             }
 
     risk_3y = latest_risk.get("3Y")
+    risk_5y = latest_risk.get("5Y")
 
     volatility = _decimal(getattr(risk_3y, "std_dev_ann", None))
     if volatility is None:
@@ -142,12 +143,17 @@ def refresh_snapshot_for_scheme(scheme):
     sortino = _decimal(getattr(risk_3y, "sortino_ratio", None))
     drawdown = _decimal(getattr(risk_3y, "max_drawdown", None))
 
+    volatility_5y = _decimal(getattr(risk_5y, "std_dev_ann", None))
+    sharpe_5y = _decimal(getattr(risk_5y, "sharpe_ratio", None))
+    sortino_5y = _decimal(getattr(risk_5y, "sortino_ratio", None))
+    drawdown_5y = _decimal(getattr(risk_5y, "max_drawdown", None))
+
     excess_1y = _decimal(getattr(trailing_1y, "excess", None))
     excess_3y = _decimal(getattr(trailing_3y, "excess", None))
 
     analytics_dates = [
         getattr(row, "as_of", None)
-        for row in [trailing_1y, trailing_3y, trailing_5y, rolling_3y, risk_3y]
+        for row in [trailing_1y, trailing_3y, trailing_5y, rolling_3y, risk_3y, risk_5y]
         if row is not None
     ]
     data_as_of = max([d for d in [latest_nav_date, *analytics_dates] if d], default=timezone.localdate())
@@ -176,9 +182,13 @@ def refresh_snapshot_for_scheme(scheme):
             "rolling_return_3y_pct": _decimal(getattr(rolling_3y, "mean_pct", None)),
             "rolling_return_5y_pct": _decimal(getattr(rolling_5y, "mean_pct", None)),
             "volatility_3y_pct": volatility,
+            "volatility_5y_pct": volatility_5y,
             "sharpe_ratio": sharpe,
             "sortino_ratio": sortino,
             "max_drawdown": drawdown,
+            "sharpe_ratio_5y": sharpe_5y,
+            "sortino_ratio_5y": sortino_5y,
+            "max_drawdown_5y": drawdown_5y,
             "rolling_returns_json": rolling_returns_json,
             "calendar_returns_json": calendar_returns_json,
             "excess_return_1y": excess_1y,

@@ -84,6 +84,10 @@ def build_category_snapshot(sub_category: str) -> CategorySnapshot | None:
         avg_sharpe=Avg("sharpe_ratio"),
         avg_sortino=Avg("sortino_ratio"),
         avg_drawdown=Avg("max_drawdown"),
+        avg_vol_5y=Avg("volatility_5y_pct"),
+        avg_sharpe_5y=Avg("sharpe_ratio_5y"),
+        avg_sortino_5y=Avg("sortino_ratio_5y"),
+        avg_drawdown_5y=Avg("max_drawdown_5y"),
     )
 
     # ── Median returns (NumPy) ─────────────────────────────────────────────
@@ -202,6 +206,10 @@ def build_category_snapshot(sub_category: str) -> CategorySnapshot | None:
             "avg_sharpe":            _d(agg["avg_sharpe"]),
             "avg_sortino":           _d(agg["avg_sortino"]),
             "avg_max_drawdown":      _d(agg["avg_drawdown"]),
+            "avg_volatility_5y":     _d(agg["avg_vol_5y"]),
+            "avg_sharpe_5y":         _d(agg["avg_sharpe_5y"]),
+            "avg_sortino_5y":        _d(agg["avg_sortino_5y"]),
+            "avg_max_drawdown_5y":   _d(agg["avg_drawdown_5y"]),
             "avg_model_score":       _d1(avg_score),
             "pct_strong":            _d1(pct_strong),
             "pct_good":              _d1(pct_good),
@@ -247,6 +255,10 @@ class Command(BaseCommand):
         skip_snapshots  = options.get("skip_snapshots", False)
 
         # Collect distinct sub-categories from screener snapshots
+        # Use sorted(set(...)) instead of distinct() alone — in some DB configurations
+        # (especially SQLite without an ORDER BY), distinct() on flat values_list may
+        # return duplicates, which causes the dashboard to process the same category
+        # thousands of times unnecessarily.
         qs = (
             FundScreenerSnapshot.objects
             .filter(is_direct=True)
@@ -255,9 +267,8 @@ class Command(BaseCommand):
         if category_filter:
             qs = qs.filter(scheme_sub_category=category_filter)
 
-        sub_categories = list(
-            qs.values_list("scheme_sub_category", flat=True).distinct()
-        )
+        raw_cats = qs.values_list("scheme_sub_category", flat=True)
+        sub_categories = sorted(set(raw_cats))
         total = len(sub_categories)
 
         self.stdout.write(

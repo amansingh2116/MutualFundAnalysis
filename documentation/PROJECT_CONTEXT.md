@@ -130,7 +130,7 @@ The most complex service. Key design decisions:
 
 ### F. Advanced Fund Screener & Home Dashboard Pipeline (`apps/funds/screener.py`)
 Because the analytics engine is heavily computational, screening across thousands of funds requires local caching.
-- **`FundScreenerSnapshot` Model**: Denormalized table storing AUM, expense ratios, trailing returns (1Y/3Y/5Y), rolling returns (3Y/5Y), calendar returns (`calendar_returns_json`), volatility, Sharpe, Sortino, Max Drawdown, Alpha, short-term returns (1W/1M/3M/6M), and quartile/percentile ranks.
+- **`FundScreenerSnapshot` Model**: Denormalized table storing AUM, expense ratios, trailing returns (1Y/3Y/5Y), rolling returns (3Y/5Y), calendar returns (`calendar_returns_json`), volatility, Sharpe, Sortino, Max Drawdown, Alpha, short-term returns (1W/1M/3M/6M), 5Y risk metrics (`volatility_5y_pct`, `sharpe_ratio_5y`, etc.), and quartile/percentile ranks.
 - **`FundModelScore` Model**: Stores the 100-point dynamic scoring results per scheme across Performance, Risk, Cost, and Composition pillars. 
   - *Note on Scoring:* Currently, the pipeline uses DB-only composition data (Option B) for speed (funds without local holdings are marked UNRATED for composition). In the future, we will transition to full API scoring (Option A) for more comprehensive portfolio analysis.
 - **`populate_screener` Command**: An integrated data pipeline that runs sequentially:
@@ -141,8 +141,8 @@ Because the analytics engine is heavily computational, screening across thousand
   5. Computes and saves the `FundModelScore`.
   6. Automatically calls `populate_home_dashboard` at the end (unless `--skip-home-dashboard` is passed).
 - **Home Dashboard Pipeline**:
-  - **`populate_benchmark_returns`**: Computes trailing, calendar, and rolling returns for benchmark indices (stored in `BenchmarkReturns`), driving the Home Dashboard's Benchmark Monitor. Includes NSE and major BSE indices.
-  - **`populate_home_dashboard`**: Aggregates `FundScreenerSnapshot` data by category to create `CategorySnapshot` records (avg/min/max returns, risk, score distribution) and computes quartile rankings for all funds within their sub-categories.
+  - **`populate_benchmark_returns`**: Computes trailing, calendar, and rolling returns for 113+ benchmark indices (stored in `BenchmarkReturns`), driving the Home Dashboard's Benchmark Monitor. Includes NSE and major BSE/Global indices.
+  - **`populate_home_dashboard`**: Aggregates `FundScreenerSnapshot` data by category to create `CategorySnapshot` records (avg/min/max returns, 3Y/5Y avg risk, score distribution) and computes quartile rankings for all funds within their sub-categories.
 - **Dynamic UI**: `FundScreenerView` dynamically populates HTML filter options directly from the `FundScreenerSnapshot` distinct values, allowing new Fund Houses or Benchmarks to seamlessly appear as the database builds. Both `category_detail.html` and `benchmarks.html` ingest `calendar_returns_json` and `rolling_returns_json` to render interactive heatmaps on the frontend.
 - **Compare Selected Feature**: The UI includes multi-fund selection (using browser `localStorage`) which automatically enables a direct bridge to the Unified Compare tool.
 
@@ -165,6 +165,7 @@ Because the analytics engine is heavily computational, screening across thousand
 /calculators/xirr/          ← XIRR calculator
 /calculators/tax/           ← Tax calculator
 /calculators/rolling/       ← Multi-fund Rolling Return Calculator (compare up to 5 funds, custom benchmark override, color-coded chart with deduped benchmarks, volatility stats + distribution table)
+/calculators/net-worth/     ← Comprehensive Net Worth Calculator (assets/liabilities breakdown, plotly donut chart, solvency ratio)
 /calculators/stp/           ← STP Calculator (Generic and Historical NAV modes with source/target XIRR computations)
 (etc.)
 
@@ -223,8 +224,8 @@ Never let external API failures propagate to the user with a 500 error.
 ## 8. Current Status
 
 All five planned phases are substantially implemented:
-- ✅ Phase 1: Data foundation (scheme master, NAV history, benchmark ingestion)
-- ✅ Phase 2: Fund detail page with full analytics
+- ✅ Phase 1: Data foundation (scheme master, NAV history, benchmark ingestion with 113 indices)
+- ✅ Phase 2: Fund detail page with full analytics (including 5Y risk metrics and category averages)
 - ✅ Phase 3: Discovery (browse by category, fund search) + **Advanced Fund Screener** + **Unified Compare Tool**
 - ✅ Phase 4: Portfolio analysis (XIRR, benchmark, overlap, blended benchmark, risk metrics)
 - ✅ Phase 5: Backtesting + Recommendations (questionnaire, backtester, 5 strategy overlays)
@@ -253,7 +254,8 @@ If you are an AI assistant inheriting this project:
 5. **`initInfoTooltips(container)`** must be called after any JS re-render of result areas.
 6. **`_parse_date` helpers should NOT be defined inside loops.** Define them once.
 7. **`calendar` and `datetime` are imported at the top of `views.py`.** Do not re-import mid-file.
-8. **Backtester API expects a specific JSON schema.** See `docs/backtester_analysis.md` for the full reference.
+8. **Backtester API expects a specific JSON schema.** See `documentation/backtester_analysis.md` for the full reference.
+9. **Data Pipelines:** Refer to `documentation/DATA_PIPELINE_AND_COMMANDS.md` for exact pipeline logic.
 
 ---
 

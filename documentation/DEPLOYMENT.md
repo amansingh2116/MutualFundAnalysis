@@ -170,15 +170,23 @@ Browser
 
 ---
 
+---
+
 ## Available Management Commands
 
-| Command | What it does |
-|---------|-------------|
-| `build_scheme_master` | Downloads all AMFI schemes |
-| `ingest_nav` | Downloads latest NAVs |
-| `compute_analytics` | Computes returns + risk for all funds |
-| `ingest_holdings` | Fetches top holdings from Morningstar |
-| `qcluster` | Starts background task worker |
+For the platform to be fast, it computes data in the background rather than when a user visits a page. Here are the core data pipeline commands:
+
+| Command | What it does | When to Run |
+|---------|-------------|-------------|
+| `build_scheme_master` | Downloads ~14,000 AMFI schemes | Initial setup or monthly |
+| `ingest_benchmarks` | Downloads latest NAVs for 113 benchmark indices | Daily |
+| `populate_benchmark_returns`| Computes risk/returns for indices | Daily, after `ingest_benchmarks` |
+| `populate_screener` | **The core pipeline:** Fetches fund NAVs, fetches metadata, computes all 1Y/3Y/5Y metrics, calculates the 100-point score, and saves the snapshot | Daily |
+| `populate_home_dashboard` | Aggregates category stats and quartile rankings | Automatically runs after `populate_screener` |
+| `generate_screener_reports` | Exports CSV/HTML of top funds by specific metrics | As needed |
+| `qcluster` | Starts background task worker (if using django-q2 for asynchronous processing) | Always running in prod |
+
+> **Note:** See `DATA_PIPELINE_AND_COMMANDS.md` for a deep dive into every argument and workflow for these commands.
 
 ---
 
