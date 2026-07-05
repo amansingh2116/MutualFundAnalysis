@@ -8,6 +8,9 @@ mstarpy>=10.0.0
 yfinance>=0.2.55
 yahooquery>=2.3.0             # fallback for fund holdings / sector data
 requests>=2.31
+nsepython>=0.1                # NSE index PE/PB/Div data via niftyindices.com (backtester v2)
+nsefin>=0.1.5                 # NSE OHLC candlestick data
+wbgapi>=1.0.14                # World Bank API — India CPI for inflation adjustment
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 pandas>=2.2

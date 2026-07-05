@@ -15,7 +15,9 @@ urlpatterns = [
     path('<int:pk>/rebalance/', views.portfolio_rebalance_view, name='rebalance'),
     path('<int:pk>/delete/', views.portfolio_delete_view, name='delete'),
     path('<int:pk>/forecast/api/', views.portfolio_forecast_api, name='forecast_api'),
+    # Backtester v2
     path('backtester/', views.portfolio_backtester_view, name='backtester'),
-    path('backtester/api/', views.portfolio_backtester_api, name='backtester_api'),
+    path('backtester/v2/run/', views.backtester_v2_run_api, name='backtester_v2_run'),
     path('backtester/fund-search/', views.portfolio_fund_search_api, name='backtester_fund_search'),
+    path('backtester/pe-data/', views.backtester_pe_api, name='backtester_pe_data'),
 ]

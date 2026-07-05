@@ -1,16 +1,17 @@
-# Python
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+*.pyo
 
-# Virtual environments
+# ─── Virtual Environments ─────────────────────────────────────────────────────
 venv/
 .venv/
 env/
 ENV/
 
-# Django
+# ─── Django ───────────────────────────────────────────────────────────────────
 *.log
 local_settings.py
 db.sqlite3
@@ -20,44 +21,48 @@ db_backups/
 db_work/
 media/
 
-# Environment variables — never commit secrets
+# ─── Environment variables — NEVER commit secrets ─────────────────────────────
 .env
 
-# Static files (collected by collectstatic)
+# ─── Static files (collected by collectstatic) ────────────────────────────────
 staticfiles/
 
-# Jupyter — notebooks may contain sensitive output or API keys
+# ─── Local data caches ────────────────────────────────────────────────────────
+# PE/PB/DivYield SQLite cache (auto-populated at runtime)
+.cache/
+*.cache.db
+
+# ─── Jupyter ──────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 notebooks/
 
-# OS
+# ─── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# IDE
+# ─── IDE ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Distribution / packaging
+# ─── Distribution / packaging ─────────────────────────────────────────────────
 dist/
 build/
 *.egg-info/
 *.egg
 
-# Testing
+# ─── Testing ──────────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
-.cache/
 
-# MyPy
+# ─── MyPy ─────────────────────────────────────────────────────────────────────
 .mypy_cache/
 
-# Temporary files
+# ─── Temporary / scratch files ────────────────────────────────────────────────
 *.bak
 *.tmp
 *.orig

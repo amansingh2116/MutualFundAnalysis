@@ -1,0 +1,2419 @@
+"""
+apps/portfolio/services/backtester_v2.py
+=========================================
+Backtester v2 — composable rules + trigger simulation engine.
+
+Phase 1: SIP, Lumpsum, Step-up SIP, all 8 trigger signal types, XIRR, CAGR,
+         full risk metrics, drawdown series, transaction ledger.
+
+Phase 2 additions:
+  - SWP (amount / units / % modes)
+  - Sell rule (amount / units / %)
+  - Switch rule (sell from one asset, buy into another)
+  - Rebalance rule (frequency-based + drift-based, portfolio-level)
+  - Exit load modelling (per-asset schedule, FIFO lots)
+  - Transaction cost per trade
+  - Attribution: per-rule fire count + ₹ impact
+  - Rolling return windows (1Y/3Y/5Y/7Y) for box plots
+  - Risk tab: all Tab 2 metrics surfaced cleanly
+"""
+from __future__ import annotations
+
+import calendar
+import logging
+import math
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+from scipy.optimize import brentq
+
+logger = logging.getLogger("mfanalysis")
+
+RF_ANNUAL = 0.065        # Risk-free rate for Sharpe/Sortino
+TRADING_DAYS = 252
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INPUT DATA MODEL
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class StepUpConfig:
+    """Step-up configuration for SIP rules."""
+    step_type: str       # "abs" (₹) | "pct" (%)
+    step_amount: float   # amount to add per period
+    step_frequency: str  # "annual" | "6month"
+
+
+@dataclass
+class TriggerCondition:
+    """A single condition in a trigger."""
+    signal_type: str
+    # "drawdown_ath" | "relative_val" | "pe_ratio" | "ma_200" |
+    # "rsi" | "portfolio_drawdown" | "calendar_date" | "fixed_return"
+    params: Dict[str, Any]  # signal-specific params
+    operator: str           # "lt" | "gt" | "lte" | "gte" | "eq"
+    value: float            # threshold
+
+
+@dataclass
+class TriggerConfig:
+    """Trigger attached to a rule — controls when/how it fires."""
+    conditions: List[TriggerCondition]       # 1–3
+    logic: str = "AND"                       # "AND" | "OR"
+    action_mode: str = "every_period"        # "once" | "every_period"
+    amount_modifier: Optional[Dict] = None
+    # {"mode": "increase"|"decrease", "value": float, "is_pct": bool}
+
+
+@dataclass
+class ExitLoadSchedule:
+    """Exit load schedule for an asset (e.g. 1% if redeemed within 1 year)."""
+    # List of (days_cutoff, load_pct) sorted ascending by days_cutoff.
+    # Example: [(365, 1.0), (730, 0.5)] → 1% within 1yr, 0.5% 1yr–2yr, 0% after.
+    tiers: List[Tuple[int, float]] = field(default_factory=list)
+
+
+@dataclass
+class RuleV2:
+    """A single investment/withdrawal/switch rule for one asset."""
+    rule_type: str        # "sip" | "lumpsum" | "swp" | "sell" | "switch" | "rebalance"
+
+    # ── SIP fields ────────────────────────────────────────────────────────────
+    amount: float = 0.0
+    frequency: str = "monthly"    # "daily" | "weekly" | "monthly" | "quarterly"
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    step_up: Optional[StepUpConfig] = None
+
+    # ── Lumpsum / Sell / SWP amount mode ──────────────────────────────────────
+    lumpsum_date: Optional[date] = None
+    amount_type: str = "amount"   # "amount" | "units" | "pct"
+    # For SWP/Sell: amount means ₹, units means shares, pct means % of holding
+
+    # ── Switch fields ──────────────────────────────────────────────────────────
+    switch_from_id: Optional[str] = None   # source asset source_id
+    switch_to_id: Optional[str] = None     # dest asset source_id
+    switch_date: Optional[date] = None
+
+    # ── Trigger (optional) ────────────────────────────────────────────────────
+    trigger: Optional[TriggerConfig] = None
+
+    # Internal state
+    _fired_once: bool = field(default=False, init=False, repr=False)
+
+
+@dataclass
+class RebalanceRule:
+    """Portfolio-level rebalance rule."""
+    target_weights: Dict[str, float]   # source_id → weight 0–100
+    mode: str = "frequency"            # "frequency" | "drift" | "both"
+    frequency: str = "annually"        # "monthly" | "quarterly" | "half-yearly" | "annually"
+    anchor_month: int = 1              # 1–12 (Jan=1)
+    drift_threshold: float = 5.0      # % absolute drift from target
+    drift_type: str = "absolute"       # "absolute" | "relative"
+
+
+@dataclass
+class AssetV2:
+    """One asset (MF scheme or index) with its rules."""
+    label: str
+    source_type: str    # "scheme" | "index"
+    source_id: str      # amfi_code or NSE index name
+    rules: List[RuleV2]
+    inception_date: Optional[date] = None
+    exit_load: Optional[ExitLoadSchedule] = None
+
+
+@dataclass
+class SimSettingsV2:
+    """Simulation-level settings (Step 4 of builder)."""
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    benchmark_type: str = "index"
+    benchmark_id: str = ""
+    synthetic_debt_rate: float = 7.0
+    transaction_cost: float = 0.0
+    exit_load_enabled: bool = False
+    # Tax (Phase 4)
+    tax_enabled: bool = False
+    tax_equity_stcg: float = 20.0    # % on equity gains held < 1 year
+    tax_equity_ltcg: float = 12.5    # % on equity gains held >= 1 year
+    tax_ltcg_exemption: float = 125000.0  # ₹/year exemption on LTCG
+    tax_debt_rate: float = 30.0      # % on debt fund gains (no holding distinction)
+    # Inflation (Phase 4)
+    inflation_enabled: bool = False
+    inflation_mode: str = "manual"    # "manual" | "wbgapi"
+    inflation_rate: float = 5.0
+    # Monte Carlo (Phase 5)
+    mc_enabled: bool = False
+    mc_simulations: int = 500
+    mc_horizon_years: int = 10
+
+
+@dataclass
+class PortfolioPlanV2:
+    """Complete portfolio plan submitted by the user."""
+    assets: List[AssetV2]
+    settings: SimSettingsV2
+    rebalance: Optional[RebalanceRule] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OUTPUT DATA MODEL
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class TxRecord:
+    """One row in the transaction ledger."""
+    date: str
+    asset_label: str
+    rule_type: str          # "SIP" | "LUMPSUM" | "SWP" | "SELL" | "SWITCH" | "REBALANCE"
+    direction: str          # "BUY" | "SELL"
+    units: float
+    nav: float
+    amount: float
+    trigger_fired: Optional[str] = None
+    exit_load: float = 0.0
+    tx_cost: float = 0.0
+
+
+@dataclass
+class FIFOLot:
+    """A FIFO cost lot for tax / exit load tracking."""
+    buy_date: date
+    units: float
+    buy_nav: float
+
+
+@dataclass
+class RuleAttribution:
+    """Per-rule attribution summary."""
+    rule_type: str
+    asset_label: str
+    fire_count: int
+    total_invested: float
+    total_redeemed: float
+    net_impact_rupees: float    # current value of units bought by this rule
+
+
+@dataclass
+class PerAssetSummary:
+    """Per-asset breakdown for Tab 1."""
+    label: str
+    source_id: str
+    total_invested: float
+    total_redeemed: float
+    current_value: float
+    xirr: Optional[float]
+    contribution_pct: float
+
+
+@dataclass
+class SimulationResultV2:
+    """Full output of one backtest run."""
+    # ── Tab 1: Summary ──────────────────────────────────────────────────────
+    total_invested: float
+    total_redeemed: float
+    final_value: float
+    absolute_gain: float
+    xirr: Optional[float]
+    cagr: Optional[float]
+    benchmark_cagr: Optional[float]
+    per_asset: List[PerAssetSummary]
+
+    # ── Tab 2: Risk ──────────────────────────────────────────────────────────
+    max_drawdown: Optional[float] = None
+    max_dd_start: Optional[str] = None
+    max_dd_trough: Optional[str] = None
+    max_dd_recovery: Optional[str] = None
+    max_dd_days: Optional[int] = None
+    recovery_days: Optional[int] = None
+    volatility: Optional[float] = None
+    downside_deviation: Optional[float] = None
+    worst_month: Optional[float] = None
+    worst_quarter: Optional[float] = None
+    var_95: Optional[float] = None
+    cvar_95: Optional[float] = None
+    sharpe: Optional[float] = None
+    sortino: Optional[float] = None
+    calmar: Optional[float] = None
+    romad: Optional[float] = None
+
+    # ── Tab 3: Consistency charts ────────────────────────────────────────────
+    dates: List[str] = field(default_factory=list)
+    portfolio_values: List[float] = field(default_factory=list)
+    invested_cumulative: List[float] = field(default_factory=list)
+    benchmark_values: List[float] = field(default_factory=list)
+    drawdown_series: List[float] = field(default_factory=list)
+    daily_returns: List[float] = field(default_factory=list)
+    calendar_returns: Dict[int, float] = field(default_factory=dict)
+    monthly_returns: Dict[str, float] = field(default_factory=dict)
+    event_markers: List[Dict] = field(default_factory=list)
+
+    # Rolling returns for box plots (Phase 2)
+    rolling_1y: List[float] = field(default_factory=list)
+    rolling_3y: List[float] = field(default_factory=list)
+    rolling_5y: List[float] = field(default_factory=list)
+    rolling_7y: List[float] = field(default_factory=list)
+
+    # ── Tab 3 extra: PE overlay (Phase 3) ───────────────────────────────────
+    pe_chart_series: List[Optional[float]] = field(default_factory=list)
+    pe_index_name: str = "NIFTY 50"
+
+    # ── Tab 4: Attribution ───────────────────────────────────────────────────
+    rule_attribution: List[Dict] = field(default_factory=list)
+
+    # ── Tab 5: Adjusted Returns (Phase 4) ────────────────────────────────────
+    tax_enabled: bool = False
+    stcg_paid: float = 0.0
+    ltcg_paid: float = 0.0
+    tax_drag: Optional[float] = None        # pre-tax XIRR - post-tax XIRR (pp)
+    post_tax_xirr: Optional[float] = None  # % p.a.
+    inflation_enabled: bool = False
+    inflation_rate_used: float = 0.0
+    real_xirr: Optional[float] = None       # inflation-adjusted XIRR %
+    real_final_value: Optional[float] = None
+
+    # ── Tab 6: Transaction Ledger ────────────────────────────────────────────
+    transactions: List[Dict] = field(default_factory=list)
+
+    # ── Tab 7: Monte Carlo (Phase 5) ─────────────────────────────────────────
+    mc_enabled: bool = False
+    mc_dates: List[str] = field(default_factory=list)           # ISO date strings (monthly)
+    mc_p10: List[float] = field(default_factory=list)           # 10th percentile path
+    mc_p25: List[float] = field(default_factory=list)           # 25th percentile
+    mc_p50: List[float] = field(default_factory=list)           # median
+    mc_p75: List[float] = field(default_factory=list)           # 75th percentile
+    mc_p90: List[float] = field(default_factory=list)           # 90th percentile
+    mc_final_p10: Optional[float] = None                        # final value at p10
+    mc_final_p50: Optional[float] = None
+    mc_final_p90: Optional[float] = None
+    mc_prob_double: Optional[float] = None                      # % sims that double invested
+    mc_prob_loss: Optional[float] = None                        # % sims ending below invested
+    mc_simulations_run: int = 0
+
+    # ── Meta ─────────────────────────────────────────────────────────────────
+    start_date: str = ""
+    end_date: str = ""
+    data_warnings: List[str] = field(default_factory=list)
+    plan_summary: List[Dict] = field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA LOADING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _load_scheme_nav_series(amfi_code: str) -> pd.Series:
+    """Load MF NAV series from mfapi.in (fetch-on-demand)."""
+    from apps.funds.runtime import fetch_nav_and_meta, nav_rows_to_series
+    nav_rows, meta = fetch_nav_and_meta(amfi_code)
+    if not nav_rows:
+        raise ValueError(f"No NAV data available for fund {amfi_code}.")
+    s = nav_rows_to_series(nav_rows)
+    if s.empty:
+        raise ValueError(f"NAV series is empty for fund {amfi_code}.")
+    s = s.sort_index()
+    s = s[~s.index.duplicated(keep="last")]
+    return s
+
+
+def _load_index_price_series(index_name: str) -> pd.Series:
+    """Load index price series from BenchmarkNAV (with on-demand fetch fallback)."""
+    from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV
+
+    try:
+        idx = BenchmarkIndex.objects.get(name=index_name)
+    except BenchmarkIndex.DoesNotExist:
+        raise ValueError(
+            f"Index '{index_name}' not found in database. "
+            "Make sure it's in the Benchmarks registry."
+        )
+
+    qs = (
+        BenchmarkNAV.objects
+        .filter(index=idx)
+        .values("date", "close")
+        .order_by("date")
+    )
+    df = pd.DataFrame(list(qs))
+    if df.empty or len(df) < 30:
+        try:
+            from apps.benchmarks.registry import fetch_yahoo_history_for_benchmark
+            series, _ = fetch_yahoo_history_for_benchmark(index_name)
+            if series is not None and not series.empty:
+                objs = [
+                    BenchmarkNAV(
+                        index=idx, date=d.date(),
+                        close=float(v), source="yfinance",
+                    )
+                    for d, v in series.items()
+                ]
+                BenchmarkNAV.objects.bulk_create(objs, ignore_conflicts=True)
+                df = pd.DataFrame(
+                    [{"date": d.date(), "close": float(v)} for d, v in series.items()]
+                )
+        except Exception as e:
+            logger.warning(f"[backtester_v2] On-demand fetch failed for '{index_name}': {e}")
+
+    if df.empty:
+        raise ValueError(
+            f"No price data available for index '{index_name}'. "
+            "Try fetching it from the Benchmarks page first."
+        )
+
+    df["date"] = pd.to_datetime(df["date"])
+    df["close"] = pd.to_numeric(df["close"], errors="coerce")
+    s = df.set_index("date")["close"].dropna()
+    s = s[~s.index.duplicated(keep="last")].sort_index()
+    return s
+
+
+def _load_price_series(source_type: str, source_id: str) -> pd.Series:
+    if source_type == "scheme":
+        return _load_scheme_nav_series(source_id)
+    elif source_type == "index":
+        return _load_index_price_series(source_id)
+    raise ValueError(f"Unknown source_type: {source_type!r}")
+
+
+def _nav_asof(series: pd.Series, d: date) -> Optional[float]:
+    """Return the most recent NAV on or before date d."""
+    ts = pd.Timestamp(d)
+    sub = series[series.index <= ts]
+    return float(sub.iloc[-1]) if not sub.empty else None
+
+
+def _make_synthetic_series(start: date, end: date, annual_rate: float = 0.07) -> pd.Series:
+    """Synthetic daily price series for debt parking at a flat annual rate."""
+    dates = pd.date_range(start=start, end=end, freq="D")
+    daily_r = (1 + annual_rate) ** (1 / 365) - 1
+    values = [100.0 * (1 + daily_r) ** i for i in range(len(dates))]
+    return pd.Series(values, index=dates)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SIP / SWP DATE GENERATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+FREQ_TO_MONTHS = {
+    "monthly": 1,
+    "quarterly": 3,
+    "half-yearly": 6,
+    "annually": 12,
+    "yearly": 12,
+}
+FREQ_TO_DAYS = {
+    "daily": 1,
+    "weekly": 7,
+}
+
+
+def _generate_periodic_dates(
+    frequency: str,
+    start: date,
+    end: date,
+) -> List[date]:
+    """Generate all periodic dates for a given frequency in [start, end]."""
+    if start > end:
+        return []
+    freq = frequency.lower()
+    dates = []
+    cur = start
+
+    if freq in FREQ_TO_DAYS:
+        delta = timedelta(days=FREQ_TO_DAYS[freq])
+        while cur <= end:
+            dates.append(cur)
+            cur += delta
+    else:
+        months = FREQ_TO_MONTHS.get(freq, 1)
+        while cur <= end:
+            dates.append(cur)
+            m = cur.month - 1 + months
+            y = cur.year + m // 12
+            m = m % 12 + 1
+            last_day = calendar.monthrange(y, m)[1]
+            cur = date(y, m, min(cur.day, last_day))
+
+    return dates
+
+
+def _generate_sip_dates(rule: RuleV2, plan_start: date, plan_end: date) -> List[date]:
+    start = max(rule.start_date or plan_start, plan_start)
+    end = min(rule.end_date or plan_end, plan_end)
+    return _generate_periodic_dates(rule.frequency, start, end)
+
+
+def _generate_swp_dates(rule: RuleV2, plan_start: date, plan_end: date) -> List[date]:
+    start = max(rule.start_date or plan_start, plan_start)
+    end = min(rule.end_date or plan_end, plan_end)
+    return _generate_periodic_dates(rule.frequency, start, end)
+
+
+def _sip_amount_on_date(rule: RuleV2, sip_start: date, on_date: date) -> float:
+    """Calculate SIP amount on a given date, applying step-up if configured."""
+    base = rule.amount
+    if rule.step_up is None or rule.step_up.step_amount <= 0:
+        return base
+
+    su = rule.step_up
+    if su.step_frequency == "annual":
+        periods = on_date.year - sip_start.year
+    elif su.step_frequency == "6month":
+        months_elapsed = (
+            (on_date.year - sip_start.year) * 12
+            + (on_date.month - sip_start.month)
+        )
+        periods = months_elapsed // 6
+    else:
+        periods = on_date.year - sip_start.year
+
+    if periods <= 0:
+        return base
+
+    if su.step_type == "pct":
+        return base * ((1 + su.step_amount / 100) ** periods)
+    else:  # "abs"
+        return base + su.step_amount * periods
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXIT LOAD
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _compute_exit_load(lot: FIFOLot, sell_date: date, nav: float, schedule: Optional[ExitLoadSchedule]) -> float:
+    """Compute exit load ₹ for one FIFO lot being redeemed."""
+    if schedule is None or not schedule.tiers:
+        return 0.0
+    holding_days = (sell_date - lot.buy_date).days
+    load_pct = 0.0
+    for (cutoff_days, pct) in sorted(schedule.tiers, key=lambda x: x[0]):
+        if holding_days < cutoff_days:
+            load_pct = pct
+            break
+    if load_pct <= 0:
+        return 0.0
+    return lot.units * nav * (load_pct / 100.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SELL / REDEEM HELPER (FIFO)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _sell_units_fifo(
+    lots: deque,            # deque of FIFOLot (FIFO)
+    units_to_sell: float,
+    nav: float,
+    sell_date: date,
+    schedule: Optional[ExitLoadSchedule],
+    enable_exit_load: bool,
+    tx_cost: float,
+) -> Tuple[float, float, float]:
+    """
+    Sell units_to_sell from the FIFO lot queue.
+    Returns (units_actually_sold, proceeds_net, exit_load_total).
+    Modifies `lots` in place.
+    """
+    if units_to_sell <= 0:
+        return 0.0, 0.0, 0.0
+
+    sold = 0.0
+    gross = 0.0
+    exit_load_total = 0.0
+
+    while units_to_sell > 1e-9 and lots:
+        lot = lots[0]
+        take = min(lot.units, units_to_sell)
+        el = 0.0
+        if enable_exit_load and schedule is not None:
+            el_full = _compute_exit_load(lot, sell_date, nav, schedule)
+            el = el_full * (take / lot.units) if lot.units > 0 else 0.0
+        gross += take * nav
+        exit_load_total += el
+        sold += take
+        units_to_sell -= take
+        lot.units -= take
+        if lot.units < 1e-9:
+            lots.popleft()
+
+    proceeds_net = gross - exit_load_total - tx_cost
+    return sold, proceeds_net, exit_load_total
+
+
+def _sell_amount_fifo(
+    lots: deque,
+    amount_to_redeem: float,
+    nav: float,
+    sell_date: date,
+    schedule: Optional[ExitLoadSchedule],
+    enable_exit_load: bool,
+    tx_cost: float,
+) -> Tuple[float, float, float]:
+    """
+    Sell just enough units to raise amount_to_redeem ₹ (before exit load).
+    Returns (units_sold, proceeds_net, exit_load_total).
+    """
+    total_available_units = sum(lot.units for lot in lots)
+    total_available_value = total_available_units * nav
+    if total_available_value <= 0:
+        return 0.0, 0.0, 0.0
+    units_needed = min(amount_to_redeem / nav, total_available_units)
+    return _sell_units_fifo(lots, units_needed, nav, sell_date, schedule, enable_exit_load, tx_cost)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TRIGGER EVALUATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _evaluate_condition(
+    cond: TriggerCondition,
+    price_map: Dict[str, pd.Series],
+    portfolio_values: List[float],
+    on_date: date,
+    pe_series_cache: Dict[str, pd.Series],
+) -> bool:
+    """Evaluate a single trigger condition on a given date."""
+    sig = cond.signal_type
+    p = cond.params
+    ts = pd.Timestamp(on_date)
+
+    try:
+        if sig == "drawdown_ath":
+            ref_id = p.get("reference_id", "")
+            series = price_map.get(ref_id)
+            if series is None:
+                return False
+            sub = series[series.index <= ts]
+            if sub.empty:
+                return False
+            ath = float(sub.max())
+            current = float(sub.iloc[-1])
+            drawdown_pct = (ath - current) / ath * 100 if ath > 0 else 0
+            return _compare(drawdown_pct, cond.operator, cond.value)
+
+        elif sig == "pe_ratio":
+            pe_series = pe_series_cache.get(p.get("index_name", ""))
+            if pe_series is None:
+                return False
+            pe = pe_series.asof(ts)
+            if pe is None or pd.isna(pe):
+                return False
+            return _compare(float(pe), cond.operator, cond.value)
+
+        elif sig == "relative_val":
+            id_a = p.get("asset_a", "")
+            id_b = p.get("asset_b", "")
+            sa = price_map.get(id_a)
+            sb = price_map.get(id_b)
+            if sa is None or sb is None:
+                return False
+            va = sa.asof(ts)
+            vb = sb.asof(ts)
+            if va is None or vb is None or float(vb) == 0:
+                return False
+            ratio = float(va) / float(vb)
+            return _compare(ratio, cond.operator, cond.value)
+
+        elif sig == "ma_200":
+            ref_id = p.get("reference_id", "")
+            series = price_map.get(ref_id)
+            if series is None:
+                return False
+            window = series[series.index <= ts].tail(200)
+            if len(window) < 20:
+                return True
+            sma = float(window.mean())
+            current = float(window.iloc[-1])
+            position = p.get("position", "above")
+            if position == "above":
+                return current > sma
+            else:
+                return current < sma
+
+        elif sig == "rsi":
+            ref_id = p.get("reference_id", "")
+            series = price_map.get(ref_id)
+            if series is None:
+                return False
+            period = int(p.get("period", 14))
+            sub = series[series.index <= ts].tail(period * 3)
+            if len(sub) < period + 1:
+                return False
+            rsi_val = _compute_rsi(sub, period)
+            if rsi_val is None:
+                return False
+            return _compare(rsi_val, cond.operator, cond.value)
+
+        elif sig == "portfolio_drawdown":
+            if not portfolio_values:
+                return False
+            peak = max(portfolio_values)
+            current = portfolio_values[-1]
+            dd_pct = (peak - current) / peak * 100 if peak > 0 else 0
+            return _compare(dd_pct, cond.operator, cond.value)
+
+        elif sig == "calendar_date":
+            target_date = p.get("target_date")
+            recur_type = p.get("recur_type", "")
+            if not target_date:
+                return False
+            td = date.fromisoformat(target_date)
+            if not recur_type:
+                return on_date == td
+            elif recur_type == "annual":
+                return on_date.month == td.month and on_date.day == td.day
+            elif recur_type == "monthly":
+                return on_date.day == td.day
+
+        elif sig == "fixed_return":
+            return True
+
+    except Exception as e:
+        logger.warning(f"[trigger] Error evaluating {sig}: {e}")
+        return False
+
+    return False
+
+
+def _compare(value: float, operator: str, threshold: float) -> bool:
+    if operator == "lt":
+        return value < threshold
+    elif operator == "gt":
+        return value > threshold
+    elif operator == "lte":
+        return value <= threshold
+    elif operator == "gte":
+        return value >= threshold
+    elif operator == "eq":
+        return abs(value - threshold) < 1e-9
+    return False
+
+
+def _evaluate_trigger(
+    trigger: TriggerConfig,
+    price_map: Dict[str, pd.Series],
+    portfolio_values: List[float],
+    on_date: date,
+    pe_series_cache: Dict[str, pd.Series],
+) -> bool:
+    results = [
+        _evaluate_condition(c, price_map, portfolio_values, on_date, pe_series_cache)
+        for c in trigger.conditions
+    ]
+    if trigger.logic == "AND":
+        return all(results)
+    else:
+        return any(results)
+
+
+def _compute_rsi(series: pd.Series, period: int = 14) -> Optional[float]:
+    deltas = series.diff().dropna()
+    if len(deltas) < period:
+        return None
+    gains = deltas.clip(lower=0).rolling(period).mean()
+    losses = (-deltas.clip(upper=0)).rolling(period).mean()
+    if losses.iloc[-1] == 0:
+        return 100.0
+    rs = gains.iloc[-1] / losses.iloc[-1]
+    return 100 - (100 / (1 + rs))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 4 — TAX ENGINE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _compute_gains_tax(
+    lots_consumed: List[Tuple["FIFOLot", float]],  # (lot, units_taken)
+    sell_date: date,
+    sell_nav: float,
+    is_equity: bool,
+    settings: "SimSettingsV2",
+    annual_ltcg_used: Dict[int, float],  # year → ₹ LTCG gains already sheltered by exemption
+) -> Tuple[float, float, float]:
+    """
+    Compute capital gains tax on a set of FIFO lots being redeemed.
+
+    Args:
+        lots_consumed: List of (FIFOLot, units_sold_from_that_lot)
+        sell_date:    Date of redemption
+        sell_nav:     NAV on redemption date
+        is_equity:    True for equity/hybrid MF (STCG < 1yr, LTCG >= 1yr with exemption)
+                      False for debt/liquid (single rate, no exemption)
+        settings:     SimSettingsV2 with tax rates
+        annual_ltcg_used: Mutable dict tracking LTCG exemption used per calendar year
+
+    Returns:
+        (stcg_tax, ltcg_tax, total_tax) in ₹
+    """
+    if not settings.tax_enabled:
+        return 0.0, 0.0, 0.0
+
+    stcg_total = 0.0
+    ltcg_total = 0.0
+
+    for lot, units_sold in lots_consumed:
+        holding_days = (sell_date - lot.buy_date).days
+        cost_basis = lot.buy_nav * units_sold
+        proceeds = sell_nav * units_sold
+        gain = proceeds - cost_basis
+
+        if gain <= 0:
+            continue  # no tax on losses (simplified — no loss carry-forward in this model)
+
+        if not is_equity:
+            # Debt: flat rate regardless of holding period
+            stcg_total += gain * settings.tax_debt_rate / 100
+        else:
+            if holding_days < 365:
+                # STCG
+                stcg_total += gain * settings.tax_equity_stcg / 100
+            else:
+                # LTCG — apply annual exemption
+                year = sell_date.year
+                exemption_remaining = max(
+                    0, settings.tax_ltcg_exemption - annual_ltcg_used.get(year, 0.0)
+                )
+                taxable_gain = max(0, gain - exemption_remaining)
+                annual_ltcg_used[year] = annual_ltcg_used.get(year, 0.0) + min(gain, exemption_remaining)
+                ltcg_total += taxable_gain * settings.tax_equity_ltcg / 100
+
+    return stcg_total, ltcg_total, stcg_total + ltcg_total
+
+
+def _lots_consumed_in_sell(
+    lots: "deque",
+    units_to_sell: float,
+) -> List[Tuple["FIFOLot", float]]:
+    """
+    Dry-run of FIFO sell: return (lot, units_consumed) pairs WITHOUT mutating the deque.
+    Used to calculate tax BEFORE the actual sell.
+    """
+    result = []
+    remaining = units_to_sell
+    for lot in lots:
+        if remaining <= 1e-9:
+            break
+        take = min(lot.units, remaining)
+        result.append((lot, take))
+        remaining -= take
+    return result
+
+
+def _fetch_wbgapi_cpi_rate(sim_start: date, sim_end: date, warnings: List[str]) -> Optional[float]:
+    """
+    Fetch average annual India CPI inflation from World Bank API using wbgapi.
+    Returns average annual % over the simulation window, or None on failure.
+    """
+    try:
+        import wbgapi as wb  # type: ignore
+        start_year = sim_start.year
+        end_year = sim_end.year
+        # FP.CPI.TOTL.ZG = CPI inflation (annual %) for India
+        data = wb.data.fetch("FP.CPI.TOTL.ZG", "IND", mrv=end_year - start_year + 5)
+        rates = []
+        for row in data:
+            yr = row.get("time", "")
+            val = row.get("value")
+            try:
+                yr_int = int(str(yr).replace("YR", ""))
+            except Exception:
+                continue
+            if val is not None and start_year <= yr_int <= end_year:
+                rates.append(float(val))
+        if rates:
+            avg = sum(rates) / len(rates)
+            return round(avg, 2)
+    except ImportError:
+        warnings.append("wbgapi not installed — using manual inflation rate instead.")
+    except Exception as e:
+        warnings.append(f"World Bank CPI fetch failed: {e}. Using manual rate.")
+    return None
+
+
+def _compute_real_returns(
+    nominal_xirr_pct: Optional[float],
+    final_value: float,
+    sim_years: float,
+    inflation_rate_pct: float,
+) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Compute inflation-adjusted (real) XIRR and real corpus.
+
+    Real XIRR ≈ (1 + nominal) / (1 + inflation) - 1  (Fisher equation)
+    Real corpus = final_value / (1 + inflation_rate) ^ years
+
+    Returns (real_xirr_pct, real_final_value).
+    """
+    if nominal_xirr_pct is None:
+        return None, None
+
+    r_nom = nominal_xirr_pct / 100
+    r_inf = inflation_rate_pct / 100
+
+    real_rate = (1 + r_nom) / (1 + r_inf) - 1
+    real_xirr = round(real_rate * 100, 2)
+
+    if sim_years > 0:
+        real_corpus = round(final_value / ((1 + r_inf) ** sim_years), 2)
+    else:
+        real_corpus = None
+
+    return real_xirr, real_corpus
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 5 — MONTE CARLO SIMULATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _run_monte_carlo(
+    portfolio_values: List[float],
+    total_invested: float,
+    plan: "PortfolioPlanV2",
+    sim_end: date,
+) -> Dict:
+    """
+    Run a Monte Carlo simulation projecting portfolio value forward using GBM.
+
+    Parameters are derived from the portfolio's own historical daily returns
+    (μ and σ), so the simulation reflects the strategy's actual risk profile.
+
+    Monthly SIP contributions (if any SIP rule is present in the plan) are
+    added at each monthly step to make the projection realistic.
+
+    Returns a dict of MC result fields for SimulationResultV2.
+    """
+    settings = plan.settings
+    n_sims = min(max(int(settings.mc_simulations), 50), 2000)
+    horizon_years = min(max(int(settings.mc_horizon_years), 1), 30)
+    horizon_months = horizon_years * 12
+    seed_value = portfolio_values[-1] if portfolio_values else total_invested
+
+    if seed_value <= 0 or len(portfolio_values) < 30:
+        return {}   # not enough data — silently skip
+
+    # ── Derive μ and σ from historical daily returns ──────────────────────────
+    pv = np.array(portfolio_values, dtype=float)
+    log_returns = np.diff(np.log(pv[pv > 0]))
+    if len(log_returns) < 20:
+        return {}
+
+    mu_daily = float(np.mean(log_returns))
+    sigma_daily = float(np.std(log_returns, ddof=1))
+
+    # Scale to monthly (≈ 21 trading days per month)
+    trading_days_per_month = 21
+    mu_monthly = mu_daily * trading_days_per_month
+    sigma_monthly = sigma_daily * math.sqrt(trading_days_per_month)
+
+    # ── Estimate monthly SIP contribution from plan ───────────────────────────
+    monthly_sip = 0.0
+    for asset in plan.assets:
+        for rule in asset.rules:
+            if rule.rule_type == "sip" and rule.frequency in ("monthly", "Monthly"):
+                monthly_sip += rule.amount
+
+    # ── GBM simulation ────────────────────────────────────────────────────────
+    rng = np.random.default_rng(42)  # deterministic seed for reproducibility
+    # Shape: (n_sims, horizon_months)
+    z = rng.standard_normal((n_sims, horizon_months))
+    # Monthly GBM: S_{t+1} = S_t * exp((μ - σ²/2)Δt + σ√Δt Z)
+    drift = mu_monthly - 0.5 * sigma_monthly ** 2
+    monthly_factors = np.exp(drift + sigma_monthly * z)  # (n_sims, months)
+
+    # Build all paths month by month (adding SIP at the start of each month)
+    paths = np.zeros((n_sims, horizon_months + 1))
+    paths[:, 0] = seed_value
+    for m in range(horizon_months):
+        paths[:, m + 1] = paths[:, m] * monthly_factors[:, m] + monthly_sip
+
+    # ── Build output date axis ────────────────────────────────────────────────
+    mc_dates = []
+    cur = sim_end
+    for _ in range(horizon_months + 1):
+        mc_dates.append(cur.isoformat())
+        # advance one month
+        m = cur.month + 1
+        y = cur.year + (m - 1) // 12
+        m = (m - 1) % 12 + 1
+        import calendar as _cal
+        last = _cal.monthrange(y, m)[1]
+        cur = date(y, m, min(cur.day, last))
+
+    # ── Percentile paths ──────────────────────────────────────────────────────
+    pcts = np.percentile(paths, [10, 25, 50, 75, 90], axis=0)
+
+    final_values = paths[:, -1]
+    mc_final_p10 = round(float(np.percentile(final_values, 10)), 2)
+    mc_final_p50 = round(float(np.percentile(final_values, 50)), 2)
+    mc_final_p90 = round(float(np.percentile(final_values, 90)), 2)
+
+    total_invested_at_end = total_invested + monthly_sip * horizon_months
+    prob_double = float(np.mean(final_values >= 2 * total_invested_at_end) * 100)
+    prob_loss   = float(np.mean(final_values < total_invested_at_end) * 100)
+
+    def _round_list(arr):
+        return [round(float(v), 2) for v in arr]
+
+    return {
+        "mc_enabled": True,
+        "mc_dates": mc_dates,
+        "mc_p10":   _round_list(pcts[0]),
+        "mc_p25":   _round_list(pcts[1]),
+        "mc_p50":   _round_list(pcts[2]),
+        "mc_p75":   _round_list(pcts[3]),
+        "mc_p90":   _round_list(pcts[4]),
+        "mc_final_p10":   mc_final_p10,
+        "mc_final_p50":   mc_final_p50,
+        "mc_final_p90":   mc_final_p90,
+        "mc_prob_double": round(prob_double, 1),
+        "mc_prob_loss":   round(prob_loss, 1),
+        "mc_simulations_run": n_sims,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REBALANCE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _should_rebalance_frequency(
+    rb: RebalanceRule,
+    d: date,
+    last_rebalance: Optional[date],
+) -> bool:
+    """Return True if the rebalance frequency trigger fires on date d."""
+    if rb.mode not in ("frequency", "both"):
+        return False
+    freq = rb.frequency.lower()
+    if last_rebalance is None:
+        # First rebalance: check if we're in the anchor month
+        if freq == "annually":
+            return d.month == rb.anchor_month and d.day == 1
+        elif freq == "quarterly":
+            anchor_months = {rb.anchor_month % 12 or 12}
+            for i in range(4):
+                anchor_months.add(((rb.anchor_month - 1 + i * 3) % 12) + 1)
+            return d.month in anchor_months and d.day == 1
+        elif freq == "monthly":
+            return d.day == 1
+        elif freq == "half-yearly":
+            m1 = rb.anchor_month
+            m2 = ((rb.anchor_month - 1 + 6) % 12) + 1
+            return d.month in (m1, m2) and d.day == 1
+        return False
+
+    days_since = (d - last_rebalance).days
+    if freq == "annually":
+        return days_since >= 365
+    elif freq == "half-yearly":
+        return days_since >= 182
+    elif freq == "quarterly":
+        return days_since >= 90
+    elif freq == "monthly":
+        return days_since >= 28
+    return False
+
+
+def _should_rebalance_drift(
+    rb: RebalanceRule,
+    asset_state: Dict[str, Dict],
+    price_map: Dict[str, pd.Series],
+    d: date,
+) -> bool:
+    """Return True if any asset has drifted beyond the threshold."""
+    if rb.mode not in ("drift", "both"):
+        return False
+    total_val = sum(
+        asset_state[sid]["units"] * (_nav_asof(price_map[sid], d) or 0)
+        for sid in asset_state
+        if sid in price_map
+    )
+    if total_val <= 0:
+        return False
+    for sid, target_w in rb.target_weights.items():
+        if sid not in asset_state or sid not in price_map:
+            continue
+        nav = _nav_asof(price_map[sid], d)
+        if not nav:
+            continue
+        current_val = asset_state[sid]["units"] * nav
+        current_w = current_val / total_val * 100
+        if rb.drift_type == "absolute":
+            drift = abs(current_w - target_w)
+        else:  # relative
+            drift = abs(current_w - target_w) / target_w * 100 if target_w > 0 else 0
+        if drift >= rb.drift_threshold:
+            return True
+    return False
+
+
+def _execute_rebalance(
+    rb: RebalanceRule,
+    asset_state: Dict[str, Dict],
+    asset_lots: Dict[str, deque],
+    price_map: Dict[str, pd.Series],
+    assets: List[AssetV2],
+    d: date,
+    tx_ledger: List[TxRecord],
+    global_cf: List[Tuple[date, float]],
+    asset_cf: Dict[str, List],
+    asset_invested: Dict[str, float],
+    asset_redeemed: Dict[str, float],
+    total_invested_ref: List[float],
+    total_redeemed_ref: List[float],
+    settings: SimSettingsV2,
+    event_markers: List[Dict],
+    attr_tracker: Dict,
+) -> None:
+    """Sell overweight, buy underweight to reach target_weights."""
+    asset_map = {a.source_id: a for a in assets}
+    total_val = sum(
+        asset_state[sid]["units"] * (_nav_asof(price_map[sid], d) or 0)
+        for sid in asset_state
+        if sid in price_map
+    )
+    if total_val <= 0:
+        return
+
+    # Compute sells first, then buys
+    sells: List[Tuple[str, float]] = []
+    buys: List[Tuple[str, float]] = []
+
+    for sid, target_w in rb.target_weights.items():
+        if sid not in price_map:
+            continue
+        nav = _nav_asof(price_map[sid], d)
+        if not nav or nav <= 0:
+            continue
+        target_val = total_val * target_w / 100
+        current_val = asset_state.get(sid, {}).get("units", 0) * nav
+        delta = target_val - current_val
+        if abs(delta) < 100:  # ignore tiny drift
+            continue
+        if delta < 0:
+            sells.append((sid, abs(delta)))
+        else:
+            buys.append((sid, delta))
+
+    for sid, sell_val in sells:
+        a = asset_map.get(sid)
+        if a is None:
+            continue
+        nav = _nav_asof(price_map[sid], d)
+        if not nav:
+            continue
+        units_needed = sell_val / nav
+        lots = asset_lots.get(sid, deque())
+        available = sum(lot.units for lot in lots)
+        units_to_sell = min(units_needed, available)
+        if units_to_sell <= 0:
+            continue
+        sold_u, proceeds, el = _sell_units_fifo(
+            lots, units_to_sell, nav, d,
+            a.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled,
+            settings.transaction_cost,
+        )
+        if sold_u > 0:
+            asset_state[sid]["units"] -= sold_u
+            asset_redeemed[sid] += proceeds
+            total_redeemed_ref[0] += proceeds
+            global_cf.append((d, proceeds))
+            asset_cf[sid].append((d, proceeds))
+            tx_ledger.append(TxRecord(
+                date=d.isoformat(), asset_label=a.label,
+                rule_type="REBALANCE", direction="SELL",
+                units=round(sold_u, 6), nav=round(nav, 4),
+                amount=round(sold_u * nav, 2),
+                exit_load=round(el, 2),
+                tx_cost=round(settings.transaction_cost, 2),
+            ))
+            attr_tracker.setdefault(("rebalance", sid), {"fire_count": 0, "invested": 0, "redeemed": 0})
+            attr_tracker[("rebalance", sid)]["fire_count"] += 1
+            attr_tracker[("rebalance", sid)]["redeemed"] += proceeds
+
+    for sid, buy_val in buys:
+        a = asset_map.get(sid)
+        if a is None:
+            continue
+        nav = _nav_asof(price_map[sid], d)
+        if not nav or nav <= 0:
+            continue
+        units_bought = buy_val / nav
+        asset_state[sid]["units"] += units_bought
+        asset_lots[sid].append(FIFOLot(buy_date=d, units=units_bought, buy_nav=nav))
+        asset_invested[sid] += buy_val
+        total_invested_ref[0] += buy_val
+        global_cf.append((d, -buy_val))
+        asset_cf[sid].append((d, -buy_val))
+        tx_ledger.append(TxRecord(
+            date=d.isoformat(), asset_label=a.label,
+            rule_type="REBALANCE", direction="BUY",
+            units=round(units_bought, 6), nav=round(nav, 4),
+            amount=round(buy_val, 2),
+            tx_cost=round(settings.transaction_cost, 2),
+        ))
+        attr_tracker.setdefault(("rebalance", sid), {"fire_count": 0, "invested": 0, "redeemed": 0})
+        attr_tracker[("rebalance", sid)]["invested"] += buy_val
+
+    event_markers.append({
+        "date": d.isoformat(),
+        "type": "rebalance",
+        "label": "Portfolio rebalanced",
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANALYTICS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _compute_xirr(cashflows: List[float], dates: List[date]) -> Optional[float]:
+    """Compute XIRR (annualised IRR) for irregular cashflows."""
+    if len(cashflows) < 2:
+        return None
+    if not any(cf < 0 for cf in cashflows) or not any(cf > 0 for cf in cashflows):
+        return None
+    base = dates[0]
+    day_fracs = [(d - base).days / 365.0 for d in dates]
+
+    def npv(rate):
+        return sum(cf / ((1 + rate) ** t) for cf, t in zip(cashflows, day_fracs))
+
+    try:
+        return brentq(npv, -0.999, 100.0, xtol=1e-8, maxiter=1000)
+    except Exception:
+        return None
+
+
+def _compute_cagr(start_value: float, end_value: float, years: float) -> Optional[float]:
+    if start_value <= 0 or years <= 0:
+        return None
+    try:
+        return (end_value / start_value) ** (1 / years) - 1
+    except Exception:
+        return None
+
+
+def _compute_metrics(portfolio_series: pd.Series) -> Dict:
+    """Full risk metrics from a portfolio value time series."""
+    if portfolio_series.empty or len(portfolio_series) < 2:
+        return {}
+
+    daily_ret = portfolio_series.pct_change().dropna()
+    vol = float(daily_ret.std() * math.sqrt(TRADING_DAYS)) if len(daily_ret) > 1 else None
+    neg_ret = daily_ret[daily_ret < 0]
+    downside_dev = float(neg_ret.std() * math.sqrt(TRADING_DAYS)) if len(neg_ret) > 1 else None
+
+    cummax = portfolio_series.cummax()
+    drawdown = (portfolio_series - cummax) / cummax
+    max_dd = float(drawdown.min()) if not drawdown.empty else None
+
+    max_dd_start = max_dd_trough = max_dd_recovery = None
+    max_dd_days = recovery_days = None
+
+    if max_dd is not None and max_dd < 0:
+        trough_idx = drawdown.idxmin()
+        peak_idx = portfolio_series[:trough_idx].idxmax()
+        max_dd_start = str(peak_idx.date())
+        max_dd_trough = str(trough_idx.date())
+        max_dd_days = (trough_idx - peak_idx).days
+        peak_val = float(portfolio_series[peak_idx])
+        after_trough = portfolio_series[trough_idx:]
+        recovered = after_trough[after_trough >= peak_val]
+        if not recovered.empty:
+            max_dd_recovery = str(recovered.index[0].date())
+            recovery_days = (recovered.index[0] - trough_idx).days
+
+    monthly = portfolio_series.resample("ME").last()
+    monthly_ret = monthly.pct_change().dropna()
+    worst_month = float(monthly_ret.min()) if not monthly_ret.empty else None
+
+    quarterly = portfolio_series.resample("QE").last()
+    quarterly_ret = quarterly.pct_change().dropna()
+    worst_quarter = float(quarterly_ret.min()) if not quarterly_ret.empty else None
+
+    var_95 = float(daily_ret.quantile(0.05)) if not daily_ret.empty else None
+    cvar_95 = float(daily_ret[daily_ret <= var_95].mean()) if (var_95 is not None and not daily_ret.empty) else None
+
+    # Calendar / monthly returns
+    calendar_returns = {}
+    for yr, grp in portfolio_series.groupby(portfolio_series.index.year):
+        if len(grp) >= 2:
+            calendar_returns[int(yr)] = float((grp.iloc[-1] / grp.iloc[0] - 1) * 100)
+
+    monthly_returns = {}
+    if not monthly.empty:
+        monthly_ret2 = monthly.pct_change().dropna()
+        for ts, r in monthly_ret2.items():
+            monthly_returns[ts.strftime("%Y-%m")] = float(r * 100)
+
+    return {
+        "max_drawdown": max_dd,
+        "max_dd_start": max_dd_start,
+        "max_dd_trough": max_dd_trough,
+        "max_dd_recovery": max_dd_recovery,
+        "max_dd_days": max_dd_days,
+        "recovery_days": recovery_days,
+        "volatility": vol,
+        "downside_deviation": downside_dev,
+        "worst_month": worst_month,
+        "worst_quarter": worst_quarter,
+        "var_95": var_95,
+        "cvar_95": cvar_95,
+        "calendar_returns": calendar_returns,
+        "monthly_returns": monthly_returns,
+    }
+
+
+def _compute_rolling_returns(portfolio_series: pd.Series, window_years: int) -> List[float]:
+    """
+    Compute all rolling CAGR values for a given window (in years).
+    Uses weekly sampled data to keep it fast.
+    Returns list of CAGR % values.
+    """
+    if portfolio_series.empty or len(portfolio_series) < 2:
+        return []
+    weekly = portfolio_series.resample("W").last().dropna()
+    window_weeks = window_years * 52
+    if len(weekly) < window_weeks:
+        return []
+    results = []
+    for i in range(len(weekly) - window_weeks):
+        start_val = weekly.iloc[i]
+        end_val = weekly.iloc[i + window_weeks]
+        if start_val > 0 and end_val > 0:
+            cagr = (end_val / start_val) ** (1 / window_years) - 1
+            results.append(round(cagr * 100, 3))
+    return results
+
+
+def _sharpe(xirr: Optional[float], vol: Optional[float], rf: float = RF_ANNUAL) -> Optional[float]:
+    if xirr is None or vol is None or vol == 0:
+        return None
+    return (xirr - rf) / vol
+
+
+def _sortino(xirr: Optional[float], dd: Optional[float], rf: float = RF_ANNUAL) -> Optional[float]:
+    if xirr is None or dd is None or dd == 0:
+        return None
+    return (xirr - rf) / dd
+
+
+def _calmar(cagr: Optional[float], max_dd: Optional[float]) -> Optional[float]:
+    if cagr is None or max_dd is None or max_dd == 0:
+        return None
+    return cagr / abs(max_dd)
+
+
+def _romad(xirr: Optional[float], max_dd: Optional[float]) -> Optional[float]:
+    if xirr is None or max_dd is None or max_dd == 0:
+        return None
+    return xirr / abs(max_dd)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VALIDATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _validate_plan(plan: PortfolioPlanV2, price_map: Dict[str, pd.Series]) -> List[str]:
+    errors = []
+    settings = plan.settings
+
+    all_starts = [s.index[0].date() for s in price_map.values() if not s.empty]
+    data_start = max(all_starts) if all_starts else None
+    sim_start = settings.start_date or data_start
+    sim_end = settings.end_date or date.today()
+
+    if sim_start and sim_end and (sim_end - sim_start).days < 30:
+        errors.append("Simulation window must be at least 1 month long.")
+
+    for asset in plan.assets:
+        series = price_map.get(asset.source_id)
+        if series is None or series.empty:
+            errors.append(
+                f"No price data available for '{asset.label}'. "
+                "Check that this fund/index has historical data."
+            )
+            continue
+
+        inception = series.index[0].date()
+        for rule in asset.rules:
+            if rule.rule_type in ("sip", "swp"):
+                rule_start = rule.start_date or sim_start
+                if rule_start and rule_start < inception:
+                    errors.append(
+                        f"Rule on '{asset.label}' starts {rule_start} which is before "
+                        f"inception date {inception}."
+                    )
+            elif rule.rule_type == "lumpsum":
+                ld = rule.lumpsum_date or sim_start
+                if ld and ld < inception:
+                    errors.append(f"Lumpsum on '{asset.label}' on {ld} is before inception {inception}.")
+            elif rule.rule_type == "switch":
+                if not rule.switch_from_id or not rule.switch_to_id:
+                    errors.append(f"Switch rule on '{asset.label}' needs both 'from' and 'to' assets.")
+                if rule.switch_from_id == rule.switch_to_id:
+                    errors.append(f"Switch source and destination must be different assets.")
+
+    # Rebalance weights must sum to 100
+    if plan.rebalance:
+        total_w = sum(plan.rebalance.target_weights.values())
+        if abs(total_w - 100) > 0.5:
+            errors.append(f"Rebalance target weights sum to {total_w:.1f}%. Must sum to 100%.")
+
+    if not plan.assets:
+        errors.append("Add at least one asset to run the backtest.")
+
+    return errors
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN SIMULATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
+    """
+    Entry point: validate → fetch data → simulate → compute analytics.
+    Returns SimulationResultV2. Raises ValueError on fatal errors.
+    """
+    data_warnings: List[str] = []
+    settings = plan.settings
+
+    # ── 1. Load all price series ──────────────────────────────────────────────
+    price_map: Dict[str, pd.Series] = {}
+    for asset in plan.assets:
+        try:
+            s = _load_price_series(asset.source_type, asset.source_id)
+            price_map[asset.source_id] = s
+        except Exception as e:
+            raise ValueError(str(e))
+
+    # ── 2. Simulation window ──────────────────────────────────────────────────
+    all_starts = [s.index[0].date() for s in price_map.values()]
+    data_start = max(all_starts) if all_starts else date(2000, 1, 1)
+    sim_start = settings.start_date or data_start
+    sim_start = max(sim_start, data_start)
+    sim_end = settings.end_date or date.today()
+
+    all_ends = [s.index[-1].date() for s in price_map.values()]
+    data_end = min(all_ends) if all_ends else sim_end
+    sim_end = min(sim_end, data_end)
+
+    if sim_start > sim_end:
+        raise ValueError(
+            f"Simulation start ({sim_start}) is after end ({sim_end}). "
+            "Check asset inception dates and your selected date range."
+        )
+
+    # ── 3. Validate plan ──────────────────────────────────────────────────────
+    errors = _validate_plan(plan, price_map)
+    if errors:
+        raise ValueError("\n".join(errors))
+
+    # ── 4. Benchmark series ───────────────────────────────────────────────────
+    benchmark_series: Optional[pd.Series] = None
+    if settings.benchmark_id:
+        try:
+            benchmark_series = _load_price_series(settings.benchmark_type, settings.benchmark_id)
+        except Exception as e:
+            data_warnings.append(f"Benchmark data unavailable: {e}")
+
+    # ── 5. PE cache ───────────────────────────────────────────────────────────
+    pe_series_cache: Dict[str, pd.Series] = {}
+    _preload_pe_series(plan, sim_start, sim_end, pe_series_cache, data_warnings)
+
+    # ── 6. Per-asset state ────────────────────────────────────────────────────
+    asset_state: Dict[str, Dict] = {}    # source_id → {"units": float}
+    asset_lots: Dict[str, deque] = {}    # source_id → deque of FIFOLot
+    asset_cf: Dict[str, List[Tuple[date, float]]] = {}
+    asset_invested: Dict[str, float] = {}
+    asset_redeemed: Dict[str, float] = {}
+
+    for asset in plan.assets:
+        asset_state[asset.source_id] = {"units": 0.0}
+        asset_lots[asset.source_id] = deque()
+        asset_cf[asset.source_id] = []
+        asset_invested[asset.source_id] = 0.0
+        asset_redeemed[asset.source_id] = 0.0
+
+    # Mutable refs for totals (passed into helpers)
+    total_invested_ref = [0.0]
+    total_redeemed_ref = [0.0]
+    global_cf: List[Tuple[date, float]] = []
+
+    tx_ledger: List[TxRecord] = []
+    event_markers: List[Dict] = []
+    attr_tracker: Dict = {}  # (rule_type, source_id) → {fire_count, invested, redeemed}
+
+    # Phase 4 tax accumulators
+    # is_equity: True if equity/hybrid (STCG/LTCG applies), False for debt/liquid
+    # Heuristic: index assets are equity; scheme source_type is equity by default.
+    # Users can explicitly categorise via exit_load presence — future refinement.
+    # For now: all assets treated as equity unless source_type == 'synthetic'.
+    is_equity_map: Dict[str, bool] = {
+        a.source_id: (a.source_type != "synthetic") for a in plan.assets
+    }
+    # Snapshot of lots at each sell event (for post-processing tax)
+    lot_snapshots: List[Dict] = []  # list of {asset_id, units, lots_consumed, sell_date, sell_nav}
+    annual_ltcg_used: Dict[int, float] = {}  # year → ₹ LTCG gains sheltered by exemption
+
+    # ── 7. Build SIP/SWP event lookup ────────────────────────────────────────
+    periodic_lookup: Dict[date, List[Tuple]] = defaultdict(list)
+    for asset in plan.assets:
+        for rule in asset.rules:
+            if rule.rule_type == "sip":
+                for d in _generate_sip_dates(rule, sim_start, sim_end):
+                    periodic_lookup[d].append((asset, rule))
+            elif rule.rule_type == "swp":
+                for d in _generate_swp_dates(rule, sim_start, sim_end):
+                    periodic_lookup[d].append((asset, rule))
+            elif rule.rule_type == "lumpsum" and rule.lumpsum_date and not rule.trigger:
+                ld = rule.lumpsum_date
+                if sim_start <= ld <= sim_end:
+                    periodic_lookup[ld].append((asset, rule))
+            elif rule.rule_type == "sell" and rule.lumpsum_date and not rule.trigger:
+                sd = rule.lumpsum_date
+                if sim_start <= sd <= sim_end:
+                    periodic_lookup[sd].append((asset, rule))
+            elif rule.rule_type == "switch" and rule.switch_date and not rule.trigger:
+                sd = rule.switch_date
+                if sim_start <= sd <= sim_end:
+                    periodic_lookup[sd].append((asset, rule))
+
+    # ── 8. All dates to process ───────────────────────────────────────────────
+    chart_dates_pd = pd.date_range(start=sim_start, end=sim_end, freq="W")
+    chart_dates_set = set(ts.date() for ts in chart_dates_pd) | {sim_start, sim_end}
+    all_dates = sorted(chart_dates_set | set(periodic_lookup.keys()))
+
+    # ── 9. Rebalance state ────────────────────────────────────────────────────
+    last_rebalance_date: Optional[date] = None
+
+    # ── 10. Chart series buffers ──────────────────────────────────────────────
+    chart_dates_out: List[str] = []
+    portfolio_values_out: List[float] = []
+    invested_cum_out: List[float] = []
+    running_portfolio_values: List[float] = []
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MAIN LOOP
+    # ══════════════════════════════════════════════════════════════════════════
+    for d in all_dates:
+        is_chart_date = d in chart_dates_set
+
+        # ── Process periodic events ───────────────────────────────────────────
+        for asset, rule in periodic_lookup.get(d, []):
+            _process_rule(
+                asset=asset, rule=rule, d=d,
+                price_map=price_map,
+                asset_state=asset_state, asset_lots=asset_lots,
+                asset_cf=asset_cf, asset_invested=asset_invested, asset_redeemed=asset_redeemed,
+                total_invested_ref=total_invested_ref, total_redeemed_ref=total_redeemed_ref,
+                global_cf=global_cf, tx_ledger=tx_ledger, event_markers=event_markers,
+                settings=settings, sim_start=sim_start,
+                running_portfolio_values=running_portfolio_values,
+                pe_series_cache=pe_series_cache, attr_tracker=attr_tracker,
+                plan=plan,
+            )
+
+        # ── Trigger-based rules (evaluated every date) ────────────────────────
+        for asset in plan.assets:
+            for rule in asset.rules:
+                if rule.rule_type in ("lumpsum", "sell", "switch") and rule.trigger:
+                    _process_triggered_rule(
+                        asset=asset, rule=rule, d=d,
+                        price_map=price_map,
+                        asset_state=asset_state, asset_lots=asset_lots,
+                        asset_cf=asset_cf, asset_invested=asset_invested, asset_redeemed=asset_redeemed,
+                        total_invested_ref=total_invested_ref, total_redeemed_ref=total_redeemed_ref,
+                        global_cf=global_cf, tx_ledger=tx_ledger, event_markers=event_markers,
+                        settings=settings, sim_start=sim_start,
+                        running_portfolio_values=running_portfolio_values,
+                        pe_series_cache=pe_series_cache, attr_tracker=attr_tracker,
+                        plan=plan,
+                    )
+
+        # ── Rebalance check ───────────────────────────────────────────────────
+        if plan.rebalance:
+            rb = plan.rebalance
+            freq_fire = _should_rebalance_frequency(rb, d, last_rebalance_date)
+            drift_fire = _should_rebalance_drift(rb, asset_state, price_map, d)
+            if freq_fire or drift_fire:
+                _execute_rebalance(
+                    rb=rb,
+                    asset_state=asset_state, asset_lots=asset_lots,
+                    price_map=price_map, assets=plan.assets, d=d,
+                    tx_ledger=tx_ledger, global_cf=global_cf,
+                    asset_cf=asset_cf, asset_invested=asset_invested, asset_redeemed=asset_redeemed,
+                    total_invested_ref=total_invested_ref, total_redeemed_ref=total_redeemed_ref,
+                    settings=settings, event_markers=event_markers, attr_tracker=attr_tracker,
+                )
+                last_rebalance_date = d
+
+        # ── Chart snapshot ────────────────────────────────────────────────────
+        if is_chart_date:
+            pv = _portfolio_value(plan.assets, asset_state, price_map, d)
+            running_portfolio_values.append(pv)
+            chart_dates_out.append(d.isoformat())
+            portfolio_values_out.append(round(pv, 2))
+            invested_cum_out.append(round(total_invested_ref[0], 2))
+
+    # ── Final value and cashflows ──────────────────────────────────────────────
+    final_value = _portfolio_value(plan.assets, asset_state, price_map, sim_end)
+    if final_value > 0:
+        global_cf.append((sim_end, final_value))
+
+    total_invested = total_invested_ref[0]
+    total_redeemed = total_redeemed_ref[0]
+
+    # ── XIRR ─────────────────────────────────────────────────────────────────
+    xirr_raw = None
+    if len(global_cf) >= 2:
+        cf_amounts = [cf for _, cf in global_cf]
+        cf_dates = [d for d, _ in global_cf]
+        xirr_raw = _compute_xirr(cf_amounts, cf_dates)
+    xirr_pct = round(xirr_raw * 100, 2) if xirr_raw is not None else None
+
+    # ── CAGR ─────────────────────────────────────────────────────────────────
+    years = (sim_end - sim_start).days / 365.25
+    cagr_raw = None
+    if total_invested > 0 and final_value > 0 and years > 0:
+        cagr_raw = _compute_cagr(total_invested, final_value, years)
+    cagr_pct = round(cagr_raw * 100, 2) if cagr_raw is not None else None
+
+    # ── Benchmark CAGR ────────────────────────────────────────────────────────
+    benchmark_cagr_pct = None
+    benchmark_values_out: List[float] = []
+    if benchmark_series is not None and not benchmark_series.empty and chart_dates_out:
+        bv_start = _nav_asof(benchmark_series, sim_start)
+        if bv_start and bv_start > 0:
+            for ds in chart_dates_out:
+                bv = _nav_asof(benchmark_series, date.fromisoformat(ds))
+                benchmark_values_out.append(
+                    round((bv / bv_start) * total_invested, 2) if bv else 0
+                )
+            bv_end = _nav_asof(benchmark_series, sim_end)
+            if bv_end and bv_end > 0 and years > 0:
+                benchmark_cagr_raw = _compute_cagr(bv_start, bv_end, years)
+                benchmark_cagr_pct = round(benchmark_cagr_raw * 100, 2) if benchmark_cagr_raw else None
+
+    # ── Risk metrics ──────────────────────────────────────────────────────────
+    pf_series_for_metrics = pd.Series(
+        portfolio_values_out,
+        index=pd.to_datetime(chart_dates_out),
+    )
+    metrics = _compute_metrics(pf_series_for_metrics)
+    drawdown_series_out = _compute_drawdown_series(portfolio_values_out)
+
+    sharpe_val = _sharpe(xirr_raw, metrics.get("volatility"))
+    sortino_val = _sortino(xirr_raw, metrics.get("downside_deviation"))
+    calmar_val = _calmar(cagr_raw, metrics.get("max_drawdown"))
+    romad_val = _romad(xirr_raw, metrics.get("max_drawdown"))
+
+    # ── Rolling returns ───────────────────────────────────────────────────────
+    rolling_1y = _compute_rolling_returns(pf_series_for_metrics, 1)
+    rolling_3y = _compute_rolling_returns(pf_series_for_metrics, 3)
+    rolling_5y = _compute_rolling_returns(pf_series_for_metrics, 5)
+    rolling_7y = _compute_rolling_returns(pf_series_for_metrics, 7)
+
+    # ── Daily returns ─────────────────────────────────────────────────────────
+    daily_rets_out = []
+    if len(portfolio_values_out) > 1:
+        pvs = pd.Series(portfolio_values_out)
+        daily_rets_out = [round(float(r * 100), 4) for r in pvs.pct_change().fillna(0)]
+
+    # ── Per-asset summary ─────────────────────────────────────────────────────
+    per_asset_summary = _build_per_asset_summary(
+        plan.assets, asset_state, asset_invested, asset_redeemed,
+        asset_cf, price_map, sim_end, final_value,
+    )
+
+    # ── Attribution ───────────────────────────────────────────────────────────
+    rule_attribution = _build_attribution(attr_tracker, asset_state, price_map, sim_end)
+
+    # ── Plan summary ──────────────────────────────────────────────────────────
+    plan_summary = []
+    for asset in plan.assets:
+        series = price_map.get(asset.source_id)
+        inception_str = series.index[0].date().isoformat() if series is not None else "N/A"
+        plan_summary.append({
+            "label": asset.label,
+            "source_type": asset.source_type,
+            "source_id": asset.source_id,
+            "inception_date": inception_str,
+            "num_rules": len(asset.rules),
+        })
+
+    # ── Result ────────────────────────────────────────────────────────────────
+    absolute_gain = final_value + total_redeemed - total_invested
+
+    # ── Phase 4: Tax post-processing ──────────────────────────────────────────
+    stcg_paid_total = 0.0
+    ltcg_paid_total = 0.0
+    post_tax_xirr_pct: Optional[float] = None
+    tax_drag_pct: Optional[float] = None
+
+    if settings.tax_enabled:
+        # Replay all SELL transactions against cost-basis data in tx_ledger.
+        # We can compute gains from (NAV × units) - (buy_nav × units) per lot.
+        # Since we don't have per-lot cost inside TxRecord, we use a
+        # FIFO re-simulation on a separate lot-cost ledger built during main loop.
+        # Build a simple cost-basis ledger from BUY records in tx_ledger.
+        cost_lots: Dict[str, List] = {a.source_id: [] for a in plan.assets}
+        post_tax_cf: List[Tuple[date, float]] = []
+
+        for tx in tx_ledger:
+            # Find source_id from asset label (reverse map)
+            asset_obj = next((a for a in plan.assets if a.label == tx.asset_label), None)
+            if asset_obj is None:
+                continue
+            sid = asset_obj.source_id
+            tx_date = date.fromisoformat(tx.date)
+
+            if tx.direction == "BUY":
+                cost_lots[sid].append({"buy_date": tx_date, "units": tx.units, "buy_nav": tx.nav})
+                post_tax_cf.append((tx_date, -tx.amount))
+
+            elif tx.direction == "SELL":
+                # FIFO consume from cost_lots[sid]
+                units_remaining = tx.units
+                consumed = []
+                while units_remaining > 1e-9 and cost_lots[sid]:
+                    lot = cost_lots[sid][0]
+                    take = min(lot["units"], units_remaining)
+                    consumed.append((
+                        type("L", (), {
+                            "buy_date": lot["buy_date"],
+                            "buy_nav": lot["buy_nav"],
+                            "units": lot["units"],
+                        })(),
+                        take,
+                    ))
+                    lot["units"] -= take
+                    units_remaining -= take
+                    if lot["units"] < 1e-9:
+                        cost_lots[sid].pop(0)
+
+                # Compute tax on consumed lots
+                is_eq = is_equity_map.get(sid, True)
+                stcg_t, ltcg_t, total_t = _compute_gains_tax(
+                    consumed, tx_date, tx.nav, is_eq, settings, annual_ltcg_used
+                )
+                stcg_paid_total += stcg_t
+                ltcg_paid_total += ltcg_t
+                # Post-tax proceeds = gross proceeds - tax
+                gross_proceeds = tx.units * tx.nav
+                post_tax_proceeds = gross_proceeds - total_t
+                post_tax_cf.append((tx_date, post_tax_proceeds))
+
+        # Add terminal portfolio value to post-tax cashflows
+        if final_value > 0:
+            # Tax on unrealised holdings = zero (not liquidating)
+            post_tax_cf.append((sim_end, final_value))
+
+        if len(post_tax_cf) >= 2:
+            pt_amounts = [cf for _, cf in post_tax_cf]
+            pt_dates = [d for d, _ in post_tax_cf]
+            post_tax_xirr_raw = _compute_xirr(pt_amounts, pt_dates)
+            if post_tax_xirr_raw is not None:
+                post_tax_xirr_pct = round(post_tax_xirr_raw * 100, 2)
+
+        if xirr_pct is not None and post_tax_xirr_pct is not None:
+            tax_drag_pct = round(xirr_pct - post_tax_xirr_pct, 2)
+
+    # ── Phase 4: Inflation adjustment ─────────────────────────────────────────
+    inflation_rate_used = settings.inflation_rate
+    real_xirr_pct: Optional[float] = None
+    real_final_value_val: Optional[float] = None
+
+    if settings.inflation_enabled:
+        if settings.inflation_mode == "wbgapi":
+            wb_rate = _fetch_wbgapi_cpi_rate(sim_start, sim_end, data_warnings)
+            if wb_rate is not None:
+                inflation_rate_used = wb_rate
+        real_xirr_pct, real_final_value_val = _compute_real_returns(
+            xirr_pct, final_value, years, inflation_rate_used
+        )
+
+    # ── Phase 5: Monte Carlo ──────────────────────────────────────────────────
+    mc_result: Dict = {}
+    if settings.mc_enabled:
+        try:
+            mc_result = _run_monte_carlo(
+                portfolio_values=portfolio_values_out,
+                total_invested=total_invested,
+                plan=plan,
+                sim_end=sim_end,
+            )
+        except Exception as _mc_err:
+            data_warnings.append(f"Monte Carlo simulation failed: {_mc_err}")
+
+    return SimulationResultV2(
+        total_invested=round(total_invested, 2),
+        total_redeemed=round(total_redeemed, 2),
+        final_value=round(final_value, 2),
+        absolute_gain=round(absolute_gain, 2),
+        xirr=xirr_pct,
+        cagr=cagr_pct,
+        benchmark_cagr=benchmark_cagr_pct,
+        per_asset=per_asset_summary,
+        # Risk
+        max_drawdown=round(metrics.get("max_drawdown", 0) * 100, 2) if metrics.get("max_drawdown") is not None else None,
+        max_dd_start=metrics.get("max_dd_start"),
+        max_dd_trough=metrics.get("max_dd_trough"),
+        max_dd_recovery=metrics.get("max_dd_recovery"),
+        max_dd_days=metrics.get("max_dd_days"),
+        recovery_days=metrics.get("recovery_days"),
+        volatility=round(metrics.get("volatility", 0) * 100, 2) if metrics.get("volatility") is not None else None,
+        downside_deviation=round(metrics.get("downside_deviation", 0) * 100, 2) if metrics.get("downside_deviation") is not None else None,
+        worst_month=round(metrics.get("worst_month", 0) * 100, 2) if metrics.get("worst_month") is not None else None,
+        worst_quarter=round(metrics.get("worst_quarter", 0) * 100, 2) if metrics.get("worst_quarter") is not None else None,
+        var_95=round(metrics.get("var_95", 0) * 100, 4) if metrics.get("var_95") is not None else None,
+        cvar_95=round(metrics.get("cvar_95", 0) * 100, 4) if metrics.get("cvar_95") is not None else None,
+        sharpe=round(sharpe_val, 3) if sharpe_val is not None else None,
+        sortino=round(sortino_val, 3) if sortino_val is not None else None,
+        calmar=round(calmar_val, 3) if calmar_val is not None else None,
+        romad=round(romad_val, 3) if romad_val is not None else None,
+        # Charts
+        dates=chart_dates_out,
+        portfolio_values=portfolio_values_out,
+        invested_cumulative=invested_cum_out,
+        benchmark_values=benchmark_values_out,
+        drawdown_series=drawdown_series_out,
+        daily_returns=daily_rets_out,
+        calendar_returns=metrics.get("calendar_returns", {}),
+        monthly_returns=metrics.get("monthly_returns", {}),
+        event_markers=event_markers,
+        # Rolling
+        rolling_1y=rolling_1y,
+        rolling_3y=rolling_3y,
+        rolling_5y=rolling_5y,
+        rolling_7y=rolling_7y,
+        # Attribution
+        rule_attribution=rule_attribution,
+        # Ledger
+        transactions=[_tx_to_dict(tx) for tx in tx_ledger],
+        # PE overlay (Phase 3)
+        pe_chart_series=_build_pe_chart_series(pe_series_cache, chart_dates_out),
+        pe_index_name=_pick_pe_overlay_index(pe_series_cache),
+        # Phase 4 — Adjusted Returns
+        tax_enabled=settings.tax_enabled,
+        stcg_paid=round(stcg_paid_total, 2),
+        ltcg_paid=round(ltcg_paid_total, 2),
+        tax_drag=tax_drag_pct,
+        post_tax_xirr=post_tax_xirr_pct,
+        inflation_enabled=settings.inflation_enabled,
+        inflation_rate_used=round(inflation_rate_used, 2),
+        real_xirr=real_xirr_pct,
+        real_final_value=real_final_value_val,
+        # Phase 5 — Monte Carlo
+        mc_enabled=mc_result.get("mc_enabled", False),
+        mc_dates=mc_result.get("mc_dates", []),
+        mc_p10=mc_result.get("mc_p10", []),
+        mc_p25=mc_result.get("mc_p25", []),
+        mc_p50=mc_result.get("mc_p50", []),
+        mc_p75=mc_result.get("mc_p75", []),
+        mc_p90=mc_result.get("mc_p90", []),
+        mc_final_p10=mc_result.get("mc_final_p10"),
+        mc_final_p50=mc_result.get("mc_final_p50"),
+        mc_final_p90=mc_result.get("mc_final_p90"),
+        mc_prob_double=mc_result.get("mc_prob_double"),
+        mc_prob_loss=mc_result.get("mc_prob_loss"),
+        mc_simulations_run=mc_result.get("mc_simulations_run", 0),
+        # Meta
+        start_date=sim_start.isoformat(),
+        end_date=sim_end.isoformat(),
+        data_warnings=data_warnings,
+        plan_summary=plan_summary,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RULE PROCESSING HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _process_rule(
+    asset: AssetV2,
+    rule: RuleV2,
+    d: date,
+    price_map: Dict,
+    asset_state: Dict, asset_lots: Dict,
+    asset_cf: Dict, asset_invested: Dict, asset_redeemed: Dict,
+    total_invested_ref: List[float], total_redeemed_ref: List[float],
+    global_cf: List, tx_ledger: List, event_markers: List,
+    settings: SimSettingsV2, sim_start: date,
+    running_portfolio_values: List[float],
+    pe_series_cache: Dict, attr_tracker: Dict, plan: PortfolioPlanV2,
+) -> None:
+    """Process a scheduled periodic rule (SIP, SWP, Lumpsum, Sell, Switch)."""
+    series = price_map.get(asset.source_id)
+    if series is None:
+        return
+    nav = _nav_asof(series, d)
+    if nav is None or nav <= 0:
+        return
+
+    ak = (rule.rule_type, asset.source_id)
+
+    # ── SIP ───────────────────────────────────────────────────────────────────
+    if rule.rule_type == "sip":
+        invest_amount = _sip_amount_on_date(rule, rule.start_date or sim_start, d)
+        triggered_label = None
+
+        if rule.trigger:
+            fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d, pe_series_cache)
+            if not fires:
+                return
+            if rule.trigger.action_mode == "once":
+                if rule._fired_once:
+                    return
+                rule._fired_once = True
+            am = rule.trigger.amount_modifier
+            if am:
+                mod_val = am["value"]
+                if am.get("is_pct"):
+                    mod_val = invest_amount * am["value"] / 100
+                if am["mode"] == "increase":
+                    invest_amount += mod_val
+                else:
+                    invest_amount = max(0, invest_amount - mod_val)
+            triggered_label = _trigger_label(rule.trigger)
+            event_markers.append({"date": d.isoformat(), "type": "trigger", "label": f"Trigger on {asset.label}"})
+
+        if invest_amount <= 0:
+            return
+
+        units_bought = invest_amount / nav
+        asset_state[asset.source_id]["units"] += units_bought
+        asset_lots[asset.source_id].append(FIFOLot(buy_date=d, units=units_bought, buy_nav=nav))
+        asset_invested[asset.source_id] += invest_amount
+        total_invested_ref[0] += invest_amount
+        global_cf.append((d, -invest_amount))
+        asset_cf[asset.source_id].append((d, -invest_amount))
+        attr_tracker.setdefault(ak, {"fire_count": 0, "invested": 0, "redeemed": 0})
+        attr_tracker[ak]["fire_count"] += 1
+        attr_tracker[ak]["invested"] += invest_amount
+        tx_ledger.append(TxRecord(
+            date=d.isoformat(), asset_label=asset.label, rule_type="SIP",
+            direction="BUY", units=round(units_bought, 6), nav=round(nav, 4),
+            amount=round(invest_amount, 2), trigger_fired=triggered_label,
+            tx_cost=round(settings.transaction_cost, 2),
+        ))
+
+    # ── SWP ───────────────────────────────────────────────────────────────────
+    elif rule.rule_type == "swp":
+        lots = asset_lots.get(asset.source_id, deque())
+        total_units = sum(lot.units for lot in lots)
+        if total_units <= 0:
+            return
+
+        triggered_label = None
+        if rule.trigger:
+            fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d, pe_series_cache)
+            if not fires:
+                return
+            if rule.trigger.action_mode == "once":
+                if rule._fired_once:
+                    return
+                rule._fired_once = True
+            triggered_label = _trigger_label(rule.trigger)
+
+        if rule.amount_type == "units":
+            units_to_sell = min(rule.amount, total_units)
+        elif rule.amount_type == "pct":
+            units_to_sell = total_units * rule.amount / 100
+        else:  # amount (₹)
+            units_to_sell = min(rule.amount / nav, total_units) if nav > 0 else 0
+
+        if units_to_sell <= 0:
+            return
+
+        sold_u, proceeds, el = _sell_units_fifo(
+            lots, units_to_sell, nav, d,
+            asset.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled, settings.transaction_cost,
+        )
+        if sold_u > 0:
+            asset_state[asset.source_id]["units"] -= sold_u
+            asset_redeemed[asset.source_id] += proceeds
+            total_redeemed_ref[0] += proceeds
+            global_cf.append((d, proceeds))
+            asset_cf[asset.source_id].append((d, proceeds))
+            attr_tracker.setdefault(ak, {"fire_count": 0, "invested": 0, "redeemed": 0})
+            attr_tracker[ak]["fire_count"] += 1
+            attr_tracker[ak]["redeemed"] += proceeds
+            tx_ledger.append(TxRecord(
+                date=d.isoformat(), asset_label=asset.label, rule_type="SWP",
+                direction="SELL", units=round(sold_u, 6), nav=round(nav, 4),
+                amount=round(sold_u * nav, 2), trigger_fired=triggered_label,
+                exit_load=round(el, 2), tx_cost=round(settings.transaction_cost, 2),
+            ))
+
+    # ── SELL ──────────────────────────────────────────────────────────────────
+    elif rule.rule_type == "sell":
+        _execute_sell(
+            asset=asset, rule=rule, d=d, nav=nav,
+            asset_state=asset_state, asset_lots=asset_lots,
+            asset_cf=asset_cf, asset_redeemed=asset_redeemed,
+            total_redeemed_ref=total_redeemed_ref, global_cf=global_cf,
+            tx_ledger=tx_ledger, event_markers=event_markers,
+            settings=settings, triggered_label=None,
+            attr_tracker=attr_tracker,
+        )
+
+    # ── LUMPSUM ───────────────────────────────────────────────────────────────
+    elif rule.rule_type == "lumpsum":
+        invest_amount = rule.amount
+        if invest_amount <= 0:
+            return
+        units_bought = invest_amount / nav
+        asset_state[asset.source_id]["units"] += units_bought
+        asset_lots[asset.source_id].append(FIFOLot(buy_date=d, units=units_bought, buy_nav=nav))
+        asset_invested[asset.source_id] += invest_amount
+        total_invested_ref[0] += invest_amount
+        global_cf.append((d, -invest_amount))
+        asset_cf[asset.source_id].append((d, -invest_amount))
+        attr_tracker.setdefault(ak, {"fire_count": 0, "invested": 0, "redeemed": 0})
+        attr_tracker[ak]["fire_count"] += 1
+        attr_tracker[ak]["invested"] += invest_amount
+        event_markers.append({"date": d.isoformat(), "type": "lumpsum", "label": f"Lumpsum in {asset.label}"})
+        tx_ledger.append(TxRecord(
+            date=d.isoformat(), asset_label=asset.label, rule_type="LUMPSUM",
+            direction="BUY", units=round(units_bought, 6), nav=round(nav, 4),
+            amount=round(invest_amount, 2), tx_cost=round(settings.transaction_cost, 2),
+        ))
+
+    # ── SWITCH ────────────────────────────────────────────────────────────────
+    elif rule.rule_type == "switch":
+        _execute_switch(
+            rule=rule, d=d, plan=plan,
+            price_map=price_map, asset_state=asset_state, asset_lots=asset_lots,
+            asset_cf=asset_cf, asset_invested=asset_invested, asset_redeemed=asset_redeemed,
+            total_invested_ref=total_invested_ref, total_redeemed_ref=total_redeemed_ref,
+            global_cf=global_cf, tx_ledger=tx_ledger, event_markers=event_markers,
+            settings=settings, triggered_label=None, attr_tracker=attr_tracker,
+        )
+
+
+def _process_triggered_rule(
+    asset: AssetV2, rule: RuleV2, d: date,
+    price_map: Dict, asset_state: Dict, asset_lots: Dict,
+    asset_cf: Dict, asset_invested: Dict, asset_redeemed: Dict,
+    total_invested_ref: List[float], total_redeemed_ref: List[float],
+    global_cf: List, tx_ledger: List, event_markers: List,
+    settings: SimSettingsV2, sim_start: date,
+    running_portfolio_values: List[float],
+    pe_series_cache: Dict, attr_tracker: Dict, plan: PortfolioPlanV2,
+) -> None:
+    """Process a trigger-based rule (evaluated every date)."""
+    if not rule.trigger:
+        return
+    fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d, pe_series_cache)
+    if not fires:
+        return
+    if rule.trigger.action_mode == "once":
+        if rule._fired_once:
+            return
+        rule._fired_once = True
+
+    triggered_label = _trigger_label(rule.trigger)
+    series = price_map.get(asset.source_id)
+    nav = _nav_asof(series, d) if series is not None else None
+
+    if rule.rule_type == "lumpsum":
+        if not nav or nav <= 0 or rule.amount <= 0:
+            return
+        invest_amount = rule.amount
+        units_bought = invest_amount / nav
+        asset_state[asset.source_id]["units"] += units_bought
+        asset_lots[asset.source_id].append(FIFOLot(buy_date=d, units=units_bought, buy_nav=nav))
+        asset_invested[asset.source_id] += invest_amount
+        total_invested_ref[0] += invest_amount
+        global_cf.append((d, -invest_amount))
+        asset_cf[asset.source_id].append((d, -invest_amount))
+        ak = (rule.rule_type, asset.source_id)
+        attr_tracker.setdefault(ak, {"fire_count": 0, "invested": 0, "redeemed": 0})
+        attr_tracker[ak]["fire_count"] += 1
+        attr_tracker[ak]["invested"] += invest_amount
+        event_markers.append({"date": d.isoformat(), "type": "trigger_lumpsum", "label": f"Triggered lumpsum in {asset.label}"})
+        tx_ledger.append(TxRecord(
+            date=d.isoformat(), asset_label=asset.label, rule_type="LUMPSUM",
+            direction="BUY", units=round(units_bought, 6), nav=round(nav, 4),
+            amount=round(invest_amount, 2), trigger_fired=triggered_label,
+            tx_cost=round(settings.transaction_cost, 2),
+        ))
+
+    elif rule.rule_type == "sell":
+        if not nav or nav <= 0:
+            return
+        _execute_sell(
+            asset=asset, rule=rule, d=d, nav=nav,
+            asset_state=asset_state, asset_lots=asset_lots,
+            asset_cf=asset_cf, asset_redeemed=asset_redeemed,
+            total_redeemed_ref=total_redeemed_ref, global_cf=global_cf,
+            tx_ledger=tx_ledger, event_markers=event_markers,
+            settings=settings, triggered_label=triggered_label,
+            attr_tracker=attr_tracker,
+        )
+
+    elif rule.rule_type == "switch":
+        _execute_switch(
+            rule=rule, d=d, plan=plan,
+            price_map=price_map, asset_state=asset_state, asset_lots=asset_lots,
+            asset_cf=asset_cf, asset_invested=asset_invested, asset_redeemed=asset_redeemed,
+            total_invested_ref=total_invested_ref, total_redeemed_ref=total_redeemed_ref,
+            global_cf=global_cf, tx_ledger=tx_ledger, event_markers=event_markers,
+            settings=settings, triggered_label=triggered_label, attr_tracker=attr_tracker,
+        )
+
+
+def _execute_sell(
+    asset: AssetV2, rule: RuleV2, d: date, nav: float,
+    asset_state: Dict, asset_lots: Dict,
+    asset_cf: Dict, asset_redeemed: Dict,
+    total_redeemed_ref: List[float], global_cf: List,
+    tx_ledger: List, event_markers: List,
+    settings: SimSettingsV2, triggered_label: Optional[str],
+    attr_tracker: Dict,
+) -> None:
+    """Execute a sell rule (amount / units / %)."""
+    lots = asset_lots.get(asset.source_id, deque())
+    total_units = sum(lot.units for lot in lots)
+    if total_units <= 0:
+        return
+
+    if rule.amount_type == "units":
+        units_to_sell = min(rule.amount, total_units)
+        sold_u, proceeds, el = _sell_units_fifo(
+            lots, units_to_sell, nav, d,
+            asset.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled, settings.transaction_cost,
+        )
+    elif rule.amount_type == "pct":
+        units_to_sell = total_units * rule.amount / 100
+        sold_u, proceeds, el = _sell_units_fifo(
+            lots, units_to_sell, nav, d,
+            asset.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled, settings.transaction_cost,
+        )
+    else:  # amount ₹
+        sold_u, proceeds, el = _sell_amount_fifo(
+            lots, rule.amount, nav, d,
+            asset.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled, settings.transaction_cost,
+        )
+
+    if sold_u <= 0:
+        return
+
+    asset_state[asset.source_id]["units"] -= sold_u
+    asset_redeemed[asset.source_id] += proceeds
+    total_redeemed_ref[0] += proceeds
+    global_cf.append((d, proceeds))
+    asset_cf[asset.source_id].append((d, proceeds))
+    ak = ("sell", asset.source_id)
+    attr_tracker.setdefault(ak, {"fire_count": 0, "invested": 0, "redeemed": 0})
+    attr_tracker[ak]["fire_count"] += 1
+    attr_tracker[ak]["redeemed"] += proceeds
+    event_markers.append({"date": d.isoformat(), "type": "sell", "label": f"Sell {asset.label}"})
+    tx_ledger.append(TxRecord(
+        date=d.isoformat(), asset_label=asset.label, rule_type="SELL",
+        direction="SELL", units=round(sold_u, 6), nav=round(nav, 4),
+        amount=round(sold_u * nav, 2), trigger_fired=triggered_label,
+        exit_load=round(el, 2), tx_cost=round(settings.transaction_cost, 2),
+    ))
+
+
+def _execute_switch(
+    rule: RuleV2, d: date, plan: PortfolioPlanV2,
+    price_map: Dict, asset_state: Dict, asset_lots: Dict,
+    asset_cf: Dict, asset_invested: Dict, asset_redeemed: Dict,
+    total_invested_ref: List[float], total_redeemed_ref: List[float],
+    global_cf: List, tx_ledger: List, event_markers: List,
+    settings: SimSettingsV2, triggered_label: Optional[str], attr_tracker: Dict,
+) -> None:
+    """Execute a switch rule: sell from source, buy into destination."""
+    from_id = rule.switch_from_id
+    to_id = rule.switch_to_id
+    if not from_id or not to_id or from_id == to_id:
+        return
+
+    from_series = price_map.get(from_id)
+    to_series = price_map.get(to_id)
+    if from_series is None or to_series is None:
+        return
+
+    from_nav = _nav_asof(from_series, d)
+    to_nav = _nav_asof(to_series, d)
+    if not from_nav or not to_nav:
+        return
+
+    from_asset = next((a for a in plan.assets if a.source_id == from_id), None)
+    to_asset = next((a for a in plan.assets if a.source_id == to_id), None)
+    if from_asset is None or to_asset is None:
+        return
+
+    from_lots = asset_lots.get(from_id, deque())
+    total_from_units = sum(lot.units for lot in from_lots)
+    if total_from_units <= 0:
+        return
+
+    if rule.amount_type == "pct":
+        units_to_sell = total_from_units * rule.amount / 100
+        sold_u, proceeds, el = _sell_units_fifo(
+            from_lots, units_to_sell, from_nav, d,
+            from_asset.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled, 0,  # tx_cost charged once, at buy leg
+        )
+    elif rule.amount_type == "units":
+        units_to_sell = min(rule.amount, total_from_units)
+        sold_u, proceeds, el = _sell_units_fifo(
+            from_lots, units_to_sell, from_nav, d,
+            from_asset.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled, 0,
+        )
+    else:  # amount ₹
+        sold_u, proceeds, el = _sell_amount_fifo(
+            from_lots, rule.amount, from_nav, d,
+            from_asset.exit_load if settings.exit_load_enabled else None,
+            settings.exit_load_enabled, 0,
+        )
+
+    if sold_u <= 0:
+        return
+
+    # Debit from source
+    asset_state[from_id]["units"] -= sold_u
+    switch_amount = proceeds - settings.transaction_cost  # net proceeds fund the buy
+
+    # Credit to destination
+    if to_nav > 0 and switch_amount > 0:
+        units_bought = switch_amount / to_nav
+        asset_state[to_id]["units"] += units_bought
+        asset_lots[to_id].append(FIFOLot(buy_date=d, units=units_bought, buy_nav=to_nav))
+
+        ak = ("switch", f"{from_id}→{to_id}")
+        attr_tracker.setdefault(ak, {"fire_count": 0, "invested": 0, "redeemed": 0})
+        attr_tracker[ak]["fire_count"] += 1
+        attr_tracker[ak]["invested"] += switch_amount
+        attr_tracker[ak]["redeemed"] += sold_u * from_nav
+
+        event_markers.append({"date": d.isoformat(), "type": "switch", "label": f"Switch {from_asset.label} → {to_asset.label}"})
+        tx_ledger.append(TxRecord(
+            date=d.isoformat(), asset_label=from_asset.label, rule_type="SWITCH",
+            direction="SELL", units=round(sold_u, 6), nav=round(from_nav, 4),
+            amount=round(sold_u * from_nav, 2), trigger_fired=triggered_label,
+            exit_load=round(el, 2), tx_cost=round(settings.transaction_cost, 2),
+        ))
+        tx_ledger.append(TxRecord(
+            date=d.isoformat(), asset_label=to_asset.label, rule_type="SWITCH",
+            direction="BUY", units=round(units_bought, 6), nav=round(to_nav, 4),
+            amount=round(switch_amount, 2), trigger_fired=triggered_label,
+        ))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PORTFOLIO VALUE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _portfolio_value(
+    assets: List[AssetV2],
+    asset_state: Dict[str, Dict],
+    price_map: Dict[str, pd.Series],
+    on_date: date,
+) -> float:
+    total = 0.0
+    for asset in assets:
+        series = price_map.get(asset.source_id)
+        if series is None:
+            continue
+        nav = _nav_asof(series, on_date)
+        if nav is not None and nav > 0:
+            total += asset_state[asset.source_id]["units"] * nav
+    return total
+
+
+def _compute_drawdown_series(portfolio_values: List[float]) -> List[float]:
+    result = []
+    peak = 0.0
+    for v in portfolio_values:
+        if v > peak:
+            peak = v
+        dd = ((v - peak) / peak * 100) if peak > 0 else 0.0
+        result.append(round(dd, 2))
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ATTRIBUTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _build_attribution(
+    attr_tracker: Dict,
+    asset_state: Dict,
+    price_map: Dict,
+    sim_end: date,
+) -> List[Dict]:
+    out = []
+    for (rule_type, asset_id), stats in attr_tracker.items():
+        out.append({
+            "rule_type": rule_type.upper(),
+            "asset_id": asset_id,
+            "fire_count": stats["fire_count"],
+            "total_invested": round(stats["invested"], 2),
+            "total_redeemed": round(stats["redeemed"], 2),
+        })
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PER-ASSET SUMMARY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _build_per_asset_summary(
+    assets: List[AssetV2],
+    asset_state: Dict[str, Dict],
+    asset_invested: Dict[str, float],
+    asset_redeemed: Dict[str, float],
+    asset_cf: Dict[str, List[Tuple[date, float]]],
+    price_map: Dict[str, pd.Series],
+    sim_end: date,
+    total_final_value: float,
+) -> List[PerAssetSummary]:
+    summaries = []
+    for asset in assets:
+        series = price_map.get(asset.source_id)
+        nav_end = _nav_asof(series, sim_end) if series is not None else None
+        units = asset_state[asset.source_id]["units"]
+        current_val = units * nav_end if nav_end else 0.0
+        invested = asset_invested[asset.source_id]
+        redeemed = asset_redeemed[asset.source_id]
+
+        cfs = list(asset_cf[asset.source_id])
+        if current_val > 0:
+            cfs.append((sim_end, current_val))
+        asset_xirr = None
+        if len(cfs) >= 2:
+            amounts = [cf for _, cf in cfs]
+            dates = [d for d, _ in cfs]
+            raw = _compute_xirr(amounts, dates)
+            asset_xirr = round(raw * 100, 2) if raw is not None else None
+
+        contrib_pct = (
+            round(current_val / total_final_value * 100, 2)
+            if total_final_value > 0 else 0.0
+        )
+
+        summaries.append(PerAssetSummary(
+            label=asset.label,
+            source_id=asset.source_id,
+            total_invested=round(invested, 2),
+            total_redeemed=round(redeemed, 2),
+            current_value=round(current_val, 2),
+            xirr=asset_xirr,
+            contribution_pct=contrib_pct,
+        ))
+    return summaries
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PE PRE-FETCH
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _preload_pe_series(
+    plan: PortfolioPlanV2,
+    sim_start: date,
+    sim_end: date,
+    pe_cache: Dict[str, pd.Series],
+    warnings: List[str],
+) -> None:
+    from apps.portfolio.services.pe_adapter import get_pe_series, PEDataUnavailableError
+    needed = set()
+    # Always include NIFTY 50 for the PE overlay, even if not used in triggers
+    needed.add("NIFTY 50")
+    for asset in plan.assets:
+        for rule in asset.rules:
+            if rule.trigger:
+                for cond in rule.trigger.conditions:
+                    if cond.signal_type == "pe_ratio":
+                        idx_name = cond.params.get("index_name", "NIFTY 50")
+                        needed.add(idx_name)
+
+    for idx_name in needed:
+        if idx_name not in pe_cache:
+            try:
+                s = get_pe_series(idx_name, sim_start, sim_end)
+                pe_cache[idx_name] = s
+            except PEDataUnavailableError as e:
+                warnings.append(str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MISC HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _trigger_label(trigger: TriggerConfig) -> str:
+    parts = []
+    for c in trigger.conditions:
+        parts.append(f"{c.signal_type} {c.operator} {c.value}")
+    return " & ".join(parts) if trigger.logic == "AND" else " | ".join(parts)
+
+
+def _tx_to_dict(tx: TxRecord) -> Dict:
+    return {
+        "date": tx.date,
+        "asset": tx.asset_label,
+        "rule_type": tx.rule_type,
+        "direction": tx.direction,
+        "units": tx.units,
+        "nav": tx.nav,
+        "amount": tx.amount,
+        "trigger_fired": tx.trigger_fired or "",
+        "exit_load": tx.exit_load,
+        "tx_cost": tx.tx_cost,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 3 — PE OVERLAY HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _pick_pe_overlay_index(pe_cache: Dict[str, pd.Series]) -> str:
+    """
+    Choose which PE series to use for the chart overlay.
+    Prefer the first index that has data; fallback to NIFTY 50.
+    """
+    for name in ("NIFTY 50", *pe_cache.keys()):
+        if name in pe_cache:
+            return name
+    return "NIFTY 50"
+
+
+def _build_pe_chart_series(
+    pe_cache: Dict[str, pd.Series],
+    chart_dates: List[str],
+) -> List[Optional[float]]:
+    """
+    Build a PE value list aligned to chart_dates.
+    Returns a list of floats (or None where data is unavailable).
+    """
+    if not pe_cache or not chart_dates:
+        return []
+
+    # Pick the primary series (prefer NIFTY 50)
+    series = pe_cache.get("NIFTY 50") or next(iter(pe_cache.values()), None)
+    if series is None or series.empty:
+        return []
+
+    result = []
+    for ds in chart_dates:
+        ts = pd.Timestamp(ds)
+        val = series.asof(ts)
+        if val is not None and not pd.isna(val):
+            result.append(round(float(val), 2))
+        else:
+            result.append(None)
+    return result

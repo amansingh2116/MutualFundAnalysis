@@ -608,21 +608,40 @@ def portfolio_forecast_api(request, pk):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# BACKTESTER VIEWS
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# BACKTESTER V2 VIEWS
+# ═══════════════════════════════════════════════════════════════════════════════
 
-@login_required
+ALL_INDICES = [
+        "NASDAQ 100 TRI", "MSCI ACWI TRI", "S&P GLOBAL 1200", "S&P GLOBAL AGRIBUSINESS INDEX",
+        "NIFTY 50 TRI", "NIFTY 100 TRI", "NIFTY 200 TRI", "NIFTY 500 TRI",
+        "NIFTY TOTAL MARKET TRI", "NIFTY LARGE MIDCAP 250 TRI", "NIFTY MIDCAP SELECT TRI",
+        "NIFTY Midcap 50 TRI", "NIFTY MIDCAP 100 TRI", "NIFTY MIDCAP 150 TRI",
+        "NIFTY MIDSMALLCAP 400 TRI", "NIFTY Next 50 TRI", "NIFTY SMALLCAP 50 TRI",
+        "NIFTY SMALLCAP 100 TRI", "NIFTY SMALLCAP 250 TRI", "NIFTY MICROCAP 250 TRI",
+        "Nifty Metal TRI", "Nifty PSU Bank TRI", "NIFTY COMMODITIES TRI", "NIFTY MNC TRI",
+        "Nifty Energy TRI", "Nifty Pharma TRI", "Nifty Auto TRI",
+        "Nifty India Manufacturing TRI", "NIFTY Healthcare TRI", "NIFTY CPSE Total Return Index",
+        "Nifty Infrastructure TRI", "NIFTY PSE TRI", "Nifty Financial Services TRI",
+        "NIFTY OIL & GAS TRI", "Nifty Bank TRI", "Nifty Services Sector TRI",
+        "Nifty India Consumption TRI", "Nifty FMCG TRI", "Nifty Media TRI",
+        "Nifty Realty TRI", "Nifty IT TRI", "BSE Sensex", "BSE 100", "BSE 200",
+        "BSE 500", "BSE AllCap", "BSE Mid Cap", "BSE Small Cap", "BSE LargeCap",
+        "BSE LargeMidCap", "BSE 250 LargeMidCap Index", "BSE Midcap Select Index",
+        "BSE 150 MidCap Index", "BSE Mid Small Cap Index", "BSE 250 SmallCap Index",
+        "BSE SENSEX Next 50", "BSE SENSEX 50", "BSE Bharat 22 Index", "BSE PSU",
+        "BSE POWER", "BSE Healthcare", "BSE Bankex", "BSE Financial Services",
+        "BSE IT", "BSE FMCG", "BSE Teck", "BSE India Infrastructure Index",
+        "BSE Enhanced Value Index", "BSE Quality Index", "BSE Low Volatility Index",
+    ]
+
 def portfolio_backtester_view(request):
-    """Render the portfolio plan builder + backtester."""
-    from apps.benchmarks.models import BenchmarkIndex
-
-    indices = list(
-        BenchmarkIndex.objects.filter(is_active=True).order_by('name').values('name', 'id')
-    )
-    return render(request, 'portfolio/backtester.html', {'indices': indices})
+    """Render the Backtester v2 builder UI."""
+    return render(request, 'portfolio/backtester.html', {
+        'all_indices': json.dumps(ALL_INDICES),
+    })
 
 
-@login_required
 def portfolio_fund_search_api(request):
     """
     AJAX fund search — returns matching MF schemes and indices.
@@ -641,7 +660,7 @@ def portfolio_fund_search_api(request):
                 .exclude(nav_latest__isnull=True)
                 .order_by('-aum_cr')[:15]
                 .values('amfi_code', 'scheme_name', 'fund_house', 'scheme_category',
-                        'nav_latest', 'aum_cr', 'is_direct')
+                        'nav_latest', 'aum_cr', 'is_direct', 'nav_date')
             )
             for s in schemes:
                 results.append({
@@ -652,7 +671,9 @@ def portfolio_fund_search_api(request):
                     'nav': float(s['nav_latest']) if s['nav_latest'] else None,
                     'aum': float(s['aum_cr']) if s['aum_cr'] else None,
                     'is_direct': s['is_direct'],
+                    'inception_date': s['nav_date'].isoformat() if s['nav_date'] else None,
                 })
+
 
         if src_type in ('all', 'index'):
             from apps.benchmarks.models import BenchmarkIndex
@@ -671,23 +692,40 @@ def portfolio_fund_search_api(request):
                     'nav': None,
                     'aum': None,
                     'is_direct': None,
+                    'inception_date': None,
                 })
+
+            # BUG-05/09 FIX: In-memory fallback if DB is sparse
+            if not results and len(q) >= 2:
+                q_lower = q.lower()
+                fallback_matches = [name for name in ALL_INDICES if q_lower in name.lower()]
+                for name in fallback_matches[:10]:
+                    results.append({
+                        'type': 'index',
+                        'id': name,
+                        'name': name,
+                        'sub': 'Index (Fallback)',
+                        'nav': None,
+                        'aum': None,
+                        'is_direct': None,
+                        'inception_date': None,
+                    })
 
     return JsonResponse({'results': results})
 
 
-@login_required
-def portfolio_backtester_api(request):
+def backtester_v2_run_api(request):
     """
-    POST endpoint — runs the plan simulation.
+    POST /portfolio/backtester/v2/run/
+    Runs the v2 simulation. Accepts a JSON body describing the plan.
 
-    Expected JSON body:
+    Request shape:
     {
-      "funds": [
+      "assets": [
         {
           "label": "Parag Parikh Flexi Cap",
-          "source_type": "scheme",     // "scheme" | "index"
-          "source_id": "122639",        // amfi_code or index name
+          "source_type": "scheme",
+          "source_id": "122639",
           "rules": [
             {
               "rule_type": "sip",
@@ -695,24 +733,34 @@ def portfolio_backtester_api(request):
               "frequency": "monthly",
               "start_date": "2019-01-01",
               "end_date": null,
-              "step_up_pct": 10
+              "step_up": {"step_type": "pct", "step_amount": 10, "step_frequency": "annual"},
+              "trigger": null
             },
             {
               "rule_type": "lumpsum",
               "amount": 50000,
-              "lumpsum_date": "2020-03-23"
+              "lumpsum_date": "2020-03-23",
+              "trigger": {
+                "conditions": [{"signal_type": "drawdown_ath", "params": {"reference_id": "122639"}, "operator": "gte", "value": 10}],
+                "logic": "AND",
+                "action_mode": "once"
+              }
             }
           ]
         }
       ],
-      "rebalance_mode": "annual",      // "none"|"annual"|"threshold"
-      "rebalance_threshold": 5.0,
-      "rebalance_anchor_month": 1,
-      "debt_park_source_type": "index",
-      "debt_park_id": "NIFTY LIQUID INDEX",
-      "vol_threshold": 20,             // percent
-      "start_date": null,
-      "end_date": null
+      "settings": {
+        "start_date": "2019-01-01",
+        "end_date": null,
+        "benchmark_type": "index",
+        "benchmark_id": "NIFTY 50 TRI",
+        "synthetic_debt_rate": 7.0,
+        "transaction_cost": 0,
+        "tax_enabled": false,
+        "inflation_enabled": false,
+        "inflation_mode": "manual",
+        "inflation_rate": 5.0
+      }
     }
     """
     if request.method != 'POST':
@@ -724,55 +772,13 @@ def portfolio_backtester_api(request):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
     try:
-        from apps.portfolio.services.backtester import (
-            InvestmentRule, FundPlan, PortfolioPlan, run_plan_simulation
+        from apps.portfolio.services.backtester_v2 import (
+            PortfolioPlanV2, AssetV2, RuleV2, StepUpConfig,
+            TriggerConfig, TriggerCondition, SimSettingsV2,
+            RebalanceRule, ExitLoadSchedule, run_backtest_v2,
         )
-
-        # Helper defined once outside the per-fund loop
-        def _parse_date(s):
-            if not s:
-                return None
-            try:
-                return date.fromisoformat(str(s))
-            except ValueError:
-                return None
-
-        raw_funds = data.get('funds', [])
-        if not raw_funds:
-            return JsonResponse({'error': 'Add at least one fund to your plan.'}, status=400)
-
-        funds = []
-        for fp in raw_funds:
-            rules = []
-            for r in fp.get('rules', []):
-                rules.append(InvestmentRule(
-                    rule_type=str(r.get('rule_type', 'sip')),
-                    amount=float(r.get('amount', 0)),
-                    frequency=str(r.get('frequency', 'monthly')),
-                    start_date=_parse_date(r.get('start_date')),
-                    end_date=_parse_date(r.get('end_date')),
-                    step_up_pct=float(r.get('step_up_pct', 0)),
-                    lumpsum_date=_parse_date(r.get('lumpsum_date')),
-                    sell_pct=float(r.get('sell_pct', 100)),
-                    trigger=r.get('trigger') or None,
-                    trigger_value=float(r['trigger_value']) if r.get('trigger_value') else None,
-                ))
-
-            if not rules:
-                continue
-
-            funds.append(FundPlan(
-                label=str(fp.get('label', fp.get('source_id', 'Fund'))),
-                source_type=str(fp.get('source_type', 'scheme')),
-                source_id=str(fp.get('source_id', '')),
-                rules=rules,
-            ))
-
-        if not funds:
-            return JsonResponse({'error': 'No valid funds with rules found.'}, status=400)
 
         def _pd(s):
-            """Parse an optional ISO date string."""
             if not s:
                 return None
             try:
@@ -780,64 +786,238 @@ def portfolio_backtester_api(request):
             except ValueError:
                 return None
 
-        plan = PortfolioPlan(
-            funds=funds,
-            rebalance_mode=str(data.get('rebalance_mode', 'none')),
-            rebalance_threshold=float(data.get('rebalance_threshold', 5.0)),
-            rebalance_anchor_month=int(data.get('rebalance_anchor_month', 1)),
-            debt_park_source_type=str(data.get('debt_park_source_type', 'scheme')),
-            debt_park_id=str(data.get('debt_park_id', '')),
-            debt_park_name=str(data.get('debt_park_name', '')),
-            vol_threshold=float(data.get('vol_threshold', 20)) / 100.0,
-            start_date=_pd(data.get('start_date')),
-            end_date=_pd(data.get('end_date')),
-            debt_return_pct=float(data.get('debt_return_pct', 7.0)),
+        def _parse_step_up(raw):
+            if not raw:
+                return None
+            return StepUpConfig(
+                step_type=str(raw.get('step_type', 'pct')),
+                step_amount=float(raw.get('step_amount', 0)),
+                step_frequency=str(raw.get('step_frequency', 'annual')),
+            )
+
+        def _parse_trigger_condition(raw):
+            return TriggerCondition(
+                signal_type=str(raw.get('signal_type', '')),
+                params=raw.get('params', {}),
+                operator=str(raw.get('operator', 'lt')),
+                value=float(raw.get('value', 0)),
+            )
+
+        def _parse_trigger(raw):
+            if not raw:
+                return None
+            conds = [_parse_trigger_condition(c) for c in raw.get('conditions', [])]
+            if not conds:
+                return None
+            return TriggerConfig(
+                conditions=conds,
+                logic=str(raw.get('logic', 'AND')),
+                action_mode=str(raw.get('action_mode', 'every_period')),
+                amount_modifier=raw.get('amount_modifier'),
+            )
+
+        def _parse_exit_load(raw):
+            if not raw:
+                return None
+            tiers_raw = raw.get('tiers', [])
+            tiers = [(int(t[0]), float(t[1])) for t in tiers_raw if len(t) == 2]
+            return ExitLoadSchedule(tiers=tiers)
+
+        def _parse_rule(raw):
+            return RuleV2(
+                rule_type=str(raw.get('rule_type', 'sip')),
+                amount=float(raw.get('amount', 0)),
+                frequency=str(raw.get('frequency', 'monthly')),
+                start_date=_pd(raw.get('start_date')),
+                end_date=_pd(raw.get('end_date')),
+                step_up=_parse_step_up(raw.get('step_up')),
+                lumpsum_date=_pd(raw.get('lumpsum_date') or raw.get('sell_date') or raw.get('switch_date')),
+                amount_type=str(raw.get('amount_type', 'amount')),
+                switch_from_id=str(raw['switch_from_id']) if raw.get('switch_from_id') else None,
+                switch_to_id=str(raw['switch_to_id']) if raw.get('switch_to_id') else None,
+                switch_date=_pd(raw.get('switch_date')),
+                trigger=_parse_trigger(raw.get('trigger')),
+            )
+
+        def _parse_rebalance(raw):
+            if not raw:
+                return None
+            return RebalanceRule(
+                target_weights={str(k): float(v) for k, v in raw.get('target_weights', {}).items()},
+                mode=str(raw.get('mode', 'frequency')),
+                frequency=str(raw.get('frequency', 'annually')),
+                anchor_month=int(raw.get('anchor_month', 1)),
+                drift_threshold=float(raw.get('drift_threshold', 5.0)),
+                drift_type=str(raw.get('drift_type', 'absolute')),
+            )
+
+        raw_assets = data.get('assets', [])
+        if not raw_assets:
+            return JsonResponse({'error': 'Add at least one asset to your plan.'}, status=400)
+
+        assets = []
+        for ra in raw_assets:
+            rules = [_parse_rule(r) for r in ra.get('rules', [])]
+            assets.append(AssetV2(
+                label=str(ra.get('label', ra.get('source_id', 'Asset'))),
+                source_type=str(ra.get('source_type', 'scheme')),
+                source_id=str(ra.get('source_id', '')),
+                rules=rules,
+                exit_load=_parse_exit_load(ra.get('exit_load')),
+            ))
+
+        if not assets:
+            return JsonResponse({'error': 'No valid assets found.'}, status=400)
+
+        raw_settings = data.get('settings', {})
+        settings = SimSettingsV2(
+            start_date=_pd(raw_settings.get('start_date')),
+            end_date=_pd(raw_settings.get('end_date')),
+            benchmark_type=str(raw_settings.get('benchmark_type', 'index')),
+            benchmark_id=str(raw_settings.get('benchmark_id', '')),
+            synthetic_debt_rate=float(raw_settings.get('synthetic_debt_rate', 7.0)),
+            transaction_cost=float(raw_settings.get('transaction_cost', 0)),
+            exit_load_enabled=bool(raw_settings.get('exit_load_enabled', False)),
+            # Tax (Phase 4)
+            tax_enabled=bool(raw_settings.get('tax_enabled', False)),
+            tax_equity_stcg=float(raw_settings.get('tax_equity_stcg', 20.0)),
+            tax_equity_ltcg=float(raw_settings.get('tax_equity_ltcg', 12.5)),
+            tax_ltcg_exemption=float(raw_settings.get('tax_ltcg_exemption', 125000.0)),
+            tax_debt_rate=float(raw_settings.get('tax_debt_rate', 30.0)),
+            # Inflation (Phase 4)
+            inflation_enabled=bool(raw_settings.get('inflation_enabled', False)),
+            inflation_mode=str(raw_settings.get('inflation_mode', 'manual')),
+            inflation_rate=float(raw_settings.get('inflation_rate', 5.0)),
+            # Monte Carlo (Phase 5)
+            mc_enabled=bool(raw_settings.get('mc_enabled', False)),
+            mc_simulations=int(raw_settings.get('mc_simulations', 500)),
+            mc_horizon_years=int(raw_settings.get('mc_horizon_years', 10)),
         )
 
+        rebalance = _parse_rebalance(data.get('rebalance'))
+        plan = PortfolioPlanV2(assets=assets, settings=settings, rebalance=rebalance)
+        result = run_backtest_v2(plan)
 
-        result = run_plan_simulation(plan)
-
-        def ser(s):
+        def _pa_dict(pa):
             return {
-                'strategy_key': s.strategy_key,
-                'name': s.strategy_name,
-                'description': s.description,
-                'final_corpus': s.final_corpus,
-                'total_invested': s.total_invested,
-                'absolute_gain': s.absolute_gain,
-                'absolute_return_pct': s.absolute_return_pct,
-                'cagr': s.cagr,
-                'xirr': s.xirr,
-                'trailing_1y': s.trailing_1y,
-                'trailing_3y': s.trailing_3y,
-                'trailing_5y': s.trailing_5y,
-                'rolling_5y_min': s.rolling_5y_min,
-                'rolling_5y_max': s.rolling_5y_max,
-                'rolling_5y_avg': s.rolling_5y_avg,
-                'volatility_ann': s.volatility_ann,
-                'max_drawdown': s.max_drawdown,
-                'sharpe': s.sharpe,
-                'sortino': s.sortino,
-                'calendar_returns': s.calendar_returns,
-                'downside_quarters': s.downside_quarters,
-                'dates': s.dates,
-                'portfolio_values': s.portfolio_values,
-                'invested_cumulative': s.invested_cumulative,
-                'equity_ratios': s.equity_ratios,
-                'transactions': s.transactions if s.strategy_key == 'base' else [],
-                'interpretation': s.interpretation,
+                'label': pa.label,
+                'source_id': pa.source_id,
+                'total_invested': pa.total_invested,
+                'total_redeemed': pa.total_redeemed,
+                'current_value': pa.current_value,
+                'xirr': pa.xirr,
+                'contribution_pct': pa.contribution_pct,
             }
 
         return JsonResponse({
             'status': 'success',
+            # Tab 1
+            'total_invested': result.total_invested,
+            'total_redeemed': result.total_redeemed,
+            'final_value': result.final_value,
+            'absolute_gain': result.absolute_gain,
+            'xirr': result.xirr,
+            'cagr': result.cagr,
+            'benchmark_cagr': result.benchmark_cagr,
+            'per_asset': [_pa_dict(pa) for pa in result.per_asset],
+            # Tab 2 — Risk
+            'max_drawdown': result.max_drawdown,
+            'max_dd_start': result.max_dd_start,
+            'max_dd_trough': result.max_dd_trough,
+            'max_dd_recovery': result.max_dd_recovery,
+            'max_dd_days': result.max_dd_days,
+            'recovery_days': result.recovery_days,
+            'volatility': result.volatility,
+            'downside_deviation': result.downside_deviation,
+            'worst_month': result.worst_month,
+            'worst_quarter': result.worst_quarter,
+            'var_95': result.var_95,
+            'cvar_95': result.cvar_95,
+            'sharpe': result.sharpe,
+            'sortino': result.sortino,
+            'calmar': result.calmar,
+            'romad': result.romad,
+            # Tab 3 — Charts
+            'dates': result.dates,
+            'portfolio_values': result.portfolio_values,
+            'invested_cumulative': result.invested_cumulative,
+            'benchmark_values': result.benchmark_values,
+            'drawdown_series': result.drawdown_series,
+            'daily_returns': result.daily_returns,
+            'calendar_returns': result.calendar_returns,
+            'monthly_returns': result.monthly_returns,
+            'event_markers': result.event_markers,
+            # Tab 3 — Rolling returns (box plots)
+            'rolling_1y': result.rolling_1y,
+            'rolling_3y': result.rolling_3y,
+            'rolling_5y': result.rolling_5y,
+            'rolling_7y': result.rolling_7y,
+            # Tab 3 extra — PE overlay (Phase 3)
+            'pe_chart_series': result.pe_chart_series,
+            'pe_index_name': result.pe_index_name,
+            # Tab 4 — Attribution
+            'rule_attribution': result.rule_attribution,
+            # Tab 5 — Adjusted Returns (Phase 4)
+            'tax_enabled': result.tax_enabled,
+            'stcg_paid': result.stcg_paid,
+            'ltcg_paid': result.ltcg_paid,
+            'tax_drag': result.tax_drag,
+            'post_tax_xirr': result.post_tax_xirr,
+            'inflation_enabled': result.inflation_enabled,
+            'inflation_rate_used': result.inflation_rate_used,
+            'real_xirr': result.real_xirr,
+            'real_final_value': result.real_final_value,
+            # Tab 6 — Ledger
+            'transactions': result.transactions,
+            # Tab 7 — Monte Carlo (Phase 5)
+            'mc_enabled': result.mc_enabled,
+            'mc_dates': result.mc_dates,
+            'mc_p10': result.mc_p10,
+            'mc_p25': result.mc_p25,
+            'mc_p50': result.mc_p50,
+            'mc_p75': result.mc_p75,
+            'mc_p90': result.mc_p90,
+            'mc_final_p10': result.mc_final_p10,
+            'mc_final_p50': result.mc_final_p50,
+            'mc_final_p90': result.mc_final_p90,
+            'mc_prob_double': result.mc_prob_double,
+            'mc_prob_loss': result.mc_prob_loss,
+            'mc_simulations_run': result.mc_simulations_run,
+            # Meta
             'start_date': result.start_date,
             'end_date': result.end_date,
-            'plan_summary': result.plan_summary,
-            'strategies': [ser(s) for s in result.strategies],
             'data_warnings': result.data_warnings,
-            'conclusion': result.conclusion,
+            'plan_summary': result.plan_summary,
         })
 
     except Exception as exc:
-        logger.exception("Backtester API error")
+        logger.exception('Backtester v2 API error')
         return JsonResponse({'error': str(exc)}, status=400)
+
+
+def backtester_pe_api(request):
+    """
+    GET /portfolio/backtester/pe-data/?index=NIFTY+50&from=2015-01-01&to=2024-12-31
+    Returns PE ratio series for a NSE index.
+    """
+    index_name = request.GET.get('index', 'NIFTY 50').strip()
+    from_str = request.GET.get('from', '')
+    to_str = request.GET.get('to', '')
+
+    try:
+        from_date = date.fromisoformat(from_str) if from_str else date(2010, 1, 1)
+        to_date = date.fromisoformat(to_str) if to_str else date.today()
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+
+    try:
+        from apps.portfolio.services.pe_adapter import get_pe_series, PEDataUnavailableError
+        series = get_pe_series(index_name, from_date, to_date)
+        data_out = [
+            {'date': str(ts.date()), 'pe': round(float(v), 2)}
+            for ts, v in series.items()
+            if not pd.isna(v)
+        ]
+        return JsonResponse({'status': 'ok', 'index': index_name, 'data': data_out})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)

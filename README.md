@@ -1,75 +1,71 @@
 # MutualFundAnalysis
 
-> **A full-featured, India-focused mutual fund research, portfolio analysis, and backtesting platform built with Django.**
+> **A full-featured, India-focused mutual fund research, portfolio analysis, and strategy backtesting platform built with Django.**
 
-**Disclaimer:** Mutual fund investments are subject to market risk. This platform is for research and educational purposes only. It is not financial, legal, or tax advice and does not guarantee returns. Any recommendation feature must clearly expose its assumptions, limitations, and the need for qualified professional advice where appropriate.
+**Disclaimer:** Mutual fund investments are subject to market risk. This platform is for research and educational purposes only. It is not financial, legal, or tax advice and does not guarantee returns.
 
 ---
 
-## 🌟 Features & Working Details
+## 🌟 Features
 
 ### 🔍 Fund Research & Discovery
-- Browse and search across **14,000+ AMFI-registered schemes** with real-time AMFI cache fallback.
-- Full **fund detail pages** with NAV history, metadata, and analytics.
-- **Performance**: Calendar-year returns, trailing returns (1M, 3M, 6M, 1Y, 3Y, 5Y, Max).
-- **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, and **Quarterly Performance Analysis (Upside/Downside)**.
-- **Rolling return distributions** with win rates, medians, and min/max ranges.
-- **Composition**: Holdings, sector allocation, and asset allocation from Morningstar.
-- **Advanced Fund Screener**: Powerful data-grid to filter, sort, and export funds based on AUM, Expense Ratio, 1/3/5-year performance, Rolling Returns, Sharpe/Sortino ratios, and Max Drawdown.
-- **Home Page Dashboard**: A comprehensive landing page with 6 distinct sections:
-  - **Benchmark Monitor**: Live 1Y/3Y/5Y/YTD returns for major indices.
-  - **Category Return Meter**: Interactive min-max-avg bar charts across fund categories.
-  - **Top Performing Funds**: Extensible basket tabs (e.g., "Best Large Caps", "Low Cost Index Funds").
-  - **Category Analysis**: Score distribution (Strong/Good/Fair/Weak), risk, and return stats per category.
-  - **Browse by Category**: Mega-chip grid linked directly to screener filters.
-  - **Quartile Rankings**: Dynamic Q1-Q4 rankings and percentile ranks for all funds in a category.
-- **Scorecard System (v2)**: 100-point category-normalized, 6-pillar dynamic scoring model evaluating Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, and Manager Quality & Governance (see `documentation/SCORING_MODEL.md`). *Note: Currently, the system uses DB-only composition data (Option B) for speed, but will transition to full API scoring (Option A) in the future for maximum accuracy.*
-- **Compare Selected**: Multi-select up to 5 funds across the Browse and Screener tabs to instantly send them to the **Compare Funds calculator**. Compare them side-by-side across Overview, Returns, Risk, and Portfolio tabs. Includes dynamic Overlapping Best/Worst Quarters analysis, Sector Allocation mini-donuts, Risk vs Return scatter plots, and intelligent benchmark fallback (using NIFTY COMPOSITE DEBT INDEX for debt funds).
-- **Peer comparison**: Scored India-focused peer matching by fund fingerprint, plan type, Direct/Regular flag, category, sector/theme, index group, FoF exposure, and AUM ranking (see `documentation/PEER_MATCHING.md`).
+- Browse and search across **14,000+ AMFI-registered schemes** with real-time AMFI cache fallback
+- Full **fund detail pages** with NAV history, metadata, and analytics
+- **Performance**: Calendar-year returns, trailing returns (1M, 3M, 6M, 1Y, 3Y, 5Y, Max)
+- **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Quarterly Performance Analysis
+- **Rolling return distributions** with win rates, medians, and min/max ranges
+- **Composition**: Holdings, sector allocation, and asset allocation from Morningstar
+- **Advanced Fund Screener**: Filter, sort, and export funds based on AUM, Expense Ratio, 1/3/5-year performance, Rolling Returns, Sharpe/Sortino, and Max Drawdown
+- **Home Page Dashboard**: Benchmark Monitor, Category Return Meter, Top Performing Funds, Category Analysis, Browse by Category, Quartile Rankings
+- **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
+- **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
+- **Peer Comparison**: Scored India-focused peer matching by fund fingerprint, plan type, category, sector/theme, and AUM ranking
 
 ### 💼 Portfolio Analysis
-- Upload CAS (Consolidated Account Statement) Excel/CSV files, or enter transactions **manually**.
-- **Fuzzy matching** of fund names from CAS to AMFI codes.
-- Per-fund and portfolio-level **XIRR** using SciPy root-finding.
-- **Blended benchmark comparison**: Automatically aggregates your portfolio's underlying benchmarks and accurately weights them by your actual capital allocation.
-- **Concentration score** using Herfindahl-Hirschman Index (HHI) and **Portfolio turnover** analysis.
+- Upload CAS (Consolidated Account Statement) files or enter transactions manually
+- Fuzzy matching of fund names from CAS to AMFI codes
+- Per-fund and portfolio-level **XIRR** using SciPy root-finding
+- **Blended benchmark comparison** weighted by actual capital allocation
+- **Concentration score** (Herfindahl-Hirschman Index) and Portfolio turnover analysis
 
-### 📊 Tactical Backtester Engine
-- Build a custom **investment plan** with per-fund SIP schedules, lumpsum events, and sell rules.
-- Simulate against **historical NAV data** with full transaction ledger using rigorous unitized NAV accounting.
-- Five strategy variants: **Base Plan, Trend Filter (12-month), MA Filter (10-month), Volatility Control, Composite Signal**.
-- Tactical overlays automatically redirect equity SIPs to a **debt parking fund** when macroeconomic/momentum signals deteriorate.
-- Per-strategy metrics: CAGR, XIRR, Final Corpus, Max Drawdown, Sharpe, Sortino, Volatility.
-- See `documentation/backtester_analysis.md` for full mathematical and architectural details.
+### ⚗️ Strategy Backtester V2
+- Build a custom portfolio with **mutual funds and/or NSE indices**
+- Simulate **SIP, Step-Up SIP, Lumpsum, SWP (withdrawal), and Switch** investment strategies
+- Attach **conditional triggers** to any rule:
+  - NIFTY 50 PE Ratio, PB Ratio, Dividend Yield
+  - Drawdown from ATH, Portfolio Drawdown
+  - 200-DMA (Moving Average), RSI
+  - Relative Valuation Ratio (any two assets)
+  - Calendar Date (one-time or recurring)
+- **Rebalancing** engine (annual or drift-threshold based)
+- **Tax calculation**: STCG/LTCG with FIFO lot tracking, LTCG exemption
+- **Inflation adjustment**: Manual rate or live World Bank India CPI data
+- **Monte Carlo projection**: 200–1000 simulated future scenarios with percentile fan
+- **Exit load** simulation per fund
+- **Custom weighted benchmark** for comparison (e.g., 60% NIFTY 50 + 40% NIFTY NEXT 50)
+- Full **Transaction Ledger** and **Trigger Attribution** tabs
+- See `documentation/backtester_analysis.md` for the complete user and developer guide
 
 ### 🎯 Recommendations & Risk Profiling
-- Risk-profiling **questionnaire** (experience, horizon, loss tolerance, goals) mapping to optimal Equity/Debt/Gold allocation ratios.
-- Selects top funds in each required SEBI category using the 100-point Scoring Model.
-- Direct one-click integration to run a **5-year historical backtest** on the suggested portfolio.
+- Risk-profiling questionnaire → optimal Equity/Debt/Gold allocation
+- Top fund selection using the 100-point Scoring Model
+- One-click backtest integration for suggested portfolios
 
 ### 🧮 Financial Calculators
-- **SIP**, **Step-Up SIP**, **Lumpsum**, and **SWP** calculators.
-- **STP Calculator**: Systematic Transfer Plan to project transferring funds from a source to a target scheme over time.
-- **XIRR** cash flows, and **Goal planner**.
-- **Net Worth Calculator**: Comprehensive dynamic tool to tally 25+ asset classes (Cash, Investments, EPF/PPF/NPS, Real Estate) and 9 liability classes (Home/Auto Loans, CC). Features live Ploly donut charts, category progress bars, and solvency ratios.
-- **Rolling Return Calculator** (multi-fund): Compare up to **5 mutual funds** simultaneously on a single rolling return chart.
-  - Each fund is rendered with a distinct color; its benchmark is shown as a matching lighter dotted line on the same axis.
-  - Category Averages are also displayed as horizontal dashed lines for deeper comparison.
-  - Automatically deduplicates overlapping benchmarks (funds with the same benchmark share one benchmark line).
-  - Optional **custom benchmark override** from a curated list of 30+ NIFTY/SENSEX/global indices — or use each fund's own default.
-  - **Intelligent fallback**: Any benchmark without a confirmed Yahoo Finance ticker is automatically proxied. Equity/Hybrid funds fall back to Nifty 50, while Debt/Liquid funds fall back to NIFTY COMPOSITE DEBT INDEX, accompanied by a UI note.
-  - Statistics table: Average, Median, Min, Max, **Volatility (Std Dev)**, and Negative-period % for every fund and its benchmark.
-  - Return distribution table: Percentage of periods in each return bucket (Negative, 0–8%, 8–10%, 10–12%, 12–15%, 15–20%, >20%).
-  - Date range is automatically pre-filled from the earliest fund inception date across all selected funds.
+- SIP, Step-Up SIP, Lumpsum, SWP calculators
+- STP (Systematic Transfer Plan) Calculator
+- XIRR, Goal Planner, Net Worth Calculator (25+ asset classes, 9 liability classes)
+- **Rolling Return Calculator** (multi-fund, up to 5 funds with benchmarks and category averages)
 
 ---
 
-## ⚙️ How It Works (Under the Hood)
-1. **Data Ingestion (`adapters/`)**: The system fetches live scheme data, historical NAVs, and metadata completely free of cost by connecting to unauthenticated APIs including AMFI, mfapi.in, captnemo, Morningstar (via mstarpy), and Yahoo Finance.
-2. **Analytics Engine (`apps/analytics/`)**: Real-time mathematical computations (CAGR, Beta, Sharpe, Rolling returns) are heavily vectorized using **Pandas** and **NumPy** to ensure fast response times directly on the server side.
-3. **Runtime Assembly (`apps/funds/runtime.py`)**: When you load a fund, the runtime snapshot intelligently aggregates database historical data and live adapter data, filling missing gaps dynamically before rendering the HTML template.
-4. **Peer Discovery (`apps/funds/peers.py`)**: The peer tab uses a scored matcher that works even when SEBI category data is missing by fingerprinting scheme names and basic metadata.
-5. **Interactive UI (`static/js/`)**: The frontend uses Vanilla JavaScript and **Plotly** to render complex financial charts without heavy JS frameworks, keeping the application lightweight.
+## ⚙️ How It Works
+
+1. **Data Ingestion (`adapters/`)**: Connects to AMFI, mfapi.in, captnemo, Morningstar (via mstarpy), and Yahoo Finance — all free, unauthenticated APIs
+2. **Analytics Engine (`apps/analytics/`)**: Real-time computations (CAGR, Beta, Sharpe, Rolling returns) vectorized with Pandas and NumPy
+3. **Runtime Assembly (`apps/funds/runtime.py`)**: Aggregates DB data + live adapter data on-demand when a fund page loads
+4. **Peer Discovery (`apps/funds/peers.py`)**: Scored matcher using fund fingerprinting on scheme names and metadata
+5. **Interactive UI (`static/js/`)**: Vanilla JavaScript + Plotly for complex financial charts — no heavy JS frameworks
 
 ---
 
@@ -83,41 +79,53 @@
 | Frontend | Django Templates, Vanilla CSS, Vanilla JS |
 | Database | SQLite (Dev) / PostgreSQL (Prod) |
 | Background tasks | django-q2 |
+| External data | wbgapi (World Bank CPI), nsepython (NSE PE/PB data) |
 
 ---
 
-## 📂 Project Structure & File Details
+## 📂 Project Structure
 
 ```text
 MutualFundAnalysis/
-├── manage.py                ← Django command-line utility for administrative tasks
-├── requirements.txt         ← Project Python dependencies
-├── render.yaml              ← Render.com Infrastructure-as-Code deployment config
+├── manage.py                    ← Django CLI utility
+├── requirements.txt             ← Python dependencies
+├── render.yaml                  ← Render.com deployment config
+├── Procfile                     ← Process definitions for deployment
 │
-├── config/                  ← Main Django configuration
-│   ├── settings/            ← Shared, development, and production settings
-│   └── urls.py              ← Global URL routing table
+├── config/                      ← Django configuration
+│   ├── settings/                ← Shared, development, and production settings
+│   └── urls.py                  ← Global URL routing
 │
-├── apps/                    ← Django Application Modules
-│   ├── core/                ← Base models, mixins, and shared utilities
-│   ├── funds/               ← Scheme master, NAV history, runtime snapshots, peer matching, tests
-│   ├── analytics/           ← Core financial math engine (`engine.py`, rolling returns, metrics)
-│   ├── benchmarks/          ← Benchmark index registry and NAV history tracking
-│   ├── calculators/         ← Stateless financial logic for SIP, Lumpsum, SWP, Goals, Net Worth
-│   ├── recommendations/     ← Risk profiling questionnaire and fund suggestion engine
-│   └── portfolio/           ← CAS parsing, XIRR processing, and the Backtester simulation engine
+├── apps/                        ← Django application modules
+│   ├── core/                    ← Base models, mixins, shared utilities
+│   ├── funds/                   ← Scheme master, NAV history, runtime snapshots, peer matching
+│   ├── analytics/               ← Core financial math engine (CAGR, Beta, Sharpe, rolling returns)
+│   ├── benchmarks/              ← Benchmark index registry and NAV history
+│   ├── calculators/             ← Stateless financial logic (SIP, Lumpsum, SWP, Goals, Net Worth)
+│   ├── recommendations/         ← Risk profiling questionnaire and fund suggestion engine
+│   └── portfolio/               ← CAS parsing, XIRR, Backtester V2 simulation engine
+│       └── services/
+│           ├── backtester_v2.py ← Core simulation engine (~2,400 lines)
+│           ├── pe_adapter.py    ← PE/PB/DivYield data fetcher with retry + SQLite cache
+│           └── analytics.py     ← Portfolio analytics helpers
 │
-├── adapters/                ← Third-party API integrations (AMFI, Morningstar, Yahoo)
-├── templates/               ← Django HTML templates (UI layout)
-├── static/                  ← Vanilla CSS styles and JS scripts (Plotly charts, Tooltips)
+├── adapters/                    ← Third-party API integrations (AMFI, Morningstar, Yahoo)
+├── templates/                   ← Django HTML templates
+│   └── portfolio/
+│       └── backtester.html      ← Strategy Backtester (single-file, ~3,150 lines)
+├── static/                      ← CSS and JS static files
+├── scripts/                     ← Utility and development scripts
 │
-└── documentation/           ← Deep-dive technical documentation
-    ├── DATA_PIPELINE_AND_COMMANDS.md ← Master guide on how to run ingestions, analytics, and pipelines
-    ├── PROJECT_CONTEXT.md   ← Full architectural overview for developers
-    ├── DEPLOYMENT.md        ← Render.com deployment and local setup
-    ├── backtester_analysis.md ← Backtester math, simulation rules, and API payload reference
-    ├── PEER_MATCHING.md     ← Peer comparison matching rules and validation notes
-    └── SCORING_MODEL.md     ← Comprehensive rules for the 100-point Fund scoring model
+└── documentation/               ← Technical documentation
+    ├── backtester_analysis.md   ← ⭐ Full backtester user & developer guide
+    ├── backtester_spec_v2.md    ← Original backtester V2 specification
+    ├── backtester_pending_fixes.md ← Backtester known issues & implementation plan
+    ├── DATA_PIPELINE_AND_COMMANDS.md ← Guide to running ingestion pipelines
+    ├── PROJECT_CONTEXT.md       ← Full architectural overview for new developers
+    ├── DEPLOYMENT.md            ← Render.com deployment and local setup
+    ├── SCORING_MODEL.md         ← 100-point fund scoring model documentation
+    ├── PEER_MATCHING.md         ← Peer comparison matching rules
+    └── archive/                 ← Older specs and exploration documents
 ```
 
 ---
@@ -133,15 +141,16 @@ MutualFundAnalysis/
 git clone https://github.com/amansingh2116/MutualFundAnalysis.git
 cd MutualFundAnalysis
 
-# Create Virtual Environment
+# Create virtual environment
 python -m venv venv
 
-# Activate Virtual Environment (Windows)
+# Activate (Windows)
 venv\Scripts\activate
-# Activate Virtual Environment (macOS/Linux)
+
+# Activate (macOS/Linux)
 source venv/bin/activate
 
-# Install Dependencies
+# Install dependencies
 pip install -r requirements.txt
 ```
 
@@ -149,9 +158,9 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 ```
-Edit the `.env` file to set your `SECRET_KEY` and ensure `DEBUG=True` for local development.
+Edit `.env` to set your `SECRET_KEY`. For local dev, ensure `DEBUG=True`.
 
-### 3. Initialize the Database & Admin User
+### 3. Initialize Database & Admin User
 ```bash
 python manage.py migrate
 python manage.py createsuperuser
@@ -159,104 +168,71 @@ python manage.py createsuperuser
 
 ### 4. Load Scheme Master Data
 ```bash
-# Build the scheme registry from AMFI (~14,000 schemes)
+# Build scheme registry from AMFI (~14,000 schemes) — required for fund search
 python manage.py build_scheme_master
 
-# Fetch benchmark index history
+# Fetch benchmark index NAV history — required for index assets and benchmarks
 python manage.py ingest_benchmarks
 ```
-> **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data locally to run the app.
 
-### 5. Build and Refresh the Data Pipelines (Screener & Home Dashboard)
-The platform uses a denormalised snapshot architecture to power the **Advanced Fund Screener** and the **Home Dashboard** instantly, without running heavy live computations on thousands of funds. You must run these data pipelines to populate the platform's advanced features.
+> **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data locally.
 
-#### Pipeline 1: The Fund Screener & Analytics Pipeline
-This pipeline processes all active mutual funds, fetches their historical NAVs, computes advanced metrics (Trailing, Rolling, and Calendar Returns, Sharpe, Sortino, Drawdown, etc.), and saves them to the `FundScreenerSnapshot` table.
-```bash
-# Process a small batch for testing:
-python manage.py populate_screener --limit=100
-
-# Process all direct-growth funds (~2,500 schemes).
-# This respects API rate limits and handles gracefully falling back on errors.
-python manage.py populate_screener
-
-# Process without updating analytics or scores (fast update just for metadata)
-python manage.py populate_screener --skip-analytics --skip-score
-```
-*Note: `populate_screener` will automatically trigger `populate_home_dashboard` at the end unless you pass `--skip-home-dashboard`.*
-
-#### Pipeline 2: Benchmark Monitor Pipeline
-This pipeline computes the calendar year returns, rolling returns (1Y, 3Y, 5Y), and risk metrics for all ingested benchmark indices (including NIFTY and newly added BSE indices like BSE 500, BSE Bankex, etc.)
-```bash
-# Fetch raw historical NAVs for all registered indices via Yahoo Finance/NSE
-python manage.py ingest_benchmarks
-
-# Compute returns and metrics, saving to the BenchmarkReturns table
-python manage.py populate_benchmark_returns
-```
-
-#### Pipeline 3: Home Dashboard Aggregation
-This pipeline aggregates the `FundScreenerSnapshot` data to generate category-level statistics (Average returns, Risk distribution, Score allocations) and calculates Quartile Rankings for every fund within its sub-category.
-```bash
-# Update category statistics and quartile rankings
-python manage.py populate_home_dashboard
-```
-
-#### Understanding the Pipeline Workflow
-For daily maintenance, the optimal execution order is:
-1. `python manage.py ingest_benchmarks` (fetches new market data)
-2. `python manage.py populate_benchmark_returns` (updates index stats)
-3. `python manage.py populate_screener` (updates all fund metrics and cascades into home dashboard updates)
-
-Generate a top-funds CSV and standalone HTML performance reports:
-
-```bash
-python manage.py generate_screener_reports --top 10 --sort cagr_3y
-```
-
-Reports are written under `media/reports/fund_screener/YYYY-MM-DD/`. Supported sort values are `cagr_3y`, `rolling_3y`, `return_1y`, `sharpe`, and `aum`.
-
-### 6. Run the Server
+### 5. Run the Server
 ```bash
 python manage.py runserver
 ```
-Visit `http://127.0.0.1:8000/funds/screener/` for the screener.
+- Backtester: `http://127.0.0.1:8000/portfolio/backtester/`
+- Fund Screener: `http://127.0.0.1:8000/funds/screener/`
+- Admin: `http://127.0.0.1:8000/admin/`
+
+### 6. Build Data Pipelines (Optional, for Screener & Dashboard)
+
+The Fund Screener and Home Dashboard use pre-computed snapshots. Run these pipelines to populate them:
+
+```bash
+# 1. Fetch new market data for all benchmark indices
+python manage.py ingest_benchmarks
+
+# 2. Update index return statistics
+python manage.py populate_benchmark_returns
+
+# 3. Process all active funds — computes metrics, scores, and cascades into home dashboard
+#    (Use --limit=100 for a quick test run)
+python manage.py populate_screener --limit=100
+
+# Full run (takes 30–60 min for ~2,500 direct-growth funds):
+python manage.py populate_screener
+```
 
 ### 7. Run Tests
 ```powershell
 $env:DEBUG='True'; python manage.py test apps.funds apps.analytics
 ```
-If you run tests without overriding `DEBUG`, make sure `.env` uses a boolean such as `DEBUG=True` or `DEBUG=False`.
 
 ---
 
-## 🚀 Deployment (Cloud via GitHub & Render)
-
-To make the app searchable online, persist user data securely in the cloud, and automate daily database updates, follow these deployment steps:
+## 🚀 Deployment (Render.com)
 
 ### 1. Push to GitHub
-Commit your local codebase and push it to a GitHub repository:
 ```bash
 git add .
-git commit -m "Ready for deployment"
-git remote add origin https://github.com/YOUR_USERNAME/MutualFundAnalysis.git
-git push -u origin main
+git commit -m "your message"
+git push origin main
 ```
 
-### 2. Deploy on Render.com (Free Tier)
-1. Create a free account at [Render.com](https://render.com).
-2. Click **New +** and select **Blueprint**.
-3. Connect your GitHub account and select your repository.
-4. Render will automatically detect the included `render.yaml` file and spin up:
-   * A **PostgreSQL Database** (ensuring user profiles/portfolios are securely saved).
-   * A **Web Service** running your Django platform.
+### 2. Deploy on Render.com
+1. Create account at [Render.com](https://render.com)
+2. Click **New +** → **Blueprint**
+3. Connect GitHub and select this repository
+4. Render auto-detects `render.yaml` and spins up:
+   - PostgreSQL database
+   - Django web service
 
-### 3. Automate Daily Data Fetching (GitHub Actions)
-You must fetch new mutual fund NAVs daily so your platform stays up-to-date.
-1. Create `.github/workflows/daily_update.yml` in your repository.
-2. Add the following GitHub Action workflow to trigger Render to run the update every day at midnight (UTC):
+### 3. Automate Daily Updates (GitHub Actions)
+Create `.github/workflows/daily_update.yml`:
+
 ```yaml
-name: Daily NAV Database Update
+name: Daily NAV Update
 on:
   schedule:
     - cron: '0 23 * * *'
@@ -269,4 +245,21 @@ jobs:
       - name: Trigger Render Deploy Hook
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 ```
-3. Get your **Deploy Hook URL** from the Render dashboard (Web Service settings) and add it as a Repository Secret (`RENDER_DEPLOY_HOOK_URL`) in your GitHub repository.
+
+Add your **Deploy Hook URL** from the Render dashboard as a repository secret named `RENDER_DEPLOY_HOOK_URL`.
+
+See `documentation/DEPLOYMENT.md` for detailed deployment instructions.
+
+---
+
+## 📖 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [backtester_analysis.md](documentation/backtester_analysis.md) | ⭐ Complete backtester user guide, math reference, API docs, developer debugging |
+| [backtester_pending_fixes.md](documentation/backtester_pending_fixes.md) | Known backtester issues and implementation plan |
+| [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md) | How to run all data ingestion and analytics pipelines |
+| [PROJECT_CONTEXT.md](documentation/PROJECT_CONTEXT.md) | Full architectural overview for developers |
+| [DEPLOYMENT.md](documentation/DEPLOYMENT.md) | Local setup and Render.com deployment guide |
+| [SCORING_MODEL.md](documentation/SCORING_MODEL.md) | 100-point fund scoring model (6 pillars, all formulas) |
+| [PEER_MATCHING.md](documentation/PEER_MATCHING.md) | Peer comparison matching algorithm |
