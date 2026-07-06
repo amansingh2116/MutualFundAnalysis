@@ -434,8 +434,9 @@
   top: 2px; left: 2px;
   transition: transform var(--transition);
 }
-.toggle-row.on .toggle-switch { background: var(--accent); }
+.toggle-row.on .toggle-switch { background: #22c55e; }  /* green = on */
 .toggle-row.on .toggle-switch::after { transform: translateX(16px); }
+.toggle-row.on > span { font-weight: 600; color: var(--text-primary); }
 .toggle-expanded {
   display: none;
   padding: 8px;
@@ -1044,11 +1045,7 @@ dialog#triggerModal::backdrop {
     <!-- Header -->
     <div class="bt-left-header">
       <h2><span class="icon">⚗️</span> Strategy Backtester</h2>
-      <div id="livePEWidget" class="live-pe-widget" title="Live Nifty 50 PE (fetched on load)">
-        <span>PE</span>
-        <span class="live-pe-value" id="livePEValue">—</span>
-        <span class="live-pe-badge" id="livePEBadge" style="background:rgba(148,163,184,0.15);color:var(--text-muted)">—</span>
-      </div>
+
     </div>
 
     <div class="bt-left-scroll">
@@ -1157,51 +1154,9 @@ dialog#triggerModal::backdrop {
           <div id="benchmarkSelected" style="font-size:11px;color:var(--text-muted);margin-top:4px;display:none"></div>
         </div>
 
-        <div class="settings-grid" style="margin-top:8px">
-          <div class="field-group">
-            <label>Synthetic Debt Rate (%/yr)</label>
-            <input type="number" id="debtRate" value="7" min="0" max="30" step="0.5" />
-          </div>
-          <div class="field-group">
-            <label>Transaction Cost (₹)</label>
-            <input type="number" id="txCost" value="0" min="0" step="1" />
-          </div>
-        </div>
 
         <!-- Toggles -->
         <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
-
-          <!-- Exit Load — BUG-08 FIX: id=toggleExitload (lowercase L) matches toggleSetting('exitload') -->
-          <div class="toggle-row" id="toggleExitload" onclick="toggleSetting('exitload')">
-            <span>📤 Exit Load</span>
-            <div class="toggle-switch"></div>
-          </div>
-
-          <!-- Tax -->
-          <div class="toggle-row" id="toggleTax" onclick="toggleSetting('tax')">
-            <span>💰 Tax Calculation</span>
-            <div class="toggle-switch"></div>
-          </div>
-          <div class="toggle-expanded" id="taxExpanded">
-            <div class="settings-grid" style="grid-template-columns:1fr 1fr">
-              <div class="field-group">
-                <label>Equity STCG (%)</label>
-                <input type="number" id="stcgRate" value="20" min="0" max="50" />
-              </div>
-              <div class="field-group">
-                <label>Equity LTCG (%)</label>
-                <input type="number" id="ltcgRate" value="12.5" min="0" max="50" step="0.5" />
-              </div>
-              <div class="field-group">
-                <label>LTCG Exemption (₹/yr)</label>
-                <input type="number" id="ltcgExemption" value="125000" min="0" />
-              </div>
-              <div class="field-group">
-                <label>Debt Tax Rate (%)</label>
-                <input type="number" id="debtTaxRate" value="30" min="0" max="50" />
-              </div>
-            </div>
-          </div>
 
           <!-- Inflation -->
           <div class="toggle-row" id="toggleInflation" onclick="toggleSetting('inflation')">
@@ -1227,8 +1182,8 @@ dialog#triggerModal::backdrop {
             </div>
           </div>
 
-          <!-- Monte Carlo — BUG-01 FIX: moved OUT of validationErrors, into proper toggles group -->
-          <div class="toggle-row" id="toggleMC" onclick="toggleSetting('mc')">
+          <!-- Monte Carlo -->
+          <div class="toggle-row" id="toggleMc" onclick="toggleSetting('mc')">
             <span>🎲 Monte Carlo Projection</span>
             <div class="toggle-switch"></div>
           </div>
@@ -1262,12 +1217,57 @@ dialog#triggerModal::backdrop {
 
     </div><!-- /bt-left-scroll -->
 
-    <!-- Run Button -->
+    <!-- Run / Save Buttons -->
     <div class="bt-run-wrap">
       <button class="btn-run" id="btnRun" onclick="runBacktest()">
         <span class="run-icon">▶ Run Backtest</span>
         <div class="spinner"></div>
       </button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-secondary" id="btnSave" onclick="saveStrategy()" style="flex:1">
+          💾 Save Strategy
+        </button>
+        <button class="btn-secondary" id="btnLoad" onclick="loadStrategiesModal()" style="flex:1">
+          📂 Load Strategy
+        </button>
+      </div>
+    </div>
+
+    <!-- Save Strategy Modal -->
+    <div id="saveStrategyModal" class="modal-overlay" style="display:none">
+      <div class="modal-box" style="max-width:400px">
+        <div class="modal-header">
+          <span>💾 Save Strategy</span>
+          <button class="modal-close" onclick="document.getElementById('saveStrategyModal').style.display='none'">✕</button>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div class="field-group">
+            <label>Strategy Name</label>
+            <input type="text" id="strategyName" placeholder="e.g. NIFTY 50 PE-based SIP" style="width:100%" />
+          </div>
+          <div class="field-group">
+            <label>Description (optional)</label>
+            <textarea id="strategyDesc" placeholder="Brief notes about this strategy…" rows="2" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:8px;resize:vertical"></textarea>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-run" onclick="confirmSaveStrategy()" style="flex:1;padding:10px">Save</button>
+            <button class="btn-secondary" onclick="document.getElementById('saveStrategyModal').style.display='none'" style="flex:1;padding:10px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load Strategy Modal -->
+    <div id="loadStrategyModal" class="modal-overlay" style="display:none">
+      <div class="modal-box" style="max-width:480px">
+        <div class="modal-header">
+          <span>📂 Load Strategy</span>
+          <button class="modal-close" onclick="document.getElementById('loadStrategyModal').style.display='none'">✕</button>
+        </div>
+        <div id="loadStrategyList" style="padding:16px;max-height:400px;overflow-y:auto">
+          <div style="color:var(--text-muted);text-align:center;padding:20px">Loading…</div>
+        </div>
+      </div>
     </div>
   </div><!-- /bt-left -->
 
@@ -1300,10 +1300,11 @@ dialog#triggerModal::backdrop {
         </div>
         <div class="considerations-body" id="considerationsBody">
           <ul>
-            <li><strong>Perfect execution assumed</strong> — every trigger fires exactly at the threshold with no delay or missed entry. Real-world execution is harder, especially in fast-moving markets.</li>
-            <li><strong>Taxes are estimated</strong> — high-turnover strategies pay more tax. The gap between pre- and post-tax return is larger than it appears until you toggle Tax on.</li>
-            <li><strong>Liquidity</strong> — some rules assume capital is available exactly when a trigger fires. Actual results will differ if capital is unavailable.</li>
-            <li><strong>Survivorship bias</strong> — you're comparing only funds that exist today. Funds that closed or merged are not in search results.</li>
+            <li><strong>Transaction Costs</strong> — Real investments incur stamp duty (0.005% on purchase), AMC expense ratios (0.1%–1.5% p.a. embedded in NAV), and brokerage/platform fees. This simulator ignores these — actual returns will be slightly lower.</li>
+            <li><strong>Exit Load</strong> — Most equity mutual funds charge 1% exit load if redeemed within 1 year of each purchase (FIFO basis). Debt funds vary. This simulator does not deduct exit load — factor this in if you plan frequent redemptions.</li>
+            <li><strong>Taxes</strong> — Equity funds: STCG (held &lt;1 year) taxed at 20%; LTCG (held ≥1 year) taxed at 12.5% with ₹1,25,000/year exemption. Debt/liquid funds: gains taxed at your income slab. High-frequency switching strategies may significantly erode returns after tax.</li>
+            <li><strong>Perfect execution assumed</strong> — triggers fire exactly at threshold with next available NAV. Real-world execution may have delay and slippage.</li>
+            <li><strong>Survivorship bias</strong> — only currently existing funds appear in search. Funds that closed or merged are excluded.</li>
             <li><strong>Not investment advice.</strong> Past performance is not indicative of future results.</li>
           </ul>
         </div>
@@ -1359,33 +1360,26 @@ dialog#triggerModal::backdrop {
           <div class="section-title" style="margin-top:16px">Risk Ratios</div>
           <div class="metrics-grid" id="ratioMetricsGrid"></div>
 
-          <div class="section-title" style="margin-top:20px">Rolling Returns — Distribution</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Each box shows the distribution of CAGR across all rolling windows of that length. Narrower = more consistent.</div>
-          <div id="rollingChart" style="height:260px"></div>
+          <div class="section-title" style="margin-top:20px">Rolling Returns</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Best / Average / Median / Worst CAGR across all rolling 3Y, 5Y, and 7Y windows. Requires at least 3 years of history.</div>
+
+          <!-- Rolling stats cards per window -->
+          <div id="rollingStatsCards" style="margin-bottom:8px"></div>
+
+          <!-- chart div kept hidden (no box plot per user request) -->
+          <div id="rollingChart" style="display:none"></div>
         </div>
 
         <!-- Panel: Consistency -->
         <div class="result-panel" id="panel-consistency">
           <div class="chart-container">
-            <!-- Equity chart header with PE overlay toggle -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-              <div class="chart-title" style="margin-bottom:0"><span class="dot"></span>Portfolio Value vs. Invested</div>
-              <label id="peOverlayToggleLabel" title="Show Nifty 50 PE ratio bands on chart" style="
-                display:none;align-items:center;gap:6px;
-                font-size:10px;color:var(--text-secondary);cursor:pointer;
-                background:var(--bg-elevated);border:1px solid var(--border);
-                border-radius:5px;padding:3px 8px;
-              ">
-                <input type="checkbox" id="peOverlayToggle" onchange="togglePEOverlay()" style="cursor:pointer;accent-color:#6366f1">
-                PE Overlay
-                <span id="peOverlayIndex" style="color:var(--text-muted);font-size:9px"></span>
-              </label>
-            </div>
+            <div class="chart-title"><span class="dot"></span>Portfolio Value vs. Invested</div>
             <div id="equityChart" style="height:280px"></div>
           </div>
           <div class="chart-container">
             <div class="chart-title"><span class="dot" style="background:var(--red-400)"></span>Drawdown</div>
-            <div id="drawdownChart" style="height:180px"></div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Portfolio drawdown shown in red. Benchmark drawdown in orange (if available).</div>
+            <div id="drawdownChart" style="height:200px"></div>
           </div>
           <div class="chart-container">
             <div class="chart-title"><span class="dot" style="background:var(--emerald-400)"></span>Annual Returns</div>
@@ -1393,7 +1387,7 @@ dialog#triggerModal::backdrop {
           </div>
           <div class="chart-container">
             <div class="chart-title"><span class="dot" style="background:var(--amber-400)"></span>Monthly Return Heatmap</div>
-            <div id="heatmapChart" style="min-height:200px"></div>
+            <div id="heatmapChart" style="min-height:280px"></div>
           </div>
         </div>
 
@@ -1565,9 +1559,8 @@ dialog#triggerModal::backdrop {
   </div>
 </dialog>
 
-<!-- All indices for PE dropdown -->
 <script>
-const ALL_INDICES = {{ all_indices|safe }};
+const ALL_INDICES = [];
 </script>
 {% endblock %}
 
@@ -1642,10 +1635,14 @@ function onSelectItem(r) {
   // Determine which dropdown is open
   const sd = document.getElementById('searchDropdown');
   const bd = document.getElementById('benchmarkDropdown');
-  if (sd.classList.contains('open') && sd._onSelect) {
+  if (sd && sd.classList.contains('open') && sd._onSelect) {
     sd._onSelect(r);
   } else if (bd && bd.classList.contains('open') && bd._onSelect) {
     bd._onSelect(r);
+  } else {
+    // Dynamic dropdown (switch target, condition ref)
+    const openDd = document.querySelector('.search-dropdown.open');
+    if (openDd && openDd._onSelect) openDd._onSelect(r);
   }
 }
 
@@ -1762,7 +1759,7 @@ function addRule(assetIdx, ruleType) {
       lumpsum_date: '', trigger: null });
   } else if (ruleType === 'switch') {
     a.rules.push({ rule_type: 'switch', amount: 100, amount_type: 'pct',
-      switch_from_id: a.source_id, switch_to_id: '', switch_date: '', trigger: null });
+      switch_from_id: a.source_id, switch_to_id: '', switch_to_label: '', switch_date: '', trigger: null });
   }
   renderAssets();
   setTimeout(() => {
@@ -1855,10 +1852,10 @@ function renderRuleCard(ai, ri, rule) {
       <div class="rule-fields">
         <div class="field-group">
           <label>Withdrawal Type</label>
-          <select onchange="updateRule(${ai},${ri},'swp_type',this.value)">
-            <option value="amount" ${rule.swp_type==='amount'?'selected':''}>Amount (₹)</option>
-            <option value="units" ${rule.swp_type==='units'?'selected':''}>Units</option>
-            <option value="pct" ${rule.swp_type==='pct'?'selected':''}>% of holding</option>
+          <select onchange="updateRule(${ai},${ri},'amount_type',this.value)">
+            <option value="amount" ${rule.amount_type==='amount'?'selected':''}>Amount (₹)</option>
+            <option value="units" ${rule.amount_type==='units'?'selected':''}>Units</option>
+            <option value="pct" ${rule.amount_type==='pct'?'selected':''}>% of holding</option>
           </select>
         </div>
         <div class="field-group">
@@ -1988,12 +1985,11 @@ function updateStepUp(ai, ri, key, val) {
 }
 
 // ── Settings toggles ───────────────────────────────────────────────────────
-const toggleStates = { exitload: false, tax: false, inflation: false, mc: false };
+const toggleStates = { inflation: false, mc: false };
 function toggleSetting(key) {
   toggleStates[key] = !toggleStates[key];
   const row = document.getElementById(`toggle${key.charAt(0).toUpperCase()+key.slice(1)}`);
   if (row) row.classList.toggle('on', toggleStates[key]);
-  if (key === 'tax')       document.getElementById('taxExpanded').classList.toggle('open', toggleStates.tax);
   if (key === 'inflation') document.getElementById('inflationExpanded').classList.toggle('open', toggleStates.inflation);
   if (key === 'mc')        document.getElementById('mcExpanded').classList.toggle('open', toggleStates.mc);
 }
@@ -2076,9 +2072,52 @@ function initBenchSearch() {
   if (q.length < 2) { benchDropdown.classList.remove('open'); return; }
   benchDropdown.innerHTML = '<div class="search-loading">🔍 Searching…</div>';
   benchDropdown.classList.add('open');
-  benchTimer = setTimeout(() => doSearch(q, 'benchmarkDropdown', onBenchSelect, 'all'), 350);
+  benchTimer = setTimeout(() => doSearch(q, 'benchmarkDropdown', onBenchSelect, 'index'), 350);
   });
 }
+
+// ── Dynamic search helpers (switch target + condition refs) ────────────────
+let _dynSearchTimer = null;
+
+function onSwitchToSearch(ai, ri, q) {
+  clearTimeout(_dynSearchTimer);
+  const ddId = `switchDd-${ai}-${ri}`;
+  const dd = document.getElementById(ddId);
+  if (!dd) return;
+  if (q.length < 2) { dd.classList.remove('open'); return; }
+  dd.innerHTML = '<div class="search-loading">🔍 Searching…</div>';
+  dd.classList.add('open');
+  _dynSearchTimer = setTimeout(() => {
+    doSearch(q, ddId, (result) => {
+      // Store selection in rule state
+      const sid = result.type === 'scheme' ? String(result.id) : result.id;
+      assets[ai].rules[ri].switch_to_id = sid;
+      assets[ai].rules[ri].switch_to_label = result.name;
+      dd.classList.remove('open');
+      renderAssets();
+    }, 'all');
+  }, 350);
+}
+
+function onCondRefSearch(condIdx, idKey, labelKey, ddId, q) {
+  clearTimeout(_dynSearchTimer);
+  const dd = document.getElementById(ddId);
+  if (!dd) return;
+  if (q.length < 2) { dd.classList.remove('open'); return; }
+  dd.innerHTML = '<div class="search-loading">🔍 Searching…</div>';
+  dd.classList.add('open');
+  _dynSearchTimer = setTimeout(() => {
+    doSearch(q, ddId, (result) => {
+      const sid = result.type === 'scheme' ? String(result.id) : result.id;
+      updateCondParamNested(condIdx, 'params', idKey, sid);
+      updateCondParamNested(condIdx, 'params', labelKey, result.name);
+      dd.classList.remove('open');
+      renderConditions();
+    }, 'all');
+  }, 350);
+}
+
+
 
 function onBenchSelect(result) {
   document.getElementById('benchmarkId').value = result.id;
@@ -2103,20 +2142,19 @@ function buildPlan() {
     end_date: simEnd,
     benchmark_type: benchType || 'index',
     benchmark_id: benchId || '',
-    synthetic_debt_rate: parseFloat(document.getElementById('debtRate').value) || 7,
-    transaction_cost: parseFloat(document.getElementById('txCost').value) || 0,
-    exit_load_enabled: toggleStates.exitload,
-    // Tax (Phase 4)
-    tax_enabled: toggleStates.tax,
-    tax_equity_stcg: parseFloat(document.getElementById('stcgRate').value) || 20,
-    tax_equity_ltcg: parseFloat(document.getElementById('ltcgRate').value) || 12.5,
-    tax_ltcg_exemption: parseFloat(document.getElementById('ltcgExemption').value) || 125000,
-    tax_debt_rate: parseFloat(document.getElementById('debtTaxRate').value) || 30,
-    // Inflation (Phase 4)
+    transaction_cost: 0,        // removed from UI — always 0
+    exit_load_enabled: false,   // removed from UI
+    // Tax (disabled — removed from UI)
+    tax_enabled: false,
+    tax_equity_stcg: 20,
+    tax_equity_ltcg: 12.5,
+    tax_ltcg_exemption: 125000,
+    tax_debt_rate: 30,
+    // Inflation
     inflation_enabled: toggleStates.inflation,
     inflation_mode: document.getElementById('inflationMode').value,
     inflation_rate: parseFloat(document.getElementById('inflationRate').value) || 5,
-    // Monte Carlo (Phase 5)
+    // Monte Carlo
     mc_enabled: toggleStates.mc,
     mc_simulations: parseInt(document.getElementById('mcSimulations')?.value) || 500,
     mc_horizon_years: parseInt(document.getElementById('mcHorizon')?.value) || 10,
@@ -2212,6 +2250,7 @@ async function runBacktest() {
     setProgress(100, 'Done!');
     setTimeout(() => {
       document.getElementById('btProgress').classList.remove('visible');
+      _lastResult = data;  // Cache for save feature
       renderResults(data);
     }, 400);
 
@@ -2272,12 +2311,11 @@ function renderResults(data) {
   document.getElementById('metricsGrid').innerHTML = `
     ${metricCard('Total Invested', fmt(data.total_invested), '', 'Total capital deployed')}
     ${metricCard('Final Value', fmt(data.final_value), 'accent', 'Market value on end date')}
-    ${metricCard('Absolute Gain', (gainPositive?'+':'')+fmt(data.absolute_gain), gainPositive?'positive':'negative', 'Final value − invested')}
-    ${metricCard('XIRR', fmtPct(data.xirr), xirrPositive?'positive':'negative', 'Annualised IRR on actual cashflows')}
-    ${metricCard('CAGR', fmtPct(data.cagr), (data.cagr||0)>=0?'positive':'negative', 'Compound annual growth rate')}
-    ${data.benchmark_cagr != null ? metricCard('Benchmark CAGR', fmtPct(data.benchmark_cagr), '', 'Benchmark buy-and-hold return') : ''}
+    ${metricCard('Absolute Gain', (gainPositive?'+':'')+fmt(data.absolute_gain), gainPositive?'positive':'negative', 'Final value + redeemed − invested')}
+    ${metricCard('XIRR', fmtPct(data.xirr), xirrPositive?'positive':'negative', 'Annualised IRR on actual cashflows — the correct metric for SIP strategies')}
+    ${data.benchmark_cagr != null ? metricCard('Benchmark Return', fmtPct(data.benchmark_cagr), '', 'Benchmark buy-and-hold CAGR over the same period') : ''}
     ${data.max_drawdown != null ? metricCard('Max Drawdown', fmtPct(data.max_drawdown,1), 'negative', 'Largest peak-to-trough fall') : ''}
-    ${data.sharpe != null ? metricCard('Sharpe', (data.sharpe||0).toFixed(2), '', 'Risk-adjusted return') : ''}
+    ${data.sharpe != null ? metricCard('Sharpe', data.sharpe.toFixed(2), data.sharpe >= 1 ? 'positive' : '', '(XIRR − rf) ÷ volatility') : ''}
     ${data.volatility != null ? metricCard('Volatility (ann.)', fmtPct(data.volatility,1), '', 'Annualised std dev of daily returns') : ''}`;
 
   // ── Per-asset table ────────────────────────────────────────────────────
@@ -2318,10 +2356,10 @@ function renderResults(data) {
 
   // Risk ratios
   document.getElementById('ratioMetricsGrid').innerHTML = `
-    ${data.sharpe!=null ? metricCard('Sharpe', (data.sharpe||0).toFixed(2), (data.sharpe||0)>=1?'positive':'', '(XIRR−rf) ÷ volatility') : ''}
-    ${data.sortino!=null ? metricCard('Sortino', (data.sortino||0).toFixed(2), (data.sortino||0)>=1?'positive':'', '(XIRR−rf) ÷ downside dev') : ''}
-    ${data.calmar!=null ? metricCard('Calmar', (data.calmar||0).toFixed(2), (data.calmar||0)>=0.5?'positive':'', 'CAGR ÷ |Max DD|') : ''}
-    ${data.romad!=null ? metricCard('ROMAD', (data.romad||0).toFixed(2), (data.romad||0)>=0.5?'positive':'', 'XIRR ÷ |Max DD|') : ''}`;
+    ${data.sharpe!=null ? metricCard('Sharpe', data.sharpe.toFixed(2), data.sharpe>=1?'positive':'', '(XIRR−rf) ÷ volatility') : ''}
+    ${data.sortino!=null ? metricCard('Sortino', data.sortino.toFixed(2), data.sortino>=1?'positive':'', '(XIRR−rf) ÷ downside dev') : ''}
+    ${data.calmar!=null ? metricCard('Calmar', data.calmar.toFixed(2), data.calmar>=0.5?'positive':'', 'Annual return ÷ |Max DD|') : ''}
+    ${data.romad!=null ? metricCard('ROMAD', data.romad.toFixed(2), data.romad>=0.5?'positive':'', 'XIRR ÷ |Max DD|') : ''}`;
 
   // Rolling returns box plot
   renderRollingChart(data);
@@ -2464,39 +2502,18 @@ const PLOTLY_LAYOUT_BASE = {
 const PLOTLY_CONFIG = { displayModeBar: false, responsive: true };
 
 // ── State for PE overlay ──────────────────────────────────────────────────
-let _peChartData = null;   // last backtest data (has pe_chart_series)
+
 
 function renderEquityChart(data) {
-  _peChartData = data;
-
-  // Show PE overlay toggle if we have PE data
-  const hasPE = data.pe_chart_series && data.pe_chart_series.some(v => v != null);
-  const toggleLabel = document.getElementById('peOverlayToggleLabel');
-  if (toggleLabel) {
-    toggleLabel.style.display = hasPE ? 'flex' : 'none';
-    const idxSpan = document.getElementById('peOverlayIndex');
-    if (idxSpan) idxSpan.textContent = data.pe_index_name || 'NIFTY 50';
-  }
-
-  _drawEquityChart(data, document.getElementById('peOverlayToggle')?.checked || false);
-}
-
-function togglePEOverlay() {
-  if (_peChartData) _drawEquityChart(_peChartData, document.getElementById('peOverlayToggle').checked);
-}
-
-function _drawEquityChart(data, showPE) {
   const traces = [{
     x: data.dates, y: data.portfolio_values,
     name: 'Portfolio Value', type: 'scatter', mode: 'lines',
     line: { color: '#6366f1', width: 2 },
     fill: 'tozeroy', fillcolor: 'rgba(99,102,241,0.06)',
-    yaxis: 'y',
   }, {
     x: data.dates, y: data.invested_cumulative,
     name: 'Invested', type: 'scatter', mode: 'lines',
     line: { color: '#94a3b8', width: 1, dash: 'dot' },
-    yaxis: 'y',
   }];
 
   if (data.benchmark_values?.length) {
@@ -2504,7 +2521,6 @@ function _drawEquityChart(data, showPE) {
       x: data.dates, y: data.benchmark_values,
       name: 'Benchmark', type: 'scatter', mode: 'lines',
       line: { color: '#34d399', width: 1.5, dash: 'dash' },
-      yaxis: 'y',
     });
   }
 
@@ -2514,88 +2530,49 @@ function _drawEquityChart(data, showPE) {
     marker: { symbol: 'triangle-up', size: 8, color: '#fbbf24' },
     name: m.label, showlegend: false,
     hovertemplate: `${m.label}<extra></extra>`,
-    yaxis: 'y',
   }));
 
-  // PE overlay shapes and line
-  const layout = {
+  Plotly.newPlot('equityChart', [...traces, ...markers], {
     ...PLOTLY_LAYOUT_BASE,
     yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, tickprefix: '₹', tickformat: ',.0f' },
-    shapes: [],
-  };
-
-  if (showPE && data.pe_chart_series?.length && data.dates?.length) {
-    // PE band zones as background shapes (on y2)
-    // Use percentile-based y-range for PE bands
-    const peBands = [
-      { min: 0,  max: 15, color: 'rgba(52,211,153,0.06)',  label: 'Cheap (<15)' },
-      { min: 15, max: 20, color: 'rgba(96,165,250,0.06)',  label: 'Fair (15–20)' },
-      { min: 20, max: 25, color: 'rgba(251,191,36,0.06)',  label: 'High (20–25)' },
-      { min: 25, max: 50, color: 'rgba(248,113,113,0.06)', label: 'Expensive (>25)' },
-    ];
-    peBands.forEach(b => {
-      layout.shapes.push({
-        type: 'rect',
-        xref: 'paper', yref: 'y2',
-        x0: 0, x1: 1,
-        y0: b.min, y1: b.max,
-        fillcolor: b.color,
-        line: { width: 0 },
-        layer: 'below',
-      });
-    });
-
-    // PE line on secondary y-axis
-    traces.push({
-      x: data.dates,
-      y: data.pe_chart_series,
-      name: (data.pe_index_name || 'NIFTY 50') + ' PE',
-      type: 'scatter', mode: 'lines',
-      line: { color: 'rgba(244,114,182,0.7)', width: 1.5, dash: 'dot' },
-      yaxis: 'y2',
-      hovertemplate: 'PE: %{y:.1f}<extra></extra>',
-    });
-
-    // PE threshold lines (15, 20, 25)
-    [15, 20, 25].forEach(level => {
-      layout.shapes.push({
-        type: 'line',
-        xref: 'paper', yref: 'y2',
-        x0: 0, x1: 1,
-        y0: level, y1: level,
-        line: { color: 'rgba(148,163,184,0.3)', width: 1, dash: 'dot' },
-        layer: 'below',
-      });
-    });
-
-    layout.yaxis2 = {
-      title: 'PE Ratio',
-      overlaying: 'y',
-      side: 'right',
-      showgrid: false,
-      zeroline: false,
-      tickfont: { color: 'rgba(244,114,182,0.7)', size: 9 },
-      titlefont: { color: 'rgba(244,114,182,0.7)', size: 10 },
-      range: [0, 45],
-    };
-  }
-
-  Plotly.newPlot('equityChart', [...traces, ...markers], layout, PLOTLY_CONFIG);
+  }, PLOTLY_CONFIG);
 }
+
 
 
 function renderDrawdownChart(data) {
-  Plotly.newPlot('drawdownChart', [{
+  const traces = [{
     x: data.dates, y: data.drawdown_series,
-    name: 'Drawdown', type: 'scatter', mode: 'lines',
+    name: 'Portfolio Drawdown', type: 'scatter', mode: 'lines',
     line: { color: '#f87171', width: 1.5 },
     fill: 'tozeroy', fillcolor: 'rgba(248,113,113,0.1)',
-  }], {
+  }];
+
+  // Compute and add benchmark drawdown if benchmark values exist
+  if (data.benchmark_values?.length && data.dates?.length) {
+    const bdd = [];
+    let bmax = -Infinity;
+    for (let i = 0; i < data.benchmark_values.length; i++) {
+      const v = data.benchmark_values[i];
+      if (v > bmax) bmax = v;
+      bdd.push(bmax > 0 ? ((v - bmax) / bmax * 100) : 0);
+    }
+    traces.push({
+      x: data.dates, y: bdd,
+      name: 'Benchmark Drawdown', type: 'scatter', mode: 'lines',
+      line: { color: '#fb923c', width: 1.2, dash: 'dash' },
+      fill: 'tozeroy', fillcolor: 'rgba(251,146,60,0.05)',
+    });
+  }
+
+  Plotly.newPlot('drawdownChart', traces, {
     ...PLOTLY_LAYOUT_BASE,
     yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, ticksuffix: '%' },
     margin: { ...PLOTLY_LAYOUT_BASE.margin, t: 4 },
+    legend: { orientation: 'h', x: 0, y: 1.1, font: { size: 10 } },
   }, PLOTLY_CONFIG);
 }
+
 
 function renderAnnualChart(data) {
   const calRet = data.calendar_returns || {};
@@ -2616,42 +2593,90 @@ function renderAnnualChart(data) {
 }
 
 function renderRollingChart(data) {
-  const windows = [
-    { label: '1Y', key: 'rolling_1y' },
-    { label: '3Y', key: 'rolling_3y' },
-    { label: '5Y', key: 'rolling_5y' },
-    { label: '7Y', key: 'rolling_7y' },
-  ].filter(w => data[w.key]?.length);
+  const windowDefs = [
+    { label: '3Y', key: 'rolling_3y', color: '#34d399' },
+    { label: '5Y', key: 'rolling_5y', color: '#6366f1' },
+    { label: '7Y', key: 'rolling_7y', color: '#fbbf24' },
+  ].filter(w => (data[w.key]?.length || 0) >= 4);
 
-  if (!windows.length) {
-    document.getElementById('rollingChart').innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px">Not enough data for rolling return analysis (need at least 1 year of history).</div>';
+  const cardsEl = document.getElementById('rollingStatsCards');
+  const chartEl = document.getElementById('rollingChart');
+
+  if (!windowDefs.length) {
+    if (cardsEl) cardsEl.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px">Not enough history for rolling return analysis. Need at least 3 years of data.</div>';
     return;
   }
 
-  const traces = windows.map(w => ({
-    y: data[w.key],
-    name: w.label,
-    type: 'box',
-    boxpoints: false,
-    marker: { color: w.label === '1Y' ? '#6366f1' : w.label === '3Y' ? '#34d399' : w.label === '5Y' ? '#fbbf24' : '#f472b6' },
-    line: { color: w.label === '1Y' ? '#6366f1' : w.label === '3Y' ? '#34d399' : w.label === '5Y' ? '#fbbf24' : '#f472b6' },
-  }));
+  // ---- Metric cards: Max/Min/Avg/Median for each window ----
+  function stats(arr) {
+    if (!arr?.length) return null;
+    const s = [...arr].filter(v => v != null && isFinite(v)).sort((a,b)=>a-b);
+    if (!s.length) return null;
+    const mid = Math.floor(s.length / 2);
+    const median = s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
+    const avg = s.reduce((a,b)=>a+b,0) / s.length;
+    return { min: s[0], max: s[s.length-1], avg, median, n: s.length };
+  }
 
-  Plotly.newPlot('rollingChart', traces, {
-    ...PLOTLY_LAYOUT_BASE,
-    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, ticksuffix: '%', title: 'CAGR %' },
-    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, title: 'Rolling Window' },
-    showlegend: false,
-    margin: { ...PLOTLY_LAYOUT_BASE.margin, t: 12 },
-  }, PLOTLY_CONFIG);
+  if (cardsEl) {
+    const cardColors = { '3Y': '#34d399', '5Y': '#6366f1', '7Y': '#fbbf24' };
+    cardsEl.innerHTML = windowDefs.map(w => {
+      const st = stats(data[w.key]);
+      if (!st) return '';
+      const c = cardColors[w.label];
+      const fmt1 = v => v != null ? (v > 0 ? '+' : '') + v.toFixed(1) + '%' : 'N/A';
+      return `
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+          padding:12px 16px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>
+            <span style="font-size:12px;font-weight:700;color:${c}">${w.label} Rolling CAGR</span>
+            <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${st.n} windows</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <div style="text-align:center">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Best</div>
+              <div style="font-size:15px;font-weight:700;color:var(--emerald-400)">${fmt1(st.max)}</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Average</div>
+              <div style="font-size:15px;font-weight:700;color:${st.avg>=0?'var(--emerald-400)':'var(--red-400)'}">${fmt1(st.avg)}</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Median</div>
+              <div style="font-size:15px;font-weight:700;color:${st.median>=0?'var(--indigo-400)':'var(--red-400)'}">${fmt1(st.median)}</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Worst</div>
+              <div style="font-size:15px;font-weight:700;color:var(--red-400)">${fmt1(st.min)}</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ---- Only metric cards are shown (no box plot per user request) ----
+  if (chartEl) chartEl.style.display = 'none';
 }
+
 
 function renderContributionChart(data) {
   const pa = data.per_asset || [];
   if (!pa.length) return;
   const labels = pa.map(a => a.label);
-  const values = pa.map(a => a.contribution_pct || 0);
-  const colors = ['#6366f1','#34d399','#fbbf24','#f472b6','#60a5fa','#fb923c'];
+
+  // Use contribution_pct (% of final portfolio value) if non-zero.
+  // Fall back to invested_pct when all funds were fully redeemed by end.
+  let values = pa.map(a => a.contribution_pct || 0);
+  const allZero = values.every(v => v === 0);
+  let subtitle = '% of Final Portfolio Value';
+  if (allZero) {
+    const totalInvested = pa.reduce((s, a) => s + (a.total_invested || 0), 0);
+    values = pa.map(a => totalInvested > 0 ? ((a.total_invested || 0) / totalInvested * 100) : 0);
+    subtitle = '% of Total Invested (funds fully redeemed at end)';
+  }
+
+  const colors = ['#6366f1','#34d399','#fbbf24','#f472b6','#60a5fa','#fb923c','#a78bfa','#2dd4bf'];
 
   Plotly.newPlot('contributionChart', [{
     type: 'bar',
@@ -2659,13 +2684,23 @@ function renderContributionChart(data) {
     y: values,
     marker: { color: colors.slice(0, labels.length) },
     hovertemplate: '%{x}: %{y:.1f}%<extra></extra>',
+    text: values.map(v => v.toFixed(1) + '%'),
+    textposition: 'outside',
+    textfont: { size: 11, color: '#f1f5f9' },
   }], {
     ...PLOTLY_LAYOUT_BASE,
-    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, ticksuffix: '%', title: '% of Portfolio Value' },
-    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis },
-    margin: { t: 8, r: 12, b: 80, l: 50 },
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, ticksuffix: '%', title: subtitle, range: [0, Math.max(...values) * 1.2] },
+    xaxis: {
+      ...PLOTLY_LAYOUT_BASE.xaxis,
+      type: 'category',  // CRITICAL: prevents Plotly treating fund names as dates
+      tickangle: -20,
+      tickfont: { size: 11 },
+    },
+    margin: { t: 30, r: 12, b: 90, l: 65 },
+    bargap: 0.3,
   }, PLOTLY_CONFIG);
 }
+
 
 // ── Trigger event timeline (Phase 3) ────────────────────────────────────────
 function renderTriggerTimeline(data) {
@@ -2704,39 +2739,74 @@ function renderTriggerTimeline(data) {
 
 function renderHeatmap(data) {
   const mRet = data.monthly_returns || {};
+  const el = document.getElementById('heatmapChart');
   if (!Object.keys(mRet).length) {
-    document.getElementById('heatmapChart').innerHTML = '<div style="padding:20px;color:var(--text-muted);font-size:12px">Not enough data for monthly heatmap.</div>';
+    el.innerHTML = '<div style="padding:20px;color:var(--text-muted);font-size:12px">Not enough data for monthly heatmap (need at least 2 months of history).</div>';
     return;
   }
 
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years = [...new Set(Object.keys(mRet).map(k => k.split('-')[0]))].sort();
-  const z = years.map(y => months.map((_, mi) => {
+
+  // Build z matrix: rows=years, cols=months. null for missing cells.
+  const z = years.map(y => MONTH_LABELS.map((_, mi) => {
     const key = `${y}-${String(mi+1).padStart(2,'0')}`;
-    return mRet[key] != null ? mRet[key] : null;
+    return (mRet[key] != null) ? +mRet[key] : null;
   }));
 
+  // Text labels in each cell
+  const textGrid = z.map(row => row.map(v => v != null ? v.toFixed(1) + '%' : ''));
+
+  // Clamp colorscale around zero — strong red/green, neutral dark center
+  const allVals = z.flat().filter(v => v != null);
+  const absMax = Math.max(Math.abs(Math.min(...allVals)), Math.abs(Math.max(...allVals)), 5);
+
   Plotly.newPlot('heatmapChart', [{
-    x: months, y: years, z,
+    x: MONTH_LABELS,
+    y: years,
+    z,
     type: 'heatmap',
     colorscale: [
-      [0, 'rgba(248,113,113,0.9)'],
-      [0.5, 'rgba(30,38,64,0.9)'],
-      [1, 'rgba(52,211,153,0.9)'],
+      [0,   '#7f1d1d'],   // deep red  (large negative)
+      [0.3, '#b91c1c'],   // red
+      [0.45,'#374151'],   // dark neutral
+      [0.5, '#1e2640'],   // true zero — dark bg
+      [0.55,'#1f4a3a'],   // dark green neutral
+      [0.7, '#15803d'],   // green
+      [1,   '#14532d'],   // deep green (large positive)
     ],
     zmid: 0,
+    zmin: -absMax,
+    zmax: absMax,
     showscale: false,
-    hovertemplate: '%{y} %{x}: %{z:.2f}%<extra></extra>',
-    text: z.map(row => row.map(v => v != null ? v.toFixed(1)+'%' : '')),
+    hovertemplate: '<b>%{y} %{x}</b>: %{customdata:.2f}%<extra></extra>',
+    customdata: z,
+    text: textGrid,
     texttemplate: '%{text}',
-    textfont: { size: 9, color: '#f1f5f9' },
+    textfont: { size: 10, color: 'rgba(255,255,255,0.90)' },
+    xgap: 2,
+    ygap: 2,
   }], {
     ...PLOTLY_LAYOUT_BASE,
-    margin: { t: 8, r: 8, b: 40, l: 46 },
-    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, side: 'bottom' },
-    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, autorange: 'reversed' },
-  }, PLOTLY_CONFIG);
+    hovermode: 'closest',
+    margin: { t: 8, r: 8, b: 44, l: 52 },
+    xaxis: {
+      ...PLOTLY_LAYOUT_BASE.xaxis,
+      type: 'category',   // CRITICAL: prevents 'Jan' being parsed as a date
+      side: 'top',
+      tickfont: { size: 11, color: '#94a3b8' },
+      fixedrange: true,
+    },
+    yaxis: {
+      ...PLOTLY_LAYOUT_BASE.yaxis,
+      type: 'category',
+      autorange: 'reversed',   // newest year at top
+      tickfont: { size: 11, color: '#94a3b8' },
+      fixedrange: true,
+    },
+  }, { ...PLOTLY_CONFIG, responsive: true });
 }
+
 
 // ── Ledger ─────────────────────────────────────────────────────────────────
 function renderLedger(transactions) {
@@ -2866,13 +2936,11 @@ function renderConditions() {
           <select onchange="updateConditionSignal(${i},this.value)">
             ${[
               ['drawdown_ath','Drawdown from ATH'],
-              ['pe_ratio','PE Ratio'],
               ['relative_val','Relative Valuation Ratio'],
-              ['ma_200','200-DMA (Moving Average)'],
+              ['ma_200','Moving Average (MA)'],
               ['rsi','RSI'],
               ['portfolio_drawdown','Portfolio Drawdown'],
               ['calendar_date','Calendar Date'],
-              ['fixed_return','Fixed Return (always on)'],
             ].map(([v,l]) => `<option value="${v}" ${c.signal_type===v?'selected':''}>${l}</option>`).join('')}
           </select>
         </div>
@@ -2901,10 +2969,20 @@ function renderConditionParams(c, i) {
   if (sig === 'drawdown_ath' || sig === 'portfolio_drawdown') {
     return `<div class="settings-grid">
       ${sig === 'drawdown_ath' ? `<div class="field-group" style="grid-column:1/-1">
-        <label>Reference Asset</label>
-        <select onchange="updateCondParamNested(${i},'params','reference_id',this.value)">
-          ${assets.map(a => `<option value="${a.source_id}" ${p.reference_id===a.source_id?'selected':''}>${a.label}</option>`).join('')}
-        </select>
+        <label>Reference Asset (any fund or index)</label>
+        <div class="search-wrap" style="position:relative">
+          <input type="text" id="condRef-${i}-reference_id"
+            placeholder="Search any fund or index…"
+            value="${p.reference_label||p.reference_id||''}"
+            autocomplete="off"
+            oninput="onCondRefSearch(${i},'reference_id','reference_label','condRefDd-${i}-dd-ath',this.value)"
+            onblur="setTimeout(()=>document.getElementById('condRefDd-${i}-dd-ath')?.classList.remove('open'),180)" />
+          <div class="search-dropdown" id="condRefDd-${i}-dd-ath"></div>
+        </div>
+        ${p.reference_id ? `<div style="font-size:10px;color:var(--emerald-400);margin-top:2px">✓ ${p.reference_label||p.reference_id}</div>` : ''}
+        ${assets.length ? `<div style="margin-top:6px;font-size:10px;color:var(--text-muted)">Quick pick from your assets:
+          ${assets.map(a=>`<button onclick="updateCondParamNested(${i},'params','reference_id','${a.source_id}');updateCondParamNested(${i},'params','reference_label',${JSON.stringify(a.label)});renderConditions()" style="margin:2px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-elevated);color:var(--text-secondary);font-size:10px;cursor:pointer">${a.label}</button>`).join('')}
+        </div>` : ''}
       </div>` : ''}
       <div class="field-group"><label>Condition</label>${opSelect}</div>
       <div class="field-group"><label>Threshold (%)</label>
@@ -2912,34 +2990,33 @@ function renderConditionParams(c, i) {
     </div>`;
   }
 
-  if (sig === 'pe_ratio') {
-    const idxName = p.index_name || 'NIFTY 50';
-    return `<div class="settings-grid">
-      <div class="field-group" style="grid-column:1/-1">
-        <label>Index (PE-tracked)</label>
-        <select onchange="updateCondParamNested(${i},'params','index_name',this.value)">
-          ${ALL_INDICES.map(n => `<option ${n===idxName?'selected':''}>${n}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field-group"><label>Condition</label>${opSelect}</div>
-      <div class="field-group"><label>PE Value</label>
-        <input type="number" value="${val}" step="0.5" onchange="updateCondParam(${i},'value',+this.value)" /></div>
-    </div>`;
-  }
-
   if (sig === 'relative_val') {
     return `<div class="settings-grid">
       <div class="field-group">
         <label>Asset A</label>
-        <select onchange="updateCondParamNested(${i},'params','asset_a',this.value)">
-          ${assets.map(a => `<option value="${a.source_id}" ${p.asset_a===a.source_id?'selected':''}>${a.label}</option>`).join('')}
-        </select>
+        <div class="search-wrap" style="position:relative">
+          <input type="text" id="condRef-${i}-asset_a"
+            placeholder="Search any fund or index…"
+            value="${p.asset_a_label||p.asset_a||''}"
+            autocomplete="off"
+            oninput="onCondRefSearch(${i},'asset_a','asset_a_label','condRefDd-${i}-asset_a',this.value)"
+            onblur="setTimeout(()=>document.getElementById('condRefDd-${i}-asset_a')?.classList.remove('open'),180)" />
+          <div class="search-dropdown" id="condRefDd-${i}-asset_a"></div>
+        </div>
+        ${p.asset_a ? `<div style="font-size:10px;color:var(--emerald-400);margin-top:2px">✓ ${p.asset_a_label||p.asset_a}</div>` : ''}
       </div>
       <div class="field-group">
         <label>Asset B</label>
-        <select onchange="updateCondParamNested(${i},'params','asset_b',this.value)">
-          ${assets.map(a => `<option value="${a.source_id}" ${p.asset_b===a.source_id?'selected':''}>${a.label}</option>`).join('')}
-        </select>
+        <div class="search-wrap" style="position:relative">
+          <input type="text" id="condRef-${i}-asset_b"
+            placeholder="Search any fund or index…"
+            value="${p.asset_b_label||p.asset_b||''}"
+            autocomplete="off"
+            oninput="onCondRefSearch(${i},'asset_b','asset_b_label','condRefDd-${i}-asset_b',this.value)"
+            onblur="setTimeout(()=>document.getElementById('condRefDd-${i}-asset_b')?.classList.remove('open'),180)" />
+          <div class="search-dropdown" id="condRefDd-${i}-asset_b"></div>
+        </div>
+        ${p.asset_b ? `<div style="font-size:10px;color:var(--emerald-400);margin-top:2px">✓ ${p.asset_b_label||p.asset_b}</div>` : ''}
       </div>
       <div class="field-group"><label>Condition</label>${opSelect}</div>
       <div class="field-group"><label>Ratio Threshold</label>
@@ -2950,16 +3027,27 @@ function renderConditionParams(c, i) {
   if (sig === 'ma_200') {
     return `<div class="settings-grid">
       <div class="field-group" style="grid-column:1/-1">
-        <label>Reference Asset</label>
-        <select onchange="updateCondParamNested(${i},'params','reference_id',this.value)">
-          ${assets.map(a => `<option value="${a.source_id}" ${p.reference_id===a.source_id?'selected':''}>${a.label}</option>`).join('')}
-        </select>
+        <label>Reference Asset (search any fund or index)</label>
+        <div class="search-wrap" style="position:relative">
+          <input type="text" id="condRef-${i}-reference_id"
+            placeholder="Search any fund or index…"
+            value="${p.reference_label||p.reference_id||''}"
+            autocomplete="off"
+            oninput="onCondRefSearch(${i},'reference_id','reference_label','condRefDd-${i}-ref',this.value)"
+            onblur="setTimeout(()=>document.getElementById('condRefDd-${i}-ref')?.classList.remove('open'),180)" />
+          <div class="search-dropdown" id="condRefDd-${i}-ref"></div>
+        </div>
+        ${p.reference_id ? `<div style="font-size:10px;color:var(--emerald-400);margin-top:2px">✓ ${p.reference_label||p.reference_id}</div>` : ''}
       </div>
-      <div class="field-group" style="grid-column:1/-1">
+      <div class="field-group">
+        <label>MA Period (days)</label>
+        <input type="number" value="${p.period||200}" min="5" max="500" onchange="updateCondParamNested(${i},'params','period',+this.value)" />
+      </div>
+      <div class="field-group">
         <label>Position</label>
         <select onchange="updateCondParamNested(${i},'params','position',this.value)">
-          <option value="above" ${p.position==='above'||!p.position?'selected':''}>Price above 200-DMA (bullish)</option>
-          <option value="below" ${p.position==='below'?'selected':''}>Price below 200-DMA (bearish)</option>
+          <option value="above" ${p.position==='above'||!p.position?'selected':''}>Price above MA (bullish)</option>
+          <option value="below" ${p.position==='below'?'selected':''}>Price below MA (bearish)</option>
         </select>
       </div>
     </div>`;
@@ -2969,9 +3057,16 @@ function renderConditionParams(c, i) {
     return `<div class="settings-grid">
       <div class="field-group">
         <label>Reference Asset</label>
-        <select onchange="updateCondParamNested(${i},'params','reference_id',this.value)">
-          ${assets.map(a => `<option value="${a.source_id}" ${p.reference_id===a.source_id?'selected':''}>${a.label}</option>`).join('')}
-        </select>
+        <div class="search-wrap" style="position:relative">
+          <input type="text" id="condRef-${i}-rsi_ref"
+            placeholder="Search any fund or index…"
+            value="${p.reference_label||p.reference_id||''}"
+            autocomplete="off"
+            oninput="onCondRefSearch(${i},'reference_id','reference_label','condRefDd-${i}-rsi',this.value)"
+            onblur="setTimeout(()=>document.getElementById('condRefDd-${i}-rsi')?.classList.remove('open'),180)" />
+          <div class="search-dropdown" id="condRefDd-${i}-rsi"></div>
+        </div>
+        ${p.reference_id ? `<div style="font-size:10px;color:var(--emerald-400);margin-top:2px">✓ ${p.reference_label||p.reference_id}</div>` : ''}
       </div>
       <div class="field-group">
         <label>Period</label>
@@ -3000,11 +3095,7 @@ function renderConditionParams(c, i) {
     </div>`;
   }
 
-  if (sig === 'fixed_return') {
-    return `<div style="font-size:11px;color:var(--text-muted);padding:8px 0">
-      This trigger always evaluates to <strong>true</strong>. Use it to model a synthetic flat-rate debt leg in Switch rules.
-    </div>`;
-  }
+
 
   return '';
 }
@@ -3013,7 +3104,12 @@ function updateConditionSignal(i, sig) {
   triggerConditions[i].signal_type = sig;
   triggerConditions[i].params = {};
   triggerConditions[i].operator = 'gte';
-  triggerConditions[i].value = 10;
+  // Sensible defaults per signal type
+  triggerConditions[i].value = sig === 'pb_ratio' ? 3 : sig === 'div_yield' ? 1.5 : 10;
+  // Auto-set index for valuation signals — hardcoded to NIFTY 50
+  if (sig === 'pe_ratio' || sig === 'pb_ratio' || sig === 'div_yield') {
+    triggerConditions[i].params.index_name = 'NIFTY 50';
+  }
   renderConditions();
 }
 
@@ -3081,6 +3177,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Wire up benchmark search
   initBenchSearch();
 
+  // Default benchmark = NIFTY 50
+  const benchSearchEl = document.getElementById('benchmarkSearch');
+  if (benchSearchEl) benchSearchEl.value = 'NIFTY 50';
+  const benchIdEl = document.getElementById('benchmarkId');
+  if (benchIdEl) benchIdEl.value = 'NIFTY 50';
+  const benchTypeEl = document.getElementById('benchmarkType');
+  if (benchTypeEl) benchTypeEl.value = 'index';
+  const benchSelEl = document.getElementById('benchmarkSelected');
+  if (benchSelEl) { benchSelEl.textContent = '✓ NIFTY 50'; benchSelEl.style.display = ''; }
+
   // Default simulation end = today
   const today = new Date().toISOString().split('T')[0];
   const simEnd = document.getElementById('simEnd');
@@ -3094,56 +3200,154 @@ document.addEventListener('DOMContentLoaded', () => {
   rebalanceRule = null;
   updateAddRebalanceVisibility();
   renderAssets();
-
-  // Fetch live Nifty 50 PE and display in header widget
-  fetchLivePE();
 });
 
-// ── Live PE widget ──────────────────────────────────────────────────
-async function fetchLivePE() {
-  const widget = document.getElementById('livePEWidget');
-  const valEl = document.getElementById('livePEValue');
-  const badgeEl = document.getElementById('livePEBadge');
-  if (!widget || !valEl || !badgeEl) return;
+// ── Save / Load Strategies ──────────────────────────────────────────────────
+let _lastResult = null;  // Cached after each successful run for optional save
+
+function saveStrategy() {
+  if (!assets.length) {
+    alert('\u26a0\ufe0f Add at least one asset before saving the strategy.');
+    return;
+  }
+  document.getElementById('saveStrategyModal').style.display = 'flex';
+  document.getElementById('strategyName').focus();
+}
+
+async function confirmSaveStrategy() {
+  const name = document.getElementById('strategyName').value.trim();
+  if (!name) {
+    alert('Please enter a strategy name.');
+    return;
+  }
+  const desc = document.getElementById('strategyDesc').value.trim();
+  const plan = buildPlan();
 
   try {
-    const today = new Date().toISOString().split('T')[0];
-    // Fetch last 7 days to get latest available PE
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const fromStr = sevenDaysAgo.toISOString().split('T')[0];
-    const url = `/portfolio/backtester/pe-data/?index=NIFTY+50&from=${fromStr}&to=${today}`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('fetch failed');
+    const resp = await fetch('/portfolio/strategies/api/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({
+        name,
+        description: desc,
+        plan_json: plan,
+        last_result_json: _lastResult || null,
+      }),
+    });
     const data = await resp.json();
-    if (data.error || !data.data?.length) throw new Error(data.error || 'no data');
-
-    // Get last non-null PE value
-    const lastPE = data.data.filter(d => d.pe != null).slice(-1)[0]?.pe;
-    if (lastPE == null) return;
-
-    valEl.textContent = lastPE.toFixed(1);
-
-    // Color-coded zone badge
-    let zone, bg, color;
-    if (lastPE < 15) {
-      zone = 'CHEAP'; bg = 'rgba(52,211,153,0.2)'; color = '#34d399';
-    } else if (lastPE < 20) {
-      zone = 'FAIR'; bg = 'rgba(96,165,250,0.2)'; color = '#60a5fa';
-    } else if (lastPE < 25) {
-      zone = 'HIGH'; bg = 'rgba(251,191,36,0.2)'; color = '#fbbf24';
-    } else {
-      zone = 'EXP.'; bg = 'rgba(248,113,113,0.2)'; color = '#f87171';
-    }
-    badgeEl.textContent = zone;
-    badgeEl.style.background = bg;
-    badgeEl.style.color = color;
-    widget.style.borderColor = color;
-    widget.title = `Nifty 50 PE: ${lastPE.toFixed(1)} (${data.data.slice(-1)[0]?.date || 'latest'})`;
+    if (data.error) throw new Error(data.error);
+    document.getElementById('saveStrategyModal').style.display = 'none';
+    // Show subtle success toast
+    const toast = document.createElement('div');
+    toast.textContent = `\u2713 Strategy "${name}" saved!`;
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(34,197,94,0.9);color:white;padding:12px 24px;border-radius:8px;z-index:9999;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.3)';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   } catch(e) {
-    // Silently ignore — widget stays at —
-    console.debug('[PE widget] Could not fetch live PE:', e.message);
+    alert(`Failed to save: ${e.message}`);
   }
 }
+
+async function loadStrategiesModal() {
+  document.getElementById('loadStrategyModal').style.display = 'flex';
+  const listEl = document.getElementById('loadStrategyList');
+  listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Loading\u2026</div>';
+
+  try {
+    const resp = await fetch('/portfolio/strategies/api/', {
+      headers: { 'Accept': 'application/json', 'X-CSRFToken': getCsrf() },
+    });
+    if (resp.status === 401) {
+      listEl.innerHTML = '<div style="color:var(--red-400);text-align:center;padding:20px">Please <a href="/accounts/login/" style="color:#6366f1">log in</a> to access saved strategies.</div>';
+      return;
+    }
+    const data = await resp.json();
+    const strats = data.strategies || [];
+
+    if (!strats.length) {
+      listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px">\ud83d\udcad No saved strategies yet.<br>Run a backtest and hit \u201cSave Strategy\u201d to save one.</div>';
+      return;
+    }
+
+    listEl.innerHTML = strats.map(s => `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:var(--surface-2)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">${s.name}</div>
+            ${s.description ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${s.description}</div>` : ''}
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Saved ${new Date(s.updated_at).toLocaleString()}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn-run" style="padding:6px 14px;font-size:12px" onclick="loadStrategy(${JSON.stringify(s).replace(/'/g,'&#39;')})">Load</button>
+            <button class="btn-secondary" style="padding:6px 10px;font-size:12px;color:var(--red-400)" onclick="deleteStrategy('${s.id}',this)">✕</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    listEl.innerHTML = `<div style="color:var(--red-400);text-align:center;padding:20px">Error loading strategies: ${e.message}</div>`;
+  }
+}
+
+function loadStrategy(strategyData) {
+  const plan = strategyData.plan_json;
+  if (!plan) return;
+
+  // Restore assets
+  assets = (plan.assets || []).map(a => ({
+    label: a.label,
+    source_type: a.source_type,
+    source_id: a.source_id,
+    inception_date: a.inception_date || null,
+    rules: a.rules || [],
+  }));
+
+  // Restore dates from plan.settings (buildPlan nests them inside settings)
+  const settings = plan.settings || plan;  // handle both old and new format
+  if (settings.start_date) { const el = document.getElementById('simStart'); if(el) el.value = settings.start_date; }
+  if (settings.end_date)   { const el = document.getElementById('simEnd');   if(el) el.value = settings.end_date; }
+
+  // Restore benchmark
+  if (settings.benchmark_id) {
+    const bi = document.getElementById('benchmarkId'); if(bi) bi.value = settings.benchmark_id;
+    const bt = document.getElementById('benchmarkType'); if(bt) bt.value = settings.benchmark_type || 'index';
+    const bs = document.getElementById('benchmarkSearch'); if(bs) bs.value = settings.benchmark_id;
+    const bsel = document.getElementById('benchmarkSelected');
+    if(bsel) { bsel.textContent = '\u2713 ' + settings.benchmark_id; bsel.style.display = ''; }
+  }
+
+  // Restore inflation toggle
+  if (settings.inflation_enabled) {
+    if (!toggleStates.inflation) toggleSetting('inflation');
+    const modeEl = document.getElementById('inflationMode'); if(modeEl) modeEl.value = settings.inflation_mode || 'wbgapi';
+    const rateEl = document.getElementById('inflationRate'); if(rateEl) rateEl.value = settings.inflation_rate || 5;
+  }
+
+  // Close modal and re-render
+  document.getElementById('loadStrategyModal').style.display = 'none';
+  rebalanceRule = plan.rebalance || null;
+  updateAddRebalanceVisibility();
+  renderAssets();
+}
+
+async function deleteStrategy(stratId, btn) {
+  if (!confirm('Delete this strategy?')) return;
+  btn.disabled = true;
+  try {
+    const resp = await fetch(`/portfolio/strategies/api/${stratId}/`, {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': getCsrf() },
+    });
+    const data = await resp.json();
+    if (data.status === 'deleted') {
+      // Re-render the modal list
+      loadStrategiesModal();
+    }
+  } catch(e) {
+    alert(`Delete failed: ${e.message}`);
+    btn.disabled = false;
+  }
+}
+
 </script>
 {% endblock extra_js %}

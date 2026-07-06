@@ -575,7 +575,6 @@ def _evaluate_condition(
     price_map: Dict[str, pd.Series],
     portfolio_values: List[float],
     on_date: date,
-    pe_series_cache: Dict[str, pd.Series],
 ) -> bool:
     """Evaluate a single trigger condition on a given date."""
     sig = cond.signal_type
@@ -596,14 +595,10 @@ def _evaluate_condition(
             drawdown_pct = (ath - current) / ath * 100 if ath > 0 else 0
             return _compare(drawdown_pct, cond.operator, cond.value)
 
-        elif sig == "pe_ratio":
-            pe_series = pe_series_cache.get(p.get("index_name", ""))
-            if pe_series is None:
-                return False
-            pe = pe_series.asof(ts)
-            if pe is None or pd.isna(pe):
-                return False
-            return _compare(float(pe), cond.operator, cond.value)
+        elif sig in ("pe_ratio", "pb_ratio", "div_yield"):
+            # PE/PB/DivYield signals removed — data source unreliable.
+            # Always returns False so trigger never fires.
+            return False
 
         elif sig == "relative_val":
             id_a = p.get("asset_a", "")
@@ -624,9 +619,10 @@ def _evaluate_condition(
             series = price_map.get(ref_id)
             if series is None:
                 return False
-            window = series[series.index <= ts].tail(200)
-            if len(window) < 20:
-                return True
+            ma_period = int(p.get("period", 200))  # configurable MA period, default 200
+            window = series[series.index <= ts].tail(ma_period)
+            if len(window) < max(20, ma_period // 2):
+                return True  # not enough data — assume bullish (don't block trades)
             sma = float(window.mean())
             current = float(window.iloc[-1])
             position = p.get("position", "above")
@@ -699,10 +695,9 @@ def _evaluate_trigger(
     price_map: Dict[str, pd.Series],
     portfolio_values: List[float],
     on_date: date,
-    pe_series_cache: Dict[str, pd.Series],
 ) -> bool:
     results = [
-        _evaluate_condition(c, price_map, portfolio_values, on_date, pe_series_cache)
+        _evaluate_condition(c, price_map, portfolio_values, on_date)
         for c in trigger.conditions
     ]
     if trigger.logic == "AND":
@@ -808,30 +803,43 @@ def _fetch_wbgapi_cpi_rate(sim_start: date, sim_end: date, warnings: List[str]) 
     """
     Fetch average annual India CPI inflation from World Bank API using wbgapi.
     Returns average annual % over the simulation window, or None on failure.
+
+    Uses wb.data.DataFrame('FP.CPI.TOTL.ZG', 'IND') — the simplest form that
+    matches what works in user's try.py. Data columns are named 'YR<year>'.
     """
     try:
         import wbgapi as wb  # type: ignore
         start_year = sim_start.year
         end_year = sim_end.year
-        # FP.CPI.TOTL.ZG = CPI inflation (annual %) for India
-        data = wb.data.fetch("FP.CPI.TOTL.ZG", "IND", mrv=end_year - start_year + 5)
-        rates = []
-        for row in data:
-            yr = row.get("time", "")
-            val = row.get("value")
-            try:
-                yr_int = int(str(yr).replace("YR", ""))
-            except Exception:
-                continue
-            if val is not None and start_year <= yr_int <= end_year:
-                rates.append(float(val))
-        if rates:
-            avg = sum(rates) / len(rates)
-            return round(avg, 2)
+        # Fetch all India CPI data, filter by year range
+        df = wb.data.DataFrame('FP.CPI.TOTL.ZG', 'IND')
+        if df is None or df.empty:
+            warnings.append("World Bank CPI: no data returned. Using manual rate.")
+            return None
+
+        # Columns are named 'YR2018', 'YR2019', etc.
+        valid_cols = [c for c in df.columns if str(c).startswith('YR') and
+                      str(c)[2:].isdigit() and start_year <= int(str(c)[2:]) <= end_year]
+        if not valid_cols:
+            # Try integer column names
+            valid_cols = [c for c in df.columns if isinstance(c, int) and start_year <= c <= end_year]
+
+        if not valid_cols:
+            warnings.append(f"World Bank CPI: no data found for {start_year}–{end_year}. Using manual rate.")
+            return None
+
+        values = df[valid_cols].values.flatten()
+        valid = [float(v) for v in values if v is not None and not pd.isna(v)]
+        if not valid:
+            warnings.append("World Bank CPI: no valid annual data found. Using manual rate.")
+            return None
+
+        avg = sum(valid) / len(valid)
+        return round(avg, 2)
     except ImportError:
         warnings.append("wbgapi not installed — using manual inflation rate instead.")
     except Exception as e:
-        warnings.append(f"World Bank CPI fetch failed: {e}. Using manual rate.")
+        warnings.append(f"World Bank CPI fetch failed ({type(e).__name__}: {e}). Using manual rate.")
     return None
 
 
@@ -1422,9 +1430,8 @@ def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
         except Exception as e:
             data_warnings.append(f"Benchmark data unavailable: {e}")
 
-    # ── 5. PE cache ───────────────────────────────────────────────────────────
-    pe_series_cache: Dict[str, pd.Series] = {}
-    _preload_pe_series(plan, sim_start, sim_end, pe_series_cache, data_warnings)
+    # ── 5. PE cache — disabled (PE/PB/DivYield signals removed) ─────────────
+    pe_series_cache: Dict[str, pd.Series] = {}  # kept as empty dict for API compat
 
     # ── 6. Per-asset state ────────────────────────────────────────────────────
     asset_state: Dict[str, Dict] = {}    # source_id → {"units": float}
@@ -1515,7 +1522,7 @@ def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
                 global_cf=global_cf, tx_ledger=tx_ledger, event_markers=event_markers,
                 settings=settings, sim_start=sim_start,
                 running_portfolio_values=running_portfolio_values,
-                pe_series_cache=pe_series_cache, attr_tracker=attr_tracker,
+                attr_tracker=attr_tracker,
                 plan=plan,
             )
 
@@ -1532,7 +1539,7 @@ def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
                         global_cf=global_cf, tx_ledger=tx_ledger, event_markers=event_markers,
                         settings=settings, sim_start=sim_start,
                         running_portfolio_values=running_portfolio_values,
-                        pe_series_cache=pe_series_cache, attr_tracker=attr_tracker,
+                        attr_tracker=attr_tracker,
                         plan=plan,
                     )
 
@@ -1601,9 +1608,18 @@ def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
                 benchmark_cagr_pct = round(benchmark_cagr_raw * 100, 2) if benchmark_cagr_raw else None
 
     # ── Risk metrics ──────────────────────────────────────────────────────────
-    pf_series_for_metrics = pd.Series(
+    # Issue 12 fix: trim leading zeros from the portfolio value series.
+    # Before the first investment fires, portfolio_values_out is all zeros,
+    # which inflates the "downside deviation" and makes Sharpe appear as zero.
+    pf_series_raw = pd.Series(
         portfolio_values_out,
         index=pd.to_datetime(chart_dates_out),
+    )
+    first_nonzero_mask = pf_series_raw > 0
+    pf_series_for_metrics = (
+        pf_series_raw[first_nonzero_mask]
+        if first_nonzero_mask.any()
+        else pf_series_raw
     )
     metrics = _compute_metrics(pf_series_for_metrics)
     drawdown_series_out = _compute_drawdown_series(portfolio_values_out)
@@ -1797,8 +1813,8 @@ def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
         # Ledger
         transactions=[_tx_to_dict(tx) for tx in tx_ledger],
         # PE overlay (Phase 3)
-        pe_chart_series=_build_pe_chart_series(pe_series_cache, chart_dates_out),
-        pe_index_name=_pick_pe_overlay_index(pe_series_cache),
+        pe_chart_series=[],  # PE overlay removed — data source unreliable
+        pe_index_name='',    # PE overlay removed
         # Phase 4 — Adjusted Returns
         tax_enabled=settings.tax_enabled,
         stcg_paid=round(stcg_paid_total, 2),
@@ -1846,7 +1862,7 @@ def _process_rule(
     global_cf: List, tx_ledger: List, event_markers: List,
     settings: SimSettingsV2, sim_start: date,
     running_portfolio_values: List[float],
-    pe_series_cache: Dict, attr_tracker: Dict, plan: PortfolioPlanV2,
+    attr_tracker: Dict, plan: PortfolioPlanV2,
 ) -> None:
     """Process a scheduled periodic rule (SIP, SWP, Lumpsum, Sell, Switch)."""
     series = price_map.get(asset.source_id)
@@ -1864,7 +1880,7 @@ def _process_rule(
         triggered_label = None
 
         if rule.trigger:
-            fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d, pe_series_cache)
+            fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d)
             if not fires:
                 return
             if rule.trigger.action_mode == "once":
@@ -1912,7 +1928,7 @@ def _process_rule(
 
         triggered_label = None
         if rule.trigger:
-            fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d, pe_series_cache)
+            fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d)
             if not fires:
                 return
             if rule.trigger.action_mode == "once":
@@ -2006,12 +2022,12 @@ def _process_triggered_rule(
     global_cf: List, tx_ledger: List, event_markers: List,
     settings: SimSettingsV2, sim_start: date,
     running_portfolio_values: List[float],
-    pe_series_cache: Dict, attr_tracker: Dict, plan: PortfolioPlanV2,
+    attr_tracker: Dict, plan: PortfolioPlanV2,
 ) -> None:
     """Process a trigger-based rule (evaluated every date)."""
     if not rule.trigger:
         return
-    fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d, pe_series_cache)
+    fires = _evaluate_trigger(rule.trigger, price_map, running_portfolio_values, d)
     if not fires:
         return
     if rule.trigger.action_mode == "once":
@@ -2283,6 +2299,8 @@ def _build_per_asset_summary(
     sim_end: date,
     total_final_value: float,
 ) -> List[PerAssetSummary]:
+    import logging
+    _log = logging.getLogger(__name__)
     summaries = []
     for asset in assets:
         series = price_map.get(asset.source_id)
@@ -2291,6 +2309,11 @@ def _build_per_asset_summary(
         current_val = units * nav_end if nav_end else 0.0
         invested = asset_invested[asset.source_id]
         redeemed = asset_redeemed[asset.source_id]
+
+        _log.debug(
+            "Per-asset %s: units=%.4f, nav_end=%s, current_val=%.2f, invested=%.2f",
+            asset.label, units, nav_end, current_val, invested,
+        )
 
         cfs = list(asset_cf[asset.source_id])
         if current_val > 0:
@@ -2330,25 +2353,50 @@ def _preload_pe_series(
     pe_cache: Dict[str, pd.Series],
     warnings: List[str],
 ) -> None:
-    from apps.portfolio.services.pe_adapter import get_pe_series, PEDataUnavailableError
-    needed = set()
-    # Always include NIFTY 50 for the PE overlay, even if not used in triggers
-    needed.add("NIFTY 50")
+    from apps.portfolio.services.pe_adapter import (
+        get_pe_series, get_pb_series, get_div_yield_series, PEDataUnavailableError,
+    )
+    needed_pe = set()
+    need_pb = False
+    need_divyield = False
+
+    # Always include NIFTY 50 PE for the PE overlay chart
+    needed_pe.add("NIFTY 50")
+
     for asset in plan.assets:
         for rule in asset.rules:
             if rule.trigger:
                 for cond in rule.trigger.conditions:
                     if cond.signal_type == "pe_ratio":
                         idx_name = cond.params.get("index_name", "NIFTY 50")
-                        needed.add(idx_name)
+                        needed_pe.add(idx_name)
+                    elif cond.signal_type == "pb_ratio":
+                        need_pb = True
+                    elif cond.signal_type == "div_yield":
+                        need_divyield = True
 
-    for idx_name in needed:
+    for idx_name in needed_pe:
         if idx_name not in pe_cache:
             try:
                 s = get_pe_series(idx_name, sim_start, sim_end)
                 pe_cache[idx_name] = s
             except PEDataUnavailableError as e:
                 warnings.append(str(e))
+
+    if need_pb and "NIFTY 50_pb" not in pe_cache:
+        try:
+            s = get_pb_series("NIFTY 50", sim_start, sim_end)
+            pe_cache["NIFTY 50_pb"] = s
+        except PEDataUnavailableError as e:
+            warnings.append(f"PB data: {e}")
+
+    if need_divyield and "NIFTY 50_divyield" not in pe_cache:
+        try:
+            s = get_div_yield_series("NIFTY 50", sim_start, sim_end)
+            pe_cache["NIFTY 50_divyield"] = s
+        except PEDataUnavailableError as e:
+            warnings.append(f"Dividend yield data: {e}")
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2373,7 +2421,7 @@ def _tx_to_dict(tx: TxRecord) -> Dict:
         "amount": tx.amount,
         "trigger_fired": tx.trigger_fired or "",
         "exit_load": tx.exit_load,
-        "tx_cost": tx.tx_cost,
+        "transaction_cost": tx.tx_cost,   # matches frontend key tx.transaction_cost
     }
 
 

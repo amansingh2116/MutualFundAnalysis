@@ -59,3 +59,36 @@ class Transaction(BaseModel):
 
     def __str__(self):
         return f"{self.tx_type} | {self.scheme_name[:40]} | {self.tx_date} | ₹{self.amount}"
+
+
+class SavedStrategy(BaseModel):
+    """
+    A user-saved backtester strategy plan.
+
+    Stores the full plan JSON (assets + settings + rebalance) so users can
+    load it back into the backtester at any time.
+    The optional last_result_json caches the most recent simulation result
+    for display on the strategies compare page.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='saved_strategies',
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default='')
+    plan_json = models.JSONField(
+        help_text="Serialised PortfolioPlanV2 payload (assets + settings + rebalance)"
+    )
+    last_result_json = models.JSONField(
+        null=True, blank=True,
+        help_text="Cached result from last backtest run (optional, used for compare page)"
+    )
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'Saved Strategy'
+        verbose_name_plural = 'Saved Strategies'
+
+    def __str__(self):
+        return f"{self.user.username} — {self.name}"

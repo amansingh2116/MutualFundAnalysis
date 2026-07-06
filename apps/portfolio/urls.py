@@ -20,4 +20,8 @@ urlpatterns = [
     path('backtester/v2/run/', views.backtester_v2_run_api, name='backtester_v2_run'),
     path('backtester/fund-search/', views.portfolio_fund_search_api, name='backtester_fund_search'),
     path('backtester/pe-data/', views.backtester_pe_api, name='backtester_pe_data'),
+    # Saved Strategies (Phase 6 — Issue 14)
+    path('strategies/', views.strategies_page, name='strategies'),
+    path('strategies/api/', views.strategy_list_api, name='strategy_list_api'),
+    path('strategies/api/<int:strategy_id>/', views.strategy_detail_api, name='strategy_detail_api'),
 ]

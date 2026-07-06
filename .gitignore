@@ -66,3 +66,12 @@ htmlcov/
 *.bak
 *.tmp
 *.orig
+
+# Scratch / debug scripts at repo root (never commit these)
+try*.py
+fix_*.py
+debug_*.py
+scratch_*.py
+
+# PE/PB data cache (auto-populated, not needed in source control)
+apps/portfolio/services/.pe_cache.db

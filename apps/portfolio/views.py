@@ -21,6 +21,31 @@ from apps.portfolio.parsers import parse_portfolio_file
 logger = logging.getLogger('mfanalysis')
 
 
+def json_login_required(view_func):
+    """
+    Like @login_required but returns JSON 401 for AJAX/API calls instead of
+    redirecting to the login page (which would cause "Unexpected token '<'" errors).
+    Detects AJAX by checking Accept header or X-Requested-With.
+    """
+    from functools import wraps
+    from django.http import JsonResponse
+
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            is_ajax = (
+                request.headers.get('Accept', '').startswith('application/json')
+                or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+                or request.content_type == 'application/json'
+            )
+            if is_ajax:
+                return JsonResponse({'error': 'Authentication required. Please log in.', 'redirect': '/accounts/login/'}, status=401)
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
 @login_required
 def portfolio_list_view(request):
     portfolios = Portfolio.objects.filter(user=request.user).order_by('-created_at')
@@ -1021,3 +1046,103 @@ def backtester_pe_api(request):
         return JsonResponse({'status': 'ok', 'index': index_name, 'data': data_out})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STRATEGY SAVE / LOAD (Phase 6 — Issue 14)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@login_required
+def strategies_page(request):
+    """Render the saved strategies compare page."""
+    strategies = request.user.saved_strategies.all().order_by('-updated_at')
+    return render(request, 'portfolio/strategies.html', {'strategies': strategies})
+
+
+@json_login_required
+def strategy_list_api(request):
+    """
+    GET  /portfolio/strategies/api/         → list user's saved strategies
+    POST /portfolio/strategies/api/         → save a new strategy (or update by name)
+    """
+    from apps.portfolio.models import SavedStrategy
+
+    if request.method == 'GET':
+        strategies = SavedStrategy.objects.filter(user=request.user).order_by('-updated_at')
+        return JsonResponse({'strategies': [
+            {
+                'id': str(s.id),
+                'name': s.name,
+                'description': s.description,
+                'updated_at': s.updated_at.isoformat(),
+                'plan_json': s.plan_json,
+                # Don't send full result JSON in list view (too large)
+                'has_result': s.last_result_json is not None,
+            }
+            for s in strategies
+        ]})
+
+    if request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+        name = (body.get('name') or '').strip()
+        if not name:
+            return JsonResponse({'error': 'Strategy name is required.'}, status=400)
+
+        description = (body.get('description') or '').strip()
+        plan_json = body.get('plan_json')
+        if not plan_json:
+            return JsonResponse({'error': 'plan_json is required.'}, status=400)
+
+        last_result_json = body.get('last_result_json')  # optional
+
+        # Upsert by (user, name) to avoid accidental duplicates
+        strategy, created = SavedStrategy.objects.update_or_create(
+            user=request.user,
+            name=name,
+            defaults={
+                'description': description,
+                'plan_json': plan_json,
+                'last_result_json': last_result_json,
+            },
+        )
+        return JsonResponse({
+            'status': 'created' if created else 'updated',
+            'id': str(strategy.id),
+            'name': strategy.name,
+        })
+
+    return JsonResponse({'error': 'Method not allowed.'}, status=405)
+
+
+@json_login_required
+def strategy_detail_api(request, strategy_id: int):
+    """
+    DELETE /portfolio/strategies/api/<id>/   → delete strategy
+    PATCH  /portfolio/strategies/api/<id>/   → update last_result_json after a run
+    """
+    from apps.portfolio.models import SavedStrategy
+
+    try:
+        strategy = SavedStrategy.objects.get(id=strategy_id, user=request.user)
+    except SavedStrategy.DoesNotExist:
+        return JsonResponse({'error': 'Strategy not found.'}, status=404)
+
+    if request.method == 'DELETE':
+        strategy.delete()
+        return JsonResponse({'status': 'deleted'})
+
+    if request.method == 'PATCH':
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+        if 'last_result_json' in body:
+            strategy.last_result_json = body['last_result_json']
+            strategy.save(update_fields=['last_result_json', 'updated_at'])
+        return JsonResponse({'status': 'updated', 'id': str(strategy.id)})
+
+    return JsonResponse({'error': 'Method not allowed.'}, status=405)
