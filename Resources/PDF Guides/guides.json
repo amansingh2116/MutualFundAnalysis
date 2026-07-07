@@ -1,0 +1,84 @@
+{
+  "guides": [
+    {
+      "file": "pdfs/Goals.pdf",
+      "title": "Goal-Based Investing",
+      "description": "A practical guide to mapping mutual fund choices to time horizons, priorities, and milestones.",
+      "slug": "goal-based-investing",
+      "accent": "Goal Setting and Investing",
+      "cover": "",
+      "order": 10,
+      "published": true
+    },
+    {
+      "file": "pdfs/MF_Booklet.pdf",
+      "title": "Mutual Fund Basics",
+      "description": "A concise primer for understanding schemes, NAV, returns, categories, and portfolio fit.",
+      "slug": "mutual-fund-basics",
+      "accent": "Mutual Fund Booklet",
+      "cover": "",
+      "order": 20,
+      "published": true
+    },
+    {
+      "file": "pdfs/MutualFundBook.pdf",
+      "title": "Mutual Fund Handbook",
+      "description": "A broader reference guide for fund concepts, investor behavior, and long-term decision making.",
+      "slug": "mutual-fund-handbook",
+      "accent": "Mutual Fund Book",
+      "cover": "",
+      "order": 30,
+      "published": true
+    },
+    {
+      "file": "pdfs/Risks.pdf",
+      "title": "Risk Awareness Guide",
+      "description": "Learn the risk types behind mutual funds and how to think about volatility, drawdowns, and suitability.",
+      "slug": "risk-awareness-guide",
+      "accent": "Risk Profiling",
+      "cover": "",
+      "order": 40,
+      "published": true
+    },
+    {
+      "file": "pdfs/value.pdf",
+      "title": "Value Investing and Analysis",
+      "description": "A long-term investing guide focused on saving discipline, compounding, inflation, value investing, and analytical investing habits.",
+      "slug": "value-investing-and-analysis",
+      "accent": "Value Investing Primer",
+      "cover": "",
+      "order": 50,
+      "published": true
+    },
+    {
+      "file": "pdfs/fundamental.pdf",
+      "title": "Fundamental Analysis and Financial Modelling",
+      "description": "A stock-analysis guide covering business fundamentals, financial information sources, investing styles, and valuation thinking.",
+      "slug": "fundamental-analysis-financial-modelling",
+      "accent": "Fundamental Analysis",
+      "cover": "",
+      "order": 60,
+      "published": true
+    },
+    {
+      "file": "pdfs/technical.pdf",
+      "title": "Technical Analysis Guide",
+      "description": "A practical guide to reading price, volume, market psychology, trend structure, and the demand-supply forces behind charts.",
+      "slug": "technical-analysis-guide",
+      "accent": "Technical Analysis",
+      "cover": "",
+      "order": 70,
+      "published": true
+    },
+    {
+      "file": "pdfs/ipo_project_report.pdf",
+      "title": "Indian IPO Research Project Report",
+      "description": "A formal research report testing Indian IPO listing gains, GMP, subscription filters, holding-period returns, and ML screening strategies.",
+      "slug": "ipo-project-report",
+      "accent": "IPO Analysis Project Report",
+      "cover": "",
+      "order": 80,
+      "published": true
+    }
+  ]
+}

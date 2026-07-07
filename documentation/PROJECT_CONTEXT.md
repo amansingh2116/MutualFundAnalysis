@@ -146,6 +146,15 @@ Because the analytics engine is heavily computational, screening across thousand
 - **Dynamic UI**: `FundScreenerView` dynamically populates HTML filter options directly from the `FundScreenerSnapshot` distinct values, allowing new Fund Houses or Benchmarks to seamlessly appear as the database builds. Both `category_detail.html` and `benchmarks.html` ingest `calendar_returns_json` and `rolling_returns_json` to render interactive heatmaps on the frontend.
 - **Compare Selected Feature**: The UI includes multi-fund selection (using browser `localStorage`) which automatically enables a direct bridge to the Unified Compare tool.
 
+### G. Learn Resources (`apps/core` + `Resources/`)
+The Learn section is intentionally lightweight and file-backed so educational material can be added without building a CMS.
+- **Models:** `LearnPDFGuide` and `LearnBlogPost` store admin-manageable metadata for synced resources.
+- **Source files:** PDFs live in `Resources/PDF Guides/pdfs/`; PDF metadata lives in `Resources/PDF Guides/guides.json`; blogs live as markdown files in `Resources/Blogs/` with front matter.
+- **Sync command:** `python manage.py sync_content` upserts PDF/blog records from those files.
+- **Rendering:** `apps/core/content.py` parses front matter, renders trusted local markdown, rewrites local image paths, and safely serves image assets from `Resources`.
+- **Fallback:** Learn views fall back to direct file scanning if the local DB is unavailable or content has not been synced yet, keeping the page usable in development.
+- **Community:** `/learn/community/` is currently a static/dummy discussion page reserved for a future Disqus or custom posting/reply flow.
+
 ---
 
 ## 6. URL Structure
@@ -171,6 +180,10 @@ Because the analytics engine is heavily computational, screening across thousand
 
 /recommendations/           ← Risk profiling questionnaire
 /recommendations/results/   ← Fund recommendation results
+
+/learn/resources/           ← Learn Resources page for PDF guides and markdown blogs
+/learn/resources/blog/<slug>/ ← Rendered markdown blog detail page
+/learn/community/           ← Placeholder community discussion page
 
 /portfolio/                 ← Portfolio list
 /portfolio/upload/          ← CAS file upload

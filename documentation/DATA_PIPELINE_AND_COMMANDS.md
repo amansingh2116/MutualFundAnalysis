@@ -81,6 +81,23 @@ python manage.py populate_home_dashboard
 python manage.py generate_screener_reports --top 20 --sort cagr_5y
 ```
 
+### 7. `sync_content`
+**Purpose:** Syncs the Learn section content from local files into admin-manageable Django records.
+**When to run:** After adding or editing PDF guides, project reports, markdown blogs, thumbnails, or Learn metadata.
+**Action:** Updates `LearnPDFGuide` from `Resources/PDF Guides/guides.json` and `LearnBlogPost` from markdown front matter in `Resources/Blogs/*.md`.
+
+```bash
+python manage.py sync_content
+```
+
+Learn content source files:
+- PDF files: `Resources/PDF Guides/pdfs/`
+- PDF metadata: `Resources/PDF Guides/guides.json`
+- Blogs: `Resources/Blogs/*.md`
+- Blog images: usually under `Resources/Blogs/images/<blog-slug>/`
+
+See `documentation/LEARN_CONTENT.md` for the full metadata format.
+
 ---
 
 ## Daily Operations Workflow
@@ -90,6 +107,7 @@ For a production environment, you should set up a cron job or background schedul
 1. `python manage.py ingest_benchmarks`
 2. `python manage.py populate_benchmark_returns`
 3. `python manage.py populate_screener`
+4. `python manage.py sync_content` whenever Learn resources or blog files change
 
 *Because `populate_screener` handles its own orchestration, it will automatically compute the analytics, build the scores, and cascade into `populate_home_dashboard` at the very end.*
 
@@ -100,3 +118,4 @@ For a production environment, you should set up a cron job or background schedul
 - **Rate Limits (mfapi / captnemo):** The pipeline uses `science_skills_common.http_client` to respect rate limits with exponential backoff. If you get 429 errors, let the script pause automatically.
 - **Missing Benchmarks in Rolling Charts:** If an index (e.g., `NIFTYGSCOMPOSITE.NS`) is missing data on Yahoo Finance, the `ingest_benchmarks` script skips it. The platform frontend automatically falls back to proxy benchmarks (like Nifty 50 or NIFTY COMPOSITE DEBT INDEX) with UI alerts.
 - **SQLite Database Locks:** If you run multiple heavy pipelines simultaneously on SQLite, you may encounter `database is locked` errors. Run commands sequentially. Use PostgreSQL for production.
+- **OneDrive-backed SQLite files:** If `db.sqlite3` is inside OneDrive and a migration leaves a hot `db.sqlite3-journal`, Django may show `sqlite3.OperationalError: disk I/O error`. Close runserver/Python processes and allow OneDrive to finish syncing before retrying `migrate`; do not delete the journal unless you have a database backup or are comfortable rebuilding the local DB.

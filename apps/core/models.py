@@ -38,3 +38,44 @@ class DataProvenance(BaseModel):
 
     def __str__(self):
         return f"{self.model_name}({self.object_id}).{self.field_name} from {self.source}"
+
+
+class LearnPDFGuide(BaseModel):
+    """A PDF learning resource synced from Resources/PDF Guides."""
+    slug = models.SlugField(max_length=160, unique=True)
+    title = models.CharField(max_length=220)
+    description = models.TextField(blank=True)
+    pdf_path = models.CharField(max_length=500, unique=True)
+    cover_image_path = models.CharField(max_length=500, blank=True)
+    accent = models.CharField(max_length=24, blank=True)
+    size_kb = models.PositiveIntegerField(default=0)
+    sort_order = models.PositiveIntegerField(default=100)
+    is_published = models.BooleanField(default=True)
+    synced_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['sort_order', 'title']
+        indexes = [models.Index(fields=['is_published', 'sort_order'])]
+
+    def __str__(self):
+        return self.title
+
+
+class LearnBlogPost(BaseModel):
+    """A markdown blog post synced from Resources/Blogs."""
+    slug = models.SlugField(max_length=160, unique=True)
+    title = models.CharField(max_length=220)
+    description = models.TextField(blank=True)
+    markdown_path = models.CharField(max_length=500, unique=True)
+    thumbnail_path = models.CharField(max_length=500, blank=True)
+    read_time = models.CharField(max_length=32, blank=True)
+    sort_order = models.PositiveIntegerField(default=100)
+    is_published = models.BooleanField(default=True)
+    synced_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['sort_order', 'title']
+        indexes = [models.Index(fields=['is_published', 'sort_order'])]
+
+    def __str__(self):
+        return self.title

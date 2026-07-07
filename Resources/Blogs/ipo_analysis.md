@@ -1,3 +1,12 @@
+---
+title: "What the Data Says About Indian IPOs - A Beginner's Guide"
+description: "A beginner-friendly walkthrough of Indian IPO listing gains, GMP, subscription demand, holding periods, and model-based screening."
+slug: "ipo-analysis"
+thumbnail: "images/ipo_analysis/cover.jpg"
+read_time: "12 min read"
+order: 10
+published: true
+---
 # What the Data Says About Indian IPOs — A Beginner's Guide
 
 *By Aman Singh · Based on the [full research project](https://beyondbooks2116.netlify.app/ipo/)*

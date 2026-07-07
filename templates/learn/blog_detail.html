@@ -34,7 +34,6 @@
 .article-table th { color:var(--text-primary);font-weight:750;background:rgba(99,102,241,.10); }
 .article-table td { color:var(--text-secondary); }
 .article-table tr:last-child td { border-bottom:0; }
-.article-note { border:1px solid rgba(16,185,129,.24);background:rgba(16,185,129,.08);border-radius:8px;padding:12px 14px;color:var(--text-secondary);font-size:12px;line-height:1.6;margin-bottom:18px; }
 @media (max-width:640px) { .article-title { font-size:25px; } .article-body { padding:18px; } .article-body h2 { font-size:19px; } .article-actions { width:100%; } .article-actions .btn { flex:1;justify-content:center; } }
 </style>
 {% endblock %}
@@ -49,12 +48,13 @@
       <p class="article-desc">{{ blog.description }}</p>
       <div class="article-meta">{{ blog.read_time }}</div>
     </div>
+    {% if blog.report_url %}
     <div class="article-actions">
-      <a class="btn btn-secondary btn-sm" href="{% url 'core:learn_pdf' blog.report_filename %}" target="_blank" rel="noopener">Open report PDF</a>
+      <a class="btn btn-secondary btn-sm" href="{{ blog.report_url }}" target="_blank" rel="noopener">Open report PDF</a>
     </div>
+    {% endif %}
   </header>
 
-  <div class="article-note">This article is rendered from <code>Resources/Blogs/ipo_analysis.md</code>, with charts served from the local <code>Resources/Blogs/images/ipo_analysis</code> folder.</div>
   <article class="article-body">
     {{ blog.html }}
   </article>

@@ -1,16 +1,32 @@
 """apps/core/views.py - Shared views including registration."""
-import re
-from html import escape
+import mimetypes
 from pathlib import Path
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
+from django.db import DatabaseError
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.utils.safestring import mark_safe
+from django.utils.text import slugify
+
+from .content import (
+    BLOGS_DIR,
+    IMAGE_SUFFIXES,
+    PDF_GUIDE_PDFS_DIR,
+    PDF_GUIDES_DIR,
+    PDF_SUFFIXES,
+    first_markdown_heading,
+    first_markdown_paragraph,
+    metadata_slug,
+    parse_front_matter,
+    path_to_base_relative,
+    read_pdf_manifest,
+    render_blog_markdown,
+    resolve_resource_relative,
+)
+from .models import LearnBlogPost, LearnPDFGuide
 
 
 class RegisterView:
@@ -37,275 +53,248 @@ def register_view(request):
     return render(request, 'registration/register.html', {'form': form})
 
 
-PDF_GUIDES_DIR = Path(settings.BASE_DIR) / 'Resources' / 'PDF Guides' / 'pdfs'
-BLOGS_DIR = Path(settings.BASE_DIR) / 'Resources' / 'Blogs'
-IPO_BLOG_PATH = BLOGS_DIR / 'ipo_analysis.md'
-IPO_BLOG_IMAGES_DIR = BLOGS_DIR / 'images' / 'ipo_analysis'
-
-PDF_GUIDE_COPY = {
-    'Goals.pdf': {
-        'title': 'Goal-Based Investing',
-        'description': 'A practical guide to mapping mutual fund choices to time horizons, priorities, and milestones.',
-        'accent': 'Goal',
-    },
-    'MF_Booklet.pdf': {
-        'title': 'Mutual Fund Basics',
-        'description': 'A concise primer for understanding schemes, NAV, returns, categories, and portfolio fit.',
-        'accent': 'MF',
-    },
-    'MutualFundBook.pdf': {
-        'title': 'Mutual Fund Handbook',
-        'description': 'A broader reference guide for fund concepts, investor behavior, and long-term decision making.',
-        'accent': 'Book',
-    },
-    'Risks.pdf': {
-        'title': 'Risk Awareness Guide',
-        'description': 'Learn the risk types behind mutual funds and how to think about volatility, drawdowns, and suitability.',
-        'accent': 'Risk',
-    },
-    'fundamental.pdf': {
-        'title': 'Fundamental Analysis and Financial Modelling',
-        'description': 'A stock-analysis guide covering business fundamentals, financial information sources, investing styles, and valuation thinking.',
-        'accent': 'Fund',
-    },
-    'technical.pdf': {
-        'title': 'Technical Analysis Guide',
-        'description': 'A practical guide to reading price, volume, market psychology, trend structure, and the demand-supply forces behind charts.',
-        'accent': 'Tech',
-    },
-    'value.pdf': {
-        'title': 'Value Investing and Analysis',
-        'description': 'A long-term investing guide focused on saving discipline, compounding, inflation, value investing, and analytical investing habits.',
-        'accent': 'Value',
-    },
-    'ipo_project_report.pdf': {
-        'title': 'Indian IPO Research Project Report',
-        'description': 'A formal research report testing Indian IPO listing gains, GMP, subscription filters, holding-period returns, and ML screening strategies.',
-        'accent': 'IPO',
-    },
-}
-
-BLOG_IMAGE_PATTERN = re.compile(r'!\[(?P<alt>[^\]]*)\]\((?P<src>[^)]+)\)')
-INLINE_CODE_PATTERN = re.compile(r'`([^`]+)`')
-INLINE_LINK_PATTERN = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
-INLINE_BOLD_PATTERN = re.compile(r'\*\*([^*]+)\*\*')
-INLINE_ITALIC_PATTERN = re.compile(r'(?<!\*)\*([^*\n]+)\*(?!\*)')
+def _asset_url(relative_path):
+    if not relative_path:
+        return ''
+    return reverse('core:learn_resource_asset', args=[relative_path])
 
 
-def _pdf_guides():
-    guides = []
-    if not PDF_GUIDES_DIR.exists():
-        return guides
-
-    for pdf_path in sorted(PDF_GUIDES_DIR.glob('*.pdf'), key=lambda p: p.stem.lower()):
-        meta = PDF_GUIDE_COPY.get(pdf_path.name, {})
-        guides.append({
-            'filename': pdf_path.name,
-            'title': meta.get('title', pdf_path.stem.replace('_', ' ')),
-            'description': meta.get('description', 'A mutual fund learning guide from the local PDF library.'),
-            'accent': meta.get('accent', pdf_path.stem[:4].upper()),
-            'size_kb': max(1, round(pdf_path.stat().st_size / 1024)),
-        })
-    return guides
+def _guide_card_from_model(guide):
+    return {
+        'title': guide.title,
+        'description': guide.description,
+        'accent': guide.accent or guide.title[:5],
+        'size_kb': guide.size_kb,
+        'cover_url': _asset_url(guide.cover_image_path),
+        'pdf_url': reverse('core:learn_pdf_detail', args=[guide.slug]),
+        'source_key': guide.pdf_path,
+    }
 
 
-def _safe_file_in_dir(base_dir, filename):
-    safe_path = (base_dir / Path(filename).name).resolve()
-    try:
-        safe_path.relative_to(base_dir.resolve())
-    except ValueError:
-        raise Http404('File not found')
-    return safe_path
+def _blog_card_from_model(post):
+    return {
+        'title': post.title,
+        'description': post.description,
+        'tag': 'Blog',
+        'read_time': post.read_time,
+        'thumbnail_url': _asset_url(post.thumbnail_path),
+        'url': reverse('core:learn_blog_detail', args=[post.slug]),
+        'source_key': post.markdown_path,
+    }
 
 
-def _format_inline(text):
-    formatted = escape(text)
-    formatted = INLINE_CODE_PATTERN.sub(r'<code>\1</code>', formatted)
-    formatted = INLINE_LINK_PATTERN.sub(
-        lambda match: (
-            f'<a href="{escape(match.group(2), quote=True)}" target="_blank" '
-            f'rel="noopener">{match.group(1)}</a>'
-        ),
-        formatted,
-    )
-    formatted = INLINE_BOLD_PATTERN.sub(r'<strong>\1</strong>', formatted)
-    formatted = INLINE_ITALIC_PATTERN.sub(r'<em>\1</em>', formatted)
-    return formatted
-
-
-def _blog_image_url(src):
-    normalized = src.strip()
-    if normalized.startswith('images/ipo_analysis/'):
-        return reverse('core:learn_blog_image', args=[Path(normalized).name])
-    return normalized
-
-
-def _render_markdown_table(lines):
-    headers = [cell.strip() for cell in lines[0].strip('|').split('|')]
-    body_rows = lines[2:]
-    html = ['<div class="article-table-wrap"><table class="article-table"><thead><tr>']
-    html.extend(f'<th>{_format_inline(header)}</th>' for header in headers)
-    html.append('</tr></thead><tbody>')
-    for row in body_rows:
-        cells = [cell.strip() for cell in row.strip('|').split('|')]
-        html.append('<tr>')
-        html.extend(f'<td>{_format_inline(cell)}</td>' for cell in cells)
-        html.append('</tr>')
-    html.append('</tbody></table></div>')
-    return ''.join(html)
-
-
-def _render_blog_markdown(markdown_text):
-    html = []
-    paragraph = []
-    list_items = []
-    lines = markdown_text.splitlines()
-    index = 0
-
-    def flush_paragraph():
-        if paragraph:
-            html.append(f'<p>{" ".join(_format_inline(item) for item in paragraph)}</p>')
-            paragraph.clear()
-
-    def flush_list():
-        if list_items:
-            html.append('<ul>')
-            html.extend(f'<li>{_format_inline(item)}</li>' for item in list_items)
-            html.append('</ul>')
-            list_items.clear()
-
-    while index < len(lines):
-        line = lines[index].strip()
-
-        if not line:
-            flush_paragraph()
-            flush_list()
-            index += 1
-            continue
-
-        if line.startswith('|') and index + 1 < len(lines):
-            separator = lines[index + 1].strip().replace('|', '').replace(' ', '')
-            if separator and set(separator) <= {'-', ':'}:
-                flush_paragraph()
-                flush_list()
-                table_lines = [line, lines[index + 1].strip()]
-                index += 2
-                while index < len(lines) and lines[index].strip().startswith('|'):
-                    table_lines.append(lines[index].strip())
-                    index += 1
-                html.append(_render_markdown_table(table_lines))
-                continue
-
-        image_match = BLOG_IMAGE_PATTERN.fullmatch(line)
-        if image_match:
-            flush_paragraph()
-            flush_list()
-            src = _blog_image_url(image_match.group('src'))
-            alt = escape(image_match.group('alt'), quote=True)
-            html.append(f'<figure class="article-figure"><img src="{src}" alt="{alt}"></figure>')
-            index += 1
-            continue
-
-        if line.startswith('---'):
-            flush_paragraph()
-            flush_list()
-            html.append('<hr>')
-            index += 1
-            continue
-
-        if line.startswith('#'):
-            flush_paragraph()
-            flush_list()
-            level = min(len(line) - len(line.lstrip('#')), 4)
-            text = line[level:].strip()
-            html.append(f'<h{level}>{_format_inline(text)}</h{level}>')
-            index += 1
-            continue
-
-        if line.startswith('>'):
-            flush_paragraph()
-            flush_list()
-            quote = line.lstrip('>').strip()
-            html.append(f'<blockquote>{_format_inline(quote)}</blockquote>')
-            index += 1
-            continue
-
-        if line.startswith('- '):
-            flush_paragraph()
-            list_items.append(line[2:].strip())
-            index += 1
-            continue
-
-        paragraph.append(line)
-        index += 1
-
-    flush_paragraph()
-    flush_list()
-    return mark_safe('\n'.join(html))
-
-
-def _ipo_blog_summary():
-    title = 'Indian IPO Analysis: What the Data Says'
-    description = (
-        'A beginner-friendly walkthrough of Indian IPO listing gains, GMP, '
-        'subscription demand, holding periods, and model-based screening.'
-    )
-
-    if IPO_BLOG_PATH.exists():
-        for line in IPO_BLOG_PATH.read_text(encoding='utf-8').splitlines():
-            if line.startswith('# '):
-                title = line[2:].strip()
-                break
-
+def _guide_card_from_file(pdf_path, meta, index):
+    title = meta.get('title') or pdf_path.stem.replace('_', ' ').replace('-', ' ').title()
+    cover = meta.get('cover') or meta.get('cover_image') or ''
+    cover_path = path_to_base_relative((PDF_GUIDES_DIR / cover).resolve()) if cover else ''
     return {
         'title': title,
-        'description': description,
-        'tag': 'Project blog',
-        'read_time': '12 min read',
+        'description': meta.get('description') or 'A learning guide from the local PDF library.',
+        'accent': meta.get('accent') or title[:5],
+        'size_kb': max(1, round(pdf_path.stat().st_size / 1024)),
+        'cover_url': _asset_url(cover_path),
+        'pdf_url': reverse('core:learn_pdf', args=[pdf_path.name]),
+        'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
+        'source_key': path_to_base_relative(pdf_path),
     }
+
+
+def _blog_from_file(markdown_path, index=1):
+    markdown_text = markdown_path.read_text(encoding='utf-8')
+    meta, body = parse_front_matter(markdown_text)
+    title = meta.get('title') or first_markdown_heading(body, markdown_path.stem.replace('_', ' ').title())
+    thumbnail = meta.get('thumbnail') or meta.get('cover') or meta.get('cover_image') or ''
+    thumbnail_path = path_to_base_relative((markdown_path.parent / thumbnail).resolve()) if thumbnail else ''
+    return {
+        'slug': metadata_slug(meta, markdown_path),
+        'title': title,
+        'description': meta.get('description') or first_markdown_paragraph(body, 'A learning article from the local blog library.'),
+        'tag': 'Blog',
+        'read_time': meta.get('read_time') or '5 min read',
+        'thumbnail_url': _asset_url(thumbnail_path),
+        'url': reverse('core:learn_blog_detail', args=[metadata_slug(meta, markdown_path)]),
+        'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
+        'markdown_path': markdown_path,
+        'markdown_text': markdown_text,
+        'source_key': path_to_base_relative(markdown_path),
+    }
+
+
+def _file_pdf_guides():
+    manifest = read_pdf_manifest()
+    guides = []
+    if not PDF_GUIDE_PDFS_DIR.exists():
+        return guides
+
+    pdf_paths = sorted(PDF_GUIDE_PDFS_DIR.glob('*.pdf'), key=lambda item: item.name.lower())
+    for index, pdf_path in enumerate(pdf_paths, start=1):
+        key = pdf_path.relative_to(PDF_GUIDES_DIR).as_posix()
+        meta = manifest.get(key, {})
+        if not bool(meta.get('published', meta.get('is_published', True))):
+            continue
+        guides.append(_guide_card_from_file(pdf_path, meta, index))
+    return sorted(guides, key=lambda item: (item['sort_order'], item['title']))
+
+
+def _file_blog_posts():
+    blogs = []
+    if not BLOGS_DIR.exists():
+        return blogs
+
+    markdown_paths = sorted(BLOGS_DIR.glob('*.md'), key=lambda item: item.name.lower())
+    for index, markdown_path in enumerate(markdown_paths, start=1):
+        blog = _blog_from_file(markdown_path, index)
+        _meta, _body = parse_front_matter(blog['markdown_text'])
+        if not bool(_meta.get('published', _meta.get('is_published', True))):
+            continue
+        blogs.append(blog)
+    return sorted(blogs, key=lambda item: (item['sort_order'], item['title']))
 
 
 def learn_resources_view(request):
+    try:
+        all_pdf_keys = set(LearnPDFGuide.objects.values_list('pdf_path', flat=True))
+        all_blog_keys = set(LearnBlogPost.objects.values_list('markdown_path', flat=True))
+        pdf_guides = [
+            _guide_card_from_model(guide)
+            for guide in LearnPDFGuide.objects.filter(is_published=True).order_by('sort_order', 'title')
+        ]
+        blog_posts = [
+            _blog_card_from_model(post)
+            for post in LearnBlogPost.objects.filter(is_published=True).order_by('sort_order', 'title')
+        ]
+        pdf_guides.extend(guide for guide in _file_pdf_guides() if guide['source_key'] not in all_pdf_keys)
+        blog_posts.extend(blog for blog in _file_blog_posts() if blog['source_key'] not in all_blog_keys)
+    except DatabaseError:
+        pdf_guides = _file_pdf_guides()
+        blog_posts = _file_blog_posts()
+
     return render(request, 'learn/resources.html', {
-        'pdf_guides': _pdf_guides(),
-        'featured_blog': _ipo_blog_summary(),
+        'pdf_guides': sorted(pdf_guides, key=lambda item: (item.get('sort_order', 100), item['title'])),
+        'blog_posts': sorted(blog_posts, key=lambda item: (item.get('sort_order', 100), item['title'])),
     })
 
 
-def learn_pdf_view(request, filename):
-    pdf_path = _safe_file_in_dir(PDF_GUIDES_DIR, filename)
-
-    if not pdf_path.exists() or pdf_path.suffix.lower() != '.pdf':
+def _open_pdf_path(pdf_path):
+    if not pdf_path.exists() or pdf_path.suffix.lower() not in PDF_SUFFIXES:
         raise Http404('Guide not found')
-
     return FileResponse(pdf_path.open('rb'), content_type='application/pdf', filename=pdf_path.name)
 
 
-def learn_blog_detail_view(request):
-    if not IPO_BLOG_PATH.exists():
-        raise Http404('Blog not found')
+def _find_pdf_path_by_slug(slug):
+    manifest = read_pdf_manifest()
+    if not PDF_GUIDE_PDFS_DIR.exists():
+        return None
 
-    markdown_text = IPO_BLOG_PATH.read_text(encoding='utf-8')
-    blog = _ipo_blog_summary()
-    blog['html'] = _render_blog_markdown(markdown_text)
-    blog['report_filename'] = 'ipo_project_report.pdf'
+    for pdf_path in PDF_GUIDE_PDFS_DIR.glob('*.pdf'):
+        key = pdf_path.relative_to(PDF_GUIDES_DIR).as_posix()
+        meta = manifest.get(key, {})
+        candidate = slugify(meta.get('slug') or pdf_path.stem)[:140]
+        if candidate == slug:
+            return pdf_path
+    return None
+
+
+def learn_pdf_detail_view(request, slug):
+    try:
+        guide = LearnPDFGuide.objects.filter(slug=slug).first()
+        if guide and not guide.is_published:
+            raise Http404('Guide not found')
+        if guide:
+            return _open_pdf_path(resolve_resource_relative(guide.pdf_path))
+    except DatabaseError:
+        pass
+
+    pdf_path = _find_pdf_path_by_slug(slug)
+    if not pdf_path:
+        raise Http404('Guide not found')
+    return _open_pdf_path(pdf_path)
+
+
+def learn_pdf_view(request, filename):
+    safe_name = Path(filename).name
+    try:
+        guide = LearnPDFGuide.objects.filter(pdf_path__iendswith=f'/{safe_name}', is_published=True).first()
+    except DatabaseError:
+        guide = None
+
+    if guide:
+        return _open_pdf_path(resolve_resource_relative(guide.pdf_path))
+
+    pdf_path = (PDF_GUIDE_PDFS_DIR / safe_name).resolve()
+    try:
+        pdf_path.relative_to(PDF_GUIDE_PDFS_DIR.resolve())
+    except ValueError:
+        raise Http404('Guide not found')
+    return _open_pdf_path(pdf_path)
+
+
+def _find_blog_file_by_slug(slug):
+    for blog in _file_blog_posts():
+        if blog['slug'] == slug:
+            return blog
+    return None
+
+
+def _report_url():
+    try:
+        report = LearnPDFGuide.objects.filter(slug='ipo-project-report', is_published=True).first()
+        if report:
+            return reverse('core:learn_pdf_detail', args=[report.slug])
+    except DatabaseError:
+        pass
+
+    report_path = PDF_GUIDE_PDFS_DIR / 'ipo_project_report.pdf'
+    if report_path.exists():
+        return reverse('core:learn_pdf', args=[report_path.name])
+    return ''
+
+
+def learn_blog_detail_view(request, slug):
+    blog = None
+    markdown_path = None
+    markdown_text = None
+    try:
+        post = LearnBlogPost.objects.filter(slug=slug).first()
+        if post and not post.is_published:
+            raise Http404('Blog not found')
+        if post:
+            markdown_path = resolve_resource_relative(post.markdown_path)
+            if not markdown_path.exists() or markdown_path.suffix.lower() != '.md':
+                raise Http404('Blog not found')
+            markdown_text = markdown_path.read_text(encoding='utf-8')
+            blog = _blog_card_from_model(post)
+    except DatabaseError:
+        pass
+
+    if not blog:
+        blog = _find_blog_file_by_slug(slug)
+        if not blog:
+            raise Http404('Blog not found')
+        markdown_path = blog['markdown_path']
+        markdown_text = blog['markdown_text']
+
+    blog['html'] = render_blog_markdown(markdown_text, markdown_path)
+    blog['report_url'] = _report_url()
     return render(request, 'learn/blog_detail.html', {'blog': blog})
 
 
+def learn_resource_asset_view(request, resource_path):
+    try:
+        asset_path = resolve_resource_relative(resource_path)
+    except ValueError:
+        raise Http404('Asset not found')
+
+    if not asset_path.exists() or asset_path.suffix.lower() not in IMAGE_SUFFIXES:
+        raise Http404('Asset not found')
+
+    content_type = mimetypes.guess_type(asset_path.name)[0] or 'application/octet-stream'
+    return FileResponse(asset_path.open('rb'), content_type=content_type)
+
+
 def learn_blog_image_view(request, filename):
-    image_path = _safe_file_in_dir(IPO_BLOG_IMAGES_DIR, filename)
-    content_types = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.webp': 'image/webp',
-    }
-
-    content_type = content_types.get(image_path.suffix.lower())
-    if not image_path.exists() or not content_type:
-        raise Http404('Image not found')
-
-    return FileResponse(image_path.open('rb'), content_type=content_type)
+    legacy_path = BLOGS_DIR / 'images' / 'ipo_analysis' / Path(filename).name
+    return learn_resource_asset_view(request, path_to_base_relative(legacy_path))
 
 
 def learn_community_view(request):

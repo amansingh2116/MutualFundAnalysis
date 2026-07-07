@@ -14,27 +14,22 @@
 .learn-section-head { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px; }
 .learn-section-title { font-size:17px;font-weight:750;color:var(--text-primary);display:flex;align-items:center;gap:8px; }
 .learn-section-note { color:var(--text-muted);font-size:11px; }
-.pdf-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px; }
-.pdf-card { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;min-height:268px;transition:border-color var(--transition),transform var(--transition),box-shadow var(--transition); }
-.pdf-card:hover { border-color:var(--border-accent);transform:translateY(-2px);box-shadow:var(--shadow-glow); }
-.pdf-cover { min-height:132px;background:linear-gradient(135deg,rgba(99,102,241,.24),rgba(16,185,129,.11));border-bottom:1px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center; }
+.pdf-grid,.blog-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px; }
+.pdf-card,.blog-card { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;min-height:268px;transition:border-color var(--transition),transform var(--transition),box-shadow var(--transition); }
+.pdf-card:hover,.blog-card:hover { border-color:var(--border-accent);transform:translateY(-2px);box-shadow:var(--shadow-glow); }
+.pdf-cover,.blog-cover { min-height:132px;background:linear-gradient(135deg,rgba(99,102,241,.24),rgba(16,185,129,.11));border-bottom:1px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden; }
+.pdf-cover img,.blog-cover img { width:100%;height:100%;min-height:132px;object-fit:cover;display:block; }
 .pdf-cover::before { content:'';position:absolute;inset:18px;border:1px solid rgba(255,255,255,.10);border-radius:7px;background:rgba(10,14,26,.28); }
-.pdf-cover-mark { position:relative;z-index:1;width:78px;height:92px;border-radius:7px;background:rgba(241,245,249,.92);color:#111827;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;box-shadow:0 16px 36px rgba(0,0,0,.30); }
+.pdf-cover.has-image::before { display:none; }
+.pdf-cover-mark { position:relative;z-index:1;width:min(108px,78%);min-width:92px;min-height:104px;padding:12px 10px;border-radius:7px;background:rgba(241,245,249,.92);color:#111827;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:14px;line-height:1.2;box-shadow:0 16px 36px rgba(0,0,0,.30);white-space:normal;overflow-wrap:anywhere;word-break:break-word; }
 .pdf-cover-mark::after { content:'PDF';position:absolute;bottom:9px;right:9px;font-size:10px;color:#4f46e5; }
-.pdf-body { padding:14px 15px 16px;display:flex;flex-direction:column;gap:8px;flex:1; }
-.pdf-title { font-size:14px;font-weight:750;color:var(--text-primary);line-height:1.3; }
-.pdf-desc { font-size:12px;color:var(--text-secondary);line-height:1.55;flex:1; }
-.pdf-meta { display:flex;align-items:center;justify-content:space-between;color:var(--text-muted);font-size:11px;border-top:1px solid var(--border);padding-top:10px;margin-top:4px; }
-.blog-panel { border:1px solid var(--border);border-radius:8px;background:var(--bg-card);padding:18px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center; }
-.blog-tag { display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid rgba(129,140,248,.32);color:var(--indigo-400);background:rgba(99,102,241,.09);font-size:11px;font-weight:650;margin-bottom:10px; }
-.blog-title { font-size:16px;font-weight:750;color:var(--text-primary);margin-bottom:5px;line-height:1.35; }
-.blog-desc { color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:720px; }
-.blog-side { display:flex;flex-direction:column;align-items:flex-end;gap:10px; }
-.blog-time { color:var(--text-muted);font-size:11px;white-space:nowrap; }
-.blog-read { display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 13px;border-radius:7px;background:var(--indigo-500);color:white;text-decoration:none;font-size:12px;font-weight:750; }
-.blog-read:hover { background:var(--indigo-600); }
+.card-body { padding:14px 15px 16px;display:flex;flex-direction:column;gap:8px;flex:1; }
+.card-title { font-size:14px;font-weight:750;color:var(--text-primary);line-height:1.3; }
+.card-desc { font-size:12px;color:var(--text-secondary);line-height:1.55;flex:1; }
+.card-meta { display:flex;align-items:center;justify-content:space-between;color:var(--text-muted);font-size:11px;border-top:1px solid var(--border);padding-top:10px;margin-top:4px; }
+.blog-tag { display:inline-flex;align-items:center;align-self:flex-start;padding:3px 9px;border-radius:999px;border:1px solid rgba(129,140,248,.32);color:var(--indigo-400);background:rgba(99,102,241,.09);font-size:11px;font-weight:650;margin-bottom:2px; }
 .empty-guides { border:1px dashed var(--border);border-radius:8px;padding:26px;color:var(--text-muted);text-align:center;background:rgba(255,255,255,.02); }
-@media (max-width:640px) { .learn-title { font-size:24px; } .learn-actions { width:100%; } .learn-actions .btn { flex:1;justify-content:center; } .blog-panel { grid-template-columns:1fr; } .blog-side { align-items:flex-start; } .blog-read { width:100%; } }
+@media (max-width:640px) { .learn-title { font-size:24px; } .learn-actions { width:100%; } .learn-actions .btn { flex:1;justify-content:center; } }
 </style>
 {% endblock %}
 
@@ -60,37 +55,56 @@
     {% if pdf_guides %}
     <div class="pdf-grid">
       {% for guide in pdf_guides %}
-      <a class="pdf-card" href="{% url 'core:learn_pdf' guide.filename %}" target="_blank" rel="noopener">
-        <div class="pdf-cover"><div class="pdf-cover-mark">{{ guide.accent }}</div></div>
-        <div class="pdf-body">
-          <div class="pdf-title">{{ guide.title }}</div>
-          <div class="pdf-desc">{{ guide.description }}</div>
-          <div class="pdf-meta"><span>{{ guide.size_kb }} KB</span><span>Open guide -></span></div>
+      <a class="pdf-card" href="{{ guide.pdf_url }}" target="_blank" rel="noopener">
+        <div class="pdf-cover{% if guide.cover_url %} has-image{% endif %}">
+          {% if guide.cover_url %}
+          <img src="{{ guide.cover_url }}" alt="{{ guide.title }} cover">
+          {% else %}
+          <div class="pdf-cover-mark">{{ guide.accent }}</div>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="card-title">{{ guide.title }}</div>
+          <div class="card-desc">{{ guide.description }}</div>
+          <div class="card-meta"><span>{{ guide.size_kb }} KB</span><span>Open guide -></span></div>
         </div>
       </a>
       {% endfor %}
     </div>
     {% else %}
-    <div class="empty-guides">No PDF guides were found in <code>Resources/PDF Guides/pdfs</code>.</div>
+    <div class="empty-guides">No PDF guides have been synced yet. Run <code>python manage.py sync_content</code>.</div>
     {% endif %}
   </section>
 
   <section class="learn-section">
     <div class="learn-section-head">
-      <h2 class="learn-section-title">✍️ Blog</h2>
-      <div class="learn-section-note">Latest article</div>
+      <h2 class="learn-section-title">✍️ Blogs</h2>
+      <div class="learn-section-note">{{ blog_posts|length }} articles available</div>
     </div>
-    <article class="blog-panel">
-      <div>
-        <div class="blog-tag">{{ featured_blog.tag }}</div>
-        <h3 class="blog-title">{{ featured_blog.title }}</h3>
-        <p class="blog-desc">{{ featured_blog.description }}</p>
-      </div>
-      <div class="blog-side">
-        <div class="blog-time">{{ featured_blog.read_time }}</div>
-        <a class="blog-read" href="{% url 'core:learn_blog_detail' %}">Read article</a>
-      </div>
-    </article>
+
+    {% if blog_posts %}
+    <div class="blog-grid">
+      {% for blog in blog_posts %}
+      <a class="blog-card" href="{{ blog.url }}">
+        <div class="blog-cover">
+          {% if blog.thumbnail_url %}
+          <img src="{{ blog.thumbnail_url }}" alt="{{ blog.title }} thumbnail">
+          {% else %}
+          <div class="pdf-cover-mark">Blog</div>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="blog-tag">{{ blog.tag }}</div>
+          <div class="card-title">{{ blog.title }}</div>
+          <div class="card-desc">{{ blog.description }}</div>
+          <div class="card-meta"><span>{{ blog.read_time }}</span><span>Read article -></span></div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-guides">No blogs have been synced yet. Add markdown files to <code>Resources/Blogs</code> and run <code>python manage.py sync_content</code>.</div>
+    {% endif %}
   </section>
 </div>
 {% endblock %}

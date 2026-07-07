@@ -1,4 +1,4 @@
-﻿# MutualFundAnalysis
+# MutualFundAnalysis
 
 > **A full-featured, India-focused mutual fund research, portfolio analysis, and strategy backtesting platform built with Django.**
 
@@ -58,6 +58,12 @@
 - XIRR, Goal Planner, Net Worth Calculator (25+ asset classes, 9 liability classes)
 - **Rolling Return Calculator** (multi-fund, up to 5 funds with benchmarks and category averages)
 
+### Learn & Community
+- **Resources page** for educational PDF guides, project reports, and markdown-based blogs
+- File-backed Learn content workflow using `Resources/PDF Guides/guides.json` and markdown front matter in `Resources/Blogs/`
+- `sync_content` management command to sync Learn PDFs/blogs into Django admin-manageable records
+- Placeholder **Community** page for future discussion features such as Disqus or a custom posting/reply system
+
 ---
 
 ## How It Works
@@ -66,7 +72,8 @@
 2. **Analytics Engine (`apps/analytics/`)**: Real-time computations (CAGR, Beta, Sharpe, Rolling returns) vectorized with Pandas and NumPy
 3. **Runtime Assembly (`apps/funds/runtime.py`)**: Aggregates DB data + live adapter data on-demand when a fund page loads
 4. **Peer Discovery (`apps/funds/peers.py`)**: Scored matcher using fund fingerprinting on scheme names and metadata
-5. **Interactive UI**: Vanilla JavaScript + Plotly for complex financial charts — no heavy JS frameworks
+5. **Learn Content (`apps/core/content.py`)**: Reads local PDF/blog metadata from `Resources/`, renders markdown blogs, and exposes a `sync_content` command for admin-backed publishing
+6. **Interactive UI**: Vanilla JavaScript + Plotly for complex financial charts — no heavy JS frameworks
 
 ---
 
@@ -119,6 +126,7 @@ MutualFundAnalysis/
 │       └── strategies.html      ← Saved strategies list page
 ├── static/                      ← CSS and JS static files
 ├── scripts/                     ← Utility and development scripts
+├── Resources/                   ← Learn content source files (PDF guides, markdown blogs, local images)
 │
 └── documentation/               ← Technical documentation
     ├── backtester_analysis.md       ← ⭐ Full backtester user & developer guide
@@ -127,6 +135,7 @@ MutualFundAnalysis/
     ├── DATA_PIPELINE_AND_COMMANDS.md ← Guide to running ingestion pipelines
     ├── PROJECT_CONTEXT.md           ← Full architectural overview for developers
     ├── DEPLOYMENT.md                ← Render.com deployment and local setup
+    ├── LEARN_CONTENT.md             ← Learn Resources PDF/blog content workflow
     ├── SCORING_MODEL.md             ← 100-point fund scoring model documentation
     ├── PEER_MATCHING.md             ← Peer comparison matching algorithm
     └── archive/                     ← Older specs and exploration documents
@@ -179,9 +188,17 @@ python manage.py build_scheme_master
 python manage.py ingest_benchmarks
 ```
 
+### 5. Sync Learn Content
+```bash
+# Sync local Learn PDF guides and markdown blogs into admin-manageable records
+python manage.py sync_content
+```
+
+Learn content lives in `Resources/PDF Guides/` and `Resources/Blogs/`. See `documentation/LEARN_CONTENT.md` for the metadata format.
+
 > **Note:** Fund detail data (NAV history, metadata, holdings) is fetched **on-demand** when a user visits a fund page. You do not need to bulk-ingest all NAV data locally.
 
-### 5. Run the Server
+### 6. Run the Server
 ```bash
 python manage.py runserver
 ```
@@ -189,7 +206,7 @@ python manage.py runserver
 - Fund Screener: `http://127.0.0.1:8000/funds/screener/`
 - Admin: `http://127.0.0.1:8000/admin/`
 
-### 6. Build Data Pipelines (Optional — for Screener & Dashboard)
+### 7. Build Data Pipelines (Optional — for Screener & Dashboard)
 
 The Fund Screener and Home Dashboard use pre-computed snapshots. Run these to populate them:
 
@@ -208,7 +225,7 @@ python manage.py populate_screener --limit=100
 python manage.py populate_screener
 ```
 
-### 7. Run Tests
+### 8. Run Tests
 ```powershell
 $env:DEBUG='True'; python manage.py test apps.funds apps.analytics
 ```
