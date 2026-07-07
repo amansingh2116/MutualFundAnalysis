@@ -105,7 +105,7 @@
           <span class="nav-section-caret" aria-hidden="true"></span>
         </button>
         <div class="nav-section-items" id="nav-section-learn">
-      <a href="{% url 'core:learn_resources' %}" class="nav-item {% if request.resolver_match.url_name == 'learn_resources' or request.resolver_match.url_name == 'learn_pdf' %}active{% endif %}">
+      <a href="{% url 'core:learn_resources' %}" class="nav-item {% if request.resolver_match.url_name == 'learn_resources' or request.resolver_match.url_name == 'learn_pdf' or request.resolver_match.url_name == 'learn_blog_detail' or request.resolver_match.url_name == 'learn_blog_image' %}active{% endif %}">
         <span class="nav-icon">📚</span> Resources
       </a>
       <a href="{% url 'core:learn_community' %}" class="nav-item {% if request.resolver_match.url_name == 'learn_community' %}active{% endif %}">
