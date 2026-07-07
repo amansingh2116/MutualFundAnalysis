@@ -11,7 +11,7 @@
 
   <!-- Design System -->
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=1.1">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=1.4">
 
   <!-- CDN Dependencies -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" defer></script>
@@ -21,7 +21,7 @@
 </head>
 <body>
 {% if not hide_layout %}
-<div class="app-layout">
+<div class="app-layout" id="app-layout">
 
   <!-- ── Sidebar ── -->
   <aside class="sidebar" id="sidebar">
@@ -31,10 +31,18 @@
         <div class="logo-text">MF Analysis</div>
         <div class="logo-sub">Indian Mutual Funds</div>
       </div>
+      <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Hide sidebar" aria-controls="sidebar">
+        <span aria-hidden="true">&times;</span>
+      </button>
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section-label">Explore</div>
+      <div class="nav-section" data-nav-section="explore">
+        <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-explore">
+          <span>Explore</span>
+          <span class="nav-section-caret" aria-hidden="true"></span>
+        </button>
+        <div class="nav-section-items" id="nav-section-explore">
       <a href="{% url 'funds:home' %}" class="nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
         <span class="nav-icon">🏠</span> Home
       </a>
@@ -44,11 +52,18 @@
       <a href="{% url 'funds:screener' %}" class="nav-item {% if request.resolver_match.url_name == 'screener' %}active{% endif %}">
         <span class="nav-icon">S</span> Fund Screener
       </a>
-      <div class="nav-section-label" style="margin-top:12px">Tools</div>
+        </div>
+      </div>
+      <div class="nav-section" data-nav-section="tools">
+        <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-tools">
+          <span>Tools</span>
+          <span class="nav-section-caret" aria-hidden="true"></span>
+        </button>
+        <div class="nav-section-items" id="nav-section-tools">
       <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' %}active{% endif %}">
         <span class="nav-icon">🧮</span> Calculators
       </a>
-      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' %}active{% endif %}">
+      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and request.resolver_match.url_name != 'backtester' and request.resolver_match.url_name != 'backtester_v2_run' and request.resolver_match.url_name != 'backtester_fund_search' and request.resolver_match.url_name != 'backtester_pe_data' %}active{% endif %}">
         <span class="nav-icon">📊</span> My Portfolio
       </a>
       <a href="{% url 'recommendations:engine' %}" class="nav-item {% if request.resolver_match.namespace == 'recommendations' %}active{% endif %}">
@@ -58,7 +73,14 @@
         <span class="nav-icon">⚗️</span> Backtester
       </a>
 
-      <div class="nav-section-label" style="margin-top:12px">Research</div>
+        </div>
+      </div>
+      <div class="nav-section" data-nav-section="research">
+        <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-research">
+          <span>Research</span>
+          <span class="nav-section-caret" aria-hidden="true"></span>
+        </button>
+        <div class="nav-section-items" id="nav-section-research">
       <a href="{% url 'funds:research_benchmarks' %}" class="nav-item {% if request.resolver_match.url_name == 'research_benchmarks' %}active{% endif %}">
         <span class="nav-icon">📡</span> Benchmarks
       </a>
@@ -75,7 +97,14 @@
         <span class="nav-icon">🏆</span> Top Funds
       </a>
 
-      <div class="nav-section-label" style="margin-top:12px">Admin</div>
+        </div>
+      </div>
+      <div class="nav-section" data-nav-section="admin">
+        <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-admin">
+          <span>Admin</span>
+          <span class="nav-section-caret" aria-hidden="true"></span>
+        </button>
+        <div class="nav-section-items" id="nav-section-admin">
       {% if user.is_staff %}
       <a href="{% url 'admin:index' %}" class="nav-item" target="_blank">
         <span class="nav-icon">⚙️</span> Admin Panel
@@ -84,6 +113,8 @@
       <a href="https://github.com/amansingh2116/MutualFundAnalysis" class="nav-item" target="_blank">
         <span class="nav-icon">📖</span> GitHub
       </a>
+        </div>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -101,6 +132,7 @@
       {% endif %}
     </div>
   </aside>
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
   <!-- ── Main ── -->
   <div class="main-content">
@@ -123,8 +155,9 @@
 
     <!-- Topbar -->
     <header class="topbar">
-      <!-- Mobile sidebar toggle -->
-      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('sidebar').classList.toggle('open')" style="display:none" id="menu-toggle">☰</button>
+      <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="true">
+        <span class="sidebar-toggle-lines" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
 
       <!-- Search -->
       <div class="topbar-search">
@@ -174,7 +207,7 @@
 <div id="toast-container"></div>
 
 <!-- Scripts -->
-<script src="{% static 'js/main.js' %}"></script>
+<script src="{% static 'js/main.js' %}?v=1.3"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

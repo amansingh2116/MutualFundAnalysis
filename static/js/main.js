@@ -205,6 +205,83 @@ function showToast(msg, type='info') {
 }
 
 // ── Search ─────────────────────────────────────────────────────
+function initSidebar() {
+  const layout = document.getElementById('app-layout');
+  const sidebar = document.getElementById('sidebar');
+  const toggle = document.getElementById('sidebar-toggle');
+  const closeBtn = document.getElementById('sidebar-close');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (!layout || !sidebar || !toggle) return;
+
+  if (layout.dataset.sidebarReady === 'true') return;
+  layout.dataset.sidebarReady = 'true';
+
+  const mobileQuery = window.matchMedia('(max-width: 1024px)');
+  const storage = {
+    get(key) {
+      try { return window.localStorage.getItem(key); } catch (e) { return null; }
+    },
+    set(key, value) {
+      try { window.localStorage.setItem(key, value); } catch (e) {}
+    }
+  };
+
+  function isOpen() {
+    return layout.classList.contains('sidebar-open');
+  }
+
+  function setSidebarOpen(open) {
+    layout.classList.toggle('sidebar-open', open);
+    layout.classList.toggle('sidebar-closed', !open);
+    sidebar.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    sidebar.setAttribute('aria-hidden', String(!open));
+    if (overlay) overlay.setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('sidebar-scroll-lock', mobileQuery.matches && open);
+  }
+
+  setSidebarOpen(!mobileQuery.matches);
+
+  toggle.addEventListener('click', () => setSidebarOpen(!isOpen()));
+  closeBtn?.addEventListener('click', () => setSidebarOpen(false));
+  overlay?.addEventListener('click', () => setSidebarOpen(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && isOpen() && mobileQuery.matches) setSidebarOpen(false);
+  });
+
+  const onMediaChange = () => setSidebarOpen(!mobileQuery.matches);
+  if (typeof mobileQuery.addEventListener === 'function') {
+    mobileQuery.addEventListener('change', onMediaChange);
+  } else if (typeof mobileQuery.addListener === 'function') {
+    mobileQuery.addListener(onMediaChange);
+  }
+
+  sidebar.querySelectorAll('.nav-item').forEach(link => {
+    link.addEventListener('click', () => {
+      if (mobileQuery.matches) setSidebarOpen(false);
+    });
+  });
+
+  sidebar.querySelectorAll('.nav-section').forEach(section => {
+    const key = section.dataset.navSection;
+    const button = section.querySelector('.nav-section-toggle');
+    if (!key || !button) return;
+
+    const storageKey = `mf.nav-section.${key}`;
+    const hasActiveItem = Boolean(section.querySelector('.nav-item.active'));
+    const collapsed = storage.get(storageKey) === 'collapsed' && !hasActiveItem;
+
+    function setSectionCollapsed(shouldCollapse, persist=true) {
+      section.classList.toggle('collapsed', shouldCollapse);
+      button.setAttribute('aria-expanded', String(!shouldCollapse));
+      if (persist) storage.set(storageKey, shouldCollapse ? 'collapsed' : 'expanded');
+    }
+
+    setSectionCollapsed(collapsed, false);
+    button.addEventListener('click', () => setSectionCollapsed(!section.classList.contains('collapsed')));
+  });
+}
+
 function initSearch() {
   const inp = document.getElementById('global-search');
   const dropdown = document.getElementById('search-dropdown');
@@ -298,6 +375,7 @@ function initDropZone(zoneId, inputId) {
 // ── Init ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
+  initSidebar();
   initSearch();
   initRangeInputs();
   initInfoTooltips();
