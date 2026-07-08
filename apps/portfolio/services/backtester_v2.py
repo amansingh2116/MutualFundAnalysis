@@ -136,6 +136,7 @@ class SimSettingsV2:
     end_date: Optional[date] = None
     benchmark_type: str = "index"
     benchmark_id: str = ""
+        benchmark_components: List[Dict[str, Any]] = field(default_factory=list)
     synthetic_debt_rate: float = 7.0
     transaction_cost: float = 0.0
     exit_load_enabled: bool = False
@@ -388,6 +389,43 @@ def _nav_asof(series: pd.Series, d: date) -> Optional[float]:
     return float(sub.iloc[-1]) if not sub.empty else None
 
 
+
+def _build_custom_benchmark_series(components: List[Dict[str, Any]], sim_start: date, sim_end: date) -> pd.Series:
+    """Build a normalized weighted benchmark series from multiple funds/indices."""
+    weighted_parts = []
+    total_weight = 0.0
+
+    for comp in components or []:
+        try:
+            weight = float(comp.get("weight", 0))
+        except (TypeError, ValueError):
+            weight = 0.0
+        if weight <= 0:
+            continue
+
+        source_type = str(comp.get("source_type", "index"))
+        source_id = str(comp.get("source_id", "")).strip()
+        if not source_id:
+            continue
+
+        series = _load_price_series(source_type, source_id)
+        start_nav = _nav_asof(series, sim_start)
+        if series.empty or not start_nav or start_nav <= 0:
+            continue
+
+        aligned = series[(series.index.date >= sim_start) & (series.index.date <= sim_end)]
+        if aligned.empty:
+            continue
+        weighted_parts.append((aligned / start_nav) * (weight / 100.0))
+        total_weight += weight
+
+    if not weighted_parts or total_weight <= 0:
+        raise ValueError("Custom benchmark needs at least one valid weighted component.")
+
+    combined = pd.concat(weighted_parts, axis=1).ffill().dropna(how="all").sum(axis=1)
+    if abs(total_weight - 100.0) > 0.01:
+        combined = combined / (total_weight / 100.0)
+    return combined * 100.0
 def _make_synthetic_series(start: date, end: date, annual_rate: float = 0.07) -> pd.Series:
     """Synthetic daily price series for debt parking at a flat annual rate."""
     dates = pd.date_range(start=start, end=end, freq="D")
@@ -1424,7 +1462,12 @@ def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
 
     # ── 4. Benchmark series ───────────────────────────────────────────────────
     benchmark_series: Optional[pd.Series] = None
-    if settings.benchmark_id:
+    if settings.benchmark_components:
+        try:
+            benchmark_series = _build_custom_benchmark_series(settings.benchmark_components, sim_start, sim_end)
+        except Exception as e:
+            data_warnings.append(f"Custom benchmark data unavailable: {e}")
+    elif settings.benchmark_id:
         try:
             benchmark_series = _load_price_series(settings.benchmark_type, settings.benchmark_id)
         except Exception as e:
@@ -1492,7 +1535,7 @@ def run_backtest_v2(plan: PortfolioPlanV2) -> SimulationResultV2:
                     periodic_lookup[sd].append((asset, rule))
 
     # ── 8. All dates to process ───────────────────────────────────────────────
-    chart_dates_pd = pd.date_range(start=sim_start, end=sim_end, freq="W")
+    chart_dates_pd = pd.date_range(start=sim_start, end=sim_end, freq="D")
     chart_dates_set = set(ts.date() for ts in chart_dates_pd) | {sim_start, sim_end}
     all_dates = sorted(chart_dates_set | set(periodic_lookup.keys()))
 

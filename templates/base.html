@@ -63,15 +63,17 @@
       <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' %}active{% endif %}">
         <span class="nav-icon">🧮</span> Calculators
       </a>
-      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and request.resolver_match.url_name != 'backtester' and request.resolver_match.url_name != 'backtester_v2_run' and request.resolver_match.url_name != 'backtester_fund_search' and request.resolver_match.url_name != 'backtester_pe_data' %}active{% endif %}">
+      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and request.resolver_match.url_name not in 'backtester backtester_build backtester_v2_run backtester_fund_search backtester_pe_data strategies strategy_compare strategy_list_api strategy_detail_api' %}active{% endif %}">
         <span class="nav-icon">📊</span> My Portfolio
       </a>
       <a href="{% url 'recommendations:engine' %}" class="nav-item {% if request.resolver_match.namespace == 'recommendations' %}active{% endif %}">
         <span class="nav-icon">🎯</span> Recommendations
       </a>
-      <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name == 'backtester' %}active{% endif %}">
-        <span class="nav-icon">⚗️</span> Backtester
+      {% if user.is_authenticated %}
+      <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name in 'backtester backtester_build strategies strategy_compare' %}active{% endif %}">
+        <span class="nav-icon">BT</span> Backtester
       </a>
+      {% endif %}
 
         </div>
       </div>

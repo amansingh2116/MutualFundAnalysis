@@ -1,37 +1,130 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}Saved Strategies{% endblock %}
 {% block content %}
-<div style="max-width:900px;margin:40px auto;padding:0 20px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+<style>
+  .strategy-page { max-width: 1120px; margin: 30px auto; padding: 0 20px; }
+  .strategy-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .strategy-head h1 { margin: 0; font-size: 26px; color: var(--text-primary); }
+  .strategy-head p { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; }
+  .strategy-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .strategy-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .strategy-search { flex: 1; min-width: 220px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); padding: 11px 13px; outline: none; }
+  .selection-pill { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+  .strategy-list { display: grid; gap: 10px; }
+  .strategy-row { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); padding: 15px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+  .strategy-row:hover { border-color: var(--border-accent); background: var(--bg-card-hover); }
+  .strategy-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+  .strategy-name { color: var(--text-primary); font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .strategy-desc { color: var(--text-secondary); font-size: 12px; line-height: 1.45; margin-bottom: 5px; }
+  .strategy-meta { color: var(--text-muted); font-size: 11px; }
+  .strategy-open { color: var(--indigo-400); font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .empty-state { text-align: center; padding: 64px 20px; border: 1px dashed var(--border); border-radius: 8px; color: var(--text-muted); background: var(--bg-card); }
+  .empty-state h2 { margin: 0 0 8px; color: var(--text-secondary); font-size: 18px; }
+  @media (max-width: 720px) { .strategy-head, .strategy-toolbar { flex-direction: column; align-items: stretch; } .strategy-row { grid-template-columns: auto 1fr; } .strategy-open { grid-column: 2; } }
+</style>
+
+<div class="strategy-page">
+  <div class="strategy-head">
     <div>
-      <h1 style="font-size:24px;font-weight:700;color:var(--text-primary, #f1f5f9)">Saved Strategies</h1>
-      <p style="color:var(--text-muted, #94a3b8);font-size:13px;margin-top:4px">All your saved backtest strategies.</p>
+      <h1>Saved Strategies</h1>
+      <p>Open a saved strategy to edit and simulate it, or select two to four strategies for a side-by-side comparison.</p>
     </div>
-    <a href="{% url 'portfolio:backtester' %}" style="background:#6366f1;color:white;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">Back to Backtester</a>
+    <div class="strategy-actions">
+      <a class="btn btn-secondary btn-sm" href="{% url 'portfolio:backtester' %}">Backtester Hub</a>
+      <a class="btn btn-primary btn-sm" href="{% url 'portfolio:backtester_build' %}">New Strategy</a>
+    </div>
   </div>
 
   {% if strategies %}
-    <div style="display:grid;gap:12px">
+    <div class="strategy-toolbar">
+      <input id="strategySearch" class="strategy-search" type="search" placeholder="Search strategies by name..." autocomplete="off">
+      <div class="selection-pill"><span id="selectedCount">0</span>/4 selected</div>
+      <button type="button" id="compareStrategiesBtn" class="btn btn-primary btn-sm" disabled>Compare Strategies</button>
+    </div>
+
+    <div class="strategy-list" id="strategyList">
       {% for s in strategies %}
-        <div style="background:rgba(30,41,59,0.8);border:1px solid rgba(99,102,241,0.15);border-radius:12px;padding:16px 20px">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:15px;color:#f1f5f9">{{ s.name }}</div>
-              {% if s.description %}<div style="color:#94a3b8;font-size:12px;margin-top:4px">{{ s.description }}</div>{% endif %}
-              <div style="color:#64748b;font-size:11px;margin-top:6px">Saved {{ s.updated_at|date:"N j, Y, P" }}</div>
-            </div>
-            <a href="{% url 'portfolio:backtester' %}" style="background:#6366f1;color:white;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;text-decoration:none">Open Backtester</a>
+        <div class="strategy-row" data-id="{{ s.id }}" data-name="{{ s.name|lower }}" data-description="{{ s.description|lower }}" tabindex="0" role="button" aria-label="Open {{ s.name }}">
+          <input type="checkbox" class="strategy-select" value="{{ s.id }}" aria-label="Select {{ s.name }} for comparison">
+          <div>
+            <div class="strategy-name">{{ s.name }}</div>
+            {% if s.description %}<div class="strategy-desc">{{ s.description }}</div>{% endif %}
+            <div class="strategy-meta">Saved {{ s.updated_at|date:"M j, Y, P" }}{% if s.last_result_json %} | has cached result{% endif %}</div>
           </div>
+          <a class="strategy-open" href="{% url 'portfolio:backtester_build' %}?strategy={{ s.id }}">Open</a>
         </div>
       {% endfor %}
     </div>
   {% else %}
-    <div style="text-align:center;padding:60px 20px;color:#64748b">
-      <div style="font-size:48px;margin-bottom:12px">&#128190;</div>
-      <div style="font-size:16px;font-weight:600;color:#94a3b8;margin-bottom:8px">No saved strategies yet</div>
-      <div style="font-size:13px">Run a backtest and click Save Strategy to save your first one.</div>
-      <a href="{% url 'portfolio:backtester' %}" style="display:inline-block;margin-top:20px;background:#6366f1;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Go to Backtester</a>
+    <div class="empty-state">
+      <h2>No saved strategies yet</h2>
+      <p>Run a backtest and save it from the builder to build your strategy library.</p>
+      <a class="btn btn-primary btn-sm" href="{% url 'portfolio:backtester_build' %}" style="margin-top:16px">Open Builder</a>
     </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const rows = Array.from(document.querySelectorAll('.strategy-row'));
+  const search = document.getElementById('strategySearch');
+  const selectedCount = document.getElementById('selectedCount');
+  const compareBtn = document.getElementById('compareStrategiesBtn');
+  const buildUrl = "{% url 'portfolio:backtester_build' %}";
+  const compareUrl = "{% url 'portfolio:strategy_compare' %}";
+
+  function selectedIds() {
+    return rows
+      .map(row => row.querySelector('.strategy-select'))
+      .filter(box => box && box.checked)
+      .map(box => box.value);
+  }
+
+  function syncCompare() {
+    const ids = selectedIds();
+    if (selectedCount) selectedCount.textContent = ids.length;
+    if (!compareBtn) return;
+    compareBtn.disabled = ids.length < 2;
+    compareBtn.title = ids.length < 2 ? 'Select at least 2 strategies' : `Compare ${ids.length} strategies`;
+  }
+
+  rows.forEach(row => {
+    const box = row.querySelector('.strategy-select');
+    box?.addEventListener('click', event => event.stopPropagation());
+    box?.addEventListener('change', () => {
+      if (box.checked && selectedIds().length > 4) {
+        box.checked = false;
+        alert('You can compare a maximum of 4 strategies at a time.');
+      }
+      syncCompare();
+    });
+
+    row.addEventListener('click', event => {
+      if (event.target.closest('input, a, button')) return;
+      window.location.href = `${buildUrl}?strategy=${row.dataset.id}`;
+    });
+    row.addEventListener('keydown', event => {
+      if (event.key === 'Enter') window.location.href = `${buildUrl}?strategy=${row.dataset.id}`;
+    });
+  });
+
+  search?.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    rows.forEach(row => {
+      const haystack = `${row.dataset.name || ''} ${row.dataset.description || ''}`;
+      row.hidden = Boolean(q) && !haystack.includes(q);
+    });
+  });
+
+  compareBtn?.addEventListener('click', () => {
+    const ids = selectedIds();
+    if (ids.length < 2) return;
+    window.location.href = `${compareUrl}?ids=${ids.join(',')}`;
+  });
+
+  syncCompare();
+})();
+</script>
 {% endblock %}

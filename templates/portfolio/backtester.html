@@ -1576,6 +1576,7 @@ let selectedSearchResult = null;
 let assets = [];           // [{label, source_type, source_id, inception_date, rules:[]}]
 let latestResult = null;   // last backtest result for ledger filtering
 let allTransactions = [];
+let _loadedStrategyId = null;
 
 // Trigger modal state
 let editingTrigger = { assetIdx: null, ruleIdx: null };
@@ -2164,6 +2165,8 @@ function buildPlan() {
     label: a.label,
     source_type: a.source_type,
     source_id: a.source_id,
+    inception_date: a.inception_date || null,
+    exit_load: a.exit_load || null,
     rules: a.rules.map(r => ({
       rule_type: r.rule_type,
       amount: r.amount || 0,
@@ -2172,9 +2175,11 @@ function buildPlan() {
       end_date: r.end_date || null,
       step_up: r.step_up || null,
       lumpsum_date: r.lumpsum_date || null,
-      amount_type: r.amount_type || 'amount',
+      amount_type: r.amount_type || r.sell_type || 'amount',
+      sell_type: r.sell_type || r.amount_type || null,
       switch_from_id: r.switch_from_id || null,
       switch_to_id: r.switch_to_id || null,
+      switch_to_label: r.switch_to_label || null,
       switch_date: r.switch_date || null,
       trigger: r.trigger || null,
     })),
@@ -2251,6 +2256,7 @@ async function runBacktest() {
     setTimeout(() => {
       document.getElementById('btProgress').classList.remove('visible');
       _lastResult = data;  // Cache for save feature
+      cacheLoadedStrategyResult(data);
       renderResults(data);
     }, 400);
 
@@ -3200,10 +3206,12 @@ document.addEventListener('DOMContentLoaded', () => {
   rebalanceRule = null;
   updateAddRebalanceVisibility();
   renderAssets();
+  loadInitialStrategyFromUrl();
 });
 
 // ── Save / Load Strategies ──────────────────────────────────────────────────
 let _lastResult = null;  // Cached after each successful run for optional save
+const INITIAL_STRATEGY_ID = '{{ initial_strategy_id }}';
 
 function saveStrategy() {
   if (!assets.length) {
@@ -3289,45 +3297,119 @@ async function loadStrategiesModal() {
   }
 }
 
-function loadStrategy(strategyData) {
-  const plan = strategyData.plan_json;
-  if (!plan) return;
+function setToggleState(key, enabled) {
+  if (Boolean(toggleStates[key]) !== Boolean(enabled)) toggleSetting(key);
+}
 
-  // Restore assets
+function setFieldValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value ?? '';
+}
+
+function normalizeLoadedRule(rule) {
+  return {
+    ...rule,
+    amount: Number(rule.amount || 0),
+    amount_type: rule.amount_type || rule.sell_type || 'amount',
+    sell_type: rule.sell_type || rule.amount_type || null,
+    frequency: rule.frequency || 'monthly',
+    start_date: rule.start_date || '',
+    end_date: rule.end_date || '',
+    lumpsum_date: rule.lumpsum_date || '',
+    switch_from_id: rule.switch_from_id || null,
+    switch_to_id: rule.switch_to_id || '',
+    switch_to_label: rule.switch_to_label || '',
+    switch_date: rule.switch_date || '',
+    step_up: rule.step_up || null,
+    trigger: rule.trigger || null,
+  };
+}
+
+function applyPlanToBuilder(strategyData) {
+  const plan = strategyData.plan_json || strategyData;
+  if (!plan) return false;
+
   assets = (plan.assets || []).map(a => ({
-    label: a.label,
-    source_type: a.source_type,
-    source_id: a.source_id,
+    label: a.label || a.source_id || 'Asset',
+    source_type: a.source_type || 'scheme',
+    source_id: String(a.source_id || ''),
     inception_date: a.inception_date || null,
-    rules: a.rules || [],
+    exit_load: a.exit_load || null,
+    rules: (a.rules || []).map(normalizeLoadedRule),
   }));
 
-  // Restore dates from plan.settings (buildPlan nests them inside settings)
-  const settings = plan.settings || plan;  // handle both old and new format
-  if (settings.start_date) { const el = document.getElementById('simStart'); if(el) el.value = settings.start_date; }
-  if (settings.end_date)   { const el = document.getElementById('simEnd');   if(el) el.value = settings.end_date; }
+  const settings = plan.settings || plan;
+  setFieldValue('simStart', settings.start_date || '');
+  setFieldValue('simEnd', settings.end_date || '');
 
-  // Restore benchmark
-  if (settings.benchmark_id) {
-    const bi = document.getElementById('benchmarkId'); if(bi) bi.value = settings.benchmark_id;
-    const bt = document.getElementById('benchmarkType'); if(bt) bt.value = settings.benchmark_type || 'index';
-    const bs = document.getElementById('benchmarkSearch'); if(bs) bs.value = settings.benchmark_id;
-    const bsel = document.getElementById('benchmarkSelected');
-    if(bsel) { bsel.textContent = '\u2713 ' + settings.benchmark_id; bsel.style.display = ''; }
+  const benchmarkId = settings.benchmark_id || '';
+  setFieldValue('benchmarkId', benchmarkId);
+  setFieldValue('benchmarkType', settings.benchmark_type || 'index');
+  setFieldValue('benchmarkSearch', benchmarkId);
+  const bsel = document.getElementById('benchmarkSelected');
+  if (bsel) {
+    bsel.textContent = benchmarkId ? '\u2713 ' + benchmarkId : '';
+    bsel.style.display = benchmarkId ? '' : 'none';
   }
 
-  // Restore inflation toggle
-  if (settings.inflation_enabled) {
-    if (!toggleStates.inflation) toggleSetting('inflation');
-    const modeEl = document.getElementById('inflationMode'); if(modeEl) modeEl.value = settings.inflation_mode || 'wbgapi';
-    const rateEl = document.getElementById('inflationRate'); if(rateEl) rateEl.value = settings.inflation_rate || 5;
-  }
+  setToggleState('inflation', Boolean(settings.inflation_enabled));
+  setFieldValue('inflationMode', settings.inflation_mode || 'manual');
+  setFieldValue('inflationRate', settings.inflation_rate ?? 5);
+  onInflationModeChange();
 
-  // Close modal and re-render
-  document.getElementById('loadStrategyModal').style.display = 'none';
+  setToggleState('mc', Boolean(settings.mc_enabled));
+  setFieldValue('mcSimulations', settings.mc_simulations || 500);
+  setFieldValue('mcHorizon', settings.mc_horizon_years || 10);
+
   rebalanceRule = plan.rebalance || null;
+  if (rebalanceRule) {
+    setFieldValue('rbMode', rebalanceRule.mode || 'frequency');
+    setFieldValue('rbFrequency', rebalanceRule.frequency || 'annually');
+    setFieldValue('rbAnchorMonth', rebalanceRule.anchor_month || 1);
+    setFieldValue('rbDrift', rebalanceRule.drift_threshold || 5);
+  }
+
+  _loadedStrategyId = strategyData.id || null;
+  _lastResult = strategyData.last_result_json || null;
+  setFieldValue('strategyName', strategyData.name || '');
+  setFieldValue('strategyDesc', strategyData.description || '');
+
   updateAddRebalanceVisibility();
   renderAssets();
+  return true;
+}
+
+function loadStrategy(strategyData) {
+  if (!applyPlanToBuilder(strategyData)) return;
+  const modal = document.getElementById('loadStrategyModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function loadInitialStrategyFromUrl() {
+  if (!INITIAL_STRATEGY_ID) return;
+  try {
+    const resp = await fetch(`/portfolio/strategies/api/${INITIAL_STRATEGY_ID}/`, {
+      headers: { 'Accept': 'application/json', 'X-CSRFToken': getCsrf() },
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    loadStrategy(data);
+  } catch (e) {
+    showError(`Could not load saved strategy: ${e.message}`);
+  }
+}
+
+async function cacheLoadedStrategyResult(result) {
+  if (!_loadedStrategyId) return;
+  try {
+    await fetch(`/portfolio/strategies/api/${_loadedStrategyId}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({ last_result_json: result }),
+    });
+  } catch (e) {
+    console.warn('Could not update saved strategy result cache', e);
+  }
 }
 
 async function deleteStrategy(stratId, btn) {

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block title %}Compare Strategies{% endblock %}
+{% block content %}
+<style>
+  .compare-page { max-width: 1320px; margin: 28px auto; padding: 0 20px; }
+  .compare-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  .compare-head h1 { margin: 0; font-size: 26px; color: var(--text-primary); }
+  .compare-head p { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; }
+  .compare-status { margin: 14px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); padding: 12px 14px; color: var(--text-secondary); font-size: 13px; }
+  .compare-grid { display: grid; gap: 12px; align-items: start; }
+  .compare-col { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); overflow: hidden; min-width: 0; }
+  .compare-col-head { padding: 14px 15px; border-bottom: 1px solid var(--border); background: rgba(99,102,241,0.08); }
+  .compare-col-head h2 { margin: 0; color: var(--text-primary); font-size: 15px; line-height: 1.35; }
+  .compare-col-head p { margin: 5px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+  .compare-section { padding: 13px 15px; border-bottom: 1px solid var(--border); }
+  .compare-section:last-child { border-bottom: none; }
+  .compare-section-title { color: var(--text-secondary); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 9px; }
+  .metric-row, .detail-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(148,163,184,0.10); font-size: 12px; }
+  .metric-row:last-child, .detail-row:last-child { border-bottom: none; }
+  .metric-row span:first-child, .detail-row span:first-child { color: var(--text-muted); }
+  .metric-row span:last-child, .detail-row span:last-child { color: var(--text-primary); text-align: right; font-weight: 700; }
+  .positive { color: var(--emerald-400) !important; }
+  .negative { color: var(--red-400) !important; }
+  .asset-list-small, .rule-list-small { display: grid; gap: 8px; }
+  .mini-item { border: 1px solid rgba(148,163,184,0.16); border-radius: 6px; padding: 8px; color: var(--text-secondary); font-size: 11px; line-height: 1.45; }
+  .mini-item strong { color: var(--text-primary); display: block; margin-bottom: 3px; }
+  @media (max-width: 900px) { .compare-head { flex-direction: column; } .compare-grid { grid-template-columns: 1fr !important; } }
+</style>
+
+<div class="compare-page">
+  <div class="compare-head">
+    <div>
+      <h1>Compare Strategies</h1>
+      <p>Selected saved strategies are simulated with their saved funds, rules, triggers, rebalancing, and settings.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <a class="btn btn-secondary btn-sm" href="{% url 'portfolio:strategies' %}">Saved Strategies</a>
+      <a class="btn btn-primary btn-sm" href="{% url 'portfolio:backtester_build' %}">New Strategy</a>
+    </div>
+  </div>
+
+  {% if strategies %}
+    <div id="compareStatus" class="compare-status">Preparing comparison...</div>
+    <div id="compareGrid" class="compare-grid" style="grid-template-columns: repeat({{ strategies|length }}, minmax(0, 1fr));"></div>
+  {% else %}
+    <div class="compare-status">Select two to four saved strategies before opening comparison.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const ids = '{{ strategy_ids }}'.split(',').filter(Boolean);
+  const grid = document.getElementById('compareGrid');
+  const statusEl = document.getElementById('compareStatus');
+  if (!ids.length || !grid) return;
+
+  function getCsrf() {
+    return document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1] || '';
+  }
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  }
+  function money(value) {
+    if (value == null || Number.isNaN(Number(value))) return '-';
+    return 'INR ' + Math.round(Number(value)).toLocaleString('en-IN');
+  }
+  function pct(value, dec = 2) {
+    if (value == null || Number.isNaN(Number(value))) return '-';
+    const n = Number(value);
+    return (n >= 0 ? '+' : '') + n.toFixed(dec) + '%';
+  }
+  function metric(label, value, cls = '') {
+    return `<div class="metric-row"><span>${label}</span><span class="${cls}">${value}</span></div>`;
+  }
+  function detail(label, value) {
+    return `<div class="detail-row"><span>${label}</span><span>${esc(value || '-')}</span></div>`;
+  }
+  function ruleSummary(rule) {
+    const type = (rule.rule_type || 'rule').toUpperCase();
+    const bits = [money(rule.amount), rule.frequency, rule.start_date || rule.lumpsum_date || rule.switch_date].filter(Boolean);
+    if (rule.trigger?.conditions?.length) bits.push(`${rule.trigger.conditions.length} trigger condition(s)`);
+    if (rule.step_up) bits.push(`step-up ${rule.step_up.step_amount}${rule.step_up.step_type === 'pct' ? '%' : ''}`);
+    return `${type}: ${bits.join(' | ')}`;
+  }
+  function renderColumn(strategy, result, error) {
+    const plan = strategy.plan_json || {};
+    const settings = plan.settings || {};
+    const assets = plan.assets || [];
+    const gainCls = (result?.absolute_gain || 0) >= 0 ? 'positive' : 'negative';
+    const xirrCls = (result?.xirr || 0) >= 0 ? 'positive' : 'negative';
+    const description = strategy.description ? `<p>${esc(strategy.description)}</p>` : '';
+
+    if (error) {
+      return `<article class="compare-col"><div class="compare-col-head"><h2>${esc(strategy.name)}</h2>${description}</div><div class="compare-section"><div class="compare-section-title">Simulation Error</div><div class="mini-item">${esc(error)}</div></div></article>`;
+    }
+
+    const resultHtml = [
+      metric('Total Invested', money(result.total_invested)),
+      metric('Final Value', money(result.final_value)),
+      metric('Absolute Gain', money(result.absolute_gain), gainCls),
+      metric('XIRR', pct(result.xirr), xirrCls),
+      metric('CAGR', pct(result.cagr), (result.cagr || 0) >= 0 ? 'positive' : 'negative'),
+      metric('Benchmark CAGR', pct(result.benchmark_cagr)),
+    ].join('');
+
+    const riskHtml = [
+      metric('Max Drawdown', pct(result.max_drawdown, 1), 'negative'),
+      metric('Volatility', pct(result.volatility, 1)),
+      metric('Worst Month', pct(result.worst_month, 2), 'negative'),
+      metric('Worst Quarter', pct(result.worst_quarter, 2), 'negative'),
+      metric('Sharpe', result.sharpe != null ? Number(result.sharpe).toFixed(2) : '-'),
+      metric('Sortino', result.sortino != null ? Number(result.sortino).toFixed(2) : '-'),
+      metric('Calmar', result.calmar != null ? Number(result.calmar).toFixed(2) : '-'),
+    ].join('');
+
+    const settingsHtml = [
+      detail('Window', `${settings.start_date || result.start_date || '-'} to ${settings.end_date || result.end_date || '-'}`),
+      detail('Benchmark', settings.benchmark_id || '-'),
+      detail('Inflation', settings.inflation_enabled ? `${settings.inflation_mode || 'manual'} (${settings.inflation_rate || 0}%)` : 'Off'),
+      detail('Monte Carlo', settings.mc_enabled ? `${settings.mc_simulations || 500} sims, ${settings.mc_horizon_years || 10} yrs` : 'Off'),
+      detail('Rebalance', plan.rebalance ? `${plan.rebalance.mode || 'frequency'} | ${plan.rebalance.frequency || '-'}` : 'None'),
+    ].join('');
+
+    const planHtml = assets.length ? assets.map(asset => `
+      <div class="mini-item">
+        <strong>${esc(asset.label)}</strong>
+        ${(asset.rules || []).map(ruleSummary).map(esc).join('<br>') || 'No rules saved'}
+      </div>`).join('') : '<div class="mini-item">No assets saved.</div>';
+
+    const perAssetHtml = (result.per_asset || []).map(asset => `
+      <div class="mini-item">
+        <strong>${esc(asset.label)}</strong>
+        Invested: ${money(asset.total_invested)}<br>
+        Current: ${money(asset.current_value)}<br>
+        XIRR: ${pct(asset.xirr)} | Contribution: ${(asset.contribution_pct || 0).toFixed(1)}%
+      </div>`).join('') || '<div class="mini-item">No asset result.</div>';
+
+    const attributionHtml = (result.rule_attribution || []).slice(0, 8).map(row => `
+      <div class="mini-item">
+        <strong>${esc(row.rule_type || 'Rule')} - ${esc(row.asset_id || '')}</strong>
+        Fired: ${row.fire_count || 0}<br>
+        Invested: ${money(row.total_invested)} | Redeemed: ${money(row.total_redeemed)}
+      </div>`).join('') || '<div class="mini-item">No attribution data.</div>';
+
+    return `<article class="compare-col">
+      <div class="compare-col-head"><h2>${esc(strategy.name)}</h2>${description}<p>Saved ${new Date(strategy.updated_at).toLocaleString()}</p></div>
+      <div class="compare-section"><div class="compare-section-title">Core Results</div>${resultHtml}</div>
+      <div class="compare-section"><div class="compare-section-title">Risk</div>${riskHtml}</div>
+      <div class="compare-section"><div class="compare-section-title">Saved Settings</div>${settingsHtml}</div>
+      <div class="compare-section"><div class="compare-section-title">Saved Plan</div><div class="rule-list-small">${planHtml}</div></div>
+      <div class="compare-section"><div class="compare-section-title">Per-Asset Results</div><div class="asset-list-small">${perAssetHtml}</div></div>
+      <div class="compare-section"><div class="compare-section-title">Rule Attribution</div><div class="rule-list-small">${attributionHtml}</div></div>
+    </article>`;
+  }
+
+  async function loadAndRun(id, index) {
+    statusEl.textContent = `Loading strategy ${index + 1} of ${ids.length}...`;
+    const detailResp = await fetch(`/portfolio/strategies/api/${id}/`, { headers: { 'Accept': 'application/json' } });
+    const strategy = await detailResp.json();
+    if (strategy.error) throw new Error(strategy.error);
+
+    statusEl.textContent = `Simulating ${strategy.name}...`;
+    const runResp = await fetch('/portfolio/backtester/v2/run/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'Accept': 'application/json' },
+      body: JSON.stringify(strategy.plan_json),
+    });
+    const result = await runResp.json();
+    if (result.error) return { strategy, error: result.error };
+
+    fetch(`/portfolio/strategies/api/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({ last_result_json: result }),
+    }).catch(() => {});
+
+    return { strategy, result };
+  }
+
+  (async () => {
+    const columns = [];
+    for (let i = 0; i < ids.length; i += 1) {
+      try {
+        columns.push(await loadAndRun(ids[i], i));
+      } catch (err) {
+        columns.push({ strategy: { name: `Strategy ${ids[i]}`, description: '', updated_at: new Date().toISOString(), plan_json: {} }, error: err.message });
+      }
+      grid.innerHTML = columns.map(item => renderColumn(item.strategy, item.result, item.error)).join('');
+    }
+    statusEl.textContent = `Compared ${columns.length} strateg${columns.length === 1 ? 'y' : 'ies'}.`;
+  })();
+})();
+</script>
+{% endblock %}

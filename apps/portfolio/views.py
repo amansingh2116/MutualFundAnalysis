@@ -15,7 +15,7 @@ from django.views import View
 
 from apps.funds.models import NAVHistory, Scheme
 from apps.holdings.models import Holding
-from apps.portfolio.models import Portfolio, Transaction
+from apps.portfolio.models import Portfolio, SavedStrategy, Transaction
 from apps.portfolio.parsers import parse_portfolio_file
 
 logger = logging.getLogger('mfanalysis')
@@ -660,13 +660,23 @@ ALL_INDICES = [
         "BSE Enhanced Value Index", "BSE Quality Index", "BSE Low Volatility Index",
     ]
 
+@login_required
+def portfolio_backtester_hub_view(request):
+    """Render the Backtester hub for authenticated users."""
+    return render(request, 'portfolio/backtester_hub.html')
+
+
+@login_required
 def portfolio_backtester_view(request):
     """Render the Backtester v2 builder UI."""
+    strategy_id = request.GET.get('strategy', '').strip()
     return render(request, 'portfolio/backtester.html', {
         'all_indices': json.dumps(ALL_INDICES),
+        'initial_strategy_id': strategy_id if strategy_id.isdigit() else '',
     })
 
 
+@json_login_required
 def portfolio_fund_search_api(request):
     """
     AJAX fund search — returns matching MF schemes and indices.
@@ -739,6 +749,7 @@ def portfolio_fund_search_api(request):
     return JsonResponse({'results': results})
 
 
+@json_login_required
 def backtester_v2_run_api(request):
     """
     POST /portfolio/backtester/v2/run/
@@ -1020,6 +1031,7 @@ def backtester_v2_run_api(request):
         return JsonResponse({'error': str(exc)}, status=400)
 
 
+@json_login_required
 def backtester_pe_api(request):
     """
     GET /portfolio/backtester/pe-data/?index=NIFTY+50&from=2015-01-01&to=2024-12-31
@@ -1054,9 +1066,23 @@ def backtester_pe_api(request):
 
 @login_required
 def strategies_page(request):
-    """Render the saved strategies compare page."""
+    """Render the saved strategies library page."""
     strategies = request.user.saved_strategies.all().order_by('-updated_at')
     return render(request, 'portfolio/strategies.html', {'strategies': strategies})
+
+
+@login_required
+def strategy_compare_page(request):
+    """Render side-by-side comparison for selected saved strategies."""
+    ids_raw = request.GET.get('ids', '')
+    selected_ids = [int(s) for s in ids_raw.split(',') if s.strip().isdigit()][:4]
+    strategies = SavedStrategy.objects.filter(user=request.user, id__in=selected_ids)
+    by_id = {s.id: s for s in strategies}
+    ordered = [by_id[sid] for sid in selected_ids if sid in by_id]
+    return render(request, 'portfolio/strategy_compare.html', {
+        'strategies': ordered,
+        'strategy_ids': ','.join(str(s.id) for s in ordered),
+    })
 
 
 @json_login_required
@@ -1130,6 +1156,17 @@ def strategy_detail_api(request, strategy_id: int):
         strategy = SavedStrategy.objects.get(id=strategy_id, user=request.user)
     except SavedStrategy.DoesNotExist:
         return JsonResponse({'error': 'Strategy not found.'}, status=404)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'id': str(strategy.id),
+            'name': strategy.name,
+            'description': strategy.description,
+            'updated_at': strategy.updated_at.isoformat(),
+            'plan_json': strategy.plan_json,
+            'last_result_json': strategy.last_result_json,
+            'has_result': strategy.last_result_json is not None,
+        })
 
     if request.method == 'DELETE':
         strategy.delete()

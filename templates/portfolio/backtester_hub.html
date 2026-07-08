@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Backtester{% endblock %}
+{% block content %}
+<style>
+  .bt-hub { max-width: 1120px; margin: 36px auto; padding: 0 20px; }
+  .bt-hub-head { margin-bottom: 22px; }
+  .bt-hub-head h1 { margin: 0; font-size: 28px; color: var(--text-primary); }
+  .bt-hub-head p { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; }
+  .bt-hub-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .bt-hub-card { min-height: 260px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: inherit; text-decoration: none; padding: 26px; display: flex; flex-direction: column; justify-content: space-between; transition: border-color .18s ease, transform .18s ease, background .18s ease; }
+  .bt-hub-card:hover { border-color: var(--border-accent); background: var(--bg-card-hover); transform: translateY(-2px); }
+  .bt-hub-icon { width: 46px; height: 46px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; color: white; background: var(--accent); }
+  .bt-hub-card.saved .bt-hub-icon { background: var(--emerald-600, #059669); }
+  .bt-hub-card h2 { margin: 18px 0 8px; font-size: 22px; color: var(--text-primary); }
+  .bt-hub-card p { margin: 0; color: var(--text-secondary); line-height: 1.55; font-size: 14px; }
+  .bt-hub-action { margin-top: 22px; font-size: 13px; font-weight: 700; color: var(--indigo-400); }
+  @media (max-width: 820px) { .bt-hub-grid { grid-template-columns: 1fr; } .bt-hub-card { min-height: 210px; } }
+</style>
+
+<div class="bt-hub">
+  <div class="bt-hub-head">
+    <h1>Strategy Backtester</h1>
+    <p>Build new strategies, load saved ones, and compare results before choosing what deserves attention.</p>
+  </div>
+
+  <div class="bt-hub-grid">
+    <a class="bt-hub-card" href="{% url 'portfolio:backtester_build' %}">
+      <div>
+        <div class="bt-hub-icon">BT</div>
+        <h2>Build & Test Strategy</h2>
+        <p>Open the full strategy builder to add funds or indices, configure SIP, lumpsum, switch, sell, triggers, rebalancing, and simulation settings.</p>
+      </div>
+      <div class="bt-hub-action">Open builder</div>
+    </a>
+
+    <a class="bt-hub-card saved" href="{% url 'portfolio:strategies' %}">
+      <div>
+        <div class="bt-hub-icon">SS</div>
+        <h2>Saved Strategies</h2>
+        <p>Search saved strategies by name, reload them into the builder, or select up to four to compare simulated outcomes side by side.</p>
+      </div>
+      <div class="bt-hub-action">View saved strategies</div>
+    </a>
+  </div>
+</div>
+{% endblock %}

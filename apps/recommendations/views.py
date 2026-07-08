@@ -141,6 +141,6 @@ def backtest_view(request):
     import urllib.parse
     prefill_json = urllib.parse.quote(_json.dumps(prefill_funds))
     today_str = date.today().strftime('%Y-%m-%d')
-    backtester_url = f"{redirect('portfolio:backtester').url}?prefill={prefill_json}&rebalance_mode=annual&debt_park_id=NIFTY+LIQUID+INDEX&start_date={five_years_ago}&end_date={today_str}"
+    backtester_url = f"{redirect('portfolio:backtester_build').url}?prefill={prefill_json}&rebalance_mode=annual&debt_park_id=NIFTY+LIQUID+INDEX&start_date={five_years_ago}&end_date={today_str}"
     return redirect(backtester_url)
 
