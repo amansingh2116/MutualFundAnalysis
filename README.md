@@ -27,8 +27,12 @@
 - Per-fund and portfolio-level **XIRR** using SciPy root-finding
 - **Blended benchmark comparison** weighted by actual capital allocation
 - **Concentration score** (Herfindahl-Hirschman Index) and Portfolio turnover analysis
+- **Portfolio Dashboard tabs**: Overview, Analytics & Performance, Rebalancing & Alerts, **Overlap Matrix**, **Benchmark Analysis**
+- **Inline Overlap Matrix** (dashboard tab): fetches stock-level overlap data via JSON API, renders an interactive Plotly heatmap + table without leaving the dashboard
+- **Inline Benchmark Analysis** (dashboard tab): build a custom blended benchmark from any available NSE indices, compare portfolio vs default blend vs custom blend vs NIFTY 50 — equity curves, XIRR, Alpha, Beta, Sharpe, Sortino, Capture Ratios; all inline
 
 ### Strategy Backtester V2
+- **Backtester Hub** landing page with two entry points: _Build & Test Strategy_ and _Saved Strategies_
 - Build a custom portfolio with **mutual funds and/or NSE indices**
 - Simulate **SIP, Step-Up SIP, Lumpsum, SWP (withdrawal), and Switch** investment strategies
 - Attach **conditional triggers** to any rule:
@@ -39,11 +43,15 @@
   - Calendar Date (one-time or recurring)
 - **Rebalancing** engine: frequency-based (monthly/quarterly/annually) or drift-threshold based
 - **Inflation adjustment**: Manual rate or live World Bank India CPI data (via wbgapi)
+- **Tax Calculation**: User-configurable Equity STCG / LTCG / LTCG-exemption / Debt-slab rates applied to FIFO-cost redemptions; toggled via the settings panel
 - **Monte Carlo projection**: 200–1000 simulated future scenarios with P10/P25/P50/P75/P90 fan
 - **Results tabs**: Summary, Risk (drawdown/Sharpe/Sortino/Calmar/VaR), Consistency (equity chart, annual returns, monthly heatmap, rolling returns), Attribution, Adjusted Returns, Ledger, Monte Carlo
-- **Rolling Return metrics**: Best / Average / Median / Worst CAGR over 3Y / 5Y / 7Y windows
+- **Rolling Return charts** (Consistency tab): Rolling Return Distribution (box plots per 3Y/5Y/7Y window, portfolio vs benchmark) and **Rolling Return Trend** (time-series of rolling CAGR, switchable 3Y/5Y/7Y)
+- **Daily & Monthly Return Distribution histograms** with avg, volatility, best/worst month summary cards
 - **Monthly Return Heatmap**: Year × Month color-coded grid (red/green)
-- **Save & Load strategies**: Persist strategy plans to your account, restore them at any time
+- **Save & Load strategies**: Persist strategy plans to your account with cached result JSON; restore at any time
+- **Saved Strategies list** (`/portfolio/strategies/`) with search and checkbox selection
+- **Strategy Compare page**: Select 2–4 saved strategies and compare simulated outcomes side-by-side (equity curves, risk metrics, annual returns, rolling return summaries)
 - Full **Transaction Ledger** and **Trigger Attribution** views
 - See `documentation/backtester_analysis.md` for the complete user and developer guide
 
@@ -122,8 +130,10 @@ MutualFundAnalysis/
 ├── adapters/                    ← Third-party API integrations (AMFI, Morningstar, Yahoo)
 ├── templates/                   ← Django HTML templates
 │   └── portfolio/
-│       ├── backtester.html      ← Strategy Backtester UI (~3,300 lines)
-│       └── strategies.html      ← Saved strategies list page
+│       ├── backtester_hub.html  ← Backtester landing page (Build vs Saved Strategies)
+│       ├── backtester.html      ← Strategy Backtester builder & results UI (~3,800 lines)
+│       ├── strategies.html      ← Saved strategies list with search & multi-select compare
+│       └── strategy_compare.html← Side-by-side strategy comparison page
 ├── static/                      ← CSS and JS static files
 ├── scripts/                     ← Utility and development scripts
 ├── Resources/                   ← Learn content source files (PDF guides, markdown blogs, local images)
@@ -131,7 +141,7 @@ MutualFundAnalysis/
 └── documentation/               ← Technical documentation
     ├── backtester_analysis.md       ← ⭐ Full backtester user & developer guide
     ├── backtester_spec_v2.md        ← Backtester V2 design specification
-    ├── BACKTESTER_CHANGELOG.md      ← Backtester v2.1 changes & pending work
+    ├── BACKTESTER_CHANGELOG.md      ← Backtester v2.x changes & pending work
     ├── DATA_PIPELINE_AND_COMMANDS.md ← Guide to running ingestion pipelines
     ├── PROJECT_CONTEXT.md           ← Full architectural overview for developers
     ├── DEPLOYMENT.md                ← Render.com deployment and local setup
@@ -202,7 +212,9 @@ Learn content lives in `Resources/PDF Guides/` and `Resources/Blogs/`. See `docu
 ```bash
 python manage.py runserver
 ```
-- Backtester: `http://127.0.0.1:8000/portfolio/backtester/`
+- Backtester Hub: `http://127.0.0.1:8000/portfolio/backtester/`
+- Strategy Builder: `http://127.0.0.1:8000/portfolio/backtester/build/`
+- Saved Strategies: `http://127.0.0.1:8000/portfolio/strategies/`
 - Fund Screener: `http://127.0.0.1:8000/funds/screener/`
 - Admin: `http://127.0.0.1:8000/admin/`
 

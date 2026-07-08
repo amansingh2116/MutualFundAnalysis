@@ -1,8 +1,8 @@
 # ⚗️ Strategy Backtester — Complete Guide
 
-> **Version:** V2 (current)  
+> **Version:** V2 (current, v2.2)  
 > **Last updated:** July 2026  
-> **Status:** Production (with known pending fixes — see `backtester_pending_fixes.md`)
+> **Status:** Production — see `documentation/BACKTESTER_CHANGELOG.md` for changelog and pending items
 
 This document is the authoritative guide to the **Strategy Backtester** feature of the MutualFundAnalysis platform. It covers everything: how to run it, what every option does, how the math works under the hood, and how to test or debug it as a developer.
 
@@ -42,12 +42,12 @@ For example: *"If I had done a ₹5,000/month SIP into Parag Parikh Flexi Cap fr
 **Key capabilities:**
 - Mix **mutual funds** and **NSE indices** in a single portfolio
 - Simulate **SIP, Step-Up SIP, Lumpsum, SWP (withdrawal), and Switch** investment actions
-- Attach **conditional triggers** to any rule (buy more when PE is low, sell when drawdown hits 20%, etc.)
+- Attach **conditional triggers** to any rule (buy more when drawdown hits, sell when MA falls, etc.)
 - **Rebalance** the portfolio annually or when allocations drift
 - Compare against a **benchmark** (any single index or a custom weighted mix of indices)
-- Account for **taxes, inflation, exit loads**
+- Account for **taxes** (user-configurable STCG/LTCG/debt rates), **inflation**, and exit loads
 - Run **Monte Carlo projections** to see a probability range of future outcomes
-- Save strategies and **compare side-by-side** (coming soon)
+- **Save strategies** and **compare side-by-side** using the Strategy Compare page
 
 ---
 
@@ -55,7 +55,10 @@ For example: *"If I had done a ₹5,000/month SIP into Parag Parikh Flexi Cap fr
 
 ### URL
 ```
-http://localhost:8000/portfolio/backtester/
+http://localhost:8000/portfolio/backtester/        ← Hub (landing page)
+http://localhost:8000/portfolio/backtester/build/  ← Builder + results
+http://localhost:8000/portfolio/strategies/         ← Saved strategies list
+http://localhost:8000/portfolio/strategies/compare/ ← Side-by-side comparison
 ```
 
 ### Prerequisites
@@ -233,15 +236,19 @@ Detailed risk analysis of the portfolio.
 
 ---
 
-### Tab 3 — Charts
+### Tab 3 — Consistency (Charts)
 
 Multiple interactive Plotly charts:
 
 1. **Portfolio Value vs Invested** — Shows how portfolio value grew vs cumulative cash invested. The gap = your gain. Benchmark is shown as a dotted line.
-2. **Drawdown Chart** — Depth of portfolio drawdown over time (how far below the peak)
+2. **Drawdown Chart** — Depth of portfolio drawdown over time (how far below the peak). Benchmark drawdown shown as a dashed overlay.
 3. **Annual Returns Bar Chart** — Calendar year returns (Time-Weighted, independent of cash flows)
-4. **Monthly Heatmap** — Month-by-month return colour grid
-5. **Rolling Returns Box Plot** — Distribution of 1Y, 3Y, 5Y rolling returns — shows range of outcomes depending on when you started
+4. **Monthly Heatmap** — Month-by-month return colour grid (red = negative, green = positive)
+5. **Daily Return Distribution** — Histogram of all daily portfolio returns with a normal curve overlay
+6. **Monthly Return Distribution** — Histogram of all monthly portfolio returns
+7. **Return Summary Cards** — Daily avg return, daily volatility, monthly avg return, monthly volatility, best month, worst month
+8. **Rolling Return Distribution** — Grouped box plots for 3Y / 5Y / 7Y rolling CAGR windows comparing portfolio vs benchmark
+9. **Rolling Return Trend** — Time-series line chart of rolling CAGR (portfolio + benchmark) plotted by investment start date; use the 3Y / 5Y / 7Y buttons to switch window
 
 ---
 
@@ -299,17 +306,14 @@ Click the **"⚡ Set Trigger"** button on any rule card. A modal opens with:
 
 | Signal | What it measures | Typical use |
 |--------|-----------------|-------------|
-| **Drawdown from ATH** | How far this specific asset is from its all-time high (%) | "Buy more when this fund drops 20% from peak" |
-| **NIFTY 50 PE Ratio** | Price-to-Earnings ratio of NIFTY 50 (from NSE data) | "Buy lumpsum when market PE < 18" |
-| **NIFTY 50 PB Ratio** | Price-to-Book ratio of NIFTY 50 | "Pause SIP when PB > 4" |
-| **NIFTY 50 Dividend Yield** | Dividend yield of NIFTY 50 | "Buy when yield > 1.5%" |
-| **Relative Valuation Ratio** | NAV ratio of any two assets (A/B) | "Switch when small-cap has outperformed large-cap by 2x" |
-| **200-DMA (Moving Average)** | Whether any fund/index is above or below its 200-day MA | "Pause SIP when below 200-DMA (bearish)" |
-| **RSI** | Relative Strength Index of any fund/index (default 14-day period) | "Buy when RSI < 30 (oversold)" |
+| **Drawdown from ATH** | How far a specific asset is from its all-time high (%) | "Buy more when this fund drops 20% from peak" |
 | **Portfolio Drawdown** | Overall portfolio drawdown from peak | "Sell 10% when portfolio drops 30%" |
+| **Relative Valuation Ratio** | NAV ratio of any two assets (A/B) | "Switch when small-cap has outperformed large-cap by 2x" |
+| **200-DMA (Moving Average)** | Whether any fund/index is above or below its configurable-period MA (default 200-day) | "Pause SIP when below 200-DMA (bearish)" |
+| **RSI** | Relative Strength Index of any fund/index (default 14-day period) | "Buy when RSI < 30 (oversold)" |
 | **Calendar Date** | A specific date (one-time or recurring) | "Annual lumpsum every January 1st" |
 
-> **Note:** PE/PB/Dividend Yield data is fetched from NSE via the niftyindices.com API. Data availability depends on network access to NSE servers.
+> **Note:** PE/PB/Dividend Yield triggers have been removed from the UI. The niftyindices.com API blocks server-side requests, making these signals unreliable. They may return in a future release if a reliable data source is found.
 
 #### Trigger Condition Parameters
 
@@ -343,15 +347,17 @@ The engine sells units of over-weighted assets and buys units of under-weighted 
 
 ### Tax Calculation
 
-Enable the **💰 Tax Calculation** toggle in Step 3.
+Enable the **💰 Tax Calculation** toggle in Step 3. Rates are user-configurable so you can keep them current as tax laws change.
 
 Applies Indian mutual fund tax rules:
 - **Equity STCG (Short-Term Capital Gains):** Gains on equity funds held < 1 year — default 20%
 - **Equity LTCG (Long-Term Capital Gains):** Gains on equity funds held ≥ 1 year — default 12.5%
-- **LTCG Exemption:** First ₹1,25,000 of LTCG per year is tax-free
+- **LTCG Exemption:** Enter the annual LTCG exemption amount (default ₹1,25,000)
 - **Debt Tax Rate:** Gains on debt funds are taxed at slab rate — default 30%
 
 The simulation uses a **FIFO (first in, first out)** lot tracking approach. Each purchase is tracked separately to determine holding period and applicable tax rate at the time of any sale.
+
+**Important disclaimer:** Tax rules change over time. Update the rates in the panel before any accuracy-critical analysis. Actual tax may differ due to surcharge, cess, indexation history, grandfathering, set-offs, and personal circumstances. Consult a tax advisor before making financial decisions.
 
 **Results show:** STCG paid, LTCG paid, total tax drag (XIRR reduction due to taxes), and post-tax XIRR.
 
@@ -447,7 +453,7 @@ graph TD
 | `apps/portfolio/services/backtester_v2.py` | Core simulation engine (~2,420 lines) |
 | `apps/portfolio/services/pe_adapter.py` | PE/PB/DivYield data fetcher with retry and SQLite cache |
 | `apps/portfolio/urls.py` | URL routing |
-| `apps/portfolio/models.py` | Django models (SavedStrategy — coming soon) |
+| `apps/portfolio/models.py` | Django models: `SavedStrategy` (plan_json + last_result_json), `Portfolio`, `PortfolioTransaction` |
 
 ### Frontend State Management
 
@@ -815,19 +821,20 @@ df = wb.data.DataFrame('FP.CPI.TOTL.ZG', 'IND')
 print(df[['YR2020', 'YR2021', 'YR2022', 'YR2023']].T)
 ```
 
+
 ### Common Debugging Scenarios
 
 **"No results in fund search"**
 → Run `python manage.py build_scheme_master` to populate the scheme registry.
 
 **"JSONDecodeError in PE fetch"**
-→ Known issue with niftyindices.com API date format or session requirements. See `backtester_pending_fixes.md` Issue 7.
+→ PE/PB/DivYield signals have been removed from the UI. This error should no longer occur.
 
 **"wbgapi not installed" warning**
 → wbgapi IS installed in the venv. Ensure you're using `venv/Scripts/python` not system Python.
 
 **"Sharpe is 0"**
-→ Portfolio series has leading zeros (before first SIP). The fix (trim leading zeros) is documented in `backtester_pending_fixes.md` Issue 12.
+→ Fixed in v2.1 — leading zeros are trimmed from the portfolio series before Sharpe/Sortino computation.
 
 **"Contribution % chart empty"**
 → NAV lookup for end date failing. Check if `apps.benchmarks.BenchmarkNAV` has data up to the simulation end date. Run `python manage.py ingest_benchmarks`.
@@ -836,26 +843,30 @@ print(df[['YR2020', 'YR2021', 'YR2022', 'YR2023']].T)
 
 ## 10. Known Issues & Pending Fixes
 
-See **`documentation/backtester_pending_fixes.md`** for the complete, detailed list of all known bugs and their planned fixes.
+See **`documentation/BACKTESTER_CHANGELOG.md`** for the complete changelog and pending work list.
 
-**Summary of major pending issues:**
+**Summary of remaining pending issues (as of v2.2):**
 
 | # | Issue | Severity |
 |---|-------|----------|
-| 1 | MC toggle button doesn't visually show "on" state | Medium |
-| 2 | Live PE widget in header is broken | Low |
-| 3 | Benchmark search shows mutual funds (should be indices only); no default; not shown in all tabs | High |
-| 4 | Investment dates not validated against simulation dates | High |
-| 5 | RSI/MA/RelVal trigger only shows selected assets (should search any) | Medium |
-| 6 | PE trigger shows all indices (only NIFTY 50 has data); PB/DivYield not implemented | Medium |
-| 7 | nsepython PE fetch fails (date format + session cookie issue) | High |
-| 8 | wbgapi inflation uses wrong API call pattern | Medium |
-| 9 | Switch rule target only shows selected assets (should search any fund/index) | Medium |
-| 10 | Proxy debt + remove synthetic debt rate field | Medium |
-| 11 | Remove CAGR; keep XIRR only | Low |
-| 12 | Sharpe = 0 (leading zeros in portfolio series) | High |
-| 13 | Fund contribution % chart empty | High |
-| 14 | Save strategies feature not yet implemented | High |
+| 1 | Date validation — rule/sim dates not validated against fund inception dates | High |
+| 2 | Custom weighted benchmark inside the backtester (separate from portfolio dashboard) | Medium |
+| 3 | PE/PB/DivYield triggers — data source unavailable server-side (removed from UI) | Deferred |
+| 4 | Expanded Drawdown Index selection in Consistency tab | Low |
+| 5 | Manual testing of strategy accuracy vs real-world results | Medium |
+
+**Issues fixed in v2.1 / v2.2:**
+- ✅ MC toggle button visual state fixed
+- ✅ PE/PB/DivYield signals removed (no longer shown or fetched)
+- ✅ ATH drawdown trigger uses live search (any fund/index)
+- ✅ Investment date validation partially addressed (no auto-adjust yet)
+- ✅ RSI/MA/RelVal trigger live search works for any asset
+- ✅ wbgapi inflation fixed (`wb.data.DataFrame()`)
+- ✅ Sharpe = 0 (leading zeros trimmed)
+- ✅ Fund contribution % chart fixed (category-axis)
+- ✅ Save/Load strategies fully working
+- ✅ Strategy Compare page implemented
+- ✅ Tax calculation UI enabled with configurable rates
 
 ---
 
