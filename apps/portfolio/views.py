@@ -911,6 +911,7 @@ def backtester_v2_run_api(request):
             end_date=_pd(raw_settings.get('end_date')),
             benchmark_type=str(raw_settings.get('benchmark_type', 'index')),
             benchmark_id=str(raw_settings.get('benchmark_id', '')),
+            benchmark_components=raw_settings.get('benchmark_components') or [],
             synthetic_debt_rate=float(raw_settings.get('synthetic_debt_rate', 7.0)),
             transaction_cost=float(raw_settings.get('transaction_cost', 0)),
             exit_load_enabled=bool(raw_settings.get('exit_load_enabled', False)),
@@ -973,7 +974,7 @@ def backtester_v2_run_api(request):
             'sortino': result.sortino,
             'calmar': result.calmar,
             'romad': result.romad,
-            # Tab 3 — Charts
+            # Consistency charts
             'dates': result.dates,
             'portfolio_values': result.portfolio_values,
             'invested_cumulative': result.invested_cumulative,
@@ -983,11 +984,23 @@ def backtester_v2_run_api(request):
             'calendar_returns': result.calendar_returns,
             'monthly_returns': result.monthly_returns,
             'event_markers': result.event_markers,
-            # Tab 3 — Rolling returns (box plots)
+            # Tab 3 - Rolling returns (box plots and dated trends)
             'rolling_1y': result.rolling_1y,
             'rolling_3y': result.rolling_3y,
             'rolling_5y': result.rolling_5y,
             'rolling_7y': result.rolling_7y,
+            'rolling_1y_dates': result.rolling_1y_dates,
+            'rolling_3y_dates': result.rolling_3y_dates,
+            'rolling_5y_dates': result.rolling_5y_dates,
+            'rolling_7y_dates': result.rolling_7y_dates,
+            'benchmark_rolling_1y': result.benchmark_rolling_1y,
+            'benchmark_rolling_3y': result.benchmark_rolling_3y,
+            'benchmark_rolling_5y': result.benchmark_rolling_5y,
+            'benchmark_rolling_7y': result.benchmark_rolling_7y,
+            'benchmark_rolling_1y_dates': result.benchmark_rolling_1y_dates,
+            'benchmark_rolling_3y_dates': result.benchmark_rolling_3y_dates,
+            'benchmark_rolling_5y_dates': result.benchmark_rolling_5y_dates,
+            'benchmark_rolling_7y_dates': result.benchmark_rolling_7y_dates,
             # Tab 3 extra — PE overlay (Phase 3)
             'pe_chart_series': result.pe_chart_series,
             'pe_index_name': result.pe_index_name,

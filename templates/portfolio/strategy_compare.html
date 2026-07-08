@@ -24,6 +24,24 @@
   .asset-list-small, .rule-list-small { display: grid; gap: 8px; }
   .mini-item { border: 1px solid rgba(148,163,184,0.16); border-radius: 6px; padding: 8px; color: var(--text-secondary); font-size: 11px; line-height: 1.45; }
   .mini-item strong { color: var(--text-primary); display: block; margin-bottom: 3px; }
+  .comparison-charts { display: grid; gap: 12px; margin: 14px 0 16px; }
+  .chart-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cmp-chart { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); padding: 12px; min-width: 0; }
+  .cmp-chart-title { color: var(--text-primary); font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+  .compare-benchmark-panel { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); padding: 12px; margin: 12px 0; }
+  .benchmark-controls { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto; gap: 8px; align-items: center; position: relative; }
+  .benchmark-controls input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-primary); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+  .cmp-dropdown { position: absolute; z-index: 20; top: 38px; left: 0; right: 150px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); box-shadow: 0 12px 28px rgba(0,0,0,0.35); display: none; max-height: 260px; overflow: auto; }
+  .cmp-dropdown.open { display: block; }
+  .cmp-option { padding: 9px 10px; border-bottom: 1px solid rgba(148,163,184,0.12); cursor: pointer; color: var(--text-primary); font-size: 12px; }
+  .cmp-option:hover { background: rgba(99,102,241,0.12); }
+  .cmp-option small { display:block; color: var(--text-muted); margin-top:2px; }
+  .cmp-benchmark-rows { display: grid; gap: 6px; margin-top: 8px; }
+  .cmp-benchmark-row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 28px; gap: 6px; align-items: center; }
+  .cmp-benchmark-row input { min-width: 0; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-primary); border-radius: 6px; padding: 7px 8px; font-size: 12px; }
+  .period-buttons { display:flex; gap:6px; flex-wrap:wrap; }
+  .period-buttons button { padding: 4px 10px; font-size: 11px; }
+  @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
   @media (max-width: 900px) { .compare-head { flex-direction: column; } .compare-grid { grid-template-columns: 1fr !important; } }
 </style>
 
@@ -41,6 +59,57 @@
 
   {% if strategies %}
     <div id="compareStatus" class="compare-status">Preparing comparison...</div>
+    <div class="compare-benchmark-panel">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-size:13px;font-weight:800;color:var(--text-primary)">Comparison Benchmark</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px">All selected strategies are simulated against the same benchmark. Default is NIFTY 50.</div>
+        </div>
+        <div id="cmpBenchmarkTotal" style="font-size:11px;color:var(--emerald-400);font-weight:700">Using NIFTY 50</div>
+      </div>
+      <div class="benchmark-controls">
+        <input type="text" id="cmpBenchmarkSearch" placeholder="Add index for custom benchmark..." autocomplete="off" />
+        <button type="button" class="btn btn-secondary btn-sm" onclick="clearCmpBenchmark()">NIFTY 50</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="runComparison()">Apply</button>
+        <div id="cmpBenchmarkDropdown" class="cmp-dropdown"></div>
+      </div>
+      <div id="cmpBenchmarkRows" class="cmp-benchmark-rows"></div>
+    </div>
+    <div id="comparisonCharts" class="comparison-charts" style="display:none">
+      <div class="cmp-chart">
+        <div class="cmp-chart-title">NAV Comparison</div>
+        <div id="cmpNavChart" style="height:320px"></div>
+      </div>
+      <div class="cmp-chart">
+        <div class="cmp-chart-title">Drawdown Comparison</div>
+        <div id="cmpDrawdownChart" style="height:260px"></div>
+      </div>
+      <div class="chart-row">
+        <div class="cmp-chart">
+          <div class="cmp-chart-title">Daily Return Distribution</div>
+          <div id="cmpDailyDistributionChart" style="height:250px"></div>
+        </div>
+        <div class="cmp-chart">
+          <div class="cmp-chart-title">Monthly Return Distribution</div>
+          <div id="cmpMonthlyDistributionChart" style="height:250px"></div>
+        </div>
+      </div>
+      <div class="cmp-chart">
+        <div class="cmp-chart-title">Annual Returns</div>
+        <div id="cmpAnnualChart" style="height:280px"></div>
+      </div>
+<div class="chart-row">
+        <div class="cmp-chart">
+          <div class="cmp-chart-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Rolling Return Distribution</span><span class="period-buttons"><button type="button" class="btn btn-secondary btn-sm" id="cmpRollBtn3" onclick="setCmpRollingWindow('3Y')">3Y</button><button type="button" class="btn btn-secondary btn-sm" id="cmpRollBtn5" onclick="setCmpRollingWindow('5Y')">5Y</button><button type="button" class="btn btn-secondary btn-sm" id="cmpRollBtn7" onclick="setCmpRollingWindow('7Y')">7Y</button></span></div>
+          <div id="cmpRollingDistributionChart" style="height:280px"></div>
+        </div>
+        <div class="cmp-chart">
+          <div class="cmp-chart-title">Rolling Return Trend</div>
+          <div id="cmpRollingMetrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px"></div>
+          <div id="cmpRollingTrendChart" style="height:280px"></div>
+        </div>
+      </div>
+    </div>
     <div id="compareGrid" class="compare-grid" style="grid-template-columns: repeat({{ strategies|length }}, minmax(0, 1fr));"></div>
   {% else %}
     <div class="compare-status">Select two to four saved strategies before opening comparison.</div>
@@ -115,9 +184,15 @@
       metric('Calmar', result.calmar != null ? Number(result.calmar).toFixed(2) : '-'),
     ].join('');
 
+
+
+    const benchmarkLabel = settings.benchmark_components?.length
+      ? settings.benchmark_components.map(c => `${c.label || c.source_id} ${Number(c.weight || 0).toFixed(1)}%`).join(', ')
+      : (settings.benchmark_id || '-');
     const settingsHtml = [
       detail('Window', `${settings.start_date || result.start_date || '-'} to ${settings.end_date || result.end_date || '-'}`),
-      detail('Benchmark', settings.benchmark_id || '-'),
+      detail('Saved Benchmark', benchmarkLabel),
+      detail('Compared Benchmark', comparisonBenchmarkLabel()),
       detail('Inflation', settings.inflation_enabled ? `${settings.inflation_mode || 'manual'} (${settings.inflation_rate || 0}%)` : 'Off'),
       detail('Monte Carlo', settings.mc_enabled ? `${settings.mc_simulations || 500} sims, ${settings.mc_horizon_years || 10} yrs` : 'Off'),
       detail('Rebalance', plan.rebalance ? `${plan.rebalance.mode || 'frequency'} | ${plan.rebalance.frequency || '-'}` : 'None'),
@@ -148,12 +223,456 @@
       <div class="compare-col-head"><h2>${esc(strategy.name)}</h2>${description}<p>Saved ${new Date(strategy.updated_at).toLocaleString()}</p></div>
       <div class="compare-section"><div class="compare-section-title">Core Results</div>${resultHtml}</div>
       <div class="compare-section"><div class="compare-section-title">Risk</div>${riskHtml}</div>
+
       <div class="compare-section"><div class="compare-section-title">Saved Settings</div>${settingsHtml}</div>
       <div class="compare-section"><div class="compare-section-title">Saved Plan</div><div class="rule-list-small">${planHtml}</div></div>
       <div class="compare-section"><div class="compare-section-title">Per-Asset Results</div><div class="asset-list-small">${perAssetHtml}</div></div>
       <div class="compare-section"><div class="compare-section-title">Rule Attribution</div><div class="rule-list-small">${attributionHtml}</div></div>
     </article>`;
   }
+
+  const chartColors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b'];
+  const cmpLayout = {
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    font: { family: 'Inter, sans-serif', color: '#94a3b8', size: 11 },
+    margin: { t: 8, r: 12, b: 38, l: 58 },
+    xaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)' },
+    yaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)' },
+    legend: { bgcolor: 'transparent', orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+    hovermode: 'x unified',
+  };
+  const cmpConfig = { displayModeBar: false, responsive: true };
+  function queueComparePlotResize() {
+    if (typeof Plotly === 'undefined') return;
+    [40, 180, 500].forEach(delay => setTimeout(() => {
+      document.querySelectorAll('.js-plotly-plot').forEach(el => { if (el?.data) Plotly.Plots.resize(el); });
+    }, delay));
+  }
+  const rollingWindows = [
+    { label: '3Y', key: 'rolling_3y' },
+    { label: '5Y', key: 'rolling_5y' },
+    { label: '7Y', key: 'rolling_7y' },
+  ];
+  let cmpRollingWindow = '3Y';
+  let latestComparisonItems = [];
+  let cmpBenchmarkComponents = [];
+  let cmpBenchmarkTimer = null;
+
+  function strategyName(item, index) {
+    return item.strategy?.name || `Strategy ${index + 1}`;
+  }
+  function numericArray(values) {
+    return (values || []).map(Number).filter(v => Number.isFinite(v));
+  }
+  function cleanReturnValues(values, limit = 100) {
+    return numericArray(values).filter(v => Math.abs(v) < limit);
+  }
+  function rollingStats(values) {
+    const s = cleanReturnValues(values, 500).sort((a, b) => a - b);
+    if (!s.length) return null;
+    const avg = s.reduce((a, b) => a + b, 0) / s.length;
+    const mid = Math.floor(s.length / 2);
+    const median = s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    return { min: s[0], max: s[s.length - 1], avg, median, n: s.length };
+  }
+  function percentile(sorted, p) {
+    if (!sorted.length) return null;
+    const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * p)));
+    return sorted[idx];
+  }
+  function centeredRange(values) {
+    const sorted = [...values].sort((a, b) => a - b);
+    const lo = percentile(sorted, 0.01);
+    const hi = percentile(sorted, 0.99);
+    if (lo == null || hi == null || lo === hi) return undefined;
+    const pad = Math.max((hi - lo) * 0.14, 0.05);
+    return [lo - pad, hi + pad];
+  }
+  function emptyChart(id, message) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.data) Plotly.purge(el);
+    el.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px">${message}</div>`;
+  }
+
+  function firstPositiveTime(dates, values) {
+    for (let i = 0; i < (dates || []).length; i += 1) {
+      const v = Number(values?.[i]);
+      if (Number.isFinite(v) && v > 0) return new Date(dates[i]).getTime();
+    }
+    return null;
+  }
+  function cleanReturnPoints(values, dates, limit = 100) {
+    const out = [];
+    (values || []).forEach((raw, i) => {
+      const v = Number(raw);
+      const d = dates?.[i];
+      if (Number.isFinite(v) && Math.abs(v) < limit && d) out.push({ date: d, value: v });
+    });
+    return out;
+  }
+  function performanceSeries(result) {
+    const x = [];
+    const y = [];
+    (result.dates || []).forEach((d, i) => {
+      const pv = Number(result.portfolio_values?.[i]);
+      const inv = Number(result.invested_cumulative?.[i]);
+      if (Number.isFinite(pv) && Number.isFinite(inv) && pv > 0 && inv > 0) {
+        x.push(d);
+        y.push((pv / inv) * 100);
+      }
+    });
+    return { x, y };
+  }
+  function commonStartTime(items) {
+    const starts = items.map(item => {
+      const s = performanceSeries(item.result);
+      return firstPositiveTime(s.x, s.y);
+    }).filter(v => v != null);
+    const benchItem = items.find(item => item.result.benchmark_values?.length);
+    const benchStart = benchItem ? firstPositiveTime(benchItem.result.dates, benchItem.result.benchmark_values) : null;
+    if (benchStart != null) starts.push(benchStart);
+    return starts.length ? Math.max(...starts) : null;
+  }
+  function normalizeAtStart(dates, values, startTime) {
+    const outX = [];
+    const outY = [];
+    let base = null;
+    for (let i = 0; i < (dates || []).length; i += 1) {
+      const t = new Date(dates[i]).getTime();
+      const v = Number(values?.[i]);
+      if (!Number.isFinite(v) || v <= 0 || (startTime != null && t < startTime)) continue;
+      if (base == null) base = v;
+      outX.push(dates[i]);
+      outY.push((v / base) * 100);
+    }
+    return { x: outX, y: outY };
+  }
+
+  function renderComparisonCharts(items) {
+    latestComparisonItems = items;
+    if (!items.length || typeof Plotly === 'undefined') return;
+    const wrap = document.getElementById('comparisonCharts');
+    if (wrap) wrap.style.display = '';
+    renderCmpNav(items);
+    renderCmpDrawdown(items);
+    renderCmpDistributions(items);
+    renderCmpAnnual(items);
+    renderCmpRolling(items);
+    queueComparePlotResize();
+  }
+  function renderCmpNav(items) {
+    const startTime = commonStartTime(items);
+    const traces = items.map((item, i) => {
+      const perf = performanceSeries(item.result);
+      const s = normalizeAtStart(perf.x, perf.y, startTime);
+      return {
+        x: s.x, y: s.y,
+        name: strategyName(item, i),
+        type: 'scatter', mode: 'lines',
+        line: { color: chartColors[i % chartColors.length], width: 2 },
+        hovertemplate: '%{y:.2f}<extra></extra>',
+      };
+    }).filter(t => t.x.length && t.y.length);
+    const firstBench = items.find(item => item.result.benchmark_values?.length);
+    if (firstBench) {
+      const b = normalizeAtStart(firstBench.result.dates || [], firstBench.result.benchmark_values || [], startTime);
+      if (b.x.length) {
+        traces.push({
+          x: b.x, y: b.y,
+          name: 'Benchmark', type: 'scatter', mode: 'lines',
+          line: { color: '#94a3b8', width: 1.6 }, opacity: 0.72,
+        });
+      }
+    }
+    if (!traces.length) return emptyChart('cmpNavChart', 'No NAV series available.');
+    Plotly.newPlot('cmpNavChart', traces, { ...cmpLayout, yaxis: { ...cmpLayout.yaxis, type: 'linear', title: 'Value indexed to 100' } }, cmpConfig);
+  }
+
+  function renderCmpDrawdown(items) {
+    const traces = items.map((item, i) => ({
+      x: item.result.dates || [],
+      y: item.result.drawdown_series || [],
+      name: strategyName(item, i),
+      type: 'scatter', mode: 'lines',
+      line: { color: chartColors[i % chartColors.length], width: 1.8 },
+      hovertemplate: '%{y:.2f}%<extra></extra>',
+    })).filter(t => t.x.length && t.y.length);
+    if (!traces.length) return emptyChart('cmpDrawdownChart', 'No drawdown series available.');
+    Plotly.newPlot('cmpDrawdownChart', traces, { ...cmpLayout, yaxis: { ...cmpLayout.yaxis, type: 'linear', title: 'Drawdown (%)', ticksuffix: '%' } }, cmpConfig);
+  }
+
+  function renderReturnHistogram(id, traces, title) {
+    const cleanTraces = traces.filter(t => t.x.length >= 3);
+    if (!cleanTraces.length) return emptyChart(id, `Not enough ${title.toLowerCase()} returns.`);
+    const combined = cleanTraces.flatMap(t => t.x);
+    Plotly.newPlot(id, cleanTraces, {
+      ...cmpLayout,
+      barmode: 'overlay',
+      bargap: 0.04,
+      xaxis: { ...cmpLayout.xaxis, type: 'linear', title: `${title} return (%)`, ticksuffix: '%', range: centeredRange(combined), zeroline: true, zerolinecolor: 'rgba(148,163,184,0.35)' },
+      yaxis: { ...cmpLayout.yaxis, type: 'linear', title: 'Frequency (%)', rangemode: 'tozero' },
+    }, cmpConfig);
+  }
+
+  function renderCmpDistributions(items) {
+    const daily = items.map((item, i) => ({
+      x: cleanReturnValues((item.result.daily_returns || []).slice(1)),
+      name: strategyName(item, i), type: 'histogram', histnorm: 'percent', opacity: 0.48,
+      nbinsx: 44,
+      marker: { color: chartColors[i % chartColors.length], line: { color: 'rgba(255,255,255,0.10)', width: 1 } },
+    }));
+    const monthly = items.map((item, i) => ({
+      x: cleanReturnValues(Object.values(item.result.monthly_returns || {})),
+      name: strategyName(item, i), type: 'histogram', histnorm: 'percent', opacity: 0.52,
+      nbinsx: 28,
+      marker: { color: chartColors[i % chartColors.length], line: { color: 'rgba(255,255,255,0.10)', width: 1 } },
+    }));
+    renderReturnHistogram('cmpDailyDistributionChart', daily, 'Daily');
+    renderReturnHistogram('cmpMonthlyDistributionChart', monthly, 'Monthly');
+  }
+
+  function renderCmpAnnual(items) {
+    const traces = items.map((item, i) => {
+      const returns = item.result.calendar_returns || {};
+      const years = Object.keys(returns).sort();
+      return { x: years, y: years.map(y => returns[y]), name: strategyName(item, i), type: 'bar', marker: { color: chartColors[i % chartColors.length] } };
+    }).filter(t => t.x.length);
+    if (!traces.length) return emptyChart('cmpAnnualChart', 'No annual return data.');
+    Plotly.newPlot('cmpAnnualChart', traces, { ...cmpLayout, barmode: 'group', yaxis: { ...cmpLayout.yaxis, type: 'linear', title: 'Return (%)', ticksuffix: '%' } }, cmpConfig);
+  }
+
+  function setCmpRollingWindow(label) {
+    cmpRollingWindow = label;
+    renderCmpRolling(latestComparisonItems);
+  }
+  window.setCmpRollingWindow = setCmpRollingWindow;
+
+  function renderCmpRollingMetrics(items, selected) {
+    const el = document.getElementById('cmpRollingMetrics');
+    if (!el) return;
+    const benchItem = items.find(item => item.result[`benchmark_${selected.key}`]?.length);
+    const bench = benchItem ? rollingStats(benchItem.result[`benchmark_${selected.key}`]) : null;
+    const fmt1 = v => v != null ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : 'N/A';
+    const cards = items.map((item, i) => {
+      const st = rollingStats(item.result[selected.key]);
+      if (!st) return '';
+      const excess = bench ? st.avg - bench.avg : null;
+      const color = chartColors[i % chartColors.length];
+      return `<div style="border:1px solid rgba(148,163,184,0.16);border-radius:6px;padding:8px;background:rgba(15,23,42,0.32)">
+        <div style="font-size:11px;font-weight:800;color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(strategyName(item, i))}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;font-size:10px;color:var(--text-muted)">
+          <span>Avg <b style="color:var(--text-primary)">${fmt1(st.avg)}</b></span>
+          <span>Median <b style="color:var(--text-primary)">${fmt1(st.median)}</b></span>
+          <span>Worst <b style="color:var(--red-400)">${fmt1(st.min)}</b></span>
+          <span>Excess <b style="color:${(excess || 0) >= 0 ? 'var(--emerald-400)' : 'var(--red-400)'}">${bench ? fmt1(excess) : 'N/A'}</b></span>
+        </div>
+      </div>`;
+    }).join('');
+    const benchCard = bench ? `<div style="border:1px solid rgba(245,158,11,0.30);border-radius:6px;padding:8px;background:rgba(245,158,11,0.08)">
+      <div style="font-size:11px;font-weight:800;color:#f59e0b">Benchmark</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;font-size:10px;color:var(--text-muted)">
+        <span>Avg <b style="color:var(--text-primary)">${fmt1(bench.avg)}</b></span>
+        <span>Median <b style="color:var(--text-primary)">${fmt1(bench.median)}</b></span>
+        <span>Best <b style="color:var(--emerald-400)">${fmt1(bench.max)}</b></span>
+        <span>Worst <b style="color:var(--red-400)">${fmt1(bench.min)}</b></span>
+      </div>
+    </div>` : '';
+    el.innerHTML = cards || benchCard ? `${cards}${benchCard}` : `<div style="color:var(--text-muted);font-size:12px">Not enough ${selected.label} rolling windows.</div>`;
+  }
+  function renderCmpRolling(items) {
+    const selected = rollingWindows.find(w => w.label === cmpRollingWindow) || rollingWindows[0];
+    cmpRollingWindow = selected.label;
+    ['3Y','5Y','7Y'].forEach(label => {
+      const btn = document.getElementById(`cmpRollBtn${label[0]}`);
+      if (btn) btn.style.opacity = label === cmpRollingWindow ? '1' : '0.55';
+    });
+    renderCmpRollingMetrics(items, selected);
+
+    const boxTraces = items.map((item, i) => ({
+      y: cleanReturnValues(item.result[selected.key], 500),
+      name: strategyName(item, i),
+      type: 'box',
+      boxmean: true,
+      marker: { color: chartColors[i % chartColors.length], size: 4 },
+      line: { color: chartColors[i % chartColors.length], width: 1.5 },
+      fillcolor: `${chartColors[i % chartColors.length]}33`,
+      hovertemplate: `${strategyName(item, i)}<br>%{y:.2f}%<extra></extra>`,
+    })).filter(t => t.y.length >= 4);
+    const benchItem = items.find(item => item.result[`benchmark_${selected.key}`]?.length);
+    const benchVals = benchItem ? cleanReturnValues(benchItem.result[`benchmark_${selected.key}`], 500) : [];
+    if (benchVals.length >= 4) {
+      boxTraces.push({
+        y: benchVals,
+        name: 'Benchmark',
+        type: 'box',
+        boxmean: true,
+        marker: { color: '#f59e0b', size: 4 },
+        line: { color: '#f59e0b', width: 1.2 },
+        fillcolor: 'rgba(245,158,11,0.14)',
+        opacity: 0.72,
+        hovertemplate: `Benchmark<br>%{y:.2f}%<extra></extra>`,
+      });
+    }
+    if (boxTraces.length) {
+      Plotly.newPlot('cmpRollingDistributionChart', boxTraces, {
+        ...cmpLayout,
+        boxmode: 'group',
+        xaxis: { ...cmpLayout.xaxis, type: 'category', title: `${selected.label} rolling windows` },
+        yaxis: { ...cmpLayout.yaxis, type: 'linear', title: `${selected.label} rolling CAGR (%)`, ticksuffix: '%', zeroline: true, zerolinecolor: 'rgba(148,163,184,0.35)' },
+      }, cmpConfig);
+    } else {
+      emptyChart('cmpRollingDistributionChart', `Not enough ${selected.label} rolling windows.`);
+    }
+
+    const trendTraces = items.map((item, i) => {
+      const pts = cleanReturnPoints(item.result[selected.key], item.result[`${selected.key}_dates`], 500);
+      return {
+        x: pts.map(p => p.date),
+        y: pts.map(p => p.value),
+        name: strategyName(item, i),
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: chartColors[i % chartColors.length], width: 1.8 },
+        hovertemplate: `%{x}<br>${selected.label}: %{y:.2f}%<extra></extra>`,
+      };
+    }).filter(t => t.y.length >= 4);
+    if (benchItem) {
+      const benchPts = cleanReturnPoints(benchItem.result[`benchmark_${selected.key}`], benchItem.result[`benchmark_${selected.key}_dates`], 500);
+      if (benchPts.length >= 4) {
+        trendTraces.push({
+          x: benchPts.map(p => p.date),
+          y: benchPts.map(p => p.value),
+          name: 'Benchmark',
+          type: 'scatter',
+          mode: 'lines',
+          line: { color: '#f59e0b', width: 1.5 },
+          opacity: 0.78,
+          hovertemplate: `%{x}<br>Benchmark: %{y:.2f}%<extra></extra>`,
+        });
+      }
+    }
+    if (trendTraces.length) {
+      const combined = trendTraces.flatMap(t => t.y);
+      Plotly.newPlot('cmpRollingTrendChart', trendTraces, {
+        ...cmpLayout,
+        xaxis: { ...cmpLayout.xaxis, type: 'date', title: 'Investment start date' },
+        yaxis: { ...cmpLayout.yaxis, type: 'linear', title: `${selected.label} rolling CAGR (%)`, ticksuffix: '%', range: centeredRange(combined), zeroline: true, zerolinecolor: 'rgba(148,163,184,0.35)' },
+      }, cmpConfig);
+    } else {
+      emptyChart('cmpRollingTrendChart', `Not enough ${selected.label} rolling windows.`);
+    }
+  }
+  function renderCmpBenchmarkRows() {
+    const rows = document.getElementById('cmpBenchmarkRows');
+    const totalEl = document.getElementById('cmpBenchmarkTotal');
+    if (!rows || !totalEl) return;
+    const total = cmpBenchmarkComponents.reduce((s, c) => s + (Number(c.weight) || 0), 0);
+    rows.innerHTML = cmpBenchmarkComponents.map((c, i) => `
+      <div class="cmp-benchmark-row">
+        <input type="text" value="${esc(c.label || c.source_id)}" readonly title="${esc(c.label || c.source_id)}" />
+        <input type="number" min="0" max="100" step="0.5" value="${c.weight || 0}" onchange="updateCmpBenchmarkWeight(${i}, this.value)" />
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeCmpBenchmarkLeg(${i})" title="Remove">x</button>
+      </div>`).join('');
+    if (cmpBenchmarkComponents.length) {
+      totalEl.textContent = `Custom total: ${total.toFixed(1)}%`;
+      totalEl.style.color = Math.abs(total - 100) > 0.5 ? 'var(--red-400)' : 'var(--emerald-400)';
+    } else {
+      totalEl.textContent = 'Using NIFTY 50';
+      totalEl.style.color = 'var(--emerald-400)';
+    }
+  }
+
+  function updateCmpBenchmarkWeight(index, value) {
+    if (!cmpBenchmarkComponents[index]) return;
+    cmpBenchmarkComponents[index].weight = Number(value) || 0;
+    renderCmpBenchmarkRows();
+  }
+  function removeCmpBenchmarkLeg(index) {
+    cmpBenchmarkComponents.splice(index, 1);
+    renderCmpBenchmarkRows();
+  }
+  function clearCmpBenchmark() {
+    cmpBenchmarkComponents = [];
+    const input = document.getElementById('cmpBenchmarkSearch');
+    if (input) input.value = '';
+    renderCmpBenchmarkRows();
+    runComparison();
+  }
+  window.updateCmpBenchmarkWeight = updateCmpBenchmarkWeight;
+  window.removeCmpBenchmarkLeg = removeCmpBenchmarkLeg;
+  window.clearCmpBenchmark = clearCmpBenchmark;
+
+  function initCmpBenchmarkSearch() {
+    const input = document.getElementById('cmpBenchmarkSearch');
+    const dd = document.getElementById('cmpBenchmarkDropdown');
+    if (!input || !dd) return;
+    input.addEventListener('input', () => {
+      clearTimeout(cmpBenchmarkTimer);
+      const q = input.value.trim();
+      if (q.length < 2) { dd.classList.remove('open'); return; }
+      dd.innerHTML = '<div class="cmp-option">Searching...</div>';
+      dd.classList.add('open');
+      cmpBenchmarkTimer = setTimeout(async () => {
+        try {
+          const resp = await fetch(`/portfolio/backtester/fund-search/?q=${encodeURIComponent(q)}&type=index`, { headers: { 'Accept': 'application/json' } });
+          const data = await resp.json();
+          const results = data.results || [];
+          dd.innerHTML = results.length ? results.map(r => `
+            <div class="cmp-option" data-type="${r.type}" data-id="${String(r.id).replace(/"/g, '&quot;')}" data-name="${esc(r.name)}">
+              ${esc(r.name)}<small>${esc(r.sub || r.type)}</small>
+            </div>`).join('') : '<div class="cmp-option">No matches</div>';
+          dd.querySelectorAll('.cmp-option[data-id]').forEach(option => {
+            option.addEventListener('click', () => {
+              const sourceId = option.dataset.id;
+              if (!cmpBenchmarkComponents.some(c => c.source_id === sourceId)) {
+                const usedWeight = cmpBenchmarkComponents.reduce((s, c) => s + (Number(c.weight) || 0), 0);
+                cmpBenchmarkComponents.push({
+                  label: option.dataset.name,
+                  source_type: 'index',
+                  source_id: sourceId,
+                  weight: cmpBenchmarkComponents.length ? Math.max(0, 100 - usedWeight) : 100,
+                });
+              }
+              input.value = '';
+              dd.classList.remove('open');
+              renderCmpBenchmarkRows();
+            });
+          });
+        } catch (err) {
+          dd.innerHTML = `<div class="cmp-option">${esc(err.message)}</div>`;
+        }
+      }, 300);
+    });
+    document.addEventListener('click', event => {
+      if (!dd.contains(event.target) && event.target !== input) dd.classList.remove('open');
+    });
+  }
+
+  function benchmarkOverrideSettings() {
+    const total = cmpBenchmarkComponents.reduce((s, c) => s + (Number(c.weight) || 0), 0);
+    if (cmpBenchmarkComponents.length) {
+      if (Math.abs(total - 100) > 0.5) throw new Error(`Custom benchmark weights must total 100% before applying (currently ${total.toFixed(1)}%).`);
+      return {
+        benchmark_type: 'index',
+        benchmark_id: '',
+        benchmark_components: cmpBenchmarkComponents.map(c => ({ label: c.label, source_type: c.source_type, source_id: c.source_id, weight: Number(c.weight) || 0 })),
+      };
+    }
+    return { benchmark_type: 'index', benchmark_id: 'NIFTY 50', benchmark_components: [] };
+  }
+
+  function comparisonPlan(strategy) {
+    const plan = JSON.parse(JSON.stringify(strategy.plan_json || {}));
+    plan.settings = { ...(plan.settings || {}), ...benchmarkOverrideSettings() };
+    return plan;
+  }
+  function comparisonBenchmarkLabel() {
+    if (!cmpBenchmarkComponents.length) return 'NIFTY 50';
+    return cmpBenchmarkComponents.map(c => `${c.label || c.source_id} ${Number(c.weight || 0).toFixed(1)}%`).join(', ');
+  }
+
 
   async function loadAndRun(id, index) {
     statusEl.textContent = `Loading strategy ${index + 1} of ${ids.length}...`;
@@ -162,10 +681,11 @@
     if (strategy.error) throw new Error(strategy.error);
 
     statusEl.textContent = `Simulating ${strategy.name}...`;
+    const plan = comparisonPlan(strategy);
     const runResp = await fetch('/portfolio/backtester/v2/run/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'Accept': 'application/json' },
-      body: JSON.stringify(strategy.plan_json),
+      body: JSON.stringify(plan),
     });
     const result = await runResp.json();
     if (result.error) return { strategy, error: result.error };
@@ -179,8 +699,17 @@
     return { strategy, result };
   }
 
-  (async () => {
+  async function runComparison() {
     const columns = [];
+    grid.innerHTML = '';
+    const charts = document.getElementById('comparisonCharts');
+    if (charts) charts.style.display = 'none';
+    try {
+      benchmarkOverrideSettings();
+    } catch (err) {
+      statusEl.textContent = err.message;
+      return;
+    }
     for (let i = 0; i < ids.length; i += 1) {
       try {
         columns.push(await loadAndRun(ids[i], i));
@@ -189,8 +718,14 @@
       }
       grid.innerHTML = columns.map(item => renderColumn(item.strategy, item.result, item.error)).join('');
     }
-    statusEl.textContent = `Compared ${columns.length} strateg${columns.length === 1 ? 'y' : 'ies'}.`;
-  })();
+    statusEl.textContent = `Compared ${columns.length} strateg${columns.length === 1 ? 'y' : 'ies'} on ${cmpBenchmarkComponents.length ? 'custom benchmark' : 'NIFTY 50 benchmark'}.`;
+    renderComparisonCharts(columns.filter(item => item.result));
+  }
+
+  window.runComparison = runComparison;
+  initCmpBenchmarkSearch();
+  renderCmpBenchmarkRows();
+  runComparison();
 })();
 </script>
 {% endblock %}

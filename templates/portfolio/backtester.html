@@ -1030,6 +1030,37 @@ dialog#triggerModal::backdrop {
   text-transform: uppercase;
 }
 
+.custom-benchmark-box {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+.custom-benchmark-row {
+  display: grid;
+  grid-template-columns: 1fr 72px 28px;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.custom-benchmark-row input { min-width: 0; }
+.custom-benchmark-total { font-size: 11px; margin-top: 6px; font-weight: 700; }
+.tax-note {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  padding: 7px 8px;
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 6px;
+  background: rgba(251,191,36,0.06);
+}
+.distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 900px) { .distribution-grid { grid-template-columns: 1fr; } }
 /* Override page-body to remove padding for full-height two-panel layout */
 .page-body { padding: 0 !important; overflow: hidden !important; height: calc(100vh - 56px - 36px); }
 
@@ -1146,12 +1177,24 @@ dialog#triggerModal::backdrop {
         <div class="field-group" style="margin-top:8px">
           <label>Benchmark (optional)</label>
           <div class="search-wrap" style="position:relative">
-            <input type="text" id="benchmarkSearch" placeholder="Search fund or index as benchmark…" autocomplete="off" />
+            <input type="text" id="benchmarkSearch" placeholder="Search fund or index as benchmark..." autocomplete="off" />
             <div class="search-dropdown" id="benchmarkDropdown"></div>
           </div>
           <input type="hidden" id="benchmarkId" />
           <input type="hidden" id="benchmarkType" />
           <div id="benchmarkSelected" style="font-size:11px;color:var(--text-muted);margin-top:4px;display:none"></div>
+          <div class="custom-benchmark-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <label style="margin:0">Custom benchmark weights</label>
+              <button type="button" class="btn-add-rule" onclick="clearCustomBenchmark()" style="padding:3px 8px;font-size:10px">Clear</button>
+            </div>
+            <div class="search-wrap" style="position:relative;margin-top:8px">
+              <input type="text" id="customBenchmarkSearch" placeholder="Add index to custom benchmark..." autocomplete="off" />
+              <div class="search-dropdown" id="customBenchmarkDropdown"></div>
+            </div>
+            <div id="customBenchmarkRows"></div>
+            <div id="customBenchmarkTotal" class="custom-benchmark-total">Total: 0%</div>
+          </div>
         </div>
 
 
@@ -1183,6 +1226,31 @@ dialog#triggerModal::backdrop {
           </div>
 
           <!-- Monte Carlo -->
+          <div class="toggle-row" id="toggleTax" onclick="toggleSetting('tax')">
+            <span>Tax calculation</span>
+            <div class="toggle-switch"></div>
+          </div>
+          <div class="toggle-expanded" id="taxExpanded">
+            <div class="tax-note">Tax rules and fund classifications change over time. Enter the rates that apply to your situation; actual tax may still vary due to slab, surcharge, cess, grandfathering, set-off, and advisor/accounting treatment.</div>
+            <div class="settings-grid" style="grid-template-columns:1fr 1fr;margin-top:8px">
+              <div class="field-group">
+                <label>Equity STCG (%)</label>
+                <input type="number" id="taxEquityStcg" value="20" min="0" max="60" step="0.1" />
+              </div>
+              <div class="field-group">
+                <label>Equity LTCG (%)</label>
+                <input type="number" id="taxEquityLtcg" value="12.5" min="0" max="60" step="0.1" />
+              </div>
+              <div class="field-group">
+                <label>LTCG exemption (INR)</label>
+                <input type="number" id="taxLtcgExemption" value="125000" min="0" step="1000" />
+              </div>
+              <div class="field-group">
+                <label>Debt/slab rate (%)</label>
+                <input type="number" id="taxDebtRate" value="30" min="0" max="60" step="0.1" />
+              </div>
+            </div>
+          </div>
           <div class="toggle-row" id="toggleMc" onclick="toggleSetting('mc')">
             <span>🎲 Monte Carlo Projection</span>
             <div class="toggle-switch"></div>
@@ -1363,13 +1431,25 @@ dialog#triggerModal::backdrop {
           <div class="section-title" style="margin-top:20px">Rolling Returns</div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Best / Average / Median / Worst CAGR across all rolling 3Y, 5Y, and 7Y windows. Requires at least 3 years of history.</div>
 
-          <!-- Rolling stats cards per window -->
           <div id="rollingStatsCards" style="margin-bottom:8px"></div>
 
-          <!-- chart div kept hidden (no box plot per user request) -->
+          <div class="chart-container" style="margin-top:14px">
+            <div class="chart-title"><span class="dot" style="background:var(--indigo-400)"></span>Rolling Return Distribution</div>
+            <div id="rollingDistributionChart" style="height:260px"></div>
+          </div>
+          <div class="chart-container" style="margin-top:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+              <div class="chart-title"><span class="dot" style="background:var(--emerald-400)"></span>Rolling Return Trend</div>
+              <div style="display:flex;gap:6px">
+                <button type="button" class="btn-add-rule" id="rollTrendBtn3" onclick="setRollingTrendWindow('3Y')">3Y</button>
+                <button type="button" class="btn-add-rule" id="rollTrendBtn5" onclick="setRollingTrendWindow('5Y')">5Y</button>
+                <button type="button" class="btn-add-rule" id="rollTrendBtn7" onclick="setRollingTrendWindow('7Y')">7Y</button>
+              </div>
+            </div>
+            <div id="rollingTrendChart" style="height:260px"></div>
+          </div>
           <div id="rollingChart" style="display:none"></div>
         </div>
-
         <!-- Panel: Consistency -->
         <div class="result-panel" id="panel-consistency">
           <div class="chart-container">
@@ -1389,8 +1469,18 @@ dialog#triggerModal::backdrop {
             <div class="chart-title"><span class="dot" style="background:var(--amber-400)"></span>Monthly Return Heatmap</div>
             <div id="heatmapChart" style="min-height:280px"></div>
           </div>
+          <div class="metrics-grid" id="returnDistributionMetricsGrid" style="margin:14px 0"></div>
+          <div class="distribution-grid">
+            <div class="chart-container">
+              <div class="chart-title"><span class="dot" style="background:var(--indigo-400)"></span>Daily Return Distribution</div>
+              <div id="dailyReturnDistributionChart" style="height:260px"></div>
+            </div>
+            <div class="chart-container">
+              <div class="chart-title"><span class="dot" style="background:var(--emerald-400)"></span>Monthly Return Distribution</div>
+              <div id="monthlyReturnDistributionChart" style="height:260px"></div>
+            </div>
+          </div>
         </div>
-
         <!-- Panel: Attribution -->
         <div class="result-panel" id="panel-attribution">
           <div class="section-title">Rule Impact — How many times each rule fired</div>
@@ -1469,21 +1559,24 @@ dialog#triggerModal::backdrop {
           <div id="adjInflationSection" style="margin-top:18px">
             <div class="section-title">📈 Inflation-Adjusted Returns</div>
             <div class="metrics-grid" id="adjInflGrid"></div>
+            <div class="chart-container" style="margin-top:14px">
+              <div class="chart-title"><span class="dot" style="background:var(--indigo-400)"></span>Nominal vs Inflation-Adjusted Value</div>
+              <div id="inflationAdjustedChart" style="height:280px"></div>
+            </div>
           </div>
 
           <!-- Disclaimer -->
           <div style="margin-top:20px;padding:14px;background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.2);border-radius:8px;font-size:11px;color:var(--text-secondary);line-height:1.6">
             <strong style="color:var(--amber-400)">⚠️ Disclaimer &amp; Assumptions</strong><br>
             <ul style="margin:8px 0 0 14px;padding:0">
-              <li>Tax is estimated using FIFO cost-basis from the transaction ledger. Actual tax may differ based on indexation, surcharge, and cess.</li>
-              <li>LTCG exemption of ₹1.25L/year applies per the Finance Act 2024. Debt fund gains taxed at flat rate (no indexation post-April 2023).</li>
-              <li>Unrealised gains at portfolio end date are not taxed — only realised redemptions are included.</li>
-              <li>Inflation adjustment uses the Fisher equation: Real XIRR ≈ (1+Nominal)/(1+Inflation) − 1.</li>
+              <li>Tax is estimated using user-entered rates and FIFO cost-basis from the transaction ledger. Rules change over time; update the rates before analysis when tax accuracy matters.</li>
+              <li>Actual tax may differ because of exemptions, surcharge, cess, indexation history, grandfathering, set-offs, and personal circumstances.</li>
+              <li>Unrealised gains at portfolio end date are not taxed - only realised redemptions are included.</li>
+              <li>Inflation adjustment uses the Fisher equation: Real XIRR roughly equals (1+Nominal)/(1+Inflation) - 1.</li>
               <li>All figures are indicative. Consult a tax advisor before making financial decisions.</li>
             </ul>
           </div>
         </div>
-
         <!-- Panel: Monte Carlo (Phase 5) -->
         <div class="result-panel" id="panel-montecarlo">
           <div class="section-title">🎲 Monte Carlo Fan Chart
@@ -1584,6 +1677,7 @@ let triggerConditions = [];  // [{signal_type, params, operator, value}]
 
 // Benchmark selection
 let benchmarkResult = null;
+let customBenchmarkComponents = [];
 
 // ── Asset type toggle ──────────────────────────────────────────────────────
 function setAssetType(type) {
@@ -1986,12 +2080,13 @@ function updateStepUp(ai, ri, key, val) {
 }
 
 // ── Settings toggles ───────────────────────────────────────────────────────
-const toggleStates = { inflation: false, mc: false };
+const toggleStates = { inflation: false, tax: false, mc: false };
 function toggleSetting(key) {
   toggleStates[key] = !toggleStates[key];
   const row = document.getElementById(`toggle${key.charAt(0).toUpperCase()+key.slice(1)}`);
   if (row) row.classList.toggle('on', toggleStates[key]);
   if (key === 'inflation') document.getElementById('inflationExpanded').classList.toggle('open', toggleStates.inflation);
+  if (key === 'tax')       document.getElementById('taxExpanded').classList.toggle('open', toggleStates.tax);
   if (key === 'mc')        document.getElementById('mcExpanded').classList.toggle('open', toggleStates.mc);
 }
 
@@ -2120,6 +2215,65 @@ function onCondRefSearch(condIdx, idKey, labelKey, ddId, q) {
 
 
 
+function initCustomBenchmarkSearch() {
+  const input = document.getElementById('customBenchmarkSearch');
+  const dd = document.getElementById('customBenchmarkDropdown');
+  if (!input || !dd) return;
+  input.addEventListener('input', () => {
+    clearTimeout(_dynSearchTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { dd.classList.remove('open'); return; }
+    dd.innerHTML = '<div class="search-loading">Searching...</div>';
+    dd.classList.add('open');
+    _dynSearchTimer = setTimeout(() => {
+      doSearch(q, 'customBenchmarkDropdown', (result) => {
+        const id = String(result.id);
+        if (!customBenchmarkComponents.some(c => c.source_id === id)) {
+          customBenchmarkComponents.push({
+            label: result.name,
+            source_type: 'index',
+            source_id: id,
+            weight: 0,
+          });
+        }
+        input.value = '';
+        dd.classList.remove('open');
+        renderCustomBenchmarkRows();
+      }, 'all');
+    }, 300);
+  });
+}
+
+function renderCustomBenchmarkRows() {
+  const rows = document.getElementById('customBenchmarkRows');
+  const totalEl = document.getElementById('customBenchmarkTotal');
+  if (!rows || !totalEl) return;
+  const total = customBenchmarkComponents.reduce((s, c) => s + (Number(c.weight) || 0), 0);
+  rows.innerHTML = customBenchmarkComponents.map((c, i) => `
+    <div class="custom-benchmark-row">
+      <input type="text" value="${c.label || c.source_id}" readonly title="${c.label || c.source_id}" />
+      <input type="number" min="0" max="100" step="0.5" value="${c.weight || 0}" onchange="updateCustomBenchmarkWeight(${i}, this.value)" />
+      <button type="button" class="btn-remove-asset" onclick="removeCustomBenchmarkLeg(${i})" title="Remove">x</button>
+    </div>`).join('');
+  totalEl.textContent = `Total: ${total.toFixed(1)}%`;
+  totalEl.style.color = customBenchmarkComponents.length && Math.abs(total - 100) > 0.5 ? 'var(--red-400)' : 'var(--emerald-400)';
+}
+
+function updateCustomBenchmarkWeight(index, value) {
+  if (!customBenchmarkComponents[index]) return;
+  customBenchmarkComponents[index].weight = Number(value) || 0;
+  renderCustomBenchmarkRows();
+}
+
+function removeCustomBenchmarkLeg(index) {
+  customBenchmarkComponents.splice(index, 1);
+  renderCustomBenchmarkRows();
+}
+
+function clearCustomBenchmark() {
+  customBenchmarkComponents = [];
+  renderCustomBenchmarkRows();
+}
 function onBenchSelect(result) {
   document.getElementById('benchmarkId').value = result.id;
   document.getElementById('benchmarkType').value = result.type === 'scheme' ? 'scheme' : 'index';
@@ -2143,14 +2297,22 @@ function buildPlan() {
     end_date: simEnd,
     benchmark_type: benchType || 'index',
     benchmark_id: benchId || '',
-    transaction_cost: 0,        // removed from UI — always 0
+    benchmark_components: customBenchmarkComponents
+      .filter(c => (Number(c.weight) || 0) > 0)
+      .map(c => ({
+        label: c.label,
+        source_type: c.source_type,
+        source_id: c.source_id,
+        weight: Number(c.weight) || 0,
+      })),
+    transaction_cost: 0,        // removed from UI - always 0
     exit_load_enabled: false,   // removed from UI
-    // Tax (disabled — removed from UI)
-    tax_enabled: false,
-    tax_equity_stcg: 20,
-    tax_equity_ltcg: 12.5,
-    tax_ltcg_exemption: 125000,
-    tax_debt_rate: 30,
+    // Tax
+    tax_enabled: toggleStates.tax,
+    tax_equity_stcg: parseFloat(document.getElementById('taxEquityStcg')?.value) || 20,
+    tax_equity_ltcg: parseFloat(document.getElementById('taxEquityLtcg')?.value) || 12.5,
+    tax_ltcg_exemption: parseFloat(document.getElementById('taxLtcgExemption')?.value) || 125000,
+    tax_debt_rate: parseFloat(document.getElementById('taxDebtRate')?.value) || 30,
     // Inflation
     inflation_enabled: toggleStates.inflation,
     inflation_mode: document.getElementById('inflationMode').value,
@@ -2210,6 +2372,11 @@ function validatePlan() {
       }
     });
   });
+
+  const customBenchmarkTotal = customBenchmarkComponents.reduce((s, c) => s + (Number(c.weight) || 0), 0);
+  if (customBenchmarkComponents.length && Math.abs(customBenchmarkTotal - 100) > 0.5) {
+    errors.push(`Custom benchmark weights must total 100% (currently ${customBenchmarkTotal.toFixed(1)}%).`);
+  }
 
   const errEl = document.getElementById('validationErrors');
   const errList = document.getElementById('errorList');
@@ -2340,6 +2507,8 @@ function renderResults(data) {
   renderDrawdownChart(data);
   renderAnnualChart(data);
   renderHeatmap(data);
+  renderReturnDistributionMetrics(data);
+  renderReturnDistributionCharts(data);
 
   // ── Risk panel ────────────────────────────────────────────────────────
   // Drawdown metrics
@@ -2401,6 +2570,7 @@ function renderResults(data) {
   const mcTab = document.getElementById('tab-montecarlo');
   if (mcTab) mcTab.style.display = data.mc_enabled ? '' : 'none';
   if (data.mc_enabled) renderMCTab(data);
+  queuePlotlyResize();
 }
 
 function metricCard(label, value, cls, tooltip) {
@@ -2438,6 +2608,7 @@ function renderAdjustedTab(data) {
       ${metricCard('Real XIRR', fmtPct(data.real_xirr), (data.real_xirr||0)>=0?'positive':'negative', 'Purchasing-power adjusted return')}
       ${data.real_final_value != null ? metricCard('Real Final Value', fmt(data.real_final_value), 'accent', "Final corpus in today's rupees") : ''}
     `;
+    renderInflationAdjustedChart(data);
   } else if (inflSection) {
     inflSection.style.display = 'none';
   }
@@ -2506,7 +2677,16 @@ const PLOTLY_LAYOUT_BASE = {
   hovermode: 'x unified',
 };
 const PLOTLY_CONFIG = { displayModeBar: false, responsive: true };
-
+function resizePlotlyCharts(ids) {
+  if (typeof Plotly === 'undefined') return;
+  const els = ids?.length
+    ? ids.map(id => document.getElementById(id)).filter(Boolean)
+    : Array.from(document.querySelectorAll('.js-plotly-plot'));
+  els.forEach(el => { if (el?.data) Plotly.Plots.resize(el); });
+}
+function queuePlotlyResize(ids) {
+  [40, 180, 500].forEach(delay => setTimeout(() => resizePlotlyCharts(ids), delay));
+}
 // ── State for PE overlay ──────────────────────────────────────────────────
 
 
@@ -2526,7 +2706,8 @@ function renderEquityChart(data) {
     traces.push({
       x: data.dates, y: data.benchmark_values,
       name: 'Benchmark', type: 'scatter', mode: 'lines',
-      line: { color: '#34d399', width: 1.5, dash: 'dash' },
+      line: { color: '#10b981', width: 1.35 },
+      opacity: 0.72,
     });
   }
 
@@ -2566,8 +2747,8 @@ function renderDrawdownChart(data) {
     traces.push({
       x: data.dates, y: bdd,
       name: 'Benchmark Drawdown', type: 'scatter', mode: 'lines',
-      line: { color: '#fb923c', width: 1.2, dash: 'dash' },
-      fill: 'tozeroy', fillcolor: 'rgba(251,146,60,0.05)',
+      line: { color: '#f59e0b', width: 1.25 },
+      opacity: 0.72,
     });
   }
 
@@ -2598,6 +2779,262 @@ function renderAnnualChart(data) {
   }, PLOTLY_CONFIG);
 }
 
+function renderEmptyChart(id, message) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.data) Plotly.purge(el);
+  el.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px">${message}</div>`;
+}
+
+function cleanReturnValues(values, limit = 100) {
+  return (values || []).map(Number).filter(v => Number.isFinite(v) && Math.abs(v) < limit);
+}
+function cleanReturnPoints(values, dates, limit = 100) {
+  const out = [];
+  (values || []).forEach((raw, i) => {
+    const v = Number(raw);
+    const d = dates?.[i];
+    if (Number.isFinite(v) && Math.abs(v) < limit && d) out.push({ date: d, value: v });
+  });
+  return out;
+}
+function rollingStats(values) {
+  const s = cleanReturnValues(values, 500).sort((a, b) => a - b);
+  if (!s.length) return null;
+  const avg = s.reduce((a, b) => a + b, 0) / s.length;
+  const mid = Math.floor(s.length / 2);
+  const median = s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  return { min: s[0], max: s[s.length - 1], avg, median, n: s.length };
+}
+
+function percentile(sorted, p) {
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * p)));
+  return sorted[idx];
+}
+
+function centeredRange(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const lo = percentile(sorted, 0.01);
+  const hi = percentile(sorted, 0.99);
+  if (lo == null || hi == null || lo === hi) return undefined;
+  const pad = Math.max((hi - lo) * 0.12, 0.05);
+  return [lo - pad, hi + pad];
+}
+
+function renderHistogramChart(id, values, name, color) {
+  const clean = cleanReturnValues(values);
+  if (clean.length < 3) {
+    renderEmptyChart(id, 'Not enough data for this distribution.');
+    return;
+  }
+  const xRange = centeredRange(clean);
+  Plotly.newPlot(id, [{
+    x: clean,
+    type: 'histogram',
+    nbinsx: Math.min(60, Math.max(18, Math.round(Math.sqrt(clean.length) * 1.4))),
+    marker: { color, opacity: 0.82, line: { color: 'rgba(255,255,255,0.10)', width: 1 } },
+    name,
+    hovertemplate: `${name}: %{x:.2f}%<br>Count: %{y}<extra></extra>`,
+  }], {
+    ...PLOTLY_LAYOUT_BASE,
+    bargap: 0.03,
+    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, type: 'linear', title: 'Return (%)', ticksuffix: '%', range: xRange, zeroline: true, zerolinecolor: 'rgba(148,163,184,0.35)' },
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, type: 'linear', title: 'Count', rangemode: 'tozero' },
+  }, PLOTLY_CONFIG);
+}
+
+function renderReturnDistributionMetrics(data) {
+  const daily = cleanReturnValues((data.daily_returns || []).slice(1));
+  const monthly = cleanReturnValues(Object.values(data.monthly_returns || {}));
+  const stats = arr => {
+    if (!arr.length) return null;
+    const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
+    const variance = arr.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / Math.max(arr.length - 1, 1);
+    return { avg, vol: Math.sqrt(variance), best: Math.max(...arr), worst: Math.min(...arr) };
+  };
+  const d = stats(daily);
+  const m = stats(monthly);
+  const el = document.getElementById('returnDistributionMetricsGrid');
+  if (!el) return;
+  el.innerHTML = `
+    ${d ? metricCard('Daily Avg Return', fmtPct(d.avg, 3), d.avg >= 0 ? 'positive' : 'negative', 'Average one-day return') : ''}
+    ${d ? metricCard('Daily Volatility', fmtPct(d.vol, 3), '', 'Std dev of daily returns') : ''}
+    ${m ? metricCard('Monthly Avg Return', fmtPct(m.avg, 2), m.avg >= 0 ? 'positive' : 'negative', 'Average month return') : ''}
+    ${m ? metricCard('Monthly Volatility', fmtPct(m.vol, 2), '', 'Std dev of monthly returns') : ''}
+    ${m ? metricCard('Best Month', fmtPct(m.best, 2), 'positive', 'Highest monthly return') : ''}
+    ${m ? metricCard('Worst Month', fmtPct(m.worst, 2), 'negative', 'Lowest monthly return') : ''}
+  `;
+}
+
+function renderReturnDistributionCharts(data) {
+  renderHistogramChart('dailyReturnDistributionChart', (data.daily_returns || []).slice(1), 'Daily Return', '#6366f1');
+  renderHistogramChart('monthlyReturnDistributionChart', Object.values(data.monthly_returns || {}), 'Monthly Return', '#34d399');
+}
+
+function renderRollingDistributionChart(data, windowDefs) {
+  const traces = [];
+  windowDefs.forEach(w => {
+    const vals = cleanReturnValues(data[w.key], 500);
+    if (vals.length >= 4) {
+      traces.push({
+        y: vals,
+        name: w.label,
+        type: 'box',
+        boxmean: true,
+        marker: { color: w.color, size: 4 },
+        line: { color: w.color, width: 1.6 },
+        fillcolor: `${w.color}33`,
+        hovertemplate: `${w.label}<br>%{y:.2f}%<extra></extra>`,
+      });
+    }
+    const bmVals = cleanReturnValues(data[`benchmark_${w.key}`], 500);
+    if (bmVals.length >= 4) {
+      traces.push({
+        y: bmVals,
+        name: `${w.label} Benchmark`,
+        type: 'box',
+        boxmean: true,
+        marker: { color: '#f59e0b', size: 4 },
+        line: { color: '#f59e0b', width: 1.2 },
+        fillcolor: 'rgba(245,158,11,0.14)',
+        opacity: 0.72,
+        hovertemplate: `${w.label} Benchmark<br>%{y:.2f}%<extra></extra>`,
+      });
+    }
+  });
+  if (!traces.length) {
+    renderEmptyChart('rollingDistributionChart', 'Not enough history for rolling return distribution.');
+    return;
+  }
+  Plotly.newPlot('rollingDistributionChart', traces, {
+    ...PLOTLY_LAYOUT_BASE,
+    boxmode: 'group',
+    margin: { ...PLOTLY_LAYOUT_BASE.margin, t: 12 },
+    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, type: 'category', title: 'Rolling window' },
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, type: 'linear', title: 'Rolling CAGR (%)', ticksuffix: '%', zeroline: true, zerolinecolor: 'rgba(148,163,184,0.35)' },
+    legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+  }, PLOTLY_CONFIG);
+}
+
+let rollingTrendWindow = '3Y';
+let rollingTrendData = null;
+let rollingTrendDefs = [];
+function setRollingTrendWindow(label) {
+  rollingTrendWindow = label;
+  renderRollingTrendChart(rollingTrendData, rollingTrendDefs);
+}
+
+function renderRollingTrendMetrics(data, preferred) {
+  const el = document.getElementById('rollingStatsCards');
+  if (!el || !preferred) return;
+  const strategy = rollingStats(data[preferred.key]);
+  const benchmark = rollingStats(data[`benchmark_${preferred.key}`]);
+  if (!strategy) {
+    el.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px">Not enough history for rolling return analysis.</div>';
+    return;
+  }
+  const fmt1 = v => v != null ? (v > 0 ? '+' : '') + v.toFixed(1) + '%' : 'N/A';
+  const excessAvg = benchmark ? strategy.avg - benchmark.avg : null;
+  el.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${preferred.color};display:inline-block"></span>
+        <span style="font-size:12px;font-weight:700;color:${preferred.color}">${preferred.label} Rolling CAGR</span>
+        <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${strategy.n} windows</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Best</div><div style="font-size:15px;font-weight:700;color:var(--emerald-400)">${fmt1(strategy.max)}</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Average</div><div style="font-size:15px;font-weight:700;color:${strategy.avg>=0?'var(--emerald-400)':'var(--red-400)'}">${fmt1(strategy.avg)}</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Median</div><div style="font-size:15px;font-weight:700;color:${strategy.median>=0?'var(--indigo-400)':'var(--red-400)'}">${fmt1(strategy.median)}</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Worst</div><div style="font-size:15px;font-weight:700;color:var(--red-400)">${fmt1(strategy.min)}</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Avg Excess</div><div style="font-size:15px;font-weight:700;color:${(excessAvg||0)>=0?'var(--emerald-400)':'var(--red-400)'}">${benchmark ? fmt1(excessAvg) : 'N/A'}</div></div>
+      </div>
+      ${benchmark ? `<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Benchmark ${preferred.label}: avg ${fmt1(benchmark.avg)}, median ${fmt1(benchmark.median)}, best ${fmt1(benchmark.max)}, worst ${fmt1(benchmark.min)}</div>` : ''}
+    </div>`;
+}
+
+function renderRollingTrendChart(data, windowDefs) {
+  rollingTrendData = data;
+  rollingTrendDefs = windowDefs || [];
+  const preferred = rollingTrendDefs.find(w => w.label === rollingTrendWindow) || rollingTrendDefs[0];
+  if (!preferred || !data) {
+    renderEmptyChart('rollingTrendChart', 'Not enough history for rolling return trend.');
+    return;
+  }
+  rollingTrendWindow = preferred.label;
+  ['3Y','5Y','7Y'].forEach(label => {
+    const btn = document.getElementById(`rollTrendBtn${label[0]}`);
+    if (btn) btn.style.opacity = label === rollingTrendWindow ? '1' : '0.55';
+  });
+  renderRollingTrendMetrics(data, preferred);
+
+  const strategy = cleanReturnPoints(data[preferred.key], data[`${preferred.key}_dates`], 500);
+  const benchmark = cleanReturnPoints(data[`benchmark_${preferred.key}`], data[`benchmark_${preferred.key}_dates`], 500);
+  const traces = [];
+  if (strategy.length >= 4) {
+    traces.push({
+      x: strategy.map(p => p.date),
+      y: strategy.map(p => p.value),
+      name: `${preferred.label} Strategy`,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: preferred.color, width: 2 },
+      hovertemplate: `%{x}<br>${preferred.label}: %{y:.2f}%<extra></extra>`,
+    });
+  }
+  if (benchmark.length >= 4) {
+    traces.push({
+      x: benchmark.map(p => p.date),
+      y: benchmark.map(p => p.value),
+      name: `${preferred.label} Benchmark`,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: '#f59e0b', width: 1.5 },
+      opacity: 0.78,
+      hovertemplate: `%{x}<br>Benchmark: %{y:.2f}%<extra></extra>`,
+    });
+  }
+  if (!traces.length) {
+    renderEmptyChart('rollingTrendChart', `Not enough history for ${preferred.label} rolling return trend.`);
+    return;
+  }
+  const combined = traces.flatMap(t => t.y || []);
+  Plotly.newPlot('rollingTrendChart', traces, {
+    ...PLOTLY_LAYOUT_BASE,
+    margin: { ...PLOTLY_LAYOUT_BASE.margin, t: 12 },
+    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, type: 'date', title: 'Investment start date' },
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, type: 'linear', title: `${preferred.label} rolling CAGR (%)`, ticksuffix: '%', range: centeredRange(combined), zeroline: true, zerolinecolor: 'rgba(148,163,184,0.35)' },
+    legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+  }, PLOTLY_CONFIG);
+}
+
+function renderInflationAdjustedChart(data) {
+  if (!data.inflation_enabled || !data.dates?.length || !data.portfolio_values?.length) {
+    renderEmptyChart('inflationAdjustedChart', 'Enable inflation adjustment to see this chart.');
+    return;
+  }
+  const rate = (Number(data.inflation_rate_used) || 0) / 100;
+  const start = new Date(data.dates[0]);
+  const adjusted = data.portfolio_values.map((v, i) => {
+    const d = new Date(data.dates[i]);
+    const years = Math.max(0, (d - start) / (365.25 * 24 * 60 * 60 * 1000));
+    return Number(v || 0) / Math.pow(1 + rate, years);
+  });
+  Plotly.newPlot('inflationAdjustedChart', [{
+    x: data.dates, y: data.portfolio_values,
+    name: 'Nominal Value', type: 'scatter', mode: 'lines',
+    line: { color: '#6366f1', width: 2 },
+  }, {
+    x: data.dates, y: adjusted,
+    name: 'Inflation Adjusted', type: 'scatter', mode: 'lines',
+    line: { color: '#f87171', width: 1.8, dash: 'dash' },
+  }], {
+    ...PLOTLY_LAYOUT_BASE,
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, tickprefix: 'INR ', tickformat: ',.0f' },
+    legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+  }, PLOTLY_CONFIG);
+}
 function renderRollingChart(data) {
   const windowDefs = [
     { label: '3Y', key: 'rolling_3y', color: '#34d399' },
@@ -2661,8 +3098,10 @@ function renderRollingChart(data) {
     }).join('');
   }
 
-  // ---- Only metric cards are shown (no box plot per user request) ----
+  // Keep the legacy box-plot target hidden, and render the richer rolling views above it.
   if (chartEl) chartEl.style.display = 'none';
+  renderRollingDistributionChart(data, windowDefs);
+  renderRollingTrendChart(data, windowDefs);
 }
 
 
@@ -2866,10 +3305,17 @@ function switchTab(tabName) {
   if (tabName === 'ledger' && allTransactions.length) {
     renderLedger(allTransactions);
   }
-  // Resize Plotly charts on tab switch
+  const tabChartIds = {
+    consistency: ['equityChart','drawdownChart','annualChart','heatmapChart','dailyReturnDistributionChart','monthlyReturnDistributionChart'],
+    risk: ['rollingDistributionChart','rollingTrendChart'],
+    adjusted: ['inflationAdjustedChart'],
+    attribution: ['contributionChart'],
+    montecarlo: ['mcFanChart'],
+  };
+  queuePlotlyResize(tabChartIds[tabName] || []);  // Resize Plotly charts on tab switch
   if (tabName === 'consistency') {
     setTimeout(() => {
-      ['equityChart','drawdownChart','annualChart','heatmapChart'].forEach(id => {
+      ['equityChart','drawdownChart','annualChart','heatmapChart','dailyReturnDistributionChart','monthlyReturnDistributionChart'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.data) Plotly.relayout(id, {});
       });
@@ -2877,8 +3323,16 @@ function switchTab(tabName) {
   }
   if (tabName === 'risk') {
     setTimeout(() => {
-      const el = document.getElementById('rollingChart');
-      if (el && el.data) Plotly.relayout('rollingChart', {});
+      ['rollingChart','rollingDistributionChart','rollingTrendChart'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.data) Plotly.relayout(id, {});
+      });
+    }, 50);
+  }
+  if (tabName === 'adjusted') {
+    setTimeout(() => {
+      const el = document.getElementById('inflationAdjustedChart');
+      if (el && el.data) Plotly.relayout('inflationAdjustedChart', {});
     }, 50);
   }
   if (tabName === 'attribution') {
@@ -3182,6 +3636,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Wire up benchmark search
   initBenchSearch();
+  initCustomBenchmarkSearch();
+  renderCustomBenchmarkRows();
 
   // Default benchmark = NIFTY 50
   const benchSearchEl = document.getElementById('benchmarkSearch');
@@ -3346,11 +3802,24 @@ function applyPlanToBuilder(strategyData) {
   setFieldValue('benchmarkId', benchmarkId);
   setFieldValue('benchmarkType', settings.benchmark_type || 'index');
   setFieldValue('benchmarkSearch', benchmarkId);
+  customBenchmarkComponents = (settings.benchmark_components || []).map(c => ({
+    label: c.label || c.source_id,
+    source_type: c.source_type || 'index',
+    source_id: String(c.source_id || ''),
+    weight: Number(c.weight || 0),
+  }));
+  renderCustomBenchmarkRows();
   const bsel = document.getElementById('benchmarkSelected');
   if (bsel) {
     bsel.textContent = benchmarkId ? '\u2713 ' + benchmarkId : '';
     bsel.style.display = benchmarkId ? '' : 'none';
   }
+
+  setToggleState('tax', Boolean(settings.tax_enabled));
+  setFieldValue('taxEquityStcg', settings.tax_equity_stcg ?? 20);
+  setFieldValue('taxEquityLtcg', settings.tax_equity_ltcg ?? 12.5);
+  setFieldValue('taxLtcgExemption', settings.tax_ltcg_exemption ?? 125000);
+  setFieldValue('taxDebtRate', settings.tax_debt_rate ?? 30);
 
   setToggleState('inflation', Boolean(settings.inflation_enabled));
   setFieldValue('inflationMode', settings.inflation_mode || 'manual');
