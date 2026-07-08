@@ -1295,9 +1295,6 @@ dialog#triggerModal::backdrop {
         <button class="btn-secondary" id="btnSave" onclick="saveStrategy()" style="flex:1">
           💾 Save Strategy
         </button>
-        <button class="btn-secondary" id="btnLoad" onclick="loadStrategiesModal()" style="flex:1">
-          📂 Load Strategy
-        </button>
       </div>
     </div>
 
@@ -1325,18 +1322,6 @@ dialog#triggerModal::backdrop {
       </div>
     </div>
 
-    <!-- Load Strategy Modal -->
-    <div id="loadStrategyModal" class="modal-overlay" style="display:none">
-      <div class="modal-box" style="max-width:480px">
-        <div class="modal-header">
-          <span>📂 Load Strategy</span>
-          <button class="modal-close" onclick="document.getElementById('loadStrategyModal').style.display='none'">✕</button>
-        </div>
-        <div id="loadStrategyList" style="padding:16px;max-height:400px;overflow-y:auto">
-          <div style="color:var(--text-muted);text-align:center;padding:20px">Loading…</div>
-        </div>
-      </div>
-    </div>
   </div><!-- /bt-left -->
 
   <!-- ═══════ RIGHT PANEL ══════════════════════════════════════════════════ -->
@@ -3665,7 +3650,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadInitialStrategyFromUrl();
 });
 
-// ── Save / Load Strategies ──────────────────────────────────────────────────
+// ── Save Strategies ──────────────────────────────────────────────────
 let _lastResult = null;  // Cached after each successful run for optional save
 const INITIAL_STRATEGY_ID = '{{ initial_strategy_id }}';
 
@@ -3709,47 +3694,6 @@ async function confirmSaveStrategy() {
     setTimeout(() => toast.remove(), 3000);
   } catch(e) {
     alert(`Failed to save: ${e.message}`);
-  }
-}
-
-async function loadStrategiesModal() {
-  document.getElementById('loadStrategyModal').style.display = 'flex';
-  const listEl = document.getElementById('loadStrategyList');
-  listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Loading\u2026</div>';
-
-  try {
-    const resp = await fetch('/portfolio/strategies/api/', {
-      headers: { 'Accept': 'application/json', 'X-CSRFToken': getCsrf() },
-    });
-    if (resp.status === 401) {
-      listEl.innerHTML = '<div style="color:var(--red-400);text-align:center;padding:20px">Please <a href="/accounts/login/" style="color:#6366f1">log in</a> to access saved strategies.</div>';
-      return;
-    }
-    const data = await resp.json();
-    const strats = data.strategies || [];
-
-    if (!strats.length) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px">\ud83d\udcad No saved strategies yet.<br>Run a backtest and hit \u201cSave Strategy\u201d to save one.</div>';
-      return;
-    }
-
-    listEl.innerHTML = strats.map(s => `
-      <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:var(--surface-2)">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-weight:600;color:var(--text-primary)">${s.name}</div>
-            ${s.description ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${s.description}</div>` : ''}
-            <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Saved ${new Date(s.updated_at).toLocaleString()}</div>
-          </div>
-          <div style="display:flex;gap:6px">
-            <button class="btn-run" style="padding:6px 14px;font-size:12px" onclick="loadStrategy(${JSON.stringify(s).replace(/'/g,'&#39;')})">Load</button>
-            <button class="btn-secondary" style="padding:6px 10px;font-size:12px;color:var(--red-400)" onclick="deleteStrategy('${s.id}',this)">✕</button>
-          </div>
-        </div>
-      </div>
-    `).join('');
-  } catch(e) {
-    listEl.innerHTML = `<div style="color:var(--red-400);text-align:center;padding:20px">Error loading strategies: ${e.message}</div>`;
   }
 }
 
@@ -3849,9 +3793,7 @@ function applyPlanToBuilder(strategyData) {
 }
 
 function loadStrategy(strategyData) {
-  if (!applyPlanToBuilder(strategyData)) return;
-  const modal = document.getElementById('loadStrategyModal');
-  if (modal) modal.style.display = 'none';
+  applyPlanToBuilder(strategyData);
 }
 
 async function loadInitialStrategyFromUrl() {
@@ -3878,25 +3820,6 @@ async function cacheLoadedStrategyResult(result) {
     });
   } catch (e) {
     console.warn('Could not update saved strategy result cache', e);
-  }
-}
-
-async function deleteStrategy(stratId, btn) {
-  if (!confirm('Delete this strategy?')) return;
-  btn.disabled = true;
-  try {
-    const resp = await fetch(`/portfolio/strategies/api/${stratId}/`, {
-      method: 'DELETE',
-      headers: { 'X-CSRFToken': getCsrf() },
-    });
-    const data = await resp.json();
-    if (data.status === 'deleted') {
-      // Re-render the modal list
-      loadStrategiesModal();
-    }
-  } catch(e) {
-    alert(`Delete failed: ${e.message}`);
-    btn.disabled = false;
   }
 }
 

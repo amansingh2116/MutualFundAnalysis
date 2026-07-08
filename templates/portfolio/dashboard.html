@@ -2,6 +2,21 @@
 {% block title %}{{ portfolio.name }}{% endblock %}
 
 {% block content %}
+<style>
+.portfolio-analysis-panel { min-height: 280px; }
+.portfolio-analysis-empty { border: 1px dashed var(--border); border-radius: 8px; padding: 40px 20px; text-align: center; color: var(--text-muted); background: rgba(15, 23, 42, 0.28); }
+.portfolio-benchmark-controls { display: grid; grid-template-columns: minmax(220px, 1fr) 110px auto auto; gap: 10px; align-items: end; margin-bottom: 14px; }
+.portfolio-benchmark-controls select, .portfolio-benchmark-controls input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); font-size: 13px; }
+.portfolio-benchmark-controls select option { background: #111827; color: #e5e7eb; }
+.portfolio-benchmark-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.portfolio-benchmark-row { display: grid; grid-template-columns: minmax(220px, 1fr) 110px auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+.portfolio-benchmark-row input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-surface); color: var(--text-primary); }
+.portfolio-inline-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.portfolio-inline-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.portfolio-inline-label { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.portfolio-inline-value { color: var(--text-primary); font-size: 20px; font-weight: 700; }
+@media (max-width: 720px) { .portfolio-benchmark-controls, .portfolio-benchmark-row { grid-template-columns: 1fr; } }
+</style>
 <div class="breadcrumb">
   <a href="{% url 'portfolio:list' %}">My Portfolios</a><span class="breadcrumb-sep">›</span><span>{{ portfolio.name }}</span>
 </div>
@@ -12,8 +27,6 @@
     <div class="page-subtitle">{{ tx_count }} transactions · Uploaded {{ portfolio.created_at|date:"d M Y" }}</div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <a href="{% url 'portfolio:overlap' portfolio.pk %}" class="btn btn-secondary btn-sm">🔄 Overlap Matrix</a>
-    <a href="{% url 'portfolio:benchmark' portfolio.pk %}" class="btn btn-secondary btn-sm">📊 Benchmark Compare</a>
     <form method="post" action="{% url 'portfolio:delete' portfolio.pk %}" style="display:inline;" onsubmit="return confirm('Delete portfolio?')">
       {% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
     </form>
@@ -25,6 +38,8 @@
     <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview" style="background:none; border:none; color:var(--text); padding-bottom:12px; border-bottom: 2px solid var(--primary); font-weight: 500; cursor:pointer;">Overview</button>
     <button class="tab-btn" onclick="switchTab('analysis')" id="tab-analysis" style="background:none; border:none; color:var(--text-muted); padding-bottom:12px; border-bottom: 2px solid transparent; cursor:pointer;">Analytics & Performance</button>
     <button class="tab-btn" onclick="switchTab('rebalancing')" id="tab-rebalancing" style="background:none; border:none; color:var(--text-muted); padding-bottom:12px; border-bottom: 2px solid transparent; cursor:pointer;">Rebalancing & Alerts</button>
+    <button class="tab-btn" onclick="switchTab('overlap')" id="tab-overlap" style="background:none; border:none; color:var(--text-muted); padding-bottom:12px; border-bottom: 2px solid transparent; cursor:pointer;">Overlap Matrix</button>
+    <button class="tab-btn" onclick="switchTab('benchmark')" id="tab-benchmark" style="background:none; border:none; color:var(--text-muted); padding-bottom:12px; border-bottom: 2px solid transparent; cursor:pointer;">Benchmark Analysis</button>
 </div>
 
 <!-- OVERVIEW TAB -->
@@ -461,6 +476,48 @@
     </div>
 </div>
 
+
+<!-- OVERLAP MATRIX TAB -->
+<div id="content-overlap" class="tab-content" style="display:none;">
+  <div class="card">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div class="card-title">Overlap Matrix</div>
+      <button type="button" class="btn btn-primary btn-sm" onclick="runOverlapMatrix()">Run Overlap Matrix</button>
+    </div>
+    <div class="card-body portfolio-analysis-panel" id="overlap-analysis-panel">
+      <div class="portfolio-analysis-empty">Overlap analysis is ready to run.</div>
+    </div>
+  </div>
+</div>
+
+<!-- BENCHMARK ANALYSIS TAB -->
+<div id="content-benchmark" class="tab-content" style="display:none;">
+  <div class="card">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div class="card-title">Benchmark Analysis</div>
+      <button type="button" class="btn btn-primary btn-sm" onclick="runBenchmarkAnalysis()">Run Benchmark Analysis</button>
+    </div>
+    <div class="card-body portfolio-analysis-panel">
+      <div class="portfolio-benchmark-controls">
+        <div>
+          <label class="form-label" for="portfolio-benchmark-select">Index</label>
+          <select id="portfolio-benchmark-select"></select>
+        </div>
+        <div>
+          <label class="form-label" for="portfolio-benchmark-weight">Weight %</label>
+          <input id="portfolio-benchmark-weight" type="number" min="0" max="100" step="0.01" value="100">
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addPortfolioBenchmarkLeg()">Add Index</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="resetPortfolioBenchmarkLegs()">Reset</button>
+      </div>
+      <div id="portfolio-benchmark-rows" class="portfolio-benchmark-rows"></div>
+      <div id="benchmark-analysis-panel">
+        <div class="portfolio-analysis-empty">Default blended benchmark will be used until custom weights are added.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 function switchTab(tabId) {
     // Hide all contents
@@ -485,6 +542,157 @@ function switchTab(tabId) {
     window.dispatchEvent(new Event('resize'));
 }
 
+const PORTFOLIO_BENCHMARK_INDICES = {{ benchmark_indices_json|safe }};
+let portfolioBenchmarkLegs = [];
+
+function fmtInlineCurrency(value) {
+    const n = Number(value || 0);
+    return '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+function fmtInlinePct(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+    return Number(value).toFixed(2) + '%';
+}
+function inlineMetricCard(label, value, color) {
+    return `<div class="portfolio-inline-card"><div class="portfolio-inline-label">${label}</div><div class="portfolio-inline-value" style="color:${color || 'var(--text-primary)'}">${value}</div></div>`;
+}
+function inlinePlotLayout(title, yTitle) {
+    return {
+        title: title ? { text: title, font: { size: 13, color: '#e5e7eb' } } : undefined,
+        margin: { l: 52, r: 20, t: title ? 42 : 18, b: 42 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#94a3b8', size: 11 },
+        xaxis: { gridcolor: 'rgba(148,163,184,0.12)', zeroline: false },
+        yaxis: { title: yTitle || '', gridcolor: 'rgba(148,163,184,0.14)', zerolinecolor: 'rgba(148,163,184,0.18)' },
+        legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+    };
+}
+function setInlinePanelLoading(id, label) {
+    const panel = document.getElementById(id);
+    if (panel) panel.innerHTML = `<div class="portfolio-analysis-empty">${label}</div>`;
+}
+
+async function runOverlapMatrix() {
+    const panel = document.getElementById('overlap-analysis-panel');
+    setInlinePanelLoading('overlap-analysis-panel', 'Running overlap matrix...');
+    try {
+        const resp = await fetch('{% url "portfolio:overlap" portfolio.pk %}?format=json', { headers: { 'Accept': 'application/json' } });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || 'Could not run overlap matrix.');
+        if (!data.has_data) {
+            panel.innerHTML = `<div class="portfolio-analysis-empty">${data.message || 'No overlap data available.'}</div>`;
+            return;
+        }
+        panel.innerHTML = `
+            <div id="inline-overlap-heatmap" style="height:390px;margin-bottom:18px"></div>
+            <div class="table-wrapper"><table><thead><tr><th>Fund</th>${data.schemes.map(name => `<th style="font-size:10px;max-width:120px">${name}</th>`).join('')}</tr></thead><tbody>
+            ${data.schemes.map((name, i) => `<tr><td style="font-weight:600;font-size:12px;max-width:220px">${name}</td>${(data.matrix[i] || []).map(v => `<td style="text-align:center;font-weight:${v === 100 ? 400 : 700};color:${v === 100 ? 'var(--text-muted)' : v > 50 ? 'var(--red-400)' : v > 25 ? 'var(--amber-400)' : 'var(--emerald-400)'}">${v === 100 ? '—' : v + '%'}</td>`).join('')}</tr>`).join('')}
+            </tbody></table></div>`;
+        Plotly.newPlot('inline-overlap-heatmap', [{
+            z: data.matrix,
+            x: data.schemes,
+            y: data.schemes,
+            type: 'heatmap',
+            colorscale: [['0','rgba(52,211,153,0.82)'],['0.5','rgba(251,191,36,0.82)'],['1','rgba(248,113,113,0.82)']],
+            zmin: 0,
+            zmax: 100,
+            hovertemplate: '%{y}<br>vs<br>%{x}<br>Overlap: %{z}%<extra></extra>',
+            showscale: true,
+        }], inlinePlotLayout('', 'Overlap %'), { responsive: true });
+    } catch (err) {
+        panel.innerHTML = `<div class="portfolio-analysis-empty">${err.message}</div>`;
+    }
+}
+
+function initPortfolioBenchmarkTab() {
+    const select = document.getElementById('portfolio-benchmark-select');
+    if (!select) return;
+    const options = (PORTFOLIO_BENCHMARK_INDICES || []).map(name => `<option value="${name}">${name}</option>`).join('');
+    select.innerHTML = `<option value="">-- Select Index --</option>${options}`;
+}
+function renderPortfolioBenchmarkRows() {
+    const rows = document.getElementById('portfolio-benchmark-rows');
+    if (!rows) return;
+    rows.innerHTML = portfolioBenchmarkLegs.map((leg, i) => `
+        <div class="portfolio-benchmark-row">
+            <div style="font-weight:600;color:var(--text-primary);font-size:13px">${leg.name}</div>
+            <input type="number" min="0" max="100" step="0.01" value="${leg.weight}" onchange="updatePortfolioBenchmarkWeight(${i}, this.value)">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="removePortfolioBenchmarkLeg(${i})">Remove</button>
+        </div>`).join('');
+}
+function addPortfolioBenchmarkLeg() {
+    const select = document.getElementById('portfolio-benchmark-select');
+    const weightInput = document.getElementById('portfolio-benchmark-weight');
+    const name = select?.value;
+    const weight = Number(weightInput?.value || 0);
+    if (!name || weight <= 0) return;
+    const existing = portfolioBenchmarkLegs.find(leg => leg.name === name);
+    if (existing) existing.weight = weight;
+    else portfolioBenchmarkLegs.push({ name, weight });
+    if (select) select.value = '';
+    renderPortfolioBenchmarkRows();
+}
+function updatePortfolioBenchmarkWeight(index, value) {
+    if (!portfolioBenchmarkLegs[index]) return;
+    portfolioBenchmarkLegs[index].weight = Number(value || 0);
+}
+function removePortfolioBenchmarkLeg(index) {
+    portfolioBenchmarkLegs.splice(index, 1);
+    renderPortfolioBenchmarkRows();
+}
+function resetPortfolioBenchmarkLegs() {
+    portfolioBenchmarkLegs = [];
+    renderPortfolioBenchmarkRows();
+    document.getElementById('benchmark-analysis-panel').innerHTML = '<div class="portfolio-analysis-empty">Default blended benchmark will be used until custom weights are added.</div>';
+}
+async function runBenchmarkAnalysis() {
+    const panel = document.getElementById('benchmark-analysis-panel');
+    setInlinePanelLoading('benchmark-analysis-panel', 'Running benchmark analysis...');
+    try {
+        const params = new URLSearchParams({ format: 'json' });
+        portfolioBenchmarkLegs.forEach(leg => {
+            if (leg.name && Number(leg.weight) > 0) params.set(`weight_${leg.name}`, String(leg.weight));
+        });
+        const resp = await fetch(`{% url "portfolio:benchmark" portfolio.pk %}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || 'Could not run benchmark analysis.');
+        const custom = data.custom_benchmark;
+        panel.innerHTML = `
+            ${data.fallbacks?.length ? `<div class="alert alert-warning" style="margin-bottom:14px">Some fund benchmarks used NIFTY 50 fallback: ${data.fallbacks.join(', ')}</div>` : ''}
+            <div class="portfolio-inline-grid">
+                ${inlineMetricCard('Portfolio Value', fmtInlineCurrency(data.portfolio.current))}
+                ${inlineMetricCard('Portfolio XIRR', fmtInlinePct(data.portfolio.xirr), Number(data.portfolio.xirr) >= 0 ? 'var(--emerald-400)' : 'var(--red-400)')}
+                ${inlineMetricCard('Default Benchmark XIRR', fmtInlinePct(data.default_benchmark.xirr))}
+                ${custom ? inlineMetricCard('Custom Benchmark XIRR', fmtInlinePct(custom.xirr), 'var(--amber-400)') : inlineMetricCard('NIFTY 50 XIRR', fmtInlinePct(data.nifty_50.xirr), 'var(--emerald-400)')}
+            </div>
+            <div id="inline-benchmark-chart" style="height:380px;margin-bottom:16px"></div>
+            <div class="table-wrapper"><table><thead><tr><th>Series</th><th>Current Value</th><th>XIRR</th><th>Alpha</th><th>Beta</th><th>Sharpe</th><th>Sortino</th></tr></thead><tbody id="inline-benchmark-body"></tbody></table></div>`;
+        const rows = [
+            ['Portfolio', data.portfolio.current, data.portfolio.xirr, null, null, null, null],
+            ['Default Blended Benchmark', data.default_benchmark.current, data.default_benchmark.xirr, data.default_benchmark.metrics?.alpha, data.default_benchmark.metrics?.beta, data.default_benchmark.metrics?.sharpe, data.default_benchmark.metrics?.sortino],
+            custom ? ['Custom Benchmark', custom.current, custom.xirr, custom.metrics?.alpha, custom.metrics?.beta, custom.metrics?.sharpe, custom.metrics?.sortino] : null,
+            ['NIFTY 50', data.nifty_50.current, data.nifty_50.xirr, data.nifty_50.metrics?.alpha, data.nifty_50.metrics?.beta, data.nifty_50.metrics?.sharpe, data.nifty_50.metrics?.sortino],
+        ].filter(Boolean);
+        document.getElementById('inline-benchmark-body').innerHTML = rows.map(row => `<tr><td>${row[0]}</td><td>${fmtInlineCurrency(row[1])}</td><td>${fmtInlinePct(row[2])}</td><td>${row[3] ?? '—'}</td><td>${row[4] ?? '—'}</td><td>${row[5] ?? '—'}</td><td>${row[6] ?? '—'}</td></tr>`).join('');
+        const traces = [
+            { x: data.dates, y: data.portfolio.values, name: 'Portfolio', type: 'scatter', mode: 'lines', line: { color: '#8b5cf6', width: 2.4 } },
+            { x: data.dates, y: data.default_benchmark.values, name: 'Default Benchmark', type: 'scatter', mode: 'lines', line: { color: '#3b82f6', width: 2 } },
+            custom ? { x: data.dates, y: custom.values, name: 'Custom Benchmark', type: 'scatter', mode: 'lines', line: { color: '#f59e0b', width: 2 } } : null,
+            { x: data.dates, y: data.nifty_50.values, name: 'NIFTY 50', type: 'scatter', mode: 'lines', line: { color: '#10b981', width: 1.8 } },
+        ].filter(Boolean);
+        Plotly.newPlot('inline-benchmark-chart', traces, inlinePlotLayout('', 'Value'), { responsive: true });
+    } catch (err) {
+        panel.innerHTML = `<div class="portfolio-analysis-empty">${err.message}</div>`;
+    }
+}
+window.runOverlapMatrix = runOverlapMatrix;
+window.runBenchmarkAnalysis = runBenchmarkAnalysis;
+window.addPortfolioBenchmarkLeg = addPortfolioBenchmarkLeg;
+window.updatePortfolioBenchmarkWeight = updatePortfolioBenchmarkWeight;
+window.removePortfolioBenchmarkLeg = removePortfolioBenchmarkLeg;
+window.resetPortfolioBenchmarkLegs = resetPortfolioBenchmarkLegs;
+document.addEventListener('DOMContentLoaded', initPortfolioBenchmarkTab);
 document.addEventListener("DOMContentLoaded", function() {
     const dates = {{ journey_dates|safe }};
     const invested = {{ journey_invested|safe }};

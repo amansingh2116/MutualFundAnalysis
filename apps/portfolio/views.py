@@ -158,6 +158,16 @@ def portfolio_dashboard_view(request, pk):
     # Portfolio composition analysis
     composition = _compute_portfolio_composition(fund_summary, transactions)
 
+
+    try:
+        from apps.benchmarks.models import BenchmarkIndex
+        benchmark_indices = list(
+            BenchmarkIndex.objects.filter(is_active=True)
+            .order_by('name')
+            .values_list('name', flat=True)
+        )
+    except Exception:
+        benchmark_indices = []
     return render(request, 'portfolio/dashboard.html', {
         'portfolio': portfolio,
         'fund_summary': fund_summary,
@@ -176,6 +186,7 @@ def portfolio_dashboard_view(request, pk):
         'tx_count': transactions.count(),
         'transactions': transactions.order_by('-tx_date'),
         'composition': composition,
+        'benchmark_indices_json': json.dumps(benchmark_indices),
     })
 
 
@@ -379,6 +390,16 @@ def portfolio_overlap_view(request, pk):
                     row.append(round(score, 1))
             overlap_matrix.append(row)
 
+
+    if request.GET.get('format') == 'json':
+        scheme_names = [s.scheme_name for s in schemes]
+        return JsonResponse({
+            'status': 'ok',
+            'has_data': bool(overlap_matrix),
+            'schemes': scheme_names,
+            'matrix': overlap_matrix,
+            'message': '' if overlap_matrix else 'Overlap analysis needs holdings data for at least two matched funds.',
+        })
     return render(request, 'portfolio/overlap.html', {
         'portfolio': portfolio,
         'schemes': schemes,
@@ -442,7 +463,7 @@ def portfolio_benchmark_view(request, pk):
     def_metrics = compute_advanced_risk_metrics(port_values, def_values) if port_values and def_values else {}
     nifty_metrics = compute_advanced_risk_metrics(port_values, nifty_values) if port_values and nifty_values else {}
     
-    return render(request, 'portfolio/benchmark.html', {
+    context = {
         'portfolio': portfolio,
         'indices': indices,
         'default_weights': default_formatted_weights,
@@ -464,7 +485,42 @@ def portfolio_benchmark_view(request, pk):
         'def_values': json.dumps(def_values),
         'custom_values': json.dumps(custom_values) if custom_values else 'null',
         'nifty_values': json.dumps(nifty_values),
-    })
+    }
+
+    if request.GET.get('format') == 'json':
+        return JsonResponse({
+            'status': 'ok',
+            'indices': [idx.name for idx in indices],
+            'default_weights': default_formatted_weights,
+            'custom_weights': custom_formatted_weights,
+            'fallbacks': fallbacks,
+            'portfolio': {
+                'current': port_current,
+                'xirr': port_xirr,
+                'values': port_values,
+            },
+            'default_benchmark': {
+                'current': def_current,
+                'xirr': def_xirr,
+                'metrics': def_metrics,
+                'values': def_values,
+            },
+            'custom_benchmark': {
+                'current': custom_current,
+                'xirr': custom_xirr,
+                'metrics': custom_metrics,
+                'values': custom_values,
+            } if custom_weights else None,
+            'nifty_50': {
+                'current': nifty_current,
+                'xirr': nifty_xirr,
+                'metrics': nifty_metrics,
+                'values': nifty_values,
+            },
+            'dates': port_dates,
+        })
+
+    return render(request, 'portfolio/benchmark.html', context)
 
 
 @login_required
