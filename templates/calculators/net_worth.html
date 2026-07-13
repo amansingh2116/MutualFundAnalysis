@@ -137,7 +137,7 @@
         <div class="nw-row"><span class="nw-label">Annuity (Surrender Value)</span><div class="nw-input-wrap"><span>₹</span><input id="a_annuity" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
 
         <!-- Investments -->
-        <div class="nw-section-title investments">Market Investments</div>
+        <div class="nw-section-title investments" style="display:flex;align-items:center;">Market Investments <button class="info-btn" data-t-title="Market Investments" data-t-what="Equity, mutual funds, bonds, and real estate holdings. These are growth assets that carry market risk but typically deliver inflation-beating returns over long periods.">i</button></div>
         <div class="nw-row"><span class="nw-label">Stock Market / Equities</span><div class="nw-input-wrap"><span>₹</span><input id="a_stocks" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Mutual Funds</span><div class="nw-input-wrap"><span>₹</span><input id="a_mf" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Stocks / Bonds held personally</span><div class="nw-input-wrap"><span>₹</span><input id="a_bonds_personal" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
@@ -145,7 +145,7 @@
         <div class="nw-row"><span class="nw-label">Digital Gold & other commodities</span><div class="nw-input-wrap"><span>₹</span><input id="a_gold" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
 
         <!-- Retirement -->
-        <div class="nw-section-title retirement">Retirement Accounts</div>
+        <div class="nw-section-title retirement" style="display:flex;align-items:center;">Retirement Accounts <button class="info-btn" data-t-title="Retirement Accounts" data-t-what="Long-term, tax-advantaged savings: EPF, PPF, NPS, pensions. Typically illiquid before retirement age." data-t-note="Do not count these in your liquidity ratio — they should be treated as untouchable until retirement.">i</button></div>
         <div class="nw-row"><span class="nw-label">EPF (Employee Provident Fund)</span><div class="nw-input-wrap"><span>₹</span><input id="a_epf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">PPF (Public Provident Fund)</span><div class="nw-input-wrap"><span>₹</span><input id="a_ppf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">NPS Balance</span><div class="nw-input-wrap"><span>₹</span><input id="a_nps" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
@@ -189,16 +189,18 @@
     <div class="nw-summary-card">
       <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 16px;">Summary</div>
       <div class="nw-summary-row">
-        <span class="nw-summary-label">Total Assets</span>
+        <span class="nw-summary-label" style="display:flex;align-items:center;">Total Assets <button class="info-btn" data-t-title="Total Assets" data-t-what="Everything you own that has monetary value: cash, investments, property, retirement accounts, and valuables.">i</button></span>
         <span id="tot-assets" class="nw-summary-val" style="color:#34d399;">₹ 0</span>
       </div>
       <div class="nw-summary-row">
-        <span class="nw-summary-label">Total Liabilities</span>
+        <span class="nw-summary-label" style="display:flex;align-items:center;">Total Liabilities <button class="info-btn" data-t-title="Total Liabilities" data-t-what="Everything you owe: loans, mortgages, credit card balances, and outstanding debts. Reducing liabilities directly grows your net worth.">i</button></span>
         <span id="tot-liabilities" class="nw-summary-val" style="color:#f87171;">₹ 0</span>
       </div>
       <div class="nw-summary-row" style="padding-top: 18px; margin-top: 4px; border-top: 2px solid var(--border);">
         <div>
-          <div style="font-weight: 700; font-size: 14px; color: var(--text-primary); margin-bottom: 4px;">Your Net Worth</div>
+          <div style="font-weight: 700; font-size: 14px; color: var(--text-primary); margin-bottom: 4px; display:flex; align-items:center;">Your Net Worth
+            <button class="info-btn" data-t-title="Your Net Worth" data-t-what="Total Assets minus Total Liabilities. Your true financial position." data-t-interp="A positive and growing net worth is the foundation of financial health. Track it monthly to see progress.">i</button>
+          </div>
           <div id="nw-status" style="font-size: 11px; color: var(--text-muted);"></div>
         </div>
         <span id="net-worth" class="nw-networth-val">₹ 0</span>
@@ -224,7 +226,9 @@
 
     <!-- Solvency ratio -->
     <div class="nw-summary-card" style="padding: 16px;">
-      <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:12px;">Solvency Ratio</div>
+      <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:12px; display:flex; align-items:center; gap:4px;">Solvency Ratio
+        <button class="info-btn" data-t-title="Solvency Ratio" data-t-what="Assets ÷ Liabilities. Measures whether you could pay all your debts today using everything you own." data-t-interp="&lt; 1.0 = Insolvent | 1.0-1.5 = Marginal | 1.5-2.0 = Adequate | &gt; 2.0 = Financially Secure | &gt; 3.0 = Excellent">i</button>
+      </div>
       <div id="nw-solvency-bar" style="height:6px; border-radius:3px; background:rgba(148,163,184,0.12); overflow:hidden; margin-bottom:8px;">
         <div id="nw-solvency-fill" style="height:100%; border-radius:3px; width:0%; background:linear-gradient(90deg,#f87171,#fbbf24,#34d399); transition:width .4s;"></div>
       </div>

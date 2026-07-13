@@ -1,184 +1,303 @@
 {% extends "base.html" %}
 {% block title %}Step-Up SIP Calculator{% endblock %}
 
+{% block extra_head %}
+<style>
+.mode-picker { max-width: 780px; margin: 0 auto 32px; }
+.mode-picker-title { font-size: 13px; font-weight: 700; color: var(--text-muted); text-align: center; margin-bottom: 18px; letter-spacing: .06em; text-transform: uppercase; }
+.mode-picker-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.mode-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 30px 26px; cursor: pointer; transition: border-color .2s, transform .2s, box-shadow .2s; display: flex; flex-direction: column; gap: 10px; }
+.mode-card:hover { border-color: var(--indigo-500); transform: translateY(-3px); box-shadow: 0 10px 36px rgba(99,102,241,.18); }
+.mode-card-hist { border-color: rgba(16,185,129,.22); background: linear-gradient(135deg,rgba(16,185,129,.05) 0%,rgba(99,102,241,.03) 100%); }
+.mode-card-hist:hover { border-color: rgba(16,185,129,.55); box-shadow: 0 10px 36px rgba(16,185,129,.18); }
+.mode-card-icon { font-size: 34px; }
+.mode-card-title { font-size: 17px; font-weight: 800; color: var(--text-primary); }
+.mode-card-desc { font-size: 12.5px; color: var(--text-secondary); line-height: 1.65; flex: 1; }
+.mode-card-cta { font-size: 12px; font-weight: 700; color: var(--indigo-400); }
+.mode-card-hist .mode-card-cta { color: #6ee7b7; }
+.calc-layout { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.calc-inputs { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.calc-results { min-width: 0; }
+.calc-mode-back { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-bottom: 16px; border: none; background: none; padding: 0; transition: color .15s; }
+.calc-mode-back:hover { color: var(--indigo-300); }
+.fund-slot { border: 1px solid var(--border); border-radius: 9px; padding: 12px; margin-bottom: 10px; background: var(--bg-elevated); }
+.fund-slot-2 { border-color: rgba(52,211,153,.25); }
+.fund-slot-3 { border-color: rgba(245,158,11,.25); }
+.fund-slot-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.fund-slot-label { font-size: 10.5px; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; }
+.slot-label-1 { color: var(--indigo-400); }
+.slot-label-2 { color: #34d399; }
+.slot-label-3 { color: #f59e0b; }
+.fund-slot-remove { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 0; transition: color .15s; }
+.fund-slot-remove:hover { color: #f87171; }
+.fund-search-wrap { position: relative; }
+.fund-dd { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 7px; max-height: 220px; overflow-y: auto; z-index: 200; box-shadow: 0 6px 20px rgba(0,0,0,.3); margin-top: 3px; display: none; }
+.fund-dd-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); }
+.fund-dd-item:hover { background: rgba(99,102,241,.08); }
+.add-fund-btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; border: 1px dashed var(--border); border-radius: 8px; background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 650; cursor: pointer; transition: border-color .15s, color .15s; margin-bottom: 10px; width: 100%; }
+.add-fund-btn:hover { border-color: var(--indigo-500); color: var(--indigo-300); }
+.res-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.res-stat { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px 16px; }
+.res-stat .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 6px; }
+.res-stat .val { font-size: 22px; font-weight: 850; color: var(--text-primary); line-height: 1.1; }
+.res-stat .sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.res-metrics { display: flex; flex-wrap: wrap; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+.res-metric { flex: 1; min-width: 90px; padding: 10px 14px; border-right: 1px solid var(--border-subtle); }
+.res-metric:last-child { border-right: none; }
+.res-metric .key { font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.res-metric .val { font-size: 13.5px; font-weight: 750; color: var(--text-primary); }
+.res-chart { margin-bottom: 14px; width: 100%; }
+.res-donut-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.res-table-wrap { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+.res-table-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.res-table-scroll { overflow-x: auto; max-height: 300px; overflow-y: auto; }
+.cf-tabs { display: flex; gap: 6px; }
+.cf-tab { padding: 5px 13px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 650; cursor: pointer; transition: all .15s; }
+.cf-tab.active { background: var(--indigo-500); color: #fff; border-color: var(--indigo-500); }
+.compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.compare-table th { background: rgba(99,102,241,.08); color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 8px 12px; text-align: right; white-space: nowrap; }
+.compare-table th:first-child { text-align: left; }
+.compare-table td { padding: 10px 12px; border-top: 1px solid var(--border-subtle); text-align: right; }
+.compare-table td:first-child { text-align: left; font-weight: 650; }
+.calc-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 240px; border: 1px dashed var(--border); border-radius: 12px; color: var(--text-muted); gap: 8px; }
+.calc-placeholder-icon { font-size: 36px; opacity: .6; }
+.calc-placeholder-text { font-size: 13px; }
+@media (max-width: 900px) { .calc-layout { grid-template-columns: 1fr; } .mode-picker-cards { grid-template-columns: 1fr; } }
+@keyframes spin-icon { to { transform: rotate(360deg); } }
+.spinning { display: inline-block; animation: spin-icon 1s linear infinite; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="breadcrumb">
   <a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Step-Up SIP</span>
 </div>
 <div class="page-header">
-  <div class="page-title">📊 Step-Up SIP Calculator</div>
+  <div class="page-title">📊 Step-Up SIP Calculator
+    <button class="info-btn" aria-label="What is Step-Up SIP" data-t-title="Step-Up SIP" data-t-what="A Step-Up SIP increases your investment amount annually by a fixed percentage. As your salary grows, so does your SIP — accelerating wealth creation." data-t-interp="For example, starting with ₹5,000/month and stepping up 10% each year means you invest ₹5,500 in year 2, ₹6,050 in year 3, and so on. This combats lifestyle inflation and maximises compounding.">ⓘ</button>
+  </div>
   <div class="page-subtitle">Increase your SIP annually and see the difference — using projected rates or actual historical NAV data.</div>
 </div>
 
-<div class="calc-layout">
-  <div class="calc-inputs">
-    <div class="calc-mode-toggle" style="display:flex;gap:10px;margin-bottom:20px;background:var(--bg-elevated);padding:4px;border-radius:8px">
-      <button type="button" class="btn btn-sm" id="mode-generic"    onclick="setMode('generic')"    style="flex:1;background:var(--indigo-500);color:white;border:none">Generic (Expected Rate)</button>
-      <button type="button" class="btn btn-sm" id="mode-historical" onclick="setMode('historical')" style="flex:1;background:transparent;color:var(--text-secondary);border:none">Historical (Fund NAV)</button>
+<!-- ── Mode Picker ── -->
+<div id="mode-picker" class="mode-picker">
+  <div class="mode-picker-title">How would you like to calculate?</div>
+  <div class="mode-picker-cards">
+    <div class="mode-card" onclick="selectMode('generic')">
+      <div class="mode-card-icon">🧮</div>
+      <div class="mode-card-title">Generic Calculator</div>
+      <div class="mode-card-desc">Set a starting SIP, annual step-up percentage, and expected return. Project future value without selecting a fund.</div>
+      <div class="mode-card-cta">Use Generic →</div>
     </div>
+    <div class="mode-card mode-card-hist" onclick="selectMode('historical')">
+      <div class="mode-card-icon">📊</div>
+      <div class="mode-card-title">Historical Fund NAV</div>
+      <div class="mode-card-desc">Select up to 3 real mutual funds and simulate a step-up SIP with actual NAV history. Compare performance side by side.</div>
+      <div class="mode-card-cta">Use Historical →</div>
+    </div>
+  </div>
+</div>
 
-    <!-- Generic mode -->
-    <form id="stepsip-form-generic">
-      {% csrf_token %}
-      <input type="hidden" name="amfi_code" id="fund-amfi-code">
-      <div class="form-group"><label class="form-label">Starting Monthly SIP (₹)</label><input class="form-control" type="number" name="start_amount" value="5000" min="500" step="500"></div>
-      <div class="form-group"><label class="form-label">Annual Step-Up (%)</label>
-        <div class="range-wrapper">
-          <input type="range" name="step_up_pct" id="step_up_pct" min="5" max="50" value="10" step="5">
-          <span class="range-value" id="step_up_pct_display">10%</span>
-        </div>
-      </div>
-      <div class="form-group"><label class="form-label">Investment Period (Years)</label>
-        <div class="range-wrapper">
-          <input type="range" name="years" id="years" min="1" max="30" value="10">
-          <span class="range-value" id="years_display">10 yrs</span>
-        </div>
-      </div>
-      <div class="form-group" id="expected-rate-group"><label class="form-label">Expected Return (% p.a.)</label>
-        <div class="range-wrapper">
-          <input type="range" name="expected_rate" id="expected_rate" min="5" max="25" value="12" step="0.5">
-          <span class="range-value" id="expected_rate_display">12%</span>
-        </div>
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
-    </form>
+<!-- ── Calculator area ── -->
+<div id="calc-area" style="display:none">
+  <div class="calc-layout">
+    <div class="calc-inputs">
+      <button type="button" class="calc-mode-back" onclick="goBack()">← Change calculator type</button>
 
-    <!-- Historical mode -->
-    <form id="stepsip-form-historical" style="display:none">
-      {% csrf_token %}
-      <!-- Fund search -->
-      <div class="form-group" style="position:relative">
-        <label class="form-label" style="color:var(--indigo-400)">Select Mutual Fund</label>
-        <input type="text" class="form-control" id="hist-fund-search" placeholder="Type to search fund…" autocomplete="off" style="border-color:var(--indigo-500)">
-        <input type="hidden" id="hist-amfi-code" name="amfi_code">
-        <input type="hidden" id="hist-inception"  name="inception_date">
-        <div id="hist-fund-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-top:4px"></div>
-      </div>
-      <div class="grid-2" style="gap:12px">
+      <!-- GENERIC FORM -->
+      <form id="form-generic" style="display:none">
+        {% csrf_token %}
         <div class="form-group">
-          <label class="form-label">Start Date</label>
-          <input type="date" class="form-control" id="hist-start-date" name="start_date">
-          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Defaults to fund inception date if available.</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">End Date</label>
-          <input type="date" class="form-control" id="hist-end-date" name="end_date">
-        </div>
-      </div>
-      <div class="grid-2" style="gap:12px">
-        <div class="form-group">
-          <label class="form-label">Starting SIP Amount (₹)</label>
-          <input class="form-control" type="number" name="amount" id="hist-amount" value="5000" min="100" step="100">
+          <label class="form-label">Starting Monthly SIP (₹)</label>
+          <input class="form-control" type="number" name="start_amount" id="start_amount" value="5000" min="500" step="500">
         </div>
         <div class="form-group">
           <label class="form-label">Annual Step-Up (%)</label>
-          <input class="form-control" type="number" name="step_up_pct" id="hist-step-up" value="10" min="0" max="100" step="1">
+          <div class="range-wrapper">
+            <input type="range" name="step_up_pct" id="step_up_pct" min="5" max="50" value="10" step="5">
+            <span class="range-value" id="step_up_display">10%</span>
+          </div>
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Frequency</label>
-        <select class="form-control" name="frequency">
-          <option value="monthly">Monthly</option>
-          <option value="quarterly">Quarterly</option>
-        </select>
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
-    </form>
-  </div>
+        <div class="form-group">
+          <label class="form-label">Investment Period (Years)</label>
+          <div class="range-wrapper">
+            <input type="range" name="years" id="years" min="1" max="30" value="10">
+            <span class="range-value" id="years_display">10 yrs</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expected Return (% p.a.)</label>
+          <div class="range-wrapper">
+            <input type="range" name="expected_rate" id="expected_rate" min="5" max="25" value="12" step="0.5">
+            <span class="range-value" id="expected_rate_display">12%</span>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+      </form>
 
-  <div class="calc-results">
-    <div id="stepsip-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div></div>
-    <div id="stepsip-chart"       style="height:340px;margin-top:20px"></div>
-    <div id="stepsip-donut"       style="height:240px;margin-top:16px"></div>
-    <div id="stepsip-table"       style="margin-top:20px"></div>
+      <!-- HISTORICAL FORM -->
+      <form id="form-historical" style="display:none">
+        {% csrf_token %}
+
+        <div class="fund-slot" id="slot-1">
+          <div class="fund-slot-hdr"><span class="fund-slot-label slot-label-1">● Fund 1</span></div>
+          <div class="fund-search-wrap">
+            <input type="text" class="form-control" id="fs-1" placeholder="Type to search fund…" autocomplete="off">
+            <input type="hidden" id="fa-1"><input type="hidden" id="fi-1">
+            <div class="fund-dd" id="fd-1"></div>
+          </div>
+        </div>
+        <button type="button" class="add-fund-btn" id="add-btn-2" onclick="showSlot(2)">＋ Add 2nd Fund to compare</button>
+        <div class="fund-slot fund-slot-2" id="slot-2" style="display:none">
+          <div class="fund-slot-hdr">
+            <span class="fund-slot-label slot-label-2">● Fund 2</span>
+            <button type="button" class="fund-slot-remove" onclick="hideSlot(2)">×</button>
+          </div>
+          <div class="fund-search-wrap">
+            <input type="text" class="form-control" id="fs-2" placeholder="Type to search fund…" autocomplete="off">
+            <input type="hidden" id="fa-2"><input type="hidden" id="fi-2">
+            <div class="fund-dd" id="fd-2"></div>
+          </div>
+        </div>
+        <button type="button" class="add-fund-btn" id="add-btn-3" onclick="showSlot(3)" style="display:none">＋ Add 3rd Fund to compare</button>
+        <div class="fund-slot fund-slot-3" id="slot-3" style="display:none">
+          <div class="fund-slot-hdr">
+            <span class="fund-slot-label slot-label-3">● Fund 3</span>
+            <button type="button" class="fund-slot-remove" onclick="hideSlot(3)">×</button>
+          </div>
+          <div class="fund-search-wrap">
+            <input type="text" class="form-control" id="fs-3" placeholder="Type to search fund…" autocomplete="off">
+            <input type="hidden" id="fa-3"><input type="hidden" id="fi-3">
+            <div class="fund-dd" id="fd-3"></div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:4px">
+          <label class="form-label">Annual Step-Up (%)</label>
+          <div class="range-wrapper">
+            <input type="range" id="hist-step-up" min="0" max="50" value="10" step="5">
+            <span class="range-value" id="hist-step-up-display">10%</span>
+          </div>
+        </div>
+        <div class="grid-2" style="gap:12px">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" class="form-control" id="hist-start">
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: latest inception</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input type="date" class="form-control" id="hist-end">
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: latest NAV</div>
+          </div>
+        </div>
+        <div class="grid-2" style="gap:12px">
+          <div class="form-group">
+            <label class="form-label">Starting SIP (₹)</label>
+            <input class="form-control" type="number" id="hist-amount" value="5000" min="100" step="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Frequency</label>
+            <select class="form-control" id="hist-freq">
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+      </form>
+    </div>
+
+    <div class="calc-results" id="results-area">
+      <div class="calc-placeholder">
+        <div class="calc-placeholder-icon">📊</div>
+        <div class="calc-placeholder-text">Select a calculator type above to get started.</div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.getElementById('hist-end-date').value = new Date().toISOString().slice(0,10);
-
-let currentMode = 'generic';
-
-function setMode(mode) {
-  currentMode = mode;
-  const g = document.getElementById('mode-generic');
-  const h = document.getElementById('mode-historical');
-  if (mode === 'generic') {
-    g.style.background='var(--indigo-500)'; g.style.color='white';
-    h.style.background='transparent';       h.style.color='var(--text-secondary)';
-    document.getElementById('stepsip-form-generic').style.display    = 'block';
-    document.getElementById('stepsip-form-historical').style.display = 'none';
-  } else {
-    h.style.background='var(--indigo-500)'; h.style.color='white';
-    g.style.background='transparent';       g.style.color='var(--text-secondary)';
-    document.getElementById('stepsip-form-generic').style.display    = 'none';
-    document.getElementById('stepsip-form-historical').style.display = 'block';
-  }
-  clearResults();
+function selectMode(mode) {
+  document.getElementById('mode-picker').style.display = 'none';
+  document.getElementById('calc-area').style.display   = 'block';
+  document.getElementById('form-generic').style.display    = mode === 'generic'    ? 'block' : 'none';
+  document.getElementById('form-historical').style.display = mode === 'historical' ? 'block' : 'none';
+  setPlaceholder('Enter values and click Calculate.');
+}
+function goBack() {
+  document.getElementById('mode-picker').style.display = 'block';
+  document.getElementById('calc-area').style.display   = 'none';
+  setPlaceholder('Select a calculator type above to get started.');
+}
+function setPlaceholder(msg) {
+  document.getElementById('results-area').innerHTML = `<div class="calc-placeholder"><div class="calc-placeholder-icon">📊</div><div class="calc-placeholder-text">${msg}</div></div>`;
 }
 
-function clearResults() {
-  document.getElementById('stepsip-results').innerHTML = '<div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div>';
-  document.getElementById('stepsip-chart').innerHTML = '';
-  document.getElementById('stepsip-donut').innerHTML = '';
-  document.getElementById('stepsip-table').innerHTML = '';
+function showSlot(n){
+  document.getElementById(`slot-${n}`).style.display='block';
+  document.getElementById(`add-btn-${n}`).style.display='none';
+  if(n===2) document.getElementById('add-btn-3').style.display='flex';
+}
+function hideSlot(n){
+  document.getElementById(`slot-${n}`).style.display='none';
+  document.getElementById(`fs-${n}`).value='';
+  document.getElementById(`fa-${n}`).value='';
+  document.getElementById(`fi-${n}`).value='';
+  document.getElementById(`fd-${n}`).style.display='none';
+  if(n===2){document.getElementById('add-btn-2').style.display='flex';hideSlot(3);document.getElementById('add-btn-3').style.display='none';}
+  if(n===3) document.getElementById('add-btn-3').style.display='flex';
+  // No live date update — resolved via two-pass API at submit time
 }
 
-// ── Fund autocomplete (historical) ─────────────────────────────────────────
-const histSearch    = document.getElementById('hist-fund-search');
-const histDropdown  = document.getElementById('hist-fund-dropdown');
-const histAmfi      = document.getElementById('hist-amfi-code');
-const histInception = document.getElementById('hist-inception');
-let searchTimer;
+// Start date is resolved server-side after first API pass — no live pre-fill needed.
 
-histSearch.addEventListener('input', e => {
-  clearTimeout(searchTimer);
-  const q = e.target.value.trim();
-  if (q.length < 2) { histDropdown.style.display='none'; return; }
-  searchTimer = setTimeout(async () => {
-    try {
-      const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
-      const data = await r.json();
-      if (!data.results?.length) {
-        histDropdown.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--text-muted)">No funds found.</div>';
-      } else {
-        histDropdown.innerHTML = data.results.map(f => `
-          <div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border-subtle)"
-               onmousedown="selectHistFund('${f.amfi_code}','${f.scheme_name.replace(/'/g,"\\'")}','${f.inception_date||''}')">
-            <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${f.fund_house}${f.inception_date ? ' · Inception: '+f.inception_date : ''}</div>
-          </div>`).join('');
-      }
-      histDropdown.style.display = 'block';
-    } catch(_) {}
-  }, 300);
+const _timers = {};
+[1,2,3].forEach(n => {
+  const inp = document.getElementById(`fs-${n}`);
+  const dd  = document.getElementById(`fd-${n}`);
+  if (!inp) return;
+  inp.addEventListener('input', e => {
+    clearTimeout(_timers[n]);
+    const q = e.target.value.trim();
+    if (q.length < 2) { dd.style.display='none'; return; }
+    _timers[n] = setTimeout(async () => {
+      try {
+        const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+        const data = await r.json();
+        dd.innerHTML = (!data.results?.length)
+          ? '<div class="fund-dd-item" style="color:var(--text-muted)">No funds found.</div>'
+          : data.results.map(f=>`<div class="fund-dd-item" onmousedown="pickFund(${n},'${f.amfi_code}','${f.scheme_name.replace(/'/g,"\\'")}','${f.inception_date||''}')"><div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div><div style="font-size:11px;color:var(--text-muted)">${f.fund_house}${f.inception_date?' · Inception: '+f.inception_date:''}</div></div>`).join('');
+        dd.style.display = 'block';
+      } catch(_) {}
+    }, 300);
+  });
+  inp.addEventListener('blur', () => setTimeout(()=>dd.style.display='none', 150));
 });
-
-document.addEventListener('click', e => {
-  if (!e.target.closest('#stepsip-form-historical')) histDropdown.style.display = 'none';
-});
-
-window.selectHistFund = function(amfi, name, inception) {
-  histAmfi.value      = amfi;
-  histInception.value = inception;
-  histSearch.value    = name;
-  histDropdown.style.display = 'none';
-  // Update min constraint only — don't touch the date values
-  if (inception) document.getElementById('hist-start-date').min = inception;
+window.pickFund = function(n, amfi, name, inception) {
+  document.getElementById(`fa-${n}`).value = amfi;
+  document.getElementById(`fi-${n}`).value = inception;
+  document.getElementById(`fs-${n}`).value = name;
+  document.getElementById(`fd-${n}`).style.display = 'none';
+  // No live date update — date is resolved reliably on submit via two-pass API call
 };
 
-// ── Format helpers ─────────────────────────────────────────────────────────
 function fmtINR(v) {
   if (v >= 10000000) return '₹'+(v/10000000).toFixed(2)+' Cr';
   if (v >= 100000)   return '₹'+(v/100000).toFixed(2)+' L';
   return '₹'+Math.round(v).toLocaleString('en-IN');
 }
-function pct(v, dec=2) { return v != null ? v.toFixed(dec)+'%' : '—'; }
+function pct(v,d=2) { return v!=null ? v.toFixed(d)+'%' : '—'; }
+function showError(msg) { document.getElementById('results-area').innerHTML = `<div class="alert alert-danger">${msg}</div>`; }
 
-// ── Generic submit ─────────────────────────────────────────────────────────
-document.getElementById('stepsip-form-generic').addEventListener('submit', async e => {
+const CHART_CFG = { ...MF_PLOTLY_LAYOUT_BASE, autosize:true, height:320, margin:{l:65,r:20,t:40,b:50} };
+const FUND_COLORS  = ['#6366f1','#34d399','#f59e0b'];
+const FUND_DOT_CSS = ['color:var(--indigo-400)','color:#34d399','color:#f59e0b'];
+
+// ── Generic ──
+document.getElementById('form-generic').addEventListener('submit', async e => {
   e.preventDefault();
   const fd  = new FormData(e.target);
   const btn = e.target.querySelector('[type=submit]');
@@ -186,146 +305,153 @@ document.getElementById('stepsip-form-generic').addEventListener('submit', async
   try {
     const r = await fetch('{% url "calculators:api_step_sip" %}', {
       method:'POST',
-      body: JSON.stringify({
-        start_amount: parseFloat(fd.get('start_amount')),
-        step_up_pct:  parseFloat(fd.get('step_up_pct')),
-        years:        parseInt(fd.get('years')),
-        expected_rate:parseFloat(fd.get('expected_rate')),
-      }),
+      body: JSON.stringify({ start_amount:+fd.get('start_amount'), step_up_pct:+fd.get('step_up_pct'), years:+fd.get('years'), expected_rate:+fd.get('expected_rate') }),
       headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
     });
     const d = await r.json();
     btn.textContent='Calculate'; btn.disabled=false;
     if (d.error) { showError(d.error); return; }
-    document.getElementById('stepsip-results').innerHTML = `
-      <div class="grid-2" style="gap:12px;margin-bottom:16px">
-        <div class="calc-result-highlight"><div class="label">Future Value</div><div class="value">${fmtINR(d.future_value)}</div></div>
-        <div class="calc-result-highlight"><div class="label">Total Gain</div><div class="value" style="color:var(--emerald-400)">${fmtINR(d.gain)}</div></div>
-      </div>
-      <div class="metrics-dl">
-        <div><div class="metric-key">Total Invested</div><div class="metric-val">${fmtINR(d.total_invested)}</div></div>
-        <div><div class="metric-key">Final Monthly SIP</div><div class="metric-val">${fmtINR(d.final_monthly_sip)}</div></div>
-      </div>`;
-    if (d.history?.length) {
-      Plotly.newPlot('stepsip-chart',[
-        {x:d.history.map(h=>`Yr ${h.year}`), y:d.history.map(h=>h.value_to_date),    name:'Value',    type:'scatter', mode:'lines', line:{color:'#34d399',width:2.5}, fill:'tozeroy', fillcolor:'rgba(52,211,153,0.1)'},
-        {x:d.history.map(h=>`Yr ${h.year}`), y:d.history.map(h=>h.invested_to_date), name:'Invested', type:'scatter', mode:'lines', line:{color:'#6366f1',width:1.5,dash:'dot'}},
-      ], {...MF_PLOTLY_LAYOUT_BASE, yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}, height:340, margin:{l:70,r:16,t:40,b:50}}, MF_PLOTLY_CONFIG);
-    }
+    renderGeneric(d, +fd.get('start_amount'), +fd.get('step_up_pct'));
   } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
 });
 
-// ── Historical submit ──────────────────────────────────────────────────────
-document.getElementById('stepsip-form-historical').addEventListener('submit', async e => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  if (!fd.get('amfi_code')) { alert('Please select a mutual fund first.'); return; }
+function renderGeneric(d, startSIP, stepPct) {
+  document.getElementById('results-area').innerHTML = `
+    <div class="res-stat-row">
+      <div class="res-stat"><div class="lbl">Future Value</div><div class="val">${fmtINR(d.future_value)}</div><div class="sub">after ${document.getElementById('years').value} years</div></div>
+      <div class="res-stat"><div class="lbl">Wealth Gain</div><div class="val" style="color:var(--emerald-400)">${fmtINR(d.gain)}</div><div class="sub">${pct((d.gain/d.total_invested)*100)} absolute</div></div>
+    </div>
+    <div class="res-metrics">
+      <div class="res-metric"><div class="key">Total Invested</div><div class="val">${fmtINR(d.total_invested)}</div></div>
+      <div class="res-metric"><div class="key">Starting SIP</div><div class="val">${fmtINR(startSIP)}</div></div>
+      <div class="res-metric"><div class="key">Final SIP</div><div class="val">${fmtINR(d.final_monthly_sip)}</div></div>
+      <div class="res-metric"><div class="key">Step-Up</div><div class="val">${stepPct}% / yr</div></div>
+    </div>
+    <div class="res-chart" id="chart-main" style="height:320px"></div>
+    <div class="res-donut-row"><div id="donut-0" style="height:200px"></div></div>
+    <div class="res-table-wrap">
+      <div class="res-table-title">Year-by-Year Breakdown</div>
+      <div class="res-table-scroll">
+        <table class="data-table" style="width:100%;font-size:12px">
+          <thead><tr><th style="text-align:center">Year</th><th style="text-align:right">Monthly SIP</th><th style="text-align:right">Invested</th><th style="text-align:right">Value</th></tr></thead>
+          <tbody>${(d.history||[]).map(h=>`<tr><td style="text-align:center">${h.year}</td><td style="text-align:right">${fmtINR(h.monthly_sip)}</td><td style="text-align:right">${fmtINR(h.invested_to_date)}</td><td style="text-align:right;color:var(--emerald-400)">${fmtINR(h.value_to_date)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  Plotly.newPlot('chart-main',[
+    {x:d.history.map(h=>'Year '+h.year),y:d.history.map(h=>h.invested_to_date),name:'Invested',type:'scatter',mode:'lines',line:{color:'#6366f1',width:2},fill:'tozeroy',fillcolor:'rgba(99,102,241,.15)'},
+    {x:d.history.map(h=>'Year '+h.year),y:d.history.map(h=>h.value_to_date),name:'Value',type:'scatter',mode:'lines',line:{color:'#34d399',width:2.5},fill:'tonexty',fillcolor:'rgba(52,211,153,.12)'},
+  ],{...CHART_CFG,margin:{l:65,r:20,t:20,b:50},legend:{orientation:'h',y:-0.18,x:0.5,xanchor:'center',font:{size:11}},yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}},{...MF_PLOTLY_CONFIG,responsive:true});
+  renderSIPChart(document.getElementById('donut-0'),{invested:d.total_invested,current_value:d.future_value});
+}
 
-  // Auto-fill dates logic REMOVED. Let backend handle empty dates to discover true inception.
+// ── Historical ──
+document.getElementById('form-historical').addEventListener('submit', async e => {
+  e.preventDefault();
+  const funds=[1,2,3].map(n=>({n,amfi:document.getElementById(`fa-${n}`).value.trim(),name:document.getElementById(`fs-${n}`).value.trim()})).filter(f=>f.amfi);
+  if (!funds.length) { alert('Please select at least one fund.'); return; }
+  const userStart = document.getElementById('hist-start').value;
+  const endVal    = document.getElementById('hist-end').value;
+  const amount    = +document.getElementById('hist-amount').value;
+  const freq      = document.getElementById('hist-freq').value;
+  const stepUp    = +document.getElementById('hist-step-up').value;
 
   const btn = e.target.querySelector('[type=submit]');
-  btn.textContent='Fetching NAV data…'; btn.disabled=true;
-  try {
-    const r = await fetch('{% url "calculators:api_nav_step_sip" %}', {
+  btn.textContent='Fetching NAV…'; btn.disabled=true;
+
+  // Two-pass: YYYY-MM-DD strings sort/compare correctly lexicographically
+  const apiUrl = '{% url "calculators:api_nav_step_sip" %}';
+  const makeCall = (startDate) => Promise.all(funds.map(f =>
+    fetch(apiUrl, {
       method:'POST',
-      body: JSON.stringify({
-        amfi_code:   fd.get('amfi_code'),
-        start_date:  fd.get('start_date'),
-        end_date:    fd.get('end_date'),
-        amount:      parseFloat(fd.get('amount')),
-        step_up_pct: parseFloat(fd.get('step_up_pct')),
-        frequency:   fd.get('frequency'),
-      }),
+      body:JSON.stringify({amfi_code:f.amfi, start_date:startDate, end_date:endVal, amount, frequency:freq, step_up_pct:stepUp}),
       headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
-    });
-    const d = await r.json();
+    }).then(r=>r.json()).then(d=>({...d,_slot:f.n,_name:f.name}))
+  ));
+
+  document.getElementById('results-area').innerHTML=`<div class="calc-placeholder"><div class="calc-placeholder-icon spinning">⟳</div><div class="calc-placeholder-text">Loading NAV data for ${funds.length} fund${funds.length>1?'s':''}…</div></div>`;
+
+  try {
+    // Pass 1: no forced start → each fund uses its own inception
+    let results = await makeCall(userStart);
+    const valid1 = results.filter(r=>!r.error);
+
+    // Pass 2 (multi-fund, no manual start): align to max(actual start_dates)
+    if (funds.length > 1 && !userStart && valid1.length > 1) {
+      const actualStarts = valid1.map(r=>r.start_date).filter(Boolean);
+      if (actualStarts.length > 1) {
+        const alignedStart = actualStarts.reduce((a,b)=>a>b?a:b); // YYYY-MM-DD max
+        const minStart     = actualStarts.reduce((a,b)=>a<b?a:b);
+        if (alignedStart !== minStart) {
+          document.getElementById('results-area').innerHTML=`<div class="calc-placeholder"><div class="calc-placeholder-icon spinning">⟳</div><div class="calc-placeholder-text">Aligning periods to ${alignedStart}…</div></div>`;
+          results = await makeCall(alignedStart);
+        }
+        document.getElementById('hist-start').value = alignedStart;
+      }
+    } else if (valid1.length===1 && !userStart && valid1[0].start_date) {
+      document.getElementById('hist-start').value = valid1[0].start_date;
+    }
+
     btn.textContent='Calculate'; btn.disabled=false;
-    if (d.error) { showError(d.error); return; }
-
-    // Auto-populate UI with true calculated dates from backend
-    if (d.start_date) document.getElementById('hist-start-date').value = d.start_date;
-    if (d.end_date)   document.getElementById('hist-end-date').value   = d.end_date;
-
-    renderHistResults(d);
+    renderHistorical(results, amount);
   } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
 });
 
-function renderHistResults(d) {
-  const xirr = d.xirr_pct != null ? d.xirr_pct.toFixed(2)+'%' : '—';
-  document.getElementById('stepsip-results').innerHTML = `
-    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--indigo-400);margin-bottom:10px">📋 Summary</div>
-      <div style="overflow-x:auto">
-      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
-        <thead><tr>
-          <th>Fund Name</th><th>AMC</th><th>Inception</th><th>NAV Date</th><th>NAV</th>
-          <th style="text-align:right">Units</th><th style="text-align:right">Instalments</th>
-          <th style="text-align:right">Invested</th><th style="text-align:right">Current Value</th><th style="text-align:right">XIRR (%)</th>
-        </tr></thead>
-        <tbody><tr>
-          <td><span style="color:var(--indigo-400);font-weight:600">${d.scheme_name}</span></td>
-          <td>${d.fund_house}</td>
-          <td>${d.inception_date||'—'}</td>
-          <td>${d.nav_date}</td>
-          <td>₹${d.nav}</td>
-          <td style="text-align:right">${d.total_units}</td>
-          <td style="text-align:right">${d.sip_instalments}</td>
-          <td style="text-align:right">${fmtINR(d.total_invested)}</td>
-          <td style="text-align:right;font-weight:700;color:var(--emerald-400)">${fmtINR(d.current_value)}</td>
-          <td style="text-align:right;font-weight:700;color:${d.xirr_pct>=0?'var(--emerald-400)':'var(--rose-400)'}">${xirr}</td>
-        </tr></tbody>
-      </table></div>
+
+function renderHistorical(results, amount) {
+  const valid=results.filter(r=>!r.error), invalid=results.filter(r=>r.error);
+  if (!valid.length) { showError(results[0]?.error||'No results'); return; }
+  const single = valid.length===1, d0=valid[0];
+  let summaryHtml='';
+  if (single) {
+    const xp=d0.xirr_pct!=null?d0.xirr_pct.toFixed(2)+'%':'—';
+    const gc=d0.absolute_gain>=0?'var(--emerald-400)':'var(--rose-400)';
+    summaryHtml=`<div class="res-stat-row">
+      <div class="res-stat"><div class="lbl">Current Value</div><div class="val" style="color:var(--emerald-400)">${fmtINR(d0.current_value)}</div><div class="sub">${d0.start_date} → ${d0.end_date}</div></div>
+      <div class="res-stat"><div class="lbl">Absolute Gain</div><div class="val" style="color:${gc}">${fmtINR(Math.abs(d0.absolute_gain))}</div><div class="sub">${pct(d0.absolute_return_pct)} absolute</div></div>
     </div>
-    <div class="grid-2" style="gap:12px;margin-bottom:16px">
-      <div class="calc-result-highlight"><div class="label">Absolute Gain</div><div class="value" style="color:${d.absolute_gain>=0?'var(--emerald-400)':'var(--rose-400)'}">${fmtINR(Math.abs(d.absolute_gain))}</div><div class="sub">${pct(d.absolute_return_pct)} absolute</div></div>
-      <div class="calc-result-highlight"><div class="label">XIRR</div><div class="value" style="color:${d.xirr_pct>=0?'var(--emerald-400)':'var(--rose-400)'}">${xirr}</div><div class="sub">${d.start_date} → ${d.end_date}</div></div>
+    <div class="res-metrics">
+      <div class="res-metric"><div class="key">Invested</div><div class="val">${fmtINR(d0.total_invested)}</div></div>
+      <div class="res-metric"><div class="key">Instalments</div><div class="val">${d0.sip_instalments}</div></div>
+      <div class="res-metric"><div class="key">XIRR</div><div class="val" style="color:${(d0.xirr_pct||0)>=0?'var(--emerald-400)':'var(--rose-400)'}">${xp}</div></div>
+      <div class="res-metric"><div class="key">Units</div><div class="val">${d0.total_units}</div></div>
     </div>`;
-
-  if (d.cashflow_table?.length) {
-    Plotly.newPlot('stepsip-chart', [
-      {x:d.cashflow_table.map(r=>r.nav_date), y:d.cashflow_table.map(r=>r.cumulative_invested), name:'Invested', type:'scatter', mode:'lines', line:{color:'#6366f1',width:1.5,dash:'dot'}},
-      {x:d.cashflow_table.map(r=>r.nav_date), y:d.cashflow_table.map(r=>r.market_value),        name:'Portfolio Value', type:'scatter', mode:'lines', line:{color:'#34d399',width:2.5}, fill:'tonexty', fillcolor:'rgba(52,211,153,0.1)'},
-    ], {...MF_PLOTLY_LAYOUT_BASE, title:{text:'Step-Up Portfolio Growth (Actual NAV)',font:{size:13,color:'#94a3b8'}}, yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}, height:340, margin:{l:70,r:16,t:40,b:50}}, MF_PLOTLY_CONFIG);
-
-    renderSIPChart(document.getElementById('stepsip-donut'), {invested:d.total_invested, current_value:d.current_value});
-
-    // Cash-flow table
-    const rows = d.cashflow_table.map(r => `
-      <tr>
-        <td>${r.nav_date}</td>
-        <td style="text-align:right">₹${r.nav}</td>
-        <td style="text-align:right">${fmtINR(r.sip_amount||0)}</td>
-        <td style="text-align:right">${r.units_bought}</td>
-        <td style="text-align:right;color:var(--indigo-400)">${r.cumulative_units}</td>
-        <td style="text-align:right">${fmtINR(r.cumulative_invested)}</td>
-        <td style="text-align:right;color:var(--emerald-400);font-weight:600">${fmtINR(r.market_value)}</td>
-      </tr>`).join('');
-    document.getElementById('stepsip-table').innerHTML = `
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">💼 Cash Flow — ${d.scheme_name}</div>
-      <div style="max-height:380px;overflow-y:auto;border-radius:8px;border:1px solid var(--border-subtle)">
-      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
-        <thead><tr>
-          <th>NAV Date</th><th style="text-align:right">NAV</th><th style="text-align:right">SIP Amount</th>
-          <th style="text-align:right">Units Bought</th><th style="text-align:right">Cum. Units</th>
-          <th style="text-align:right">Cum. Invested</th><th style="text-align:right">Market Value</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>`;
+  } else {
+    const rows=valid.map((d,i)=>{const gc=d.absolute_gain>=0?'var(--emerald-400)':'var(--rose-400)';const xp=d.xirr_pct!=null?d.xirr_pct.toFixed(2)+'%':'—';const xc=(d.xirr_pct||0)>=0?'var(--emerald-400)':'var(--rose-400)';const nm=(d.scheme_name||d._name||'Fund '+(i+1)).split(' ').slice(0,5).join(' ');return`<tr><td><span style="${FUND_DOT_CSS[i]}">●</span> ${nm}</td><td>${fmtINR(d.total_invested)}</td><td style="color:var(--emerald-400);font-weight:700">${fmtINR(d.current_value)}</td><td style="color:${gc}">${fmtINR(Math.abs(d.absolute_gain))}</td><td style="color:${xc};font-weight:700">${xp}</td><td style="font-size:11px;color:var(--text-muted)">${d.start_date} → ${d.end_date}</td></tr>`}).join('');
+    const errRows=invalid.map(d=>`<tr><td colspan="6" style="color:var(--rose-400)">${d._name}: ${d.error}</td></tr>`).join('');
+    summaryHtml=`<div class="res-table-wrap"><div class="res-table-title">📊 Fund Comparison</div><div class="res-table-scroll"><table class="compare-table"><thead><tr><th>Fund</th><th>Invested</th><th>Value</th><th>Gain</th><th>XIRR</th><th>Period</th></tr></thead><tbody>${rows}${errRows}</tbody></table></div></div>`;
   }
-}
+  const traces=[];
+  if (d0.cashflow_table?.length) traces.push({x:d0.cashflow_table.map(r=>r.nav_date),y:d0.cashflow_table.map(r=>r.cumulative_invested),name:'Invested',type:'scatter',mode:'lines',line:{color:'#94a3b8',width:1.5,dash:'dot'},showlegend:true});
+  valid.forEach((d,i)=>{if(!d.cashflow_table?.length)return;const rawName=d.scheme_name||d._name||'Fund '+(i+1);const lbl=rawName.replace(/Direct|Growth|Option|Plan|Fund/gi,'').trim().split(/\s+/).slice(0,4).join(' ');traces.push({x:d.cashflow_table.map(r=>r.nav_date),y:d.cashflow_table.map(r=>r.market_value),name:lbl,type:'scatter',mode:'lines',line:{color:FUND_COLORS[i],width:2.5},...(single?{fill:'tonexty',fillcolor:'rgba(52,211,153,.10)'}:{})});});
+  const donutHtml=valid.map((d,i)=>{const rawN=d.scheme_name||d._name||'Fund '+(i+1);const shortN=rawN.replace(/Direct|Growth|Option|Plan/gi,'').trim().split(/\s+/).slice(0,3).join(' ');return`<div><div id="donut-${i}" style="height:190px"></div><div style="text-align:center;font-size:11px;font-weight:650;margin-top:2px;color:var(--text-secondary)"><span style="${FUND_DOT_CSS[i]}">●</span> ${shortN}</div></div>`;}).join('');
+  function cfRows(d){return(d.cashflow_table||[]).map(r=>`<tr><td>${r.nav_date}</td><td style="text-align:right">₹${r.nav}</td><td style="text-align:right">${r.sip_amount?fmtINR(r.sip_amount):'—'}</td><td style="text-align:right">${r.units_bought}</td><td style="text-align:right;color:var(--indigo-400)">${r.cumulative_units}</td><td style="text-align:right">${fmtINR(r.cumulative_invested)}</td><td style="text-align:right;color:var(--emerald-400);font-weight:600">${fmtINR(r.market_value)}</td></tr>`).join('');}
+  const chartLabel=`<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📊 Step-Up SIP Growth (Actual NAV)</div>`;
 
-function showError(msg) {
-  document.getElementById('stepsip-results').innerHTML = `<div class="alert alert-danger">${msg}</div>`;
-}
 
-// Range display updates
-['step_up_pct','years','expected_rate'].forEach(id => {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('input', e => {
-    const disp = document.getElementById(id+'_display');
-    if (disp) disp.textContent = e.target.value + (id==='years'?' yrs':'%');
-  });
-});
+  // Cashflow tabs with actual fund short names
+  const cfHead=`<thead><tr><th>Date</th><th style="text-align:right">NAV</th><th style="text-align:right">SIP</th><th style="text-align:right">Units</th><th style="text-align:right">Cum. Units</th><th style="text-align:right">Cum. Invested</th><th style="text-align:right">Market Value</th></tr></thead>`;
+  let cfHtml='';
+
+  if (single){cfHtml=`<div class="res-table-wrap"><div class="res-table-title">💼 Cash Flow — ${d0.scheme_name||d0._name}</div><div class="res-table-scroll"><table class="data-table" style="width:100%;font-size:11.5px;white-space:nowrap">${cfHead}<tbody>${cfRows(d0)}</tbody></table></div></div>`;}
+  else{
+    const tabBtns=valid.map((d,i)=>{const raw=d.scheme_name||d._name||'Fund '+(i+1);const short=raw.replace(/Direct|Growth|Option|Plan/gi,'').trim().split(/\s+/).slice(0,3).join(' ');return`<button type="button" class="cf-tab${i===0?' active':''}" id="cftab-${i}" onclick="switchCfTab(${i})"><span style="${FUND_DOT_CSS[i]}">●</span> ${short}</button>`;}).join('');
+    const panels=valid.map((d,i)=>`<div id="cfpanel-${i}" style="display:${i===0?'block':'none'}"><div class="res-table-scroll"><table class="data-table" style="width:100%;font-size:11px;white-space:nowrap">${cfHead}<tbody>${cfRows(d)}</tbody></table></div></div>`).join('');
+    cfHtml=`<div class="res-table-wrap"><div class="res-table-title">💼 Cash Flow <div class="cf-tabs">${tabBtns}</div></div>${panels}</div>`;
+  }
+
+  // Shared donut legend — one instance, above the donut row
+  const sharedLegendHtml=`<div style="display:flex;align-items:center;gap:16px;margin-bottom:8px;padding:0 4px"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgba(99,102,241,0.5);flex-shrink:0"></span> Invested</div><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#34d399;flex-shrink:0"></span> Gain</div></div>`;
+
+  document.getElementById('results-area').innerHTML=`${summaryHtml}${chartLabel}<div class="res-chart" id="chart-main" style="height:310px"></div>${sharedLegendHtml}<div class="res-donut-row">${donutHtml}</div>${cfHtml}`;
+  if (traces.length) Plotly.newPlot('chart-main',traces,{...CHART_CFG,margin:{l:65,r:20,t:20,b:50},legend:{orientation:'h',y:-0.18,x:0.5,xanchor:'center',font:{size:11}},yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}},{...MF_PLOTLY_CONFIG,responsive:true});
+  valid.forEach((d,i)=>{const el=document.getElementById(`donut-${i}`);if(!el)return;const inv=d.total_invested;const gain=Math.max(0,d.current_value-inv);Plotly.newPlot(el,[{values:[inv,gain],labels:['Invested','Gain'],type:'pie',hole:0.65,marker:{colors:['rgba(99,102,241,0.5)',FUND_COLORS[i]]},textinfo:'none',hovertemplate:'%{label}: ₹%{value:,.0f}<extra></extra>'}],{...mergePlotlyLayout({margin:{l:0,r:0,t:0,b:0}}),height:190,showlegend:false},MF_PLOTLY_CONFIG);});
+}
+window.switchCfTab=function(idx){document.querySelectorAll('[id^="cfpanel-"]').forEach((p,i)=>p.style.display=i===idx?'block':'none');document.querySelectorAll('.cf-tab').forEach((b,i)=>b.classList.toggle('active',i===idx));};
+
+document.getElementById('years').addEventListener('input',e=>document.getElementById('years_display').textContent=e.target.value+' yrs');
+document.getElementById('expected_rate').addEventListener('input',e=>document.getElementById('expected_rate_display').textContent=e.target.value+'%');
+document.getElementById('step_up_pct').addEventListener('input',e=>document.getElementById('step_up_display').textContent=e.target.value+'%');
+document.getElementById('hist-step-up').addEventListener('input',e=>document.getElementById('hist-step-up-display').textContent=e.target.value+'%');
 </script>
 {% endblock %}

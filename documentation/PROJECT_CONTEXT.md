@@ -165,11 +165,14 @@ The Learn section is intentionally lightweight and file-backed so educational ma
 /funds/<amfi_code>/pdf/     ← WeasyPrint PDF export
 
 /calculators/               ← Calculator hub
-/calculators/sip/           ← SIP calculator
-/calculators/xirr/          ← XIRR calculator
+/calculators/sip/           ← SIP calculator (prospective + historical back-test; multi-fund; fund-name cashflow rows; auto inception-date start alignment)
+/calculators/step-sip/      ← Step-Up SIP calculator (same as SIP with annual % step-up)
+/calculators/lumpsum/       ← Lumpsum calculator (historical NAV back-test)
+/calculators/swp/           ← SWP (Systematic Withdrawal Plan) calculator
+/calculators/xirr/          ← XIRR calculator (manual cashflow entry)
 /calculators/tax/           ← Tax calculator
 /calculators/rolling/       ← Multi-fund Rolling Return Calculator (compare up to 5 funds, custom benchmark override, color-coded chart with deduped benchmarks, volatility stats + distribution table)
-/calculators/net-worth/     ← Comprehensive Net Worth Calculator (assets/liabilities breakdown, plotly donut chart, solvency ratio)
+/calculators/net-worth/     ← Comprehensive Net Worth Calculator (assets/liabilities breakdown, plotly donut chart, solvency ratio with color bar)
 /calculators/stp/           ← STP Calculator (Generic and Historical NAV modes with source/target XIRR computations)
 (etc.)
 
@@ -248,9 +251,14 @@ All five planned phases are substantially implemented, plus several enhancements
 - Open-source release preparation
 - Docker containerization
 - PostgreSQL production validation
-- Unit test coverage
+- Unit test coverage expansion
 - Custom weighted benchmark inside backtester (separate from portfolio dashboard benchmark)
-- Date validation against fund inception dates in backtester frontend
+
+**Recently completed:**
+- ✅ Calculator UX polish: SIP/Step-Up SIP/Lumpsum/Backtester start dates now auto-align to the **earliest inception date** across all selected funds (minimum of all fund inception dates)
+- ✅ Cashflow tables in SIP and Step-Up SIP use **fund names** instead of generic "Fund 1", "Fund 2" labels
+- ✅ Pie chart legend deduplicated: single "Invested / Gain" legend shown once for all fund donuts
+- ✅ ⓘ Info button tooltips added to all financial calculators (Net Worth, SIP, Step-Up SIP, XIRR) — powered by the existing `initInfoTooltips()` engine with `data-t-*` plain-text attributes
 
 **Recently validated:** Peer comparison now uses scored fingerprint-based matching for Indian mutual funds. Run the regression suite with:
 ```powershell

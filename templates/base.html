@@ -237,5 +237,31 @@
 <!-- Scripts -->
 <script src="{% static 'js/main.js' %}?v=1.3"></script>
 {% block extra_js %}{% endblock %}
+
+<!-- ── Info Button Styles (tooltip engine lives in main.js) ── -->
+<style>
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(129,140,248,0.15);
+  border: 1px solid rgba(129,140,248,0.35);
+  color: #818cf8;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+  vertical-align: middle;
+  margin-left: 5px;
+  padding: 0;
+}
+.info-btn:hover  { background: rgba(129,140,248,0.28); border-color: #818cf8; }
+.info-btn.active { background: rgba(129,140,248,0.35); border-color: #818cf8; }
+</style>
+
 </body>
 </html>

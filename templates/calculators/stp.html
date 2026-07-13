@@ -1,416 +1,499 @@
 {% extends "base.html" %}
 {% block title %}STP Calculator{% endblock %}
 
+{% block extra_head %}
+<style>
+.mode-picker { max-width: 780px; margin: 0 auto 32px; }
+.mode-picker-title { font-size: 13px; font-weight: 700; color: var(--text-muted); text-align: center; margin-bottom: 18px; letter-spacing: .06em; text-transform: uppercase; }
+.mode-picker-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.mode-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 30px 26px; cursor: pointer; transition: border-color .2s, transform .2s, box-shadow .2s; display: flex; flex-direction: column; gap: 10px; }
+.mode-card:hover { border-color: var(--indigo-500); transform: translateY(-3px); box-shadow: 0 10px 36px rgba(99,102,241,.18); }
+.mode-card-hist { border-color: rgba(16,185,129,.22); background: linear-gradient(135deg,rgba(16,185,129,.05) 0%,rgba(99,102,241,.03) 100%); }
+.mode-card-hist:hover { border-color: rgba(16,185,129,.55); box-shadow: 0 10px 36px rgba(16,185,129,.18); }
+.mode-card-icon { font-size: 34px; }
+.mode-card-title { font-size: 17px; font-weight: 800; color: var(--text-primary); }
+.mode-card-desc { font-size: 12.5px; color: var(--text-secondary); line-height: 1.65; flex: 1; }
+.mode-card-cta { font-size: 12px; font-weight: 700; color: var(--indigo-400); }
+.mode-card-hist .mode-card-cta { color: #6ee7b7; }
+.calc-layout { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.calc-inputs { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.calc-results { min-width: 0; }
+.calc-mode-back { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-bottom: 16px; border: none; background: none; padding: 0; transition: color .15s; }
+.calc-mode-back:hover { color: var(--indigo-300); }
+.fund-slot { border: 1px solid var(--border); border-radius: 9px; padding: 12px; margin-bottom: 10px; background: var(--bg-elevated); }
+.fund-slot-src { border-color: rgba(99,102,241,.35); }
+.fund-slot-tgt { border-color: rgba(52,211,153,.35); }
+.fund-slot-hdr { display: flex; align-items: center; margin-bottom: 8px; }
+.fund-slot-label { font-size: 10.5px; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; }
+.slot-src { color: var(--indigo-400); }
+.slot-tgt { color: #34d399; }
+.stp-arrow { display: flex; align-items: center; justify-content: center; padding: 4px 0; color: var(--text-muted); font-size: 18px; margin-bottom: 8px; }
+.fund-search-wrap { position: relative; }
+.fund-dd { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 7px; max-height: 220px; overflow-y: auto; z-index: 200; box-shadow: 0 6px 20px rgba(0,0,0,.3); margin-top: 3px; display: none; }
+.fund-dd-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); }
+.fund-dd-item:hover { background: rgba(99,102,241,.08); }
+.res-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.res-stat { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px 16px; }
+.res-stat .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 6px; }
+.res-stat .val { font-size: 22px; font-weight: 850; color: var(--text-primary); line-height: 1.1; }
+.res-stat .sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.res-metrics { display: flex; flex-wrap: wrap; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+.res-metric { flex: 1; min-width: 90px; padding: 10px 14px; border-right: 1px solid var(--border-subtle); }
+.res-metric:last-child { border-right: none; }
+.res-metric .key { font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.res-metric .val { font-size: 13.5px; font-weight: 750; color: var(--text-primary); }
+.res-chart { margin-bottom: 14px; width: 100%; }
+.res-table-wrap { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+.res-table-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); }
+.res-table-scroll { overflow-x: auto; max-height: 300px; overflow-y: auto; }
+.res-fund-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.fund-summary-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px; }
+.fund-summary-card.fund-summary-src { border-color: rgba(99,102,241,.25); }
+.fund-summary-card.fund-summary-tgt { border-color: rgba(52,211,153,.25); }
+.fund-summary-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+.fund-summary-title.src { color: var(--indigo-400); }
+.fund-summary-title.tgt { color: #34d399; }
+.fund-kv { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border-subtle); font-size: 12px; }
+.fund-kv:last-child { border-bottom: none; }
+.fund-kv .k { color: var(--text-muted); }
+.fund-kv .v { font-weight: 650; color: var(--text-primary); }
+.calc-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 240px; border: 1px dashed var(--border); border-radius: 12px; color: var(--text-muted); gap: 8px; }
+.calc-placeholder-icon { font-size: 36px; opacity: .6; }
+.calc-placeholder-text { font-size: 13px; }
+.stp-info-banner { background: rgba(99,102,241,.06); border: 1px solid rgba(99,102,241,.2); border-radius: 8px; padding: 10px 14px; font-size: 11.5px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6; }
+@media (max-width: 900px) { .calc-layout { grid-template-columns: 1fr; } .mode-picker-cards { grid-template-columns: 1fr; } .res-fund-row { grid-template-columns: 1fr; } }
+@keyframes spin-icon { to { transform: rotate(360deg); } }
+.spinning { display: inline-block; animation: spin-icon 1s linear infinite; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="breadcrumb">
   <a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>STP Calculator</span>
 </div>
 <div class="page-header">
-  <div class="page-title">🔀 STP Calculator</div>
-  <div class="page-subtitle">Systematic Transfer Plan — periodically transfer money from one fund to another to balance risk and return.</div>
+  <div class="page-title">🔄 STP Calculator
+    <button class="info-btn" aria-label="What is STP" data-t-title="STP (Systematic Transfer Plan)" data-t-what="STP periodically transfers a fixed amount from a Source fund (typically debt/liquid) into a Target fund (typically equity)." data-t-interp="STP is essentially SWP on the source + SIP on the target — happening simultaneously. It reduces timing risk compared to a direct lumpsum equity investment. The source corpus earns returns while being gradually deployed into equity.">ⓘ</button>
+  </div>
+  <div class="page-subtitle">Systematic Transfer Plan — move funds from a source to a target fund systematically.</div>
 </div>
 
-<div class="calc-layout">
-  <div class="calc-inputs">
-    <div class="calc-mode-toggle" style="display:flex;gap:10px;margin-bottom:20px;background:var(--bg-elevated);padding:4px;border-radius:8px">
-      <button type="button" class="btn btn-sm" id="mode-generic"    onclick="setMode('generic')"    style="flex:1;background:var(--indigo-500);color:white;border:none">Generic Projection</button>
-      <button type="button" class="btn btn-sm" id="mode-historical" onclick="setMode('historical')" style="flex:1;background:transparent;color:var(--text-secondary);border:none">Historical (Fund NAV)</button>
+<!-- Mode Picker -->
+<div id="mode-picker" class="mode-picker">
+  <div class="mode-picker-title">How would you like to calculate?</div>
+  <div class="mode-picker-cards">
+    <div class="mode-card" onclick="selectMode('generic')">
+      <div class="mode-card-icon">🧮</div>
+      <div class="mode-card-title">Generic Projection</div>
+      <div class="mode-card-desc">Enter the investment corpus, transfer amount, expected returns for source and target funds, and a time horizon. Instantly project the outcome.</div>
+      <div class="mode-card-cta">Use Generic →</div>
+    </div>
+    <div class="mode-card mode-card-hist" onclick="selectMode('historical')">
+      <div class="mode-card-icon">🔄</div>
+      <div class="mode-card-title">Historical Fund NAV</div>
+      <div class="mode-card-desc">Select a real source fund (liquid/debt) and a target equity fund. Simulate the STP using actual historical NAV data for both funds.</div>
+      <div class="mode-card-cta">Use Historical →</div>
+    </div>
+  </div>
+</div>
+
+<!-- Calculator area -->
+<div id="calc-area" style="display:none">
+  <div class="calc-layout">
+    <div class="calc-inputs">
+      <button type="button" class="calc-mode-back" onclick="goBack()">← Change calculator type</button>
+
+      <!-- GENERIC -->
+      <form id="form-generic" style="display:none">
+        {% csrf_token %}
+        <div class="stp-info-banner">💡 Source fund depletes as transfers occur. Target fund accumulates and grows independently.</div>
+        <div class="form-group">
+          <label class="form-label">Investment Corpus / Source Fund (₹)
+            <button class="info-btn" data-t-title="Source Corpus" data-t-what="The total amount parked in the source (debt/liquid) fund. This gets transferred to the target fund over time.">ⓘ</button>
+          </label>
+          <input class="form-control" type="number" name="corpus" id="g-corpus" value="1000000" min="10000" step="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Transfer Amount (₹/period)</label>
+          <input class="form-control" type="number" name="transfer_amount" id="g-transfer" value="10000" min="500" step="500">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Source Fund Return (% p.a.)
+            <button class="info-btn" data-t-title="Source Return" data-t-what="Expected annual return of the source fund while money remains. Liquid/debt funds typically earn 5–7%.">ⓘ</button>
+          </label>
+          <div class="range-wrapper">
+            <input type="range" name="expected_rate_source" id="g-rate-src" min="3" max="15" value="6" step="0.5">
+            <span class="range-value" id="g-rate-src-display">6%</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Fund Return (% p.a.)
+            <button class="info-btn" data-t-title="Target Return" data-t-what="Expected annual return of the target fund after receiving each transfer. Equity funds typically earn 10–14%.">ⓘ</button>
+          </label>
+          <div class="range-wrapper">
+            <input type="range" name="expected_rate_target" id="g-rate-tgt" min="5" max="25" value="12" step="0.5">
+            <span class="range-value" id="g-rate-tgt-display">12%</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time Period (Years)
+            <button class="info-btn" data-t-title="Time Period" data-t-what="How long to run the STP. If the source depletes before this, the STP stops automatically.">ⓘ</button>
+          </label>
+          <div class="range-wrapper">
+            <input type="range" name="years" id="g-years" min="1" max="20" value="5">
+            <span class="range-value" id="g-years-display">5 yrs</span>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+      </form>
+
+      <!-- HISTORICAL -->
+      <form id="form-historical" style="display:none">
+        {% csrf_token %}
+        <div class="stp-info-banner">ℹ️ NAV data must be available for both funds. Only funds with historical NAV in our database will work. If you get a "NAV not available" error, try searching for another fund.</div>
+        <!-- Source fund -->
+        <div class="fund-slot fund-slot-src">
+          <div class="fund-slot-hdr"><span class="fund-slot-label slot-src">● Source Fund (Debt / Liquid)</span></div>
+          <div class="fund-search-wrap">
+            <input type="text" class="form-control" id="src-search" placeholder="Search source fund (e.g. Liquid, Overnight)…" autocomplete="off" style="border-color:var(--indigo-500)">
+            <input type="hidden" id="src-amfi">
+            <div class="fund-dd" id="src-dd"></div>
+          </div>
+          <div id="src-badge" style="display:none;margin-top:4px;font-size:11px;color:var(--indigo-400)">✓ Source fund selected</div>
+        </div>
+        <div class="stp-arrow">↓</div>
+        <!-- Target fund -->
+        <div class="fund-slot fund-slot-tgt">
+          <div class="fund-slot-hdr"><span class="fund-slot-label slot-tgt">● Target Fund (Equity)</span></div>
+          <div class="fund-search-wrap">
+            <input type="text" class="form-control" id="tgt-search" placeholder="Search target fund (e.g. Small Cap, Flexi)…" autocomplete="off" style="border-color:rgba(52,211,153,.6)">
+            <input type="hidden" id="tgt-amfi">
+            <div class="fund-dd" id="tgt-dd"></div>
+          </div>
+          <div id="tgt-badge" style="display:none;margin-top:4px;font-size:11px;color:#34d399">✓ Target fund selected</div>
+        </div>
+
+        <div class="grid-2" style="gap:12px;margin-top:4px">
+          <div class="form-group">
+            <label class="form-label">Lumpsum Amount (₹)</label>
+            <input class="form-control" type="number" id="hist-lumpsum" value="1000000" min="1000" step="1000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Investment Date</label>
+            <input type="date" class="form-control" id="hist-lumpsum-date">
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: source inception date</div>
+          </div>
+        </div>
+        <div class="grid-2" style="gap:12px">
+          <div class="form-group">
+            <label class="form-label">Transfer Amount (₹)</label>
+            <input class="form-control" type="number" id="hist-transfer" value="10000" min="100" step="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Frequency</label>
+            <select class="form-control" id="hist-freq">
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2" style="gap:12px">
+          <div class="form-group">
+            <label class="form-label">STP Start Date</label>
+            <input type="date" class="form-control" id="hist-start">
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: 1 month after investment</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">STP End Date</label>
+            <input type="date" class="form-control" id="hist-end">
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: latest NAV of both funds</div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
+      </form>
     </div>
 
-    <!-- Generic mode -->
-    <form id="stp-form-generic">
-      {% csrf_token %}
-      <div class="form-group">
-        <label class="form-label">Starting Corpus (₹)</label>
-        <input class="form-control" type="number" name="corpus" value="1000000" min="10000" step="1">
+    <div class="calc-results" id="results-area">
+      <div class="calc-placeholder">
+        <div class="calc-placeholder-icon">🔄</div>
+        <div class="calc-placeholder-text">Select a calculator type above to get started.</div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Transfer Amount (₹)</label>
-        <input class="form-control" type="number" name="transfer_amount" value="10000" min="500" step="1">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Expected Return Rate — Source Fund (%)</label>
-        <div class="range-wrapper">
-          <input type="range" name="expected_rate_source" id="expected_rate_source" min="1" max="15" value="6" step="0.5">
-          <span class="range-value" id="expected_rate_source_display">6%</span>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Expected Return Rate — Target Fund (%)</label>
-        <div class="range-wrapper">
-          <input type="range" name="expected_rate_target" id="expected_rate_target" min="5" max="30" value="12" step="0.5">
-          <span class="range-value" id="expected_rate_target_display">12%</span>
-        </div>
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
-    </form>
-
-    <!-- Historical mode -->
-    <form id="stp-form-historical" style="display:none">
-      {% csrf_token %}
-      <!-- Source Fund search -->
-      <div class="form-group" style="position:relative">
-        <label class="form-label" style="color:var(--indigo-400)">Transfer From Scheme (Source)</label>
-        <input type="text" class="form-control" id="hist-fund-search-src" placeholder="Type to search source fund…" autocomplete="off" style="border-color:var(--indigo-500)">
-        <input type="hidden" id="hist-amfi-code-src" name="amfi_code_source">
-        <div id="hist-fund-dropdown-src" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-top:4px"></div>
-      </div>
-      
-      <!-- Target Fund search -->
-      <div class="form-group" style="position:relative">
-        <label class="form-label" style="color:var(--emerald-400)">Transfer To Scheme (Target)</label>
-        <input type="text" class="form-control" id="hist-fund-search-tgt" placeholder="Type to search target fund…" autocomplete="off" style="border-color:var(--emerald-500)">
-        <input type="hidden" id="hist-amfi-code-tgt" name="amfi_code_target">
-        <div id="hist-fund-dropdown-tgt" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-top:4px"></div>
-      </div>
-      
-      <div class="grid-2" style="gap:12px">
-        <div class="form-group">
-          <label class="form-label">Initial Investment (₹)</label>
-          <input class="form-control" type="number" name="lumpsum_amount" id="hist-lumpsum" value="200000" min="1000" step="1000">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Initial Inv. Date</label>
-          <input type="date" class="form-control" id="hist-lumpsum-date" name="lumpsum_date">
-        </div>
-      </div>
-      <div class="grid-2" style="gap:12px">
-        <div class="form-group">
-          <label class="form-label">STP Amount (₹)</label>
-          <input class="form-control" type="number" name="transfer_amount" id="hist-transfer" value="10000" min="100" step="100">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Frequency</label>
-          <select class="form-control" name="frequency">
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid-2" style="gap:12px">
-        <div class="form-group">
-          <label class="form-label">Select STP Day</label>
-          <input class="form-control" type="number" name="stp_day" value="5" min="1" max="28" step="1">
-        </div>
-      </div>
-      <div class="grid-2" style="gap:12px">
-        <div class="form-group">
-          <label class="form-label">STP Start Date</label>
-          <input type="date" class="form-control" id="hist-start-date" name="start_date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">STP End Date</label>
-          <input type="date" class="form-control" id="hist-end-date" name="end_date">
-        </div>
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
-    </form>
-  </div>
-
-  <div class="calc-results">
-    <div id="stp-results"><div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div></div>
-    <div id="stp-balance-chart"    style="height:340px;margin-top:20px"></div>
-    <div id="stp-table-container"  style="margin-top:20px"></div>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.getElementById('hist-end-date').value = new Date().toISOString().slice(0,10);
-
-let currentMode = 'generic';
-
-function setMode(mode) {
-  currentMode = mode;
-  const g = document.getElementById('mode-generic');
-  const h = document.getElementById('mode-historical');
-  if (mode === 'generic') {
-    g.style.background = 'var(--indigo-500)'; g.style.color = 'white';
-    h.style.background = 'transparent';       h.style.color = 'var(--text-secondary)';
-    document.getElementById('stp-form-generic').style.display    = 'block';
-    document.getElementById('stp-form-historical').style.display = 'none';
-  } else {
-    h.style.background = 'var(--indigo-500)'; h.style.color = 'white';
-    g.style.background = 'transparent';       g.style.color = 'var(--text-secondary)';
-    document.getElementById('stp-form-generic').style.display    = 'none';
-    document.getElementById('stp-form-historical').style.display = 'block';
-  }
-  clearResults();
+function selectMode(mode){
+  document.getElementById('mode-picker').style.display='none';
+  document.getElementById('calc-area').style.display='block';
+  document.getElementById('form-generic').style.display    = mode==='generic'    ? 'block' : 'none';
+  document.getElementById('form-historical').style.display = mode==='historical' ? 'block' : 'none';
+  setPlaceholder('Enter values and click Calculate.');
 }
+function goBack(){document.getElementById('mode-picker').style.display='block';document.getElementById('calc-area').style.display='none';setPlaceholder('Select a calculator type above to get started.');}
+function setPlaceholder(msg){document.getElementById('results-area').innerHTML=`<div class="calc-placeholder"><div class="calc-placeholder-icon">🔄</div><div class="calc-placeholder-text">${msg}</div></div>`;}
 
-function clearResults() {
-  document.getElementById('stp-results').innerHTML = '<div class="chart-placeholder" style="min-height:200px"><span style="font-size:13px;color:var(--text-muted)">Fill values and click Calculate.</span></div>';
-  document.getElementById('stp-balance-chart').innerHTML  = '';
-  document.getElementById('stp-table-container').innerHTML = '';
-}
-
-// ── Fund autocomplete ──────────────────────────────────────────────────────
-function setupSearch(inputId, dropdownId, hiddenId) {
-  const searchInput = document.getElementById(inputId);
-  const dropdown = document.getElementById(dropdownId);
-  const hiddenInput = document.getElementById(hiddenId);
-  let timer;
-
-  searchInput.addEventListener('input', e => {
-    clearTimeout(timer);
-    const q = e.target.value.trim();
-    if (q.length < 2) { dropdown.style.display = 'none'; return; }
-    timer = setTimeout(async () => {
-      try {
-        const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
-        const data = await r.json();
-        if (!data.results?.length) {
-          dropdown.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--text-muted)">No funds found.</div>';
-        } else {
-          dropdown.innerHTML = data.results.map(f => `
-            <div class="fund-search-item" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border-subtle)"
-                 onmousedown="selectStpFund('${hiddenId}', '${inputId}', '${dropdownId}', '${f.amfi_code}', '${f.scheme_name.replace(/'/g,"\\'")}'); event.preventDefault();">
-              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${f.fund_house}</div>
-            </div>`).join('');
-        }
-        dropdown.style.display = 'block';
-      } catch(_) {}
-    }, 300);
+// Fund autocompletes
+function makeFundSearch(searchId, ddId, amfiId, badgeId) {
+  const inp=document.getElementById(searchId), dd=document.getElementById(ddId);
+  const amfiInp=document.getElementById(amfiId), badge=document.getElementById(badgeId);
+  let t;
+  inp.addEventListener('input', e=>{
+    clearTimeout(t); const q=e.target.value.trim();
+    if(q.length<2){dd.style.display='none';return;}
+    t=setTimeout(async()=>{try{
+      const r=await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+      const data=await r.json();
+      dd.innerHTML=(!data.results?.length)
+        ?'<div class="fund-dd-item" style="color:var(--text-muted)">No funds found.</div>'
+        :data.results.map(f=>`<div class="fund-dd-item" onmousedown="pickFund('${amfiId}','${searchId}','${ddId}','${badgeId}','${f.amfi_code}','${f.scheme_name.replace(/'/g,"\\'")}')"><div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div><div style="font-size:11px;color:var(--text-muted)">${f.fund_house}</div></div>`).join('');
+      dd.style.display='block';
+    }catch(_){}},300);
   });
-
-  searchInput.addEventListener('blur', () => {
-    // slight delay so mousedown on item can fire
-    setTimeout(() => dropdown.style.display = 'none', 150);
-  });
+  inp.addEventListener('blur',()=>setTimeout(()=>dd.style.display='none',150));
 }
-
-setupSearch('hist-fund-search-src', 'hist-fund-dropdown-src', 'hist-amfi-code-src');
-setupSearch('hist-fund-search-tgt', 'hist-fund-dropdown-tgt', 'hist-amfi-code-tgt');
-
-window.selectStpFund = function(hiddenId, inputId, dropdownId, amfi, name) {
-  document.getElementById(hiddenId).value = amfi;
-  document.getElementById(inputId).value = name;
-  document.getElementById(dropdownId).style.display = 'none';
+makeFundSearch('src-search','src-dd','src-amfi','src-badge');
+makeFundSearch('tgt-search','tgt-dd','tgt-amfi','tgt-badge');
+window.pickFund=function(amfiId,searchId,ddId,badgeId,amfi,name){
+  document.getElementById(amfiId).value=amfi;
+  document.getElementById(searchId).value=name;
+  document.getElementById(ddId).style.display='none';
+  document.getElementById(badgeId).style.display='block';
 };
 
-// ── Format helpers ─────────────────────────────────────────────────────────
-function fmtINR(v) {
-  if (v >= 10000000) return '₹' + (v / 10000000).toFixed(2) + ' Cr';
-  if (v >= 100000)   return '₹' + (v / 100000).toFixed(2) + ' L';
-  return '₹' + Math.round(v).toLocaleString('en-IN');
-}
-function pct(v, dec=2) { return v != null ? v.toFixed(dec) + '%' : '—'; }
+function fmtINR(v){if(v==null||isNaN(v))return'—';if(v>=10000000)return'₹'+(v/10000000).toFixed(2)+' Cr';if(v>=100000)return'₹'+(v/100000).toFixed(2)+' L';return'₹'+Math.round(v).toLocaleString('en-IN');}
+function pct(v,d=2){return v!=null&&!isNaN(v)?v.toFixed(d)+'%':'—';}
+function showError(msg){document.getElementById('results-area').innerHTML=`<div class="alert alert-danger">${msg}</div>`;}
+const CHART_CFG={...MF_PLOTLY_LAYOUT_BASE,autosize:true,height:300,margin:{l:65,r:20,t:20,b:50}};
+const LEGEND_BOTTOM={orientation:'h',y:-0.22,x:0.5,xanchor:'center',font:{size:11}};
 
-// ── Generic submit ─────────────────────────────────────────────────────────
-document.getElementById('stp-form-generic').addEventListener('submit', async e => {
+// ── Generic ──
+// API returns: months_sustained, years_sustained, total_transferred, corpus, transfer_amount,
+//              source_remaining, target_accumulated, combined_value, total_profit, history[]
+//   history item: { month, source_balance, target_balance, transferred_cumulative, combined_value }
+document.getElementById('form-generic').addEventListener('submit', async e=>{
   e.preventDefault();
-  const fd  = new FormData(e.target);
-  const btn = e.target.querySelector('[type=submit]');
-  btn.textContent = 'Calculating…'; btn.disabled = true;
+  const corpus   = +document.getElementById('g-corpus').value;
+  const transfer = +document.getElementById('g-transfer').value;
+  const rateSrc  = +document.getElementById('g-rate-src').value;
+  const rateTgt  = +document.getElementById('g-rate-tgt').value;
+  const years    = +document.getElementById('g-years').value;
+  if (transfer >= corpus) { showError('Transfer amount must be less than the corpus.'); return; }
+  const btn=e.target.querySelector('[type=submit]'); btn.textContent='Calculating…'; btn.disabled=true;
   try {
-    const r = await fetch('{% url "calculators:api_stp" %}', {
+    const r=await fetch('{% url "calculators:api_stp" %}',{
       method:'POST',
-      body: JSON.stringify({
-        corpus: parseFloat(fd.get('corpus')),
-        transfer_amount: parseFloat(fd.get('transfer_amount')),
-        expected_rate_source: parseFloat(fd.get('expected_rate_source')),
-        expected_rate_target: parseFloat(fd.get('expected_rate_target')),
-      }),
+      body:JSON.stringify({corpus, transfer_amount:transfer, expected_rate_source:rateSrc, expected_rate_target:rateTgt}),
       headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
     });
-    const d = await r.json();
-    btn.textContent = 'Calculate'; btn.disabled = false;
-    if (d.error) { showError(d.error); return; }
-    renderGenericResults(d);
-  } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
+    const d=await r.json(); btn.textContent='Calculate'; btn.disabled=false;
+    if(d.error){showError(d.error);return;}
+    renderGeneric(d, corpus, transfer, years);
+  }catch(_){btn.textContent='Calculate';btn.disabled=false;showError('Calculation failed.');}
 });
 
-function renderGenericResults(d) {
-  document.getElementById('stp-results').innerHTML = `
-    <div class="grid-2" style="gap:12px;margin-bottom:16px">
-      <div class="calc-result-highlight">
-        <div class="label">Total Amount Transferred</div>
-        <div class="value" style="color:var(--emerald-400)">${fmtINR(d.total_transferred)}</div>
-        <div class="sub">Duration: ${d.months_sustained} months</div>
-      </div>
-      <div class="calc-result-highlight">
-        <div class="label">Total Current Value</div>
-        <div class="value" style="color:var(--indigo-400)">${fmtINR(d.combined_value)}</div>
-        <div class="sub">Total Profit: ${fmtINR(d.total_profit)}</div>
-      </div>
-    </div>
-    <div class="metrics-dl">
-      <div><div class="metric-key">Initial Investment</div><div class="metric-val">${fmtINR(d.corpus)}</div></div>
-      <div><div class="metric-key">Source Remaining</div><div class="metric-val">${fmtINR(d.source_remaining)}</div></div>
-      <div><div class="metric-key">Target Accumulated</div><div class="metric-val">${fmtINR(d.target_accumulated)}</div></div>
-    </div>`;
-
-  if (d.history?.length) {
-    const hist = d.history.filter(h => h.month > 0);
-    Plotly.newPlot('stp-balance-chart', [
-      {x:hist.map(h=>h.month), y:hist.map(h=>h.source_balance), name:'Source Fund Value', type:'scatter', mode:'lines', line:{color:'#f43f5e',width:2.5}, fill:'tozeroy'},
-      {x:hist.map(h=>h.month), y:hist.map(h=>h.target_balance), name:'Target Fund Value', type:'scatter', mode:'lines', line:{color:'#10b981',width:2.5}, fill:'tozeroy'},
-      {x:hist.map(h=>h.month), y:hist.map(h=>h.combined_value), name:'Combined Value', type:'scatter', mode:'lines', line:{color:'#6366f1',width:2,dash:'dot'}}
-    ], {...MF_PLOTLY_LAYOUT_BASE, title:{text:'Corpus Balance Over Time',font:{size:13,color:'#94a3b8'}}, xaxis:{...MF_PLOTLY_LAYOUT_BASE.xaxis,title:{text:'Month',font:{size:11}}}, yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'}, height:340, margin:{l:70,r:16,t:40,b:50}}, MF_PLOTLY_CONFIG);
-  }
-}
-
-// ── Historical submit ──────────────────────────────────────────────────
-document.getElementById('stp-form-historical').addEventListener('submit', async e => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  if (!fd.get('amfi_code_source') || !fd.get('amfi_code_target')) { alert('Please select both source and target mutual funds.'); return; }
-
-  const btn = e.target.querySelector('[type=submit]');
-  btn.textContent = 'Fetching NAV data…'; btn.disabled = true;
-  try {
-    const r = await fetch('{% url "calculators:api_nav_stp" %}', {
-      method:'POST',
-      body: JSON.stringify({
-        amfi_code_source: fd.get('amfi_code_source'),
-        amfi_code_target: fd.get('amfi_code_target'),
-        lumpsum_amount:   parseFloat(fd.get('lumpsum_amount')),
-        lumpsum_date:     fd.get('lumpsum_date'),
-        transfer_amount:  parseFloat(fd.get('transfer_amount')),
-        frequency:        fd.get('frequency'),
-        stp_day:          parseInt(fd.get('stp_day')),
-        start_date:       fd.get('start_date'),
-        end_date:         fd.get('end_date'),
-      }),
-      headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}
-    });
-    const d = await r.json();
-    btn.textContent='Calculate'; btn.disabled=false;
-    if (d.error) { showError(d.error); return; }
-
-    if (d.lumpsum_date) document.getElementById('hist-lumpsum-date').value = d.lumpsum_date;
-    if (d.start_date)   document.getElementById('hist-start-date').value   = d.start_date;
-    if (d.end_date)     document.getElementById('hist-end-date').value     = d.end_date;
-
-    renderHistResults(d);
-  } catch(_) { btn.textContent='Calculate'; btn.disabled=false; showError('Calculation failed.'); }
-});
-
-function renderHistResults(d) {
-  const exhaustedNote = d.exhausted_date
-    ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border-radius:6px;color:var(--rose-400);font-size:12px">⚠️ Source corpus exhausted on ${d.exhausted_date}</div>`
+function renderGeneric(d, corpus, transfer, years) {
+  // Cap history to user-selected years
+  const maxMonths = years * 12;
+  const hist = (d.history||[]).filter(h => h.month <= maxMonths);
+  const last = hist[hist.length-1] || {};
+  const srcFinal = last.source_balance ?? d.source_remaining ?? 0;
+  const tgtFinal = last.target_balance ?? d.target_accumulated ?? 0;
+  const combined = last.combined_value ?? (srcFinal + tgtFinal);
+  const transferred = last.transferred_cumulative ?? d.total_transferred ?? 0;
+  const profit = combined - corpus;
+  const transfersCount = Math.min(Math.round(transferred / (transfer||1)), d.months_sustained);
+  const exhausted = d.months_sustained < maxMonths;
+  const exhaustedNote = exhausted
+    ? `<div style="padding:8px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;font-size:11.5px;color:#f59e0b;margin-bottom:12px">⚠ Source fund fully transferred in ${d.years_sustained} years (${d.months_sustained} months). Target continues to grow independently.</div>`
     : '';
 
-  document.getElementById('stp-results').innerHTML = `
-    <!-- Transferor Scheme Summary -->
-    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--indigo-400);margin-bottom:10px">STP - Transferor Scheme: <span style="color:var(--text-primary)">${d.src_scheme_name}</span></div>
-      <div style="overflow-x:auto">
-      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
-        <thead><tr>
-          <th style="text-align:right">Total Initial Investment</th>
-          <th style="text-align:right">Total Amount Transferred</th>
-          <th style="text-align:right">Total No. Units Remaining</th>
-          <th style="text-align:right">Current Value</th>
-          <th style="text-align:right">Profit</th>
-          <th style="text-align:right">Returns (%)</th>
-          <th style="text-align:right">XIRR</th>
-        </tr></thead>
-        <tbody><tr>
-          <td style="text-align:right">${fmtINR(d.lumpsum_amount)}</td>
-          <td style="text-align:right">${fmtINR(d.total_transferred)}</td>
-          <td style="text-align:right">${d.src_units_remaining}</td>
-          <td style="text-align:right;font-weight:700;color:var(--text-primary)">${fmtINR(d.src_final_value)}</td>
-          <td style="text-align:right;color:${d.src_profit>=0?'var(--emerald-400)':'var(--rose-400)'}">${fmtINR(d.src_profit)}</td>
-          <td style="text-align:right;color:${d.src_abs_return>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(d.src_abs_return)}</td>
-          <td style="text-align:right;color:${d.src_xirr>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(d.src_xirr)}</td>
-        </tr></tbody>
-      </table></div>
+  document.getElementById('results-area').innerHTML=`
+    <div class="res-stat-row">
+      <div class="res-stat">
+        <div class="lbl">Combined Value</div>
+        <div class="val" style="color:var(--emerald-400)">${fmtINR(combined)}</div>
+        <div class="sub">after ${years} years</div>
+      </div>
+      <div class="res-stat">
+        <div class="lbl">Total Profit</div>
+        <div class="val" style="color:${profit>=0?'var(--emerald-400)':'var(--rose-400)'}">${fmtINR(Math.abs(profit))}</div>
+        <div class="sub">${profit>=0?'+':'−'}${pct(Math.abs(profit/corpus)*100)} absolute</div>
+      </div>
     </div>
-    
-    <!-- Transferee Scheme Summary -->
-    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--emerald-400);margin-bottom:10px">STP - Transferee Scheme: <span style="color:var(--text-primary)">${d.tgt_scheme_name}</span></div>
-      <div style="overflow-x:auto">
-      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
-        <thead><tr>
-          <th>STP Period</th>
-          <th style="text-align:right">No of Installments</th>
-          <th style="text-align:right">Total Amount Invested</th>
-          <th style="text-align:right">Total No. Units Accumulated</th>
-          <th style="text-align:right">Current Value</th>
-          <th style="text-align:right">Profit</th>
-          <th style="text-align:right">Returns (%)</th>
-          <th style="text-align:right">XIRR</th>
-        </tr></thead>
-        <tbody><tr>
-          <td>${d.start_date} to ${d.end_date}</td>
-          <td style="text-align:right">${d.transfer_count}</td>
-          <td style="text-align:right">${fmtINR(d.total_transferred)}</td>
-          <td style="text-align:right">${d.tgt_units_accumulated}</td>
-          <td style="text-align:right;font-weight:700;color:var(--emerald-400)">${fmtINR(d.tgt_final_value)}</td>
-          <td style="text-align:right;color:${d.tgt_profit>=0?'var(--emerald-400)':'var(--rose-400)'}">${fmtINR(d.tgt_profit)}</td>
-          <td style="text-align:right;color:${d.tgt_abs_return>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(d.tgt_abs_return)}</td>
-          <td style="text-align:right;color:${d.tgt_xirr>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(d.tgt_xirr)}</td>
-        </tr></tbody>
-      </table></div>
+    <div class="res-metrics">
+      <div class="res-metric"><div class="key">Invested</div><div class="val">${fmtINR(corpus)}</div></div>
+      <div class="res-metric"><div class="key">Transferred</div><div class="val">${fmtINR(transferred)}</div></div>
+      <div class="res-metric"><div class="key">Source Remaining</div><div class="val" style="color:var(--indigo-400)">${fmtINR(srcFinal)}</div></div>
+      <div class="res-metric"><div class="key">Target Value</div><div class="val" style="color:var(--emerald-400)">${fmtINR(tgtFinal)}</div></div>
     </div>
-    
-    <!-- Total Summary -->
-    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px">STP - Total Returns</div>
-      <div style="overflow-x:auto">
-      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
-        <thead><tr>
-          <th style="text-align:right">Total Investment Amount</th>
-          <th style="text-align:right">Total Current Value</th>
-          <th style="text-align:right">Total Profit</th>
-          <th style="text-align:right">Total Returns (%)</th>
-          <th style="text-align:right">Total XIRR (%)</th>
-        </tr></thead>
-        <tbody><tr>
-          <td style="text-align:right">${fmtINR(d.lumpsum_amount)}</td>
-          <td style="text-align:right;font-weight:700;color:var(--indigo-400)">${fmtINR(d.combined_final_value)}</td>
-          <td style="text-align:right;color:${d.combined_profit>=0?'var(--emerald-400)':'var(--rose-400)'}">${fmtINR(d.combined_profit)}</td>
-          <td style="text-align:right;color:${d.combined_abs_return>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(d.combined_abs_return)}</td>
-          <td style="text-align:right;font-weight:700;color:${d.combined_xirr>=0?'var(--emerald-400)':'var(--rose-400)'}">${pct(d.combined_xirr)}</td>
-        </tr></tbody>
-      </table></div>
-    </div>
-    ${exhaustedNote}`;
+    ${exhaustedNote}
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔄 STP Balance Over Time</div>
+    <div class="res-chart" id="chart-main" style="height:300px"></div>
+    <div class="res-table-wrap">
+      <div class="res-table-title">Monthly Breakdown (every 3rd month)</div>
+      <div class="res-table-scroll">
+        <table class="data-table" style="width:100%;font-size:12px">
+          <thead><tr>
+            <th style="text-align:center">Month</th>
+            <th style="text-align:right">Source Balance</th>
+            <th style="text-align:right">Target Balance</th>
+            <th style="text-align:right">Transferred</th>
+            <th style="text-align:right">Combined</th>
+          </tr></thead>
+          <tbody>
+            ${hist.filter(h=>h.month===0||h.month%3===0).map(h=>`<tr>
+              <td style="text-align:center">${h.month===0?'Start':'Month '+h.month}</td>
+              <td style="text-align:right;color:var(--indigo-400)">${fmtINR(h.source_balance)}</td>
+              <td style="text-align:right;color:var(--emerald-400)">${fmtINR(h.target_balance)}</td>
+              <td style="text-align:right">${fmtINR(h.transferred_cumulative)}</td>
+              <td style="text-align:right;font-weight:650">${fmtINR(h.combined_value)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
 
-  if (d.stp_table?.length) {
-    Plotly.newPlot('stp-balance-chart', [
-      {x: d.stp_table.map(r=>r.date), y: d.stp_table.map(r=>r.src_value), name:'Source Fund Value', type:'scatter', mode:'lines', line:{color:'#f43f5e',width:2}, fill:'tozeroy'},
-      {x: d.stp_table.map(r=>r.date), y: d.stp_table.map(r=>r.tgt_value), name:'Target Fund Value', type:'scatter', mode:'lines', line:{color:'#10b981',width:2}, fill:'tozeroy'},
-      {x: d.stp_table.map(r=>r.date), y: d.stp_table.map(r=>r.combined_value), name:'Combined Value', type:'scatter', mode:'lines', line:{color:'#6366f1',width:2,dash:'dot'}}
-    ], {...MF_PLOTLY_LAYOUT_BASE,
-      title:{text:`STP Growth Over Time`,font:{size:13,color:'#94a3b8'}},
+  Plotly.newPlot('chart-main',[
+    {x:hist.map(h=>'M'+h.month), y:hist.map(h=>h.source_balance),   name:'Source Balance', type:'scatter',mode:'lines',line:{color:'#6366f1',width:2}},
+    {x:hist.map(h=>'M'+h.month), y:hist.map(h=>h.target_balance),   name:'Target Balance', type:'scatter',mode:'lines',line:{color:'#34d399',width:2.5}, fill:'tozeroy', fillcolor:'rgba(52,211,153,.10)'},
+    {x:hist.map(h=>'M'+h.month), y:hist.map(h=>h.combined_value),   name:'Combined',       type:'scatter',mode:'lines',line:{color:'#f59e0b',width:1.5, dash:'dot'}},
+  ],{
+    ...CHART_CFG,
+    legend: LEGEND_BOTTOM,
+    yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis, tickprefix:'₹', tickformat:',.0f'},
+  },{...MF_PLOTLY_CONFIG,responsive:true});
+}
+
+// ── Historical ──
+document.getElementById('form-historical').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const srcAmfi=document.getElementById('src-amfi').value.trim();
+  const tgtAmfi=document.getElementById('tgt-amfi').value.trim();
+  if (!srcAmfi) { alert('Please select a Source Fund.'); return; }
+  if (!tgtAmfi) { alert('Please select a Target Fund.'); return; }
+  if (srcAmfi===tgtAmfi) { alert('Source and Target funds cannot be the same.'); return; }
+  const btn=e.target.querySelector('[type=submit]'); btn.textContent='Fetching NAV…'; btn.disabled=true;
+  document.getElementById('results-area').innerHTML=`<div class="calc-placeholder"><div class="calc-placeholder-icon spinning">⟳</div><div class="calc-placeholder-text">Loading NAV data for both funds…</div></div>`;
+  try{
+    const r=await fetch('{% url "calculators:api_nav_stp" %}',{method:'POST',body:JSON.stringify({
+      amfi_code_source: srcAmfi,
+      amfi_code_target: tgtAmfi,
+      lumpsum_amount:   +document.getElementById('hist-lumpsum').value,
+      lumpsum_date:     document.getElementById('hist-lumpsum-date').value,
+      transfer_amount:  +document.getElementById('hist-transfer').value,
+      frequency:        document.getElementById('hist-freq').value,
+      start_date:       document.getElementById('hist-start').value,
+      end_date:         document.getElementById('hist-end').value,
+    }),headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}});
+    const d=await r.json(); btn.textContent='Calculate'; btn.disabled=false;
+    if(d.error){
+      // Friendly guidance for NAV unavailable
+      if(d.error.includes('NAV data not available')){
+        showError(`${d.error}<br><br><small style="color:var(--text-muted)">💡 Tip: NAV data must be cached in our system. Try searching for a different fund. Well-known funds (HDFC, ICICI, Axis, Mirae, Parag Parikh, etc.) are more likely to have historical NAV data available.</small>`);
+      } else {
+        showError(d.error);
+      }
+      return;
+    }
+    renderHistorical(d);
+  }catch(_){btn.textContent='Calculate';btn.disabled=false;showError('Calculation failed — please try again.');}
+});
+
+function renderHistorical(d){
+  const srcGc = (d.src_profit||0)>=0 ? 'var(--emerald-400)' : 'var(--rose-400)';
+  const tgtGc = (d.tgt_profit||0)>=0 ? 'var(--emerald-400)' : 'var(--rose-400)';
+  const cmbGc = (d.combined_profit||0)>=0 ? 'var(--emerald-400)' : 'var(--rose-400)';
+  const srcXp = d.src_xirr!=null ? d.src_xirr.toFixed(2)+'%' : '—';
+  const tgtXp = d.tgt_xirr!=null ? d.tgt_xirr.toFixed(2)+'%' : '—';
+  const cmbXp = d.combined_xirr!=null ? d.combined_xirr.toFixed(2)+'%' : '—';
+  const exhaustedNote = d.exhausted_date
+    ? `<div style="padding:8px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;font-size:11.5px;color:#f59e0b;margin-bottom:12px">⚠ Source fund fully transferred on ${d.exhausted_date}. Target fund continues to grow.</div>`
+    : '';
+
+  document.getElementById('results-area').innerHTML=`
+    <div class="res-stat-row">
+      <div class="res-stat">
+        <div class="lbl">Combined Value</div>
+        <div class="val" style="color:var(--emerald-400)">${fmtINR(d.combined_final_value)}</div>
+        <div class="sub">${d.start_date} → ${d.end_date}</div>
+      </div>
+      <div class="res-stat">
+        <div class="lbl">Combined XIRR</div>
+        <div class="val" style="color:${cmbGc}">${cmbXp}</div>
+        <div class="sub">${pct(d.combined_abs_return)} absolute</div>
+      </div>
+    </div>
+    <div class="res-metrics">
+      <div class="res-metric"><div class="key">Invested</div><div class="val">${fmtINR(d.lumpsum_amount)}</div></div>
+      <div class="res-metric"><div class="key">Transfers</div><div class="val">${d.transfer_count}</div></div>
+      <div class="res-metric"><div class="key">Total Transferred</div><div class="val">${fmtINR(d.total_transferred)}</div></div>
+    </div>
+    ${exhaustedNote}
+    <div class="res-fund-row">
+      <div class="fund-summary-card fund-summary-src">
+        <div class="fund-summary-title src">● Source Fund</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${d.src_scheme_name}</div>
+        <div class="fund-kv"><span class="k">Remaining Value</span><span class="v" style="color:var(--indigo-400)">${fmtINR(d.src_final_value)}</span></div>
+        <div class="fund-kv"><span class="k">Profit (incl. transfers)</span><span class="v" style="color:${srcGc}">${fmtINR(Math.abs(d.src_profit))}</span></div>
+        <div class="fund-kv"><span class="k">XIRR</span><span class="v" style="color:${srcGc}">${srcXp}</span></div>
+        <div class="fund-kv"><span class="k">Abs. Return</span><span class="v">${pct(d.src_abs_return)}</span></div>
+      </div>
+      <div class="fund-summary-card fund-summary-tgt">
+        <div class="fund-summary-title tgt">● Target Fund</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${d.tgt_scheme_name}</div>
+        <div class="fund-kv"><span class="k">Accumulated Value</span><span class="v" style="color:var(--emerald-400)">${fmtINR(d.tgt_final_value)}</span></div>
+        <div class="fund-kv"><span class="k">Profit</span><span class="v" style="color:${tgtGc}">${fmtINR(Math.abs(d.tgt_profit))}</span></div>
+        <div class="fund-kv"><span class="k">XIRR</span><span class="v" style="color:${tgtGc}">${tgtXp}</span></div>
+        <div class="fund-kv"><span class="k">Abs. Return</span><span class="v">${pct(d.tgt_abs_return)}</span></div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📈 STP Portfolio Growth (Actual NAV)</div>
+    <div class="res-chart" id="chart-main" style="height:300px"></div>
+    <div class="res-table-wrap">
+      <div class="res-table-title">🔄 Transfer Log</div>
+      <div class="res-table-scroll">
+        <table class="data-table" style="width:100%;font-size:11.5px;white-space:nowrap">
+          <thead><tr>
+            <th>Date</th>
+            <th style="text-align:right">Src NAV</th>
+            <th style="text-align:right">Tgt NAV</th>
+            <th style="text-align:right">Transferred</th>
+            <th style="text-align:right">Src Value</th>
+            <th style="text-align:right">Tgt Value</th>
+            <th style="text-align:right">Combined</th>
+          </tr></thead>
+          <tbody>${(d.stp_table||[]).map(r=>`<tr>
+            <td>${r.date}</td>
+            <td style="text-align:right">₹${r.src_nav}</td>
+            <td style="text-align:right">₹${r.tgt_nav}</td>
+            <td style="text-align:right;color:var(--rose-400)">${fmtINR(r.transfer_amount)}</td>
+            <td style="text-align:right;color:var(--indigo-400)">${fmtINR(r.src_value)}</td>
+            <td style="text-align:right;color:var(--emerald-400)">${fmtINR(r.tgt_value)}</td>
+            <td style="text-align:right;font-weight:650">${fmtINR(r.combined_value)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  if(d.stp_table?.length){
+    Plotly.newPlot('chart-main',[
+      {x:d.stp_table.map(r=>r.date), y:d.stp_table.map(r=>r.src_value),     name:'Source Value', type:'scatter',mode:'lines',line:{color:'#6366f1',width:2}},
+      {x:d.stp_table.map(r=>r.date), y:d.stp_table.map(r=>r.tgt_value),     name:'Target Value', type:'scatter',mode:'lines',line:{color:'#34d399',width:2.5},fill:'tozeroy',fillcolor:'rgba(52,211,153,.10)'},
+      {x:d.stp_table.map(r=>r.date), y:d.stp_table.map(r=>r.combined_value),name:'Combined',     type:'scatter',mode:'lines',line:{color:'#f59e0b',width:1.5,dash:'dot'}},
+    ],{
+      ...CHART_CFG,
+      legend: LEGEND_BOTTOM,
       yaxis:{...MF_PLOTLY_LAYOUT_BASE.yaxis,tickprefix:'₹',tickformat:',.0f'},
-      height:340, margin:{l:70,r:16,t:40,b:50}
-    }, MF_PLOTLY_CONFIG);
-
-    const rows = d.stp_table.map(r => `
-      <tr>
-        <td>${r.date}</td>
-        <td style="text-align:right">₹${r.src_nav}</td>
-        <td style="text-align:right">₹${r.tgt_nav}</td>
-        <td style="text-align:right;color:var(--text-primary)">${fmtINR(r.transfer_amount)}</td>
-        <td style="text-align:right;color:var(--rose-400)">${fmtINR(r.src_value)}</td>
-        <td style="text-align:right;color:var(--emerald-400)">${fmtINR(r.tgt_value)}</td>
-        <td style="text-align:right;color:var(--indigo-400);font-weight:600">${fmtINR(r.combined_value)}</td>
-      </tr>`).join('');
-    document.getElementById('stp-table-container').innerHTML = `
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">💼 STP Schedule</div>
-      <div style="max-height:380px;overflow-y:auto;border-radius:8px;border:1px solid var(--border-subtle)">
-      <table class="data-table" style="width:100%;font-size:12px;white-space:nowrap">
-        <thead><tr>
-          <th>Date</th><th style="text-align:right">Source NAV</th><th style="text-align:right">Target NAV</th>
-          <th style="text-align:right">Transferred</th><th style="text-align:right">Source Value</th><th style="text-align:right">Target Value</th>
-          <th style="text-align:right">Combined Value</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>`;
+    },{...MF_PLOTLY_CONFIG,responsive:true});
   }
 }
 
-function showError(msg) {
-  document.getElementById('stp-results').innerHTML = `<div class="alert alert-danger">${msg}</div>`;
-}
-
-document.getElementById('expected_rate_source').addEventListener('input', e => document.getElementById('expected_rate_source_display').textContent = e.target.value + '%');
-document.getElementById('expected_rate_target').addEventListener('input', e => document.getElementById('expected_rate_target_display').textContent = e.target.value + '%');
+// Slider listeners
+document.getElementById('g-rate-src').addEventListener('input',e=>document.getElementById('g-rate-src-display').textContent=e.target.value+'%');
+document.getElementById('g-rate-tgt').addEventListener('input',e=>document.getElementById('g-rate-tgt-display').textContent=e.target.value+'%');
+document.getElementById('g-years').addEventListener('input',e=>document.getElementById('g-years-display').textContent=e.target.value+' yrs');
 </script>
 {% endblock %}

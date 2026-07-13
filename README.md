@@ -61,10 +61,19 @@
 - One-click backtest integration for suggested portfolios
 
 ### Financial Calculators
-- SIP, Step-Up SIP, Lumpsum, SWP calculators
-- STP (Systematic Transfer Plan) Calculator
-- XIRR, Goal Planner, Net Worth Calculator (25+ asset classes, 9 liability classes)
-- **Rolling Return Calculator** (multi-fund, up to 5 funds with benchmarks and category averages)
+- **SIP Calculator**: Prospective projections + historical back-test mode with multi-fund comparison
+  - Cashflow table uses **fund names** (not generic labels) for each fund's row
+  - Start date auto-aligns to the **earliest common inception date** across all selected funds
+  - XIRR and Absolute Gain computed per fund with side-by-side comparison table
+- **Step-Up SIP Calculator**: Same as SIP with annual percentage step-up; same multi-fund alignment logic
+- **Lumpsum Calculator**: Single one-time investment projection with historical NAV back-test
+- **SWP Calculator**: Monthly withdrawal simulation from a corpus
+- **STP Calculator** (Systematic Transfer Plan): Source/target fund with XIRR computation for both legs
+- **XIRR Calculator**: Manual irregular cashflow entry with annualised return computation
+- **Goal Planner**: Target-corpus reverse-calculation
+- **Net Worth Calculator**: 25+ asset classes, 9 liability classes, Plotly donut chart, and **Solvency Ratio** with color-coded bar
+- **Rolling Return Calculator**: Multi-fund (up to 5), custom benchmark override, color-coded chart with volatility stats
+- **ⓘ Info Button System** across all calculators: Every key metric and input has a contextual tooltip (hover or click) powered by the shared `initInfoTooltips()` engine. Tooltips cover what the metric is, how to interpret it, benchmark ranges, and caveats — making the platform accessible for users with limited financial knowledge.
 
 ### Learn & Community
 - **PDF Guides page** (`/learn/resources/guides/`) — three sections:
@@ -303,6 +312,7 @@ See `documentation/DEPLOYMENT.md` for detailed deployment instructions.
 | [LEARN_CONTENT.md](documentation/LEARN_CONTENT.md) | PDF Guides / Blogs / Community content workflow and format reference |
 | [SCORING_MODEL.md](documentation/SCORING_MODEL.md) | 100-point fund scoring model (6 pillars, all formulas) |
 | [PEER_MATCHING.md](documentation/PEER_MATCHING.md) | Peer comparison matching algorithm |
+| [UI_TOOLTIPS.md](documentation/UI_TOOLTIPS.md) | ⓘ Info button tooltip system — usage guide for adding tooltips to any metric |
 
 ---
 
