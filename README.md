@@ -67,10 +67,15 @@
 - **Rolling Return Calculator** (multi-fund, up to 5 funds with benchmarks and category averages)
 
 ### Learn & Community
-- **Resources page** for educational PDF guides, project reports, and markdown-based blogs
-- File-backed Learn content workflow using `Resources/PDF Guides/guides.json` and markdown front matter in `Resources/Blogs/`
-- `sync_content` management command to sync Learn PDFs/blogs into Django admin-manageable records
-- Placeholder **Community** page for future discussion features such as Disqus or a custom posting/reply system
+- **PDF Guides page** (`/learn/resources/guides/`) — three sections:
+  - **Complete Mutual Fund Handbook** — always pinned at top, full-width featured card, not filterable (premium/reference content)
+  - **Chapterwise Guides** — individual chapter PDFs with chapter number badges; tag-filterable
+  - **Other Guides** — research, analysis, and investing guides; tag-filterable
+- **Tag filter bar** sits between the Handbook and the filterable sections; allowed tags: `investing`, `fundamentals`, `technicals`, `research`, `analysis`, `mutual funds`, `ipo`
+- **Blogs page** (`/learn/resources/blogs/`) — featured hero article + grid of further posts, filterable by tag (currently: `ipo`, `research`, `analysis`)
+- File-backed content workflow: PDF metadata via `Resources/PDF Guides/guides.json` (with `category` and `tags`); blog front matter in `Resources/Blogs/*.md`
+- `sync_content` management command upserts `LearnPDFGuide` and `LearnBlogPost` DB records; tags stored as JSON arrays
+- **Community page** (`/learn/community/`) — realistic static mockup (post feed, reply threads, composer, who-to-follow, trending topics). **Login required** — unauthenticated users are redirected to the login page with `?next=` redirect
 
 ---
 
@@ -295,6 +300,7 @@ See `documentation/DEPLOYMENT.md` for detailed deployment instructions.
 | [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md) | How to run all data ingestion pipelines |
 | [PROJECT_CONTEXT.md](documentation/PROJECT_CONTEXT.md) | Full architectural overview for developers |
 | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) | Local setup and Render.com deployment guide |
+| [LEARN_CONTENT.md](documentation/LEARN_CONTENT.md) | PDF Guides / Blogs / Community content workflow and format reference |
 | [SCORING_MODEL.md](documentation/SCORING_MODEL.md) | 100-point fund scoring model (6 pillars, all formulas) |
 | [PEER_MATCHING.md](documentation/PEER_MATCHING.md) | Peer comparison matching algorithm |
 

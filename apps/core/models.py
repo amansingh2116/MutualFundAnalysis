@@ -42,6 +42,16 @@ class DataProvenance(BaseModel):
 
 class LearnPDFGuide(BaseModel):
     """A PDF learning resource synced from Resources/PDF Guides."""
+
+    CATEGORY_CHAPTERS = 'chapters'
+    CATEGORY_HANDBOOK = 'handbook'
+    CATEGORY_OTHER = 'other'
+    CATEGORY_CHOICES = [
+        (CATEGORY_CHAPTERS, 'Chapterwise Guides'),
+        (CATEGORY_HANDBOOK, 'Complete Handbook'),
+        (CATEGORY_OTHER, 'Other Guides'),
+    ]
+
     slug = models.SlugField(max_length=160, unique=True)
     title = models.CharField(max_length=220)
     description = models.TextField(blank=True)
@@ -52,13 +62,35 @@ class LearnPDFGuide(BaseModel):
     sort_order = models.PositiveIntegerField(default=100)
     is_published = models.BooleanField(default=True)
     synced_at = models.DateTimeField(null=True, blank=True)
+    # Category places the guide in a sub-section of the Resources page
+    category = models.CharField(
+        max_length=24,
+        choices=CATEGORY_CHOICES,
+        default=CATEGORY_OTHER,
+    )
+    # Comma-separated or JSON-list tags stored as plain text
+    tags = models.TextField(blank=True, default='')
 
     class Meta:
         ordering = ['sort_order', 'title']
-        indexes = [models.Index(fields=['is_published', 'sort_order'])]
+        indexes = [models.Index(fields=['is_published', 'sort_order', 'category'])]
 
     def __str__(self):
         return self.title
+
+    def tag_list(self):
+        """Return tags as a cleaned Python list."""
+        raw = self.tags.strip()
+        if not raw:
+            return []
+        # Support JSON-array format ["a", "b"] or comma-separated
+        if raw.startswith('['):
+            import json
+            try:
+                return [t.strip() for t in json.loads(raw) if t.strip()]
+            except (ValueError, TypeError):
+                pass
+        return [t.strip() for t in raw.split(',') if t.strip()]
 
 
 class LearnBlogPost(BaseModel):
@@ -72,6 +104,8 @@ class LearnBlogPost(BaseModel):
     sort_order = models.PositiveIntegerField(default=100)
     is_published = models.BooleanField(default=True)
     synced_at = models.DateTimeField(null=True, blank=True)
+    # Comma-separated or JSON-list tags stored as plain text
+    tags = models.TextField(blank=True, default='')
 
     class Meta:
         ordering = ['sort_order', 'title']
@@ -79,3 +113,16 @@ class LearnBlogPost(BaseModel):
 
     def __str__(self):
         return self.title
+
+    def tag_list(self):
+        """Return tags as a cleaned Python list."""
+        raw = self.tags.strip()
+        if not raw:
+            return []
+        if raw.startswith('['):
+            import json
+            try:
+                return [t.strip() for t in json.loads(raw) if t.strip()]
+            except (ValueError, TypeError):
+                pass
+        return [t.strip() for t in raw.split(',') if t.strip()]

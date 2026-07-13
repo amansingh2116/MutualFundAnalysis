@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}PDF Guides - Learn{% endblock %}
+{% block meta_description %}Browse all mutual fund PDF guides — chapterwise guides, complete handbook, and research guides on value investing, technical analysis, IPO research, and more.{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Shell ── */
+.guides-shell { max-width:1280px;margin:0 auto; }
+.guides-header { display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:28px;flex-wrap:wrap; }
+.guides-kicker { color:var(--indigo-400);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px; }
+.guides-title { font-size:28px;font-weight:800;line-height:1.15;color:var(--text-primary); }
+.guides-subtitle { color:var(--text-secondary);font-size:13px;max-width:620px;margin-top:8px; }
+
+/* ── Filter bar ── */
+.filter-bar-wrap {
+  background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+  padding:12px 14px;margin-bottom:28px;
+}
+.filter-inner { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.filter-label { font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap; }
+.tag-pill { display:inline-flex;align-items:center;padding:5px 13px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text-secondary);font-size:11px;font-weight:650;cursor:pointer;transition:all .18s;user-select:none; }
+.tag-pill:hover { border-color:var(--indigo-500);color:var(--indigo-300);background:rgba(99,102,241,.10); }
+.tag-pill.active { border-color:var(--indigo-500);color:#fff;background:rgba(99,102,241,.85); }
+.tag-clear { border-style:dashed;color:var(--text-muted); }
+.tag-clear:hover { border-color:var(--border-accent);color:var(--text-secondary); }
+
+/* ── Section ── */
+.gs-section { margin-bottom:40px; }
+.gs-section-head { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border); }
+.gs-section-title { font-size:16px;font-weight:750;color:var(--text-primary);display:flex;align-items:center;gap:8px; }
+.gs-section-count { font-size:11px;color:var(--text-muted);background:rgba(255,255,255,.05);padding:2px 8px;border-radius:999px;border:1px solid var(--border); }
+.gs-empty { border:1px dashed var(--border);border-radius:8px;padding:20px;color:var(--text-muted);text-align:center;font-size:12px; }
+
+/* ── Chapter grid — 3 wide cols ── */
+.chapter-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px; }
+
+/* ── Other guides grid — 4 cols ── */
+.other-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px; }
+
+/* ── Cards ── */
+.pdf-card {
+  background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;
+  text-decoration:none;color:inherit;display:flex;flex-direction:column;
+  transition:border-color .2s,transform .2s,box-shadow .2s;
+}
+.pdf-card:hover { border-color:var(--border-accent);transform:translateY(-3px);box-shadow:0 10px 36px rgba(99,102,241,.18); }
+.chapter-card { min-height:290px; }
+.other-card { min-height:260px; }
+.card-hidden { display:none !important; }
+
+/* ── Cover ── */
+.pdf-cover { min-height:140px;border-bottom:1px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0; }
+.chapter-card .pdf-cover { min-height:160px;background:linear-gradient(135deg,rgba(99,102,241,.38) 0%,rgba(139,92,246,.25) 100%); }
+.other-card .pdf-cover { min-height:130px;background:linear-gradient(135deg,rgba(14,165,233,.25) 0%,rgba(99,102,241,.18) 100%); }
+.pdf-cover.has-image::before { display:none; }
+.pdf-cover img { width:100%;height:100%;object-fit:cover;display:block; }
+
+/* Fallback cover mark */
+.cover-mark { position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:min(120px,80%);min-height:100px;padding:14px 12px;border-radius:10px;background:rgba(10,14,26,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.10);box-shadow:0 12px 30px rgba(0,0,0,.30);text-align:center; }
+.cover-mark-icon { font-size:28px;line-height:1; }
+.cover-mark-label { font-size:11.5px;font-weight:750;color:rgba(255,255,255,.90);line-height:1.3;word-break:break-word;overflow-wrap:anywhere; }
+.cover-mark-badge { font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-top:2px; }
+.badge-chapter { background:rgba(99,102,241,.30);color:#a5b4fc;border:1px solid rgba(99,102,241,.4); }
+.badge-pdf { background:rgba(14,165,233,.22);color:#7dd3fc;border:1px solid rgba(14,165,233,.3); }
+.chapter-progress { position:absolute;top:10px;left:10px;background:rgba(99,102,241,.85);color:#fff;font-size:9.5px;font-weight:800;padding:3px 9px;border-radius:999px;letter-spacing:.04em; }
+
+/* ── Card body ── */
+.card-body { padding:15px 16px 16px;display:flex;flex-direction:column;gap:7px;flex:1; }
+.card-title { font-size:14px;font-weight:750;color:var(--text-primary);line-height:1.35; }
+.card-desc { font-size:12px;color:var(--text-secondary);line-height:1.65;flex:1; }
+.card-tags { display:flex;flex-wrap:wrap;gap:4px;margin-top:3px; }
+.card-tag { display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;border:1px solid rgba(129,140,248,.24);color:var(--indigo-400);background:rgba(99,102,241,.07);font-size:10px;font-weight:650; }
+.card-meta { display:flex;align-items:center;justify-content:space-between;color:var(--text-muted);font-size:11px;border-top:1px solid var(--border);padding-top:10px;margin-top:4px; }
+.card-meta-link { color:var(--indigo-400);font-weight:650; }
+
+/* ── Handbook (featured wide card) ── */
+.handbook-hero {
+  display:flex;flex-direction:row;align-items:stretch;
+  background:linear-gradient(135deg,rgba(16,185,129,.08) 0%,rgba(99,102,241,.06) 100%);
+  border:1px solid rgba(16,185,129,.28);border-radius:12px;overflow:hidden;
+  text-decoration:none;color:inherit;margin-bottom:10px;
+  transition:border-color .2s,transform .2s,box-shadow .2s;min-height:180px;
+}
+.handbook-hero:hover { border-color:rgba(16,185,129,.55);transform:translateY(-2px);box-shadow:0 10px 36px rgba(16,185,129,.16); }
+.handbook-visual {
+  width:200px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:linear-gradient(150deg,rgba(16,185,129,.32) 0%,rgba(99,102,241,.20) 100%);
+  border-right:1px solid rgba(16,185,129,.22);
+}
+.handbook-visual .cover-mark { min-height:110px;width:120px; }
+.handbook-info { padding:24px 28px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px; }
+.handbook-badge-row { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.handbook-badge { display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:999px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.32);color:#6ee7b7;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase; }
+.handbook-exclusive { background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.30);color:#fcd34d; }
+.handbook-title-lg { font-size:20px;font-weight:850;color:var(--text-primary);line-height:1.2; }
+.handbook-desc-lg { font-size:13px;color:var(--text-secondary);line-height:1.65;max-width:680px; }
+.handbook-footer { display:flex;align-items:center;gap:14px;flex-wrap:wrap; }
+.handbook-meta { font-size:11px;color:var(--text-muted); }
+.btn-handbook { display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.38);color:#6ee7b7;font-size:12px;font-weight:750;transition:all .18s; }
+.btn-handbook:hover { background:rgba(16,185,129,.30);border-color:rgba(16,185,129,.60); }
+
+@media (max-width:768px) {
+  .handbook-hero { flex-direction:column; }
+  .handbook-visual { width:100%;min-height:120px;border-right:none;border-bottom:1px solid rgba(16,185,129,.22); }
+  .chapter-grid { grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
+}
+@media (max-width:480px) {
+  .filter-bar-wrap { padding:8px 0; }
+  .guides-title { font-size:22px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="guides-shell">
+  <header class="guides-header">
+    <div>
+      <div class="guides-kicker">Learn · PDF Guides</div>
+      <h1 class="guides-title">📘 PDF Guides</h1>
+      <p class="guides-subtitle">Structured learning resources — from chapterwise beginner guides to a complete mutual fund reference handbook.</p>
+    </div>
+  </header>
+
+  {# ── SECTION 1: Complete Handbook — always visible, never filtered ── #}
+  {% if handbook_guides %}
+  <section class="gs-section" id="handbook">
+    <div class="gs-section-head">
+      <h2 class="gs-section-title">📗 Complete Handbook</h2>
+    </div>
+    {% for guide in handbook_guides %}
+    <a class="handbook-hero" href="{{ guide.pdf_url }}" target="_blank" rel="noopener">
+      <div class="handbook-visual">
+        <div class="cover-mark">
+          <div class="cover-mark-icon">📗</div>
+          <div class="cover-mark-label">{{ guide.accent }}</div>
+          <div class="cover-mark-badge badge-chapter" style="background:rgba(16,185,129,.25);color:#6ee7b7;border-color:rgba(16,185,129,.4);">Handbook</div>
+        </div>
+      </div>
+      <div class="handbook-info">
+        <div class="handbook-badge-row">
+          <span class="handbook-badge">⭐ Complete Reference</span>
+          <span class="handbook-badge handbook-exclusive">📌 Premium Content</span>
+        </div>
+        <div class="handbook-title-lg">{{ guide.title }}</div>
+        <div class="handbook-desc-lg">{{ guide.description }}</div>
+        <div class="handbook-footer">
+          <span class="handbook-meta">{{ guide.size_kb }} KB</span>
+          <span class="btn-handbook">Open Full Handbook →</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {# ── Filter bar — applies to Chapters and Other Guides only ── #}
+  {% if pdf_tags %}
+  <div class="filter-bar-wrap">
+    <div class="filter-inner">
+      <span class="filter-label">Filter guides:</span>
+      <span class="tag-pill tag-clear" id="tag-clear-all">All</span>
+      {% for tag in pdf_tags %}
+      <span class="tag-pill" data-tag="{{ tag }}">{{ tag }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── SECTION 2: Chapterwise Guides ── #}
+  <section class="gs-section" id="chapters">
+    <div class="gs-section-head">
+      <h2 class="gs-section-title">📖 Chapterwise Guides <span class="gs-section-count">{{ chapter_guides|length }} chapter{{ chapter_guides|length|pluralize }}</span></h2>
+      <span style="font-size:11px;color:var(--text-muted);">More chapters coming soon</span>
+    </div>
+    {% if chapter_guides %}
+    <div class="chapter-grid" id="grid-chapters">
+      {% for guide in chapter_guides %}
+      <a class="pdf-card chapter-card" href="{{ guide.pdf_url }}" target="_blank" rel="noopener"
+         data-tags="{{ guide.tags|join:',' }}">
+        <div class="pdf-cover{% if guide.cover_url %} has-image{% endif %}">
+          {% if guide.cover_url %}
+          <img src="{{ guide.cover_url }}" alt="{{ guide.title }}">
+          {% else %}
+          <div class="chapter-progress">Chapter {{ forloop.counter }}</div>
+          <div class="cover-mark">
+            <div class="cover-mark-icon">📖</div>
+            <div class="cover-mark-label">{{ guide.accent }}</div>
+            <div class="cover-mark-badge badge-chapter">Chapter</div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="card-title">{{ guide.title }}</div>
+          <div class="card-desc">{{ guide.description }}</div>
+          {% if guide.tags %}
+          <div class="card-tags">{% for tag in guide.tags %}<span class="card-tag">{{ tag }}</span>{% endfor %}</div>
+          {% endif %}
+          <div class="card-meta">
+            <span>{{ guide.size_kb }} KB</span>
+            <span class="card-meta-link">Open PDF →</span>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="gs-empty">No chapter guides synced yet.</div>
+    {% endif %}
+  </section>
+
+  {# ── SECTION 3: Other Guides ── #}
+  <section class="gs-section" id="other">
+    <div class="gs-section-head">
+      <h2 class="gs-section-title">📚 Other Guides <span class="gs-section-count">{{ other_guides|length }} guide{{ other_guides|length|pluralize }}</span></h2>
+    </div>
+    {% if other_guides %}
+    <div class="other-grid" id="grid-other">
+      {% for guide in other_guides %}
+      <a class="pdf-card other-card" href="{{ guide.pdf_url }}" target="_blank" rel="noopener"
+         data-tags="{{ guide.tags|join:',' }}">
+        <div class="pdf-cover{% if guide.cover_url %} has-image{% endif %}">
+          {% if guide.cover_url %}
+          <img src="{{ guide.cover_url }}" alt="{{ guide.title }}">
+          {% else %}
+          <div class="cover-mark">
+            <div class="cover-mark-icon">📄</div>
+            <div class="cover-mark-label">{{ guide.accent }}</div>
+            <div class="cover-mark-badge badge-pdf">PDF</div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="card-title">{{ guide.title }}</div>
+          <div class="card-desc">{{ guide.description }}</div>
+          {% if guide.tags %}
+          <div class="card-tags">{% for tag in guide.tags %}<span class="card-tag">{{ tag }}</span>{% endfor %}</div>
+          {% endif %}
+          <div class="card-meta">
+            <span>{{ guide.size_kb }} KB</span>
+            <span class="card-meta-link">Open PDF →</span>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="gs-empty">No guides synced yet.</div>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var activeTag = null;
+
+  function filterCards(tag) {
+    activeTag = tag;
+    // Filter ONLY chapters and other-guide cards — handbook is always visible
+    document.querySelectorAll('#grid-chapters .pdf-card, #grid-other .pdf-card').forEach(function (card) {
+      if (!tag) {
+        card.classList.remove('card-hidden');
+      } else {
+        var tags = card.dataset.tags ? card.dataset.tags.split(',').map(function (t) { return t.trim(); }) : [];
+        card.classList.toggle('card-hidden', !tags.includes(tag));
+      }
+    });
+  }
+
+  document.querySelectorAll('.tag-pill:not(.tag-clear)').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      var isActive = pill.classList.contains('active');
+      document.querySelectorAll('.tag-pill').forEach(function (p) { p.classList.remove('active'); });
+      if (isActive) {
+        filterCards(null);
+      } else {
+        pill.classList.add('active');
+        filterCards(pill.dataset.tag);
+      }
+    });
+  });
+
+  var clearBtn = document.getElementById('tag-clear-all');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      document.querySelectorAll('.tag-pill').forEach(function (p) { p.classList.remove('active'); });
+      filterCards(null);
+    });
+  }
+
+  // Jump to anchor on load
+  if (location.hash) {
+    var target = document.querySelector(location.hash);
+    if (target) { setTimeout(function () { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 200); }
+  }
+})();
+</script>
+{% endblock %}

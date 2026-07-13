@@ -1,84 +1,100 @@
 {
   "guides": [
     {
-      "file": "pdfs/Goals.pdf",
-      "title": "Goal-Based Investing",
-      "description": "A practical guide to mapping mutual fund choices to time horizons, priorities, and milestones.",
-      "slug": "goal-based-investing",
-      "accent": "Goal Setting and Investing",
+      "file": "pdfs/Risks.pdf",
+      "title": "Chapter 1 — Risk Profiling",
+      "description": "An in-depth chapterwise guide covering risk types, volatility, drawdowns, investor psychology, and how to match fund choices to your risk tolerance.",
+      "slug": "chapter-1-risk-profiling",
+      "accent": "Chapter 1: Risk Profiling",
       "cover": "",
       "order": 10,
-      "published": true
+      "published": true,
+      "category": "chapters",
+      "tags": ["investing", "mutual funds", "analysis"]
     },
     {
-      "file": "pdfs/MF_Booklet.pdf",
-      "title": "Mutual Fund Basics",
-      "description": "A concise primer for understanding schemes, NAV, returns, categories, and portfolio fit.",
-      "slug": "mutual-fund-basics",
-      "accent": "Mutual Fund Booklet",
+      "file": "pdfs/Goals.pdf",
+      "title": "Chapter 2 — Goal-Based Investing",
+      "description": "A chapterwise guide to mapping mutual fund choices to time horizons, financial priorities, and life milestones using goal-based frameworks.",
+      "slug": "chapter-2-goal-based-investing",
+      "accent": "Chapter 2: Goal-Based Investing",
       "cover": "",
       "order": 20,
-      "published": true
+      "published": true,
+      "category": "chapters",
+      "tags": ["investing", "mutual funds"]
     },
     {
       "file": "pdfs/MutualFundBook.pdf",
-      "title": "Mutual Fund Handbook",
-      "description": "A broader reference guide for fund concepts, investor behavior, and long-term decision making.",
-      "slug": "mutual-fund-handbook",
-      "accent": "Mutual Fund Book",
+      "title": "Complete Mutual Fund Handbook",
+      "description": "A comprehensive, definitive guide covering mutual fund concepts, investor behavior, scheme categories, NAV, returns, portfolio construction, and long-term decision making — everything in one place.",
+      "slug": "complete-mutual-fund-handbook",
+      "accent": "Complete Handbook",
       "cover": "",
       "order": 30,
-      "published": true
+      "published": true,
+      "category": "handbook",
+      "tags": ["mutual funds", "investing"]
     },
     {
-      "file": "pdfs/Risks.pdf",
-      "title": "Risk Awareness Guide",
-      "description": "Learn the risk types behind mutual funds and how to think about volatility, drawdowns, and suitability.",
-      "slug": "risk-awareness-guide",
-      "accent": "Risk Profiling",
+      "file": "pdfs/MF_Booklet.pdf",
+      "title": "Mutual Fund Basics Booklet",
+      "description": "A concise primer for understanding schemes, NAV, returns, categories, and portfolio fit — great for first-time investors.",
+      "slug": "mutual-fund-basics-booklet",
+      "accent": "MF Booklet",
       "cover": "",
       "order": 40,
-      "published": true
+      "published": true,
+      "category": "other",
+      "tags": ["mutual funds", "investing"]
     },
     {
       "file": "pdfs/value.pdf",
       "title": "Value Investing and Analysis",
       "description": "A long-term investing guide focused on saving discipline, compounding, inflation, value investing, and analytical investing habits.",
       "slug": "value-investing-and-analysis",
-      "accent": "Value Investing Primer",
+      "accent": "Value Investing",
       "cover": "",
       "order": 50,
-      "published": true
+      "published": true,
+      "category": "other",
+      "tags": ["investing", "fundamentals", "analysis"]
     },
     {
       "file": "pdfs/fundamental.pdf",
       "title": "Fundamental Analysis and Financial Modelling",
       "description": "A stock-analysis guide covering business fundamentals, financial information sources, investing styles, and valuation thinking.",
       "slug": "fundamental-analysis-financial-modelling",
-      "accent": "Fundamental Analysis",
+      "accent": "Fundamental",
       "cover": "",
       "order": 60,
-      "published": true
+      "published": true,
+      "category": "other",
+      "tags": ["fundamentals", "analysis", "investing"]
     },
     {
       "file": "pdfs/technical.pdf",
       "title": "Technical Analysis Guide",
       "description": "A practical guide to reading price, volume, market psychology, trend structure, and the demand-supply forces behind charts.",
       "slug": "technical-analysis-guide",
-      "accent": "Technical Analysis",
+      "accent": "Technical",
       "cover": "",
       "order": 70,
-      "published": true
+      "published": true,
+      "category": "other",
+      "tags": ["technicals", "analysis"]
     },
     {
       "file": "pdfs/ipo_project_report.pdf",
       "title": "Indian IPO Research Project Report",
       "description": "A formal research report testing Indian IPO listing gains, GMP, subscription filters, holding-period returns, and ML screening strategies.",
       "slug": "ipo-project-report",
-      "accent": "IPO Analysis Project Report",
+      "accent": "IPO Report",
       "cover": "",
       "order": 80,
-      "published": true
+      "published": true,
+      "category": "other",
+      "tags": ["ipo", "research", "analysis"]
     }
   ]
 }

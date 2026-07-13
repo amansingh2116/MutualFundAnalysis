@@ -34,19 +34,26 @@
 .article-table th { color:var(--text-primary);font-weight:750;background:rgba(99,102,241,.10); }
 .article-table td { color:var(--text-secondary); }
 .article-table tr:last-child td { border-bottom:0; }
+.article-tags { display:flex;flex-wrap:wrap;gap:5px;margin-top:10px; }
+.article-tag { display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid rgba(129,140,248,.28);color:var(--indigo-400);background:rgba(99,102,241,.08);font-size:11px;font-weight:650; }
 @media (max-width:640px) { .article-title { font-size:25px; } .article-body { padding:18px; } .article-body h2 { font-size:19px; } .article-actions { width:100%; } .article-actions .btn { flex:1;justify-content:center; } }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="article-shell">
-  <a class="article-back" href="{% url 'core:learn_resources' %}">← Back to resources</a>
+  <a class="article-back" href="{% url 'core:learn_blogs' %}">← Back to blogs</a>
   <header class="article-top">
     <div>
       <div class="article-kicker">{{ blog.tag }}</div>
       <h1 class="article-title">{{ blog.title }}</h1>
       <p class="article-desc">{{ blog.description }}</p>
       <div class="article-meta">{{ blog.read_time }}</div>
+      {% if blog.tags %}
+      <div class="article-tags">
+        {% for tag in blog.tags %}<span class="article-tag">{{ tag }}</span>{% endfor %}
+      </div>
+      {% endif %}
     </div>
     {% if blog.report_url %}
     <div class="article-actions">

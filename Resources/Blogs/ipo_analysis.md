@@ -6,6 +6,7 @@ thumbnail: "images/ipo_analysis/cover.jpg"
 read_time: "12 min read"
 order: 10
 published: true
+tags: ["ipo", "research", "analysis"]
 ---
 # What the Data Says About Indian IPOs — A Beginner's Guide
 

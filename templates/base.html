@@ -107,14 +107,26 @@
           <span class="nav-section-caret" aria-hidden="true"></span>
         </button>
         <div class="nav-section-items" id="nav-section-learn">
-      <a href="{% url 'core:learn_resources' %}" class="nav-item {% if request.resolver_match.url_name == 'learn_resources' or request.resolver_match.url_name == 'learn_pdf' or request.resolver_match.url_name == 'learn_pdf_detail' or request.resolver_match.url_name == 'learn_blog_detail' or request.resolver_match.url_name == 'learn_blog_image' %}active{% endif %}">
-        <span class="nav-icon">📚</span> Resources
+      <a href="{% url 'core:learn_pdf_guides' %}" class="nav-item {% if request.resolver_match.url_name in 'learn_pdf_guides learn_pdf learn_pdf_detail' %}active{% endif %}">
+        <span class="nav-icon">📘</span> PDF Guides
       </a>
-      <a href="{% url 'core:learn_community' %}" class="nav-item {% if request.resolver_match.url_name == 'learn_community' %}active{% endif %}">
-        <span class="nav-icon">💬</span> Community
+      <a href="{% url 'core:learn_blogs' %}" class="nav-item {% if request.resolver_match.url_name in 'learn_blogs learn_blog_detail learn_blog_image' %}active{% endif %}">
+        <span class="nav-icon">✍️</span> Blogs
       </a>
         </div>
       </div>
+      <div class="nav-section" data-nav-section="community">
+        <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-community">
+          <span>Community</span>
+          <span class="nav-section-caret" aria-hidden="true"></span>
+        </button>
+        <div class="nav-section-items" id="nav-section-community">
+      <a href="{% url 'core:learn_community' %}" class="nav-item {% if request.resolver_match.url_name == 'learn_community' %}active{% endif %}">
+        <span class="nav-icon">💬</span> Community Feed
+      </a>
+        </div>
+      </div>
+
       <div class="nav-section" data-nav-section="admin">
         <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-admin">
           <span>Admin</span>

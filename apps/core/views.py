@@ -1,9 +1,11 @@
 """apps/core/views.py - Shared views including registration."""
+import json
 import mimetypes
 from pathlib import Path
 
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.db import DatabaseError
 from django.http import FileResponse, Http404
@@ -14,9 +16,13 @@ from django.utils.text import slugify
 from .content import (
     BLOGS_DIR,
     IMAGE_SUFFIXES,
+    PDF_CATEGORY_CHAPTERS,
+    PDF_CATEGORY_HANDBOOK,
+    PDF_CATEGORY_OTHER,
     PDF_GUIDE_PDFS_DIR,
     PDF_GUIDES_DIR,
     PDF_SUFFIXES,
+    _parse_tags,
     first_markdown_heading,
     first_markdown_paragraph,
     metadata_slug,
@@ -68,6 +74,8 @@ def _guide_card_from_model(guide):
         'cover_url': _asset_url(guide.cover_image_path),
         'pdf_url': reverse('core:learn_pdf_detail', args=[guide.slug]),
         'source_key': guide.pdf_path,
+        'category': guide.category,
+        'tags': guide.tag_list(),
     }
 
 
@@ -80,6 +88,7 @@ def _blog_card_from_model(post):
         'thumbnail_url': _asset_url(post.thumbnail_path),
         'url': reverse('core:learn_blog_detail', args=[post.slug]),
         'source_key': post.markdown_path,
+        'tags': post.tag_list(),
     }
 
 
@@ -87,6 +96,7 @@ def _guide_card_from_file(pdf_path, meta, index):
     title = meta.get('title') or pdf_path.stem.replace('_', ' ').replace('-', ' ').title()
     cover = meta.get('cover') or meta.get('cover_image') or ''
     cover_path = path_to_base_relative((PDF_GUIDES_DIR / cover).resolve()) if cover else ''
+    raw_tags = meta.get('tags', [])
     return {
         'title': title,
         'description': meta.get('description') or 'A learning guide from the local PDF library.',
@@ -96,6 +106,8 @@ def _guide_card_from_file(pdf_path, meta, index):
         'pdf_url': reverse('core:learn_pdf', args=[pdf_path.name]),
         'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
         'source_key': path_to_base_relative(pdf_path),
+        'category': meta.get('category') or PDF_CATEGORY_OTHER,
+        'tags': _parse_tags(raw_tags if isinstance(raw_tags, str) else json.dumps(raw_tags)),
     }
 
 
@@ -105,6 +117,7 @@ def _blog_from_file(markdown_path, index=1):
     title = meta.get('title') or first_markdown_heading(body, markdown_path.stem.replace('_', ' ').title())
     thumbnail = meta.get('thumbnail') or meta.get('cover') or meta.get('cover_image') or ''
     thumbnail_path = path_to_base_relative((markdown_path.parent / thumbnail).resolve()) if thumbnail else ''
+    raw_tags = meta.get('tags', [])
     return {
         'slug': metadata_slug(meta, markdown_path),
         'title': title,
@@ -117,6 +130,7 @@ def _blog_from_file(markdown_path, index=1):
         'markdown_path': markdown_path,
         'markdown_text': markdown_text,
         'source_key': path_to_base_relative(markdown_path),
+        'tags': _parse_tags(raw_tags if isinstance(raw_tags, str) else json.dumps(raw_tags)),
     }
 
 
@@ -151,7 +165,8 @@ def _file_blog_posts():
     return sorted(blogs, key=lambda item: (item['sort_order'], item['title']))
 
 
-def learn_resources_view(request):
+def _collect_all_guides_and_blogs():
+    """Return (all_pdf_guides, all_blog_posts) merged from DB + files."""
     try:
         all_pdf_keys = set(LearnPDFGuide.objects.values_list('pdf_path', flat=True))
         all_blog_keys = set(LearnBlogPost.objects.values_list('markdown_path', flat=True))
@@ -169,9 +184,55 @@ def learn_resources_view(request):
         pdf_guides = _file_pdf_guides()
         blog_posts = _file_blog_posts()
 
-    return render(request, 'learn/resources.html', {
-        'pdf_guides': sorted(pdf_guides, key=lambda item: (item.get('sort_order', 100), item['title'])),
-        'blog_posts': sorted(blog_posts, key=lambda item: (item.get('sort_order', 100), item['title'])),
+    pdf_guides = sorted(pdf_guides, key=lambda item: (item.get('sort_order', 100), item['title']))
+    blog_posts = sorted(blog_posts, key=lambda item: (item.get('sort_order', 100), item['title']))
+    return pdf_guides, blog_posts
+
+
+def _collect_all_tags(pdf_guides, blog_posts):
+    """Return sorted unique tag lists for PDFs and blogs."""
+    pdf_tags = sorted({tag for guide in pdf_guides for tag in guide.get('tags', [])})
+    blog_tags = sorted({tag for blog in blog_posts for tag in blog.get('tags', [])})
+    return pdf_tags, blog_tags
+
+
+def learn_resources_view(request):
+    """Redirect old resources overview to the dedicated PDF guides page."""
+    return redirect('core:learn_pdf_guides')
+
+
+def learn_pdf_guides_view(request):
+    """Dedicated full-page view for PDF Guides."""
+    pdf_guides, _blog_posts = _collect_all_guides_and_blogs()
+    pdf_tags, _ = _collect_all_tags(pdf_guides, [])
+
+    chapter_guides = [g for g in pdf_guides if g.get('category') == PDF_CATEGORY_CHAPTERS]
+    handbook_guides = [g for g in pdf_guides if g.get('category') == PDF_CATEGORY_HANDBOOK]
+    other_guides = [g for g in pdf_guides if g.get('category') == PDF_CATEGORY_OTHER]
+
+    active_tag = request.GET.get('tag', '').strip()
+
+    return render(request, 'learn/pdf_guides.html', {
+        'pdf_guides': pdf_guides,
+        'chapter_guides': chapter_guides,
+        'handbook_guides': handbook_guides,
+        'other_guides': other_guides,
+        'pdf_tags': pdf_tags,
+        'active_tag': active_tag,
+    })
+
+
+def learn_blogs_view(request):
+    """Dedicated full-page view for Blogs."""
+    _pdf_guides, blog_posts = _collect_all_guides_and_blogs()
+    _, blog_tags = _collect_all_tags([], blog_posts)
+
+    active_tag = request.GET.get('tag', '').strip()
+
+    return render(request, 'learn/blogs.html', {
+        'blog_posts': blog_posts,
+        'blog_tags': blog_tags,
+        'active_tag': active_tag,
     })
 
 
@@ -297,24 +358,6 @@ def learn_blog_image_view(request, filename):
     return learn_resource_asset_view(request, path_to_base_relative(legacy_path))
 
 
+@login_required(login_url='/accounts/login/')
 def learn_community_view(request):
-    posts = [
-        {
-            'author': 'Aman',
-            'title': 'How do you decide between index and active funds?',
-            'body': 'I am comparing cost, consistency, and downside behavior. Would love to collect simple frameworks from other investors.',
-            'meta': 'Discussion starter',
-            'replies': [
-                'Look at rolling returns and category rank persistence, not just one-year performance.',
-                'For core allocation, I prefer simple funds. For satellite allocation, I compare fund manager style.',
-            ],
-        },
-        {
-            'author': 'Community',
-            'title': 'Share your rebalancing rules',
-            'body': 'A placeholder thread for portfolio rebalancing ideas, mistakes, and practical rules of thumb.',
-            'meta': 'Pinned prompt',
-            'replies': ['Add your first real community replies here when the feature is connected.'],
-        },
-    ]
-    return render(request, 'learn/community.html', {'posts': posts})
+    return render(request, 'learn/community.html', {})

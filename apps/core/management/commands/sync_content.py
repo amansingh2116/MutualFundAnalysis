@@ -1,4 +1,5 @@
 """Sync Learn resources from files under the Resources folder."""
+import json
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
@@ -15,6 +16,7 @@ from apps.core.content import (
     parse_front_matter,
     path_to_base_relative,
     read_pdf_manifest,
+    _parse_tags,
 )
 from apps.core.models import LearnBlogPost, LearnPDFGuide
 
@@ -60,6 +62,8 @@ class Command(BaseCommand):
                     'size_kb': max(1, round(pdf_path.stat().st_size / 1024)),
                     'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
                     'is_published': bool(meta.get('published', meta.get('is_published', True))),
+                    'category': meta.get('category') or 'other',
+                    'tags': _tags_to_json(meta.get('tags', [])),
                     'synced_at': timezone.now(),
                 },
             )
@@ -99,6 +103,7 @@ class Command(BaseCommand):
                     'read_time': meta.get('read_time') or estimate_read_time(body),
                     'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
                     'is_published': bool(meta.get('published', meta.get('is_published', True))),
+                    'tags': _tags_to_json(meta.get('tags', [])),
                     'synced_at': timezone.now(),
                 },
             )
@@ -112,3 +117,19 @@ def estimate_read_time(markdown_text):
     words = [word for word in markdown_text.replace('|', ' ').split() if word.strip()]
     minutes = max(1, round(len(words) / 220))
     return f'{minutes} min read'
+
+
+def _tags_to_json(raw):
+    """Safely convert a tag value (list or string) to a JSON array string."""
+    if isinstance(raw, list):
+        return json.dumps([str(t).strip() for t in raw if str(t).strip()])
+    if isinstance(raw, str) and raw.strip():
+        raw = raw.strip()
+        if raw.startswith('['):
+            try:
+                parsed = json.loads(raw)
+                return json.dumps([str(t).strip() for t in parsed if str(t).strip()])
+            except (ValueError, TypeError):
+                pass
+        return json.dumps([t.strip() for t in raw.split(',') if t.strip()])
+    return '[]'

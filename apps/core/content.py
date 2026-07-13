@@ -15,6 +15,10 @@ PDF_GUIDES_DIR = RESOURCES_DIR / 'PDF Guides'
 PDF_GUIDE_PDFS_DIR = PDF_GUIDES_DIR / 'pdfs'
 PDF_GUIDE_MANIFEST = PDF_GUIDES_DIR / 'guides.json'
 
+PDF_CATEGORY_CHAPTERS = 'chapters'
+PDF_CATEGORY_HANDBOOK = 'handbook'
+PDF_CATEGORY_OTHER = 'other'
+
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
 PDF_SUFFIXES = {'.pdf'}
 
@@ -81,6 +85,20 @@ def _parse_metadata_value(value):
         return int(value)
     except ValueError:
         return value
+
+
+def _parse_tags(raw):
+    """Parse tags from a JSON array or comma-separated string into a sorted list."""
+    import json as _json
+    if not raw:
+        return []
+    raw = str(raw).strip()
+    if raw.startswith('['):
+        try:
+            return sorted({str(t).strip() for t in _json.loads(raw) if str(t).strip()})
+        except (ValueError, TypeError):
+            pass
+    return sorted({t.strip() for t in raw.split(',') if t.strip()})
 
 
 def first_markdown_heading(markdown_text, fallback):
