@@ -190,12 +190,13 @@ Each circle's displayed percentage is count-based (i.e. `exclusive_count / total
 /calculators/lumpsum/       ← Lumpsum calculator (historical NAV back-test)
 /calculators/swp/           ← SWP (Systematic Withdrawal Plan) calculator
 /calculators/xirr/          ← XIRR calculator (manual cashflow entry)
-/calculators/tax/           ← Tax calculator
+/calculators/goal/          ← Goal Planner (inflation-adjusted, SIP + lumpsum alternatives)
 /calculators/rolling/       ← Multi-fund Rolling Return Calculator (compare up to 5 funds, custom benchmark override, color-coded chart with deduped benchmarks, volatility stats + distribution table)
 /calculators/net-worth/     ← Comprehensive Net Worth Calculator (assets/liabilities breakdown, plotly donut chart, solvency ratio with color bar)
 /calculators/stp/           ← STP Calculator (Generic and Historical NAV modes with source/target XIRR computations)
 /calculators/overlap/       ← Fund Overlap Checker (Venn diagram, tabbed holdings, weight bars; Minimum Weight Method)
-(etc.)
+/calculators/compare/       ← Fund Comparison Calculator (up to 5 funds; Overview/Returns/Risk/Portfolio tabs; Best badges with correct higher/lower logic per metric)
+/calculators/tax/           ← Tax Calculator FY 2025-26 (5 tabs: Portfolio Tax, Tax Loss Harvesting, SIP FIFO, Compare & Plan, ITR Guide; 12 fund types; loss set-off engine; STCL/LTCL carry-forward; smart alerts)
 
 /recommendations/           ← Risk profiling questionnaire
 /recommendations/results/   ← Fund recommendation results
@@ -276,10 +277,13 @@ All five planned phases are substantially implemented, plus several enhancements
 - Custom weighted benchmark inside backtester (separate from portfolio dashboard benchmark)
 
 **Recently completed:**
+- ✅ **Advanced Tax Calculator** (FY 2025-26): 5-tab design covering Portfolio Tax, Tax Loss Harvesting (3 sub-tabs), SIP FIFO, Compare & Plan, and ITR Guide. Supports 12 fund types with correct STCG/LTCG rates, loss set-off priority, ₹1.25L equity LTCG exemption, carry-forward STCL/LTCL, and smart tax-saving alerts.
+- ✅ **Fund Comparison Calculator** (`/calculators/compare/`): Side-by-side comparison of up to 5 funds across Overview, Returns, Risk, and Portfolio tabs. Best badge logic audited and corrected — now correctly applies "lower is better" for expense ratio, volatility, beta, drawdown, turnover, and top-10 concentration.
+- ✅ **Calculator Suite Audit (July 2025)**: All 12 calculators audited end-to-end for input logic, calculation accuracy, and output presentation. One bug fixed: Tax Calculator Year-End Planner savings was always showing ₹0 (now calculates correctly). All calculation formulas verified.
 - ✅ Calculator UX polish: SIP/Step-Up SIP/Lumpsum/Backtester start dates now auto-align to the **earliest inception date** across all selected funds (minimum of all fund inception dates)
 - ✅ Cashflow tables in SIP and Step-Up SIP use **fund names** instead of generic "Fund 1", "Fund 2" labels
-- ✅ Pie chart legend deduplicated: single "Invested / Gain" legend shown once for all fund donuts
-- ✅ ⓘ Info button tooltips added to all financial calculators (Net Worth, SIP, Step-Up SIP, XIRR) — powered by the existing `initInfoTooltips()` engine with `data-t-*` plain-text attributes
+- ✅ ⓘ Info button tooltips added to all financial calculators + guide sections at the end of each calculator tab
+- ✅ Blog management system: blog content backed by markdown files in `Resources/Blogs/`; blog taxation article added
 
 **Recently validated:** Peer comparison now uses scored fingerprint-based matching for Indian mutual funds. Run the regression suite with:
 ```powershell
@@ -302,6 +306,7 @@ If you are an AI assistant inheriting this project:
 8. **Backtester API expects a specific JSON schema.** See `documentation/backtester_analysis.md` for the full reference. The API endpoint is `/portfolio/backtester/v2/run/` (POST). The hub landing page is `/portfolio/backtester/`; the builder is `/portfolio/backtester/build/`.
 9. **`SavedStrategy` model** has two JSON columns: `plan_json` (the buildPlan() output) and `last_result_json` (the simulation result from the API). Never rename these without a migration.
 10. **Data Pipelines:** Refer to `documentation/DATA_PIPELINE_AND_COMMANDS.md` for exact pipeline logic.
+11. **Calculators:** All 12 calculators are documented in `documentation/CALCULATORS.md` including inputs, logic, output format, and audit notes. The tax calculator engine (`tax.html`) is fully client-side; never add server-side tax computation without considering data privacy.
 
 ---
 

@@ -1879,16 +1879,20 @@ window.plannerOnChange = function() {
   const positions = readPositions('planner-positions-list');
   const actions = []; let totalSave = 0;
   for (const p of positions) {
-    const isGain = p.loss < 0; // Negative loss = Gain
+    const isGain = p.loss < 0; // Negative loss = Gain (using inverted convention in planner)
     if (!isGain) {
-      actions.push({ icon:'✅', text:`<strong>Sell "${p.name}" now</strong> to book a ${p.type} of ${inr(p.loss)}. Use it to offset gains and reduce tax.`, type:'save' });
+      // It's a loss — calculate tax saved if booked now
+      const taxRate = p.type === 'STCL' ? (slab / 100) : 0.125;
+      const potentialSave = Math.max(0, addCess(p.loss * taxRate) - p.exitLoad);
+      totalSave += potentialSave;
+      actions.push({ icon:'✅', text:`<strong>Sell "${p.name}" now</strong> to book a ${p.type} of ${inr(p.loss)}. Use it to offset gains and reduce tax by up to <strong>${inr(potentialSave)}</strong> (exit load: ${inr(p.exitLoad)}).`, type:'save' });
     } else {
       actions.push({ icon:'⚠️', text:`<strong>Hold "${p.name}"</strong>. Selling now would realise a ${p.type.replace('L','G')} of ${inr(-p.loss)}, increasing your tax. Only sell if you have offsetting losses.`, type:'warn' });
     }
   }
   el('planner-action-list').innerHTML = actions.map(a=>`<div class="alert-chip ${a.type}"><span class="alert-chip-icon">${a.icon}</span><span class="alert-chip-text">${a.text}</span></div>`).join('') || '<div style="color:var(--text-muted);font-size:12px;">Add positions to generate the action plan.</div>';
   el('planner-save-val').textContent = inr(totalSave);
-  el('planner-save-sub').textContent = 'Add positions (use negative values for losses, positive for gains).';
+  el('planner-save-sub').textContent = totalSave > 0 ? `By selling all loss positions before 31 March 2026` : 'Add loss positions (positive values) to see potential savings.';
 };
 
 el('add-planner-btn').addEventListener('click', () => { makePositionCard(plannerPositions,'planner-positions-list','planner',plannerOnChange); });

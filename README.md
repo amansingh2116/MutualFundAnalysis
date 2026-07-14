@@ -61,26 +61,39 @@
 - One-click backtest integration for suggested portfolios
 
 ### Financial Calculators
-- **SIP Calculator**: Prospective projections + historical back-test mode with multi-fund comparison
-  - Cashflow table uses **fund names** (not generic labels) for each fund's row
+- **Calculator Hub** (`/calculators/`) — all 12 calculators accessible from a single dashboard
+- **SIP Calculator**: Generic projections + historical NAV back-test with multi-fund comparison
   - Start date auto-aligns to the **earliest common inception date** across all selected funds
   - XIRR and Absolute Gain computed per fund with side-by-side comparison table
-- **Step-Up SIP Calculator**: Same as SIP with annual percentage step-up; same multi-fund alignment logic
+  - Cashflow table uses **fund names** (not generic labels)
+- **Step-Up SIP Calculator**: Annual percentage step-up; same multi-fund alignment logic
 - **Lumpsum Calculator**: Single one-time investment projection with historical NAV back-test
-- **SWP Calculator**: Monthly withdrawal simulation from a corpus
-- **STP Calculator** (Systematic Transfer Plan): Source/target fund with XIRR computation for both legs
+- **SWP Calculator** (Systematic Withdrawal Plan): Monthly withdrawal simulation from a corpus
+- **STP Calculator** (Systematic Transfer Plan): Source/target fund growth modelling with XIRR
 - **XIRR Calculator**: Manual irregular cashflow entry with annualised return computation
-- **Goal Planner**: Target-corpus reverse-calculation
-- **Net Worth Calculator**: 25+ asset classes, 9 liability classes, Plotly donut chart, and **Solvency Ratio** with color-coded bar
-- **Rolling Return Calculator**: Multi-fund (up to 5), custom benchmark override, color-coded chart with volatility stats
-- **Fund Overlap Checker** (`/calculators/overlap/`): Stock-level portfolio overlap analysis between any two mutual funds
-  - **Venn Diagram** — three sections (left-exclusive, intersection, right-exclusive) each showing the exact portfolio weight percentage for the intersection, and the *unique holding percentage by count* for the outer circles; hover tooltip reveals the exact holding count for that section
-  - **Correct methodology**: Uses the industry-standard *Minimum Weight Method* for the overlap score — for each common stock, the minimum of both funds' weights is taken and summed, representing true duplicated exposure
-  - **Non-overlap calculation**: Exclusive-circle percentages represent the proportion of unique stocks in that fund (Count of exclusive stocks / Total stocks), giving a clearer picture of stock-level differentiation
-  - **Tabbed holdings tables**: Three tabs — *Common*, *Only in Fund A*, *Only in Fund B* — using the actual short fund name (not Fund 1/2)
-  - **Weight bars**: Inline horizontal bars (blue for Fund 1, orange for Fund 2) inside each table row for at-a-glance visual weight comparison
-  - **Inline methodology explanation**: Collapsible info box beneath the Venn diagram explains both the overlap and non-overlap calculation methods in plain English with examples
-- **ⓘ Info Button System** across all calculators: Every key metric and input has a contextual tooltip (hover or click) powered by the shared `initInfoTooltips()` engine. Tooltips cover what the metric is, how to interpret it, benchmark ranges, and caveats — making the platform accessible for users with limited financial knowledge.
+- **Goal Planner**: Inflation-adjusted target-corpus reverse-calculation (SIP and lumpsum alternatives)
+- **Net Worth Calculator**: 25+ asset classes, 9 liability classes, Plotly donut chart, and Solvency Ratio
+- **Rolling Returns Calculator**: Multi-fund (up to 5), custom benchmark override, rolling CAGR distribution
+- **Fund Overlap Checker** (`/calculators/overlap/`): Stock-level portfolio overlap analysis (Minimum Weight Method)
+  - **Venn Diagram** with exact portfolio weight percentages and count-based exclusive-circle values
+  - **Tabbed holdings tables**: Common, Only in Fund A, Only in Fund B — using actual fund short names
+  - **Weight bars**: Inline horizontal bars for at-a-glance weight comparison
+- **Fund Comparison Calculator** (`/calculators/compare/`) — side-by-side comparison of up to 5 funds
+  - Overview, Returns, Risk, and Portfolio tabs
+  - Intelligently assigns **Best** badges: lower is better for expense ratio, volatility, beta, drawdown, turnover, top-10 concentration; higher is better for returns, Sharpe, Sortino, alpha, information ratio
+  - No best badge for R², Tracking Error, Min SIP, Min Lumpsum (context-dependent)
+- **Tax Calculator** (`/calculators/tax/`) — advanced FY 2025-26 capital gains calculator
+  - **12 fund types** with correct STCG/LTCG rates and holding-period thresholds (Budget 2024/2025)
+  - **Multi-fund portfolio**: add unlimited funds, each with purchase/sale dates, IDCW, exit load
+  - **Loss set-off engine**: applies STCL/LTCL in optimal priority order (STCL offsets STCG first, then LTCG; LTCL offsets LTCG only)
+  - **₹1.25L equity LTCG exemption** with stock LTCG offset tracking
+  - **Carry-forward losses** from prior years
+  - **Smart Alerts**: "Hold X more days to save ₹Y", unused loss carry-forward reminders, exemption tips
+  - **Tax Loss Harvesting** tool: Savings Calculator, Priority Order ranker, Year-End Planner
+  - **SIP FIFO Tax Calculator**: installment-by-installment FIFO breakdown for SIP redemptions
+  - **Compare & Plan**: Growth vs IDCW, Fund Switch Tax (dates + fund type), Arbitrage vs Liquid
+  - **ITR & Filing Guide**: ITR form selector, FY 2025-26 deadlines, Schedule CG walkthrough
+- **ⓘ Info Button System** across all calculators: Every key metric and input has a contextual tooltip powered by the shared `initInfoTooltips()` engine. Each tab also includes a **Guide section** at the bottom explaining how the calculator works, when to use it, and how to interpret results.
 
 ### Learn & Community
 - **PDF Guides page** (`/learn/resources/guides/`) — three sections:
@@ -168,19 +181,32 @@ MutualFundAnalysis/
 │   │   ├── pdf_guides.html      ← PDF Guides listing page (3 sections + tag filter)
 │   │   ├── pdf_viewer.html      ← In-app PDF viewer (PDF.js, zoom toolbar, download button)
 │   │   ├── blogs.html           ← Blog listing page
-│   │   └── blog_detail.html     ← Blog article reader
+│   │   └── blog_detail.html     ← Blog article reader (sticky ToC, tag filter)
 │   ├── calculators/
-│   │   └── overlap.html         ← Fund Overlap Checker (Venn diagram, tabs, weight bars)
+│   │   ├── hub.html             ← Calculator hub / landing page
+│   │   ├── sip.html             ← SIP Calculator (generic + historical NAV)
+│   │   ├── step_sip.html        ← Step-Up SIP Calculator
+│   │   ├── lumpsum.html         ← Lumpsum Calculator
+│   │   ├── swp.html             ← SWP Calculator
+│   │   ├── stp.html             ← STP Calculator
+│   │   ├── xirr.html            ← XIRR Calculator
+│   │   ├── goal.html            ← Goal Planner
+│   │   ├── net_worth.html       ← Net Worth Calculator
+│   │   ├── rolling.html         ← Rolling Returns Calculator (up to 5 funds)
+│   │   ├── overlap.html         ← Fund Overlap Checker (Venn diagram, tabs, weight bars)
+│   │   ├── compare.html         ← Fund Comparison Calculator (up to 5 funds, Best badges)
+│   │   └── tax.html             ← Tax Calculator FY 2025-26 (5 tabs, 12 fund types)
 │   └── portfolio/
 │       ├── backtester_hub.html  ← Backtester landing page (Build vs Saved Strategies)
 │       ├── backtester.html      ← Strategy Backtester builder & results UI (~3,800 lines)
 │       ├── strategies.html      ← Saved strategies list with search & multi-select compare
 │       └── strategy_compare.html← Side-by-side strategy comparison page
-├── static/                      ← CSS and JS static files
+├── static/                      ← CSS, JS, and icon static files
 ├── scripts/                     ← Utility and development scripts
-├── Resources/                   ← Learn content source files (PDF guides, markdown blogs, local images)
+├── Resources/                   ← Learn content source files (PDF guides, markdown blogs, images)
 │
 └── documentation/               ← Technical documentation
+    ├── CALCULATORS.md               ← ⭐ All 12 calculators — inputs, logic, output, audit notes
     ├── backtester_analysis.md       ← ⭐ Full backtester user & developer guide
     ├── backtester_spec_v2.md        ← Backtester V2 design specification
     ├── BACKTESTER_CHANGELOG.md      ← Backtester v2.x changes & pending work
@@ -190,6 +216,7 @@ MutualFundAnalysis/
     ├── LEARN_CONTENT.md             ← Learn Resources PDF/blog content workflow
     ├── SCORING_MODEL.md             ← 100-point fund scoring model documentation
     ├── PEER_MATCHING.md             ← Peer comparison matching algorithm
+    ├── UI_TOOLTIPS.md               ← ⓘ Info button tooltip system — usage guide
     └── archive/                     ← Older specs and exploration documents
 ```
 
@@ -257,6 +284,9 @@ python manage.py runserver
 - Backtester Hub: `http://127.0.0.1:8000/portfolio/backtester/`
 - Strategy Builder: `http://127.0.0.1:8000/portfolio/backtester/build/`
 - Saved Strategies: `http://127.0.0.1:8000/portfolio/strategies/`
+- Calculator Hub: `http://127.0.0.1:8000/calculators/`
+- Tax Calculator: `http://127.0.0.1:8000/calculators/tax/`
+- Fund Comparison: `http://127.0.0.1:8000/calculators/compare/`
 - Fund Screener: `http://127.0.0.1:8000/funds/screener/`
 - Admin: `http://127.0.0.1:8000/admin/`
 
@@ -331,6 +361,7 @@ See `documentation/DEPLOYMENT.md` for detailed deployment instructions.
 
 | Document | Description |
 |----------|-------------|
+| [CALCULATORS.md](documentation/CALCULATORS.md) | ⭐ All 12 calculators — inputs, calculation logic, outputs, audit notes |
 | [backtester_analysis.md](documentation/backtester_analysis.md) | ⭐ Complete backtester user guide, math reference, API docs |
 | [BACKTESTER_CHANGELOG.md](documentation/BACKTESTER_CHANGELOG.md) | v2.1 changes, removed features, and pending work |
 | [backtester_spec_v2.md](documentation/backtester_spec_v2.md) | Original backtester V2 design specification |

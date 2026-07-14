@@ -236,7 +236,8 @@ def calc_goal_api(request):
             monthly_sip = real_target / n
         else:
             monthly_sip = real_target * rate / (((1 + rate) ** n - 1) * (1 + rate))
-        lumpsum_needed = real_target / ((1 + rate * 12) ** years)
+        annual_rate = rate * 12  # rate is monthly, rate*12 = annual rate
+        lumpsum_needed = real_target / ((1 + annual_rate) ** years)  # PV of real_target at annual rate
         return JsonResponse({
             'target_amount': target,
             'inflation_adjusted_target': round(real_target, 2),
