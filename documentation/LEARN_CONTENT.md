@@ -43,6 +43,50 @@ The PDF Guides page has a fixed three-section layout:
 
 ---
 
+## In-App PDF Viewer
+
+Clicking any PDF card opens the **in-app viewer** instead of serving the raw file directly in the browser.
+This prevents casual downloading and direct URL sharing of the underlying file.
+
+### URL Structure
+
+| Route | Purpose |
+|---|---|
+| `/learn/resources/guides/view/<slug>/` | Viewer page — rendered HTML with PDF.js |
+| `/learn/resources/guides/serve/<slug>/` | Raw PDF bytes — fetched only by PDF.js internally |
+
+> Old-style URLs (`/learn/resources/guides/<slug>/` and `/learn/resources/guides/pdf/<filename>`) redirect automatically to the new viewer.
+
+### Viewer Features
+
+- **PDF.js canvas rendering** — each page is drawn onto a `<canvas>` element; the browser never receives a direct `<a>` link to the file
+- **Zoom toolbar**: − / + buttons step through `50% → 75% → 100% → 125% → 150% → 175% → 200% → 250% → 300%`; current zoom % shown; buttons disable at limits
+- **Keyboard zoom**: `Ctrl/Cmd` + `+` to zoom in, `Ctrl/Cmd` + `-` to zoom out
+- **Pinch-to-zoom** on touch/mobile
+- **Go to page**: type a page number and press Enter or click "Go" — smoothly scrolls to that page
+- **Page counter**: each page shows "Page N of Total" below the canvas
+- **Conditional download button** — shown only when the guide has `"downloadable": true` in `guides.json`; absent from the HTML entirely otherwise
+
+### Security Measures
+
+The viewer applies several layers of protection against casual downloading:
+
+| Measure | Implementation |
+|---|---|
+| No raw link in HTML | `serve_url` is injected into JS only — never rendered as an `<a href>` |
+| No caching | Serve endpoint sets `Cache-Control: no-store, no-cache` and `Pragma: no-cache` |
+| No search indexing | Serve endpoint sets `X-Robots-Tag: noindex, nofollow` |
+| Right-click blocked | `contextmenu` event prevented on the canvas area |
+| Save page blocked | `Ctrl+S` / `Cmd+S` intercepted at capture phase |
+| Print blocked | `Ctrl+P` / `Cmd+P` intercepted; `window.print()` replaced with no-op; `@media print` CSS hides the entire page body and shows a "printing disabled" message |
+| Drag blocked | `dragstart` prevented on canvas wrap |
+| Middle-click blocked | Middle mouse button click prevented on viewer shell |
+| `pointer-events: none` | Applied to every canvas element — disables text selection and image drag |
+
+> **Note:** These are client-side deterrents. A determined user with browser DevTools can still locate the serve URL. For true DRM, a server-side image-conversion approach would be required. These measures are sufficient for educational content protection against casual users.
+
+---
+
 ## Adding PDF Guides
 
 Place PDF files under:
@@ -69,25 +113,57 @@ Resources/PDF Guides/guides.json
   "cover": "",
   "order": 90,
   "published": true,
+  "downloadable": false,
   "category": "other",
   "tags": ["investing", "analysis"]
 }
 ```
 
-**Field notes:**
-- `file` — path relative to `Resources/PDF Guides/`.
-- `category` — one of `"chapters"`, `"handbook"`, or `"other"`.
-- `tags` — JSON array. Use only approved tags: `investing`, `fundamentals`, `technicals`, `research`, `analysis`, `mutual funds`, `ipo`.
-- `cover` — optional path relative to `Resources/PDF Guides/`. If empty, a styled fallback card is shown using `accent`.
-- `accent` — short label used in the generated cover card.
-- `order` — controls sort order within each category section.
-- `published: false` hides the guide when synced.
+**Field reference:**
 
-### Adding a new chapter
+| Field | Type | Description |
+|---|---|---|
+| `file` | string | Path relative to `Resources/PDF Guides/` |
+| `title` | string | Display title on listing cards and in the viewer header |
+| `description` | string | Short summary shown on the PDF Guides listing card |
+| `slug` | string | URL slug for viewer (`/view/<slug>/`) and serve (`/serve/<slug>/`) routes |
+| `accent` | string | Short label used in the fallback cover card when no `cover` image is provided |
+| `cover` | string | Optional path to a cover image, relative to `Resources/PDF Guides/`. Empty = styled fallback |
+| `order` | integer | Sort order within each category section; lower = earlier |
+| `published` | boolean | `true` to show; `false` to hide. Synced to `is_published` in DB |
+| `downloadable` | boolean | `true` shows a Download PDF button in the viewer; `false` (default) hides it entirely |
+| `category` | string | One of `"chapters"`, `"handbook"`, or `"other"` |
+| `tags` | array | JSON array. Approved tags: `investing`, `fundamentals`, `technicals`, `research`, `analysis`, `mutual funds`, `ipo` |
+
+---
+
+## Controlling the Download Button
+
+The `downloadable` field is the **single control** for per-PDF download access:
+
+```json
+"downloadable": true    // Download PDF button visible in viewer
+"downloadable": false   // Download button absent from DOM (default)
+```
+
+**How it works:**
+- The `guides.json` value is **always preferred over the database value** at request time. Changing `guides.json` takes effect on the next page load — **no `sync_content` run needed**.
+- Running `sync_content` afterwards will also update the DB record to match.
+- When `downloadable: true`, the Download button links to `/serve/<slug>/?download=1`, which triggers a `Content-Disposition: attachment` response.
+- When `downloadable: false`, the serve endpoint still responds inline for PDF.js rendering — but no download link appears in the HTML.
+
+**Currently downloadable:**
+- Mutual Fund Basics Booklet (`mutual-fund-basics-booklet`)
+- Indian IPO Research Project Report (`ipo-project-report`)
+
+---
+
+## Adding a New Guide
 
 1. Drop the PDF in `Resources/PDF Guides/pdfs/`.
-2. Add an entry with `"category": "chapters"` and a sequential `order` value.
-3. Run `python manage.py sync_content`.
+2. Add an entry to `guides.json` with all required fields. Set `"downloadable": false` initially.
+3. Run `python manage.py sync_content` to create the DB record and make it admin-editable.
+4. When ready to enable download, set `"downloadable": true` in `guides.json` — live immediately.
 
 ---
 
@@ -133,12 +209,14 @@ python manage.py sync_content
 ```
 
 The command upserts:
-- `LearnPDFGuide` records from `Resources/PDF Guides/guides.json` and PDFs in `pdfs/`.
+- `LearnPDFGuide` records from `Resources/PDF Guides/guides.json` and PDFs in `pdfs/` — all fields, including `downloadable`.
 - `LearnBlogPost` records from markdown front matter in `Resources/Blogs/*.md`.
 
 Tags are stored in the DB as proper JSON arrays (`["tag1", "tag2"]`), not raw Python list strings.
 
-If the database is temporarily unavailable in local development, the guides and blog views fall back to scanning the files directly. The database-backed sync is the intended production/admin workflow.
+> **`downloadable` without sync:** Because `guides.json` is always consulted at request time for this field, you do **not** need to run `sync_content` after changing `downloadable`. The change is live immediately.
+
+If the database is temporarily unavailable in local development, the views fall back to reading files directly (including `downloadable` from the manifest).
 
 ---
 
@@ -161,4 +239,6 @@ Synced records are available in Django admin:
 - **Core → Learn PDF Guides**
 - **Core → Learn Blog Posts**
 
-Admin edits can adjust title, description, category, tags, order, and publish status. Running `sync_content` again will refresh fields from source files — admin-only fields like `is_published` can be toggled without re-running sync.
+Admin fields for PDF guides include: `title`, `description`, `category`, `tags`, `sort_order`, `is_published`, `downloadable`, and `accent`.
+
+> **Note:** Running `sync_content` will overwrite `downloadable` with the value from `guides.json`. To manage `downloadable` exclusively from the admin panel instead, omit the field from `guides.json` entries (it defaults to `false` when absent).

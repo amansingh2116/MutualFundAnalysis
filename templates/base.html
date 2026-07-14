@@ -107,7 +107,7 @@
           <span class="nav-section-caret" aria-hidden="true"></span>
         </button>
         <div class="nav-section-items" id="nav-section-learn">
-      <a href="{% url 'core:learn_pdf_guides' %}" class="nav-item {% if request.resolver_match.url_name in 'learn_pdf_guides learn_pdf learn_pdf_detail' %}active{% endif %}">
+      <a href="{% url 'core:learn_pdf_guides' %}" class="nav-item {% if request.resolver_match.url_name in 'learn_pdf_guides learn_pdf learn_pdf_detail learn_pdf_viewer learn_pdf_serve' %}active{% endif %}">
         <span class="nav-icon">📘</span> PDF Guides
       </a>
       <a href="{% url 'core:learn_blogs' %}" class="nav-item {% if request.resolver_match.url_name in 'learn_blogs learn_blog_detail learn_blog_image' %}active{% endif %}">

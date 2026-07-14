@@ -61,6 +61,7 @@ class LearnPDFGuide(BaseModel):
     size_kb = models.PositiveIntegerField(default=0)
     sort_order = models.PositiveIntegerField(default=100)
     is_published = models.BooleanField(default=True)
+    downloadable = models.BooleanField(default=False, help_text='Allow users to download this PDF')
     synced_at = models.DateTimeField(null=True, blank=True)
     # Category places the guide in a sub-section of the Resources page
     category = models.CharField(

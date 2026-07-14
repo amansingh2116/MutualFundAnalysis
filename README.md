@@ -77,14 +77,23 @@
 
 ### Learn & Community
 - **PDF Guides page** (`/learn/resources/guides/`) — three sections:
-  - **Complete Mutual Fund Handbook** — always pinned at top, full-width featured card, not filterable (premium/reference content)
+  - **Complete Mutual Fund Handbook** — always pinned at top, full-width featured card, not filterable
   - **Chapterwise Guides** — individual chapter PDFs with chapter number badges; tag-filterable
   - **Other Guides** — research, analysis, and investing guides; tag-filterable
+- **In-app PDF Viewer** (`/learn/resources/guides/view/<slug>/`) — clicking any PDF card opens a full in-app viewer instead of the raw file:
+  - Renders PDFs via **PDF.js** (canvas-based) — no raw file URL exposed in page HTML
+  - **Toolbar**: zoom out/in (50% → 300% in steps), live zoom % display, go-to-page input with smooth scroll
+  - **Keyboard shortcuts**: `Ctrl/Cmd++` zoom in, `Ctrl/Cmd+-` zoom out, `Enter` on page input to jump
+  - **Pinch-to-zoom** on touch/mobile devices
+  - **Security hardening**: right-click disabled on canvas, `Ctrl+S`/`Ctrl+P` blocked, `window.print()` replaced, drag-out prevented, `@media print` blanks the page
+  - **Download button** — conditionally shown per guide based on `downloadable` field in `guides.json`; absent from DOM when not allowed
+  - Raw serve endpoint (`/learn/resources/guides/serve/<slug>/`) responds with `no-store` cache headers and `X-Robots-Tag: noindex`
 - **Tag filter bar** sits between the Handbook and the filterable sections; allowed tags: `investing`, `fundamentals`, `technicals`, `research`, `analysis`, `mutual funds`, `ipo`
-- **Blogs page** (`/learn/resources/blogs/`) — featured hero article + grid of further posts, filterable by tag (currently: `ipo`, `research`, `analysis`)
-- File-backed content workflow: PDF metadata via `Resources/PDF Guides/guides.json` (with `category` and `tags`); blog front matter in `Resources/Blogs/*.md`
-- `sync_content` management command upserts `LearnPDFGuide` and `LearnBlogPost` DB records; tags stored as JSON arrays
-- **Community page** (`/learn/community/`) — realistic static mockup (post feed, reply threads, composer, who-to-follow, trending topics). **Login required** — unauthenticated users are redirected to the login page with `?next=` redirect
+- **Blogs page** (`/learn/resources/blogs/`) — featured hero article + grid of further posts, filterable by tag
+- File-backed content workflow: PDF metadata via `Resources/PDF Guides/guides.json` (with `category`, `tags`, and `downloadable`); blog front matter in `Resources/Blogs/*.md`
+- `sync_content` management command upserts `LearnPDFGuide` and `LearnBlogPost` DB records; syncs all fields including `downloadable` from `guides.json`
+- **`downloadable` live override**: editing `guides.json` takes effect immediately in the viewer without re-running sync (manifest is always preferred over DB for this field)
+- **Community page** (`/learn/community/`) — realistic static mockup. **Login required** — unauthenticated users are redirected to the login page with `?next=` redirect
 
 ---
 
@@ -143,6 +152,11 @@ MutualFundAnalysis/
 │
 ├── adapters/                    ← Third-party API integrations (AMFI, Morningstar, Yahoo)
 ├── templates/                   ← Django HTML templates
+│   ├── learn/
+│   │   ├── pdf_guides.html      ← PDF Guides listing page (3 sections + tag filter)
+│   │   ├── pdf_viewer.html      ← In-app PDF viewer (PDF.js, zoom toolbar, download button)
+│   │   ├── blogs.html           ← Blog listing page
+│   │   └── blog_detail.html     ← Blog article reader
 │   └── portfolio/
 │       ├── backtester_hub.html  ← Backtester landing page (Build vs Saved Strategies)
 │       ├── backtester.html      ← Strategy Backtester builder & results UI (~3,800 lines)

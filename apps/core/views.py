@@ -8,7 +8,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.db import DatabaseError
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
@@ -72,10 +72,11 @@ def _guide_card_from_model(guide):
         'accent': guide.accent or guide.title[:5],
         'size_kb': guide.size_kb,
         'cover_url': _asset_url(guide.cover_image_path),
-        'pdf_url': reverse('core:learn_pdf_detail', args=[guide.slug]),
+        'pdf_url': reverse('core:learn_pdf_viewer', args=[guide.slug]),
         'source_key': guide.pdf_path,
         'category': guide.category,
         'tags': guide.tag_list(),
+        'downloadable': guide.downloadable,
     }
 
 
@@ -97,17 +98,19 @@ def _guide_card_from_file(pdf_path, meta, index):
     cover = meta.get('cover') or meta.get('cover_image') or ''
     cover_path = path_to_base_relative((PDF_GUIDES_DIR / cover).resolve()) if cover else ''
     raw_tags = meta.get('tags', [])
+    viewer_slug = slugify(meta.get('slug') or pdf_path.stem)[:140]
     return {
         'title': title,
         'description': meta.get('description') or 'A learning guide from the local PDF library.',
         'accent': meta.get('accent') or title[:5],
         'size_kb': max(1, round(pdf_path.stat().st_size / 1024)),
         'cover_url': _asset_url(cover_path),
-        'pdf_url': reverse('core:learn_pdf', args=[pdf_path.name]),
+        'pdf_url': reverse('core:learn_pdf_viewer', args=[viewer_slug]),
         'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
         'source_key': path_to_base_relative(pdf_path),
         'category': meta.get('category') or PDF_CATEGORY_OTHER,
         'tags': _parse_tags(raw_tags if isinstance(raw_tags, str) else json.dumps(raw_tags)),
+        'downloadable': bool(meta.get('downloadable', False)),
     }
 
 
@@ -236,10 +239,25 @@ def learn_blogs_view(request):
     })
 
 
-def _open_pdf_path(pdf_path):
+def _serve_pdf_response(pdf_path, as_attachment=False):
+    """Serve raw PDF bytes with security headers that discourage saving."""
     if not pdf_path.exists() or pdf_path.suffix.lower() not in PDF_SUFFIXES:
         raise Http404('Guide not found')
-    return FileResponse(pdf_path.open('rb'), content_type='application/pdf', filename=pdf_path.name)
+    response = FileResponse(
+        pdf_path.open('rb'),
+        content_type='application/pdf',
+        as_attachment=as_attachment,
+        filename=pdf_path.name if as_attachment else None,
+    )
+    # Prevent search engine indexing of raw PDF bytes endpoint
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    # Instruct browser to display inline — not trigger Save As
+    if not as_attachment:
+        response['Content-Disposition'] = f'inline; filename="{pdf_path.name}"'
+    # Prevent caching so the URL cannot be easily harvested and replayed
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+    response['Pragma'] = 'no-cache'
+    return response
 
 
 def _find_pdf_path_by_slug(slug):
@@ -252,42 +270,86 @@ def _find_pdf_path_by_slug(slug):
         meta = manifest.get(key, {})
         candidate = slugify(meta.get('slug') or pdf_path.stem)[:140]
         if candidate == slug:
-            return pdf_path
-    return None
+            return pdf_path, meta
+    return None, {}
 
 
-def learn_pdf_detail_view(request, slug):
+def _guide_meta_by_slug(slug):
+    """Return (pdf_path, title, downloadable) for a given slug from DB or manifest.
+
+    The manifest's 'downloadable' field is always preferred over the DB value so
+    that editing guides.json takes effect immediately without running sync_content.
+    """
+    manifest_path, manifest_meta = _find_pdf_path_by_slug(slug)
+    # Manifest is the live source of truth for downloadable
+    manifest_downloadable = bool(manifest_meta.get('downloadable', False)) if manifest_meta else False
+
     try:
         guide = LearnPDFGuide.objects.filter(slug=slug).first()
         if guide and not guide.is_published:
-            raise Http404('Guide not found')
+            return None, None, False
         if guide:
-            return _open_pdf_path(resolve_resource_relative(guide.pdf_path))
+            # Use manifest value for downloadable (live control); DB for everything else
+            downloadable = manifest_downloadable if manifest_meta else guide.downloadable
+            return resolve_resource_relative(guide.pdf_path), guide.title, downloadable
     except DatabaseError:
         pass
 
-    pdf_path = _find_pdf_path_by_slug(slug)
+    if not manifest_path:
+        return None, None, False
+    title = manifest_meta.get('title') or manifest_path.stem.replace('_', ' ').replace('-', ' ').title()
+    return manifest_path, title, manifest_downloadable
+
+
+def learn_pdf_viewer_view(request, slug):
+    """Render the in-app PDF viewer page — does NOT expose the raw PDF URL in HTML."""
+    pdf_path, title, downloadable = _guide_meta_by_slug(slug)
     if not pdf_path:
         raise Http404('Guide not found')
-    return _open_pdf_path(pdf_path)
+    serve_url = reverse('core:learn_pdf_serve', args=[slug])
+    return render(request, 'learn/pdf_viewer.html', {
+        'title': title,
+        'serve_url': serve_url,
+        'downloadable': downloadable,
+        'slug': slug,
+    })
+
+
+def learn_pdf_serve_view(request, slug):
+    """Serve the raw PDF bytes — only intended to be fetched by PDF.js inside the viewer."""
+    pdf_path, _title, downloadable = _guide_meta_by_slug(slug)
+    if not pdf_path:
+        raise Http404('Guide not found')
+    # If ?download=1 is requested AND the guide is downloadable, serve as attachment
+    wants_download = request.GET.get('download') == '1'
+    as_attachment = wants_download and downloadable
+    return _serve_pdf_response(pdf_path, as_attachment=as_attachment)
+
+
+def learn_pdf_detail_view(request, slug):
+    """Legacy — redirect to in-app viewer."""
+    return redirect(reverse('core:learn_pdf_viewer', args=[slug]))
 
 
 def learn_pdf_view(request, filename):
+    """Legacy filename-based route — resolve slug and redirect to viewer."""
     safe_name = Path(filename).name
     try:
         guide = LearnPDFGuide.objects.filter(pdf_path__iendswith=f'/{safe_name}', is_published=True).first()
+        if guide:
+            return redirect(reverse('core:learn_pdf_viewer', args=[guide.slug]))
     except DatabaseError:
-        guide = None
-
-    if guide:
-        return _open_pdf_path(resolve_resource_relative(guide.pdf_path))
-
-    pdf_path = (PDF_GUIDE_PDFS_DIR / safe_name).resolve()
-    try:
-        pdf_path.relative_to(PDF_GUIDE_PDFS_DIR.resolve())
-    except ValueError:
-        raise Http404('Guide not found')
-    return _open_pdf_path(pdf_path)
+        pass
+    # Fall back: find by filename in manifest
+    manifest = read_pdf_manifest()
+    if PDF_GUIDE_PDFS_DIR.exists():
+        for pdf_path in PDF_GUIDE_PDFS_DIR.glob('*.pdf'):
+            if pdf_path.name == safe_name:
+                key = pdf_path.relative_to(PDF_GUIDES_DIR).as_posix()
+                meta = manifest.get(key, {})
+                candidate_slug = slugify(meta.get('slug') or pdf_path.stem)[:140]
+                return redirect(reverse('core:learn_pdf_viewer', args=[candidate_slug]))
+    raise Http404('Guide not found')
 
 
 def _find_blog_file_by_slug(slug):

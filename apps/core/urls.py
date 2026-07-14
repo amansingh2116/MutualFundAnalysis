@@ -10,6 +10,11 @@ urlpatterns = [
     path('learn/resources/guides/', views.learn_pdf_guides_view, name='learn_pdf_guides'),
     path('learn/resources/blogs/', views.learn_blogs_view, name='learn_blogs'),
     path('learn/resources/assets/<path:resource_path>/', views.learn_resource_asset_view, name='learn_resource_asset'),
+    # In-app PDF viewer (new)
+    path('learn/resources/guides/view/<slug:slug>/', views.learn_pdf_viewer_view, name='learn_pdf_viewer'),
+    # Raw PDF bytes served to PDF.js (new)
+    path('learn/resources/guides/serve/<slug:slug>/', views.learn_pdf_serve_view, name='learn_pdf_serve'),
+    # Legacy routes — now redirect to viewer
     path('learn/resources/guides/open/<slug:slug>/', views.learn_pdf_detail_view, name='learn_pdf_detail'),
     path('learn/resources/guides/<path:filename>/', views.learn_pdf_view, name='learn_pdf'),
     path('learn/resources/blog/<slug:slug>/', views.learn_blog_detail_view, name='learn_blog_detail'),

@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} \u2014 PDF Viewer{% endblock %}
+{% block meta_description %}Read {{ title }} \u2014 an in-app PDF learning guide on MF Analysis.{% endblock %}
+
+{% block extra_head %}
+<style>
+.pv-shell { display:flex;flex-direction:column;height:calc(100vh - 112px);max-width:100%;overflow:hidden; }
+.pv-header {
+  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 20px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:10px 10px 0 0;flex-shrink:0;flex-wrap:wrap;
+}
+.pv-back {
+  display:inline-flex;align-items:center;gap:6px;color:var(--indigo-400);font-size:12px;font-weight:650;
+  text-decoration:none;padding:5px 10px;border-radius:6px;border:1px solid rgba(99,102,241,.25);
+  background:rgba(99,102,241,.07);transition:all .18s;flex-shrink:0;
+}
+.pv-back:hover { background:rgba(99,102,241,.18);border-color:rgba(99,102,241,.5);color:#a5b4fc; }
+.pv-title {
+  font-size:15px;font-weight:750;color:var(--text-primary);flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;
+}
+.pv-actions { display:flex;align-items:center;gap:8px;flex-shrink:0; }
+.btn-download {
+  display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:7px;
+  background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.35);
+  color:#6ee7b7;font-size:12px;font-weight:750;cursor:pointer;text-decoration:none;transition:all .18s;
+}
+.btn-download:hover { background:rgba(16,185,129,.28);border-color:rgba(16,185,129,.6);color:#a7f3d0; }
+.btn-download svg { width:14px;height:14px;stroke:currentColor;fill:none; }
+
+/* Toolbar */
+.pv-toolbar {
+  display:none;align-items:center;justify-content:center;gap:6px;padding:7px 16px;
+  background:var(--bg-card);border-left:1px solid var(--border);border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;
+}
+.pv-toolbar.visible { display:flex; }
+.tb-sep { width:1px;height:18px;background:var(--border);margin:0 4px;flex-shrink:0; }
+.tb-btn {
+  display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+  border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,.04);
+  color:var(--text-secondary);font-size:16px;font-weight:700;line-height:1;
+  cursor:pointer;transition:all .15s;user-select:none;
+}
+.tb-btn:hover:not(:disabled) { background:rgba(99,102,241,.14);border-color:rgba(99,102,241,.4);color:var(--indigo-300); }
+.tb-btn:disabled { opacity:.35;cursor:default; }
+.tb-zoom-pct { font-size:12px;font-weight:700;color:var(--text-secondary);min-width:44px;text-align:center;padding:0 4px;user-select:none; }
+.tb-page-label { font-size:12px;color:var(--text-muted);white-space:nowrap; }
+.tb-page-input {
+  width:44px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);
+  background:rgba(255,255,255,.05);color:var(--text-primary);font-size:12px;font-weight:600;
+  text-align:center;transition:border-color .15s;
+}
+.tb-page-input:focus { outline:none;border-color:var(--indigo-400);background:rgba(99,102,241,.08); }
+.tb-page-input::-webkit-inner-spin-button,.tb-page-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+.tb-page-input { -moz-appearance:textfield; }
+.tb-go {
+  padding:4px 10px;border-radius:5px;font-size:11px;font-weight:750;
+  border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.10);
+  color:var(--indigo-300);cursor:pointer;transition:all .15s;
+}
+.tb-go:hover { background:rgba(99,102,241,.22);border-color:rgba(99,102,241,.55); }
+
+/* Status */
+.pv-status {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;flex:1;
+  background:var(--bg-card);border-left:1px solid var(--border);border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);border-radius:0 0 10px 10px;color:var(--text-secondary);font-size:13px;
+}
+.pv-spinner {
+  width:36px;height:36px;border:3px solid rgba(99,102,241,.2);
+  border-top-color:var(--indigo-400);border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Canvas */
+.pv-canvas-wrap {
+  flex:1;overflow-y:auto;overflow-x:auto;background:#151520;
+  border-left:1px solid var(--border);border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);border-radius:0 0 10px 10px;
+  display:none;padding:20px 0;position:relative;
+}
+.pv-canvas-wrap.loaded { display:flex;flex-direction:column;align-items:center;gap:8px; }
+.pv-page-wrap { display:flex;flex-direction:column;align-items:center;gap:4px; }
+.pv-page-canvas {
+  box-shadow:0 4px 28px rgba(0,0,0,.6);border-radius:2px;max-width:calc(100% - 40px);display:block;
+  user-select:none;-webkit-user-select:none;pointer-events:none;
+}
+.pv-page-num { font-size:11px;color:rgba(255,255,255,.22);letter-spacing:.04em;text-align:center;padding:2px 0 8px;user-select:none; }
+@media print {
+  body * { visibility:hidden !important; }
+  body::after {
+    visibility:visible !important;content:'Printing is disabled for this document.';
+    display:block;text-align:center;margin-top:40vh;font-size:20px;font-family:sans-serif;
+  }
+}
+@media (max-width:600px) {
+  .pv-title{font-size:13px;} .pv-header{padding:9px 12px;}
+  .btn-download{padding:5px 10px;font-size:11px;} .tb-sep{display:none;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pv-shell" id="pv-shell">
+  <div class="pv-header">
+    <a href="{% url 'core:learn_pdf_guides' %}" class="pv-back" id="pv-back-btn">&#8592; PDF Guides</a>
+    <div class="pv-title" title="{{ title }}">&#128218; {{ title }}</div>
+    <div class="pv-actions">
+      {% if downloadable %}
+      <a id="pv-download-btn" class="btn-download" href="{% url 'core:learn_pdf_serve' slug %}?download=1" download>
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>Download PDF
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="pv-toolbar" id="pv-toolbar">
+    <button class="tb-btn" id="tb-zoom-out" title="Zoom out (Ctrl+-)">&#8722;</button>
+    <span class="tb-zoom-pct" id="tb-zoom-pct">100%</span>
+    <button class="tb-btn" id="tb-zoom-in" title="Zoom in (Ctrl++)">&#43;</button>
+    <div class="tb-sep"></div>
+    <span class="tb-page-label">Page</span>
+    <input id="tb-page-input" class="tb-page-input" type="number" min="1" value="1" title="Go to page">
+    <span class="tb-page-label" id="tb-page-total">of &mdash;</span>
+    <button class="tb-go" id="tb-go-btn">Go</button>
+  </div>
+
+  <div class="pv-status" id="pv-status">
+    <div class="pv-spinner"></div>
+    <span>Loading document&hellip;</span>
+  </div>
+  <div class="pv-canvas-wrap" id="pv-canvas-wrap"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+const SERVE_URL  = '{{ serve_url|escapejs }}';
+const ZOOM_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+
+const statusEl    = document.getElementById('pv-status');
+const wrapEl      = document.getElementById('pv-canvas-wrap');
+const toolbarEl   = document.getElementById('pv-toolbar');
+const zoomOutBtn  = document.getElementById('tb-zoom-out');
+const zoomInBtn   = document.getElementById('tb-zoom-in');
+const zoomPctEl   = document.getElementById('tb-zoom-pct');
+const pageInput   = document.getElementById('tb-page-input');
+const pageTotalEl = document.getElementById('tb-page-total');
+const goBtn       = document.getElementById('tb-go-btn');
+
+let pdfDoc     = null;
+let baseScale  = 1;
+let zoomFactor = 1.0;
+let totalPages = 0;
+let rendering  = false;
+const pageWraps = [];
+
+async function calcBaseScale(page) {
+  const vp1 = page.getViewport({ scale: 1 });
+  return Math.min(wrapEl.clientWidth - 40, 960) / vp1.width;
+}
+
+async function renderPage(p) {
+  const page     = await pdfDoc.getPage(p);
+  const viewport = page.getViewport({ scale: baseScale * zoomFactor });
+  const wrap     = pageWraps[p - 1];
+  const old      = wrap.querySelector('canvas');
+  if (old) old.remove();
+  const canvas   = document.createElement('canvas');
+  canvas.className = 'pv-page-canvas';
+  canvas.width   = Math.floor(viewport.width);
+  canvas.height  = Math.floor(viewport.height);
+  wrap.insertBefore(canvas, wrap.firstChild);
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+}
+
+async function renderAll() {
+  if (!pdfDoc) return;
+  rendering = true;
+  wrapEl.innerHTML = '';
+  pageWraps.length = 0;
+  for (let p = 1; p <= totalPages; p++) {
+    const wrap  = document.createElement('div');
+    wrap.className = 'pv-page-wrap';
+    wrap.dataset.page = p;
+    const badge = document.createElement('div');
+    badge.className = 'pv-page-num';
+    badge.textContent = `Page ${p} of ${totalPages}`;
+    wrapEl.appendChild(wrap);
+    wrap.appendChild(badge);
+    pageWraps.push(wrap);
+  }
+  const pg1 = await pdfDoc.getPage(1);
+  baseScale = await calcBaseScale(pg1);
+  for (let p = 1; p <= totalPages; p++) await renderPage(p);
+  rendering = false;
+}
+
+async function rerender() {
+  if (rendering || !pdfDoc) return;
+  rendering = true;
+  for (let p = 1; p <= totalPages; p++) await renderPage(p);
+  rendering = false;
+}
+
+function refreshZoomUI() {
+  zoomPctEl.textContent = Math.round(zoomFactor * 100) + '%';
+  zoomOutBtn.disabled   = zoomFactor <= 0.5;
+  zoomInBtn.disabled    = zoomFactor >= 3.0;
+}
+
+function zoomOut() {
+  const next = ZOOM_STEPS.filter(s => s < zoomFactor - 0.01).pop();
+  if (next === undefined) return;
+  zoomFactor = next; refreshZoomUI(); rerender();
+}
+function zoomIn() {
+  const next = ZOOM_STEPS.find(s => s > zoomFactor + 0.01);
+  if (next === undefined) return;
+  zoomFactor = next; refreshZoomUI(); rerender();
+}
+zoomOutBtn.addEventListener('click', zoomOut);
+zoomInBtn.addEventListener('click', zoomIn);
+
+function goToPage() {
+  const n = parseInt(pageInput.value, 10);
+  if (!n || n < 1 || n > totalPages) { pageInput.value = ''; pageInput.focus(); return; }
+  pageWraps[n - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+goBtn.addEventListener('click', goToPage);
+pageInput.addEventListener('keydown', e => { if (e.key === 'Enter') goToPage(); });
+
+document.addEventListener('keydown', e => {
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoomIn(); }
+  if (ctrl && e.key === '-') { e.preventDefault(); zoomOut(); }
+  if (ctrl && ['s','S','p','P'].includes(e.key)) { e.preventDefault(); e.stopImmediatePropagation(); }
+}, { capture: true });
+
+let lastPinchDist = null;
+wrapEl.addEventListener('touchstart', e => {
+  if (e.touches.length === 2)
+    lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+}, { passive: true });
+wrapEl.addEventListener('touchmove', e => {
+  if (e.touches.length !== 2 || !lastPinchDist) return;
+  const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  if (dist / lastPinchDist > 1.08) { zoomIn(); lastPinchDist = dist; }
+  else if (dist / lastPinchDist < 0.92) { zoomOut(); lastPinchDist = dist; }
+}, { passive: true });
+wrapEl.addEventListener('touchend', () => { lastPinchDist = null; }, { passive: true });
+
+async function loadPDF() {
+  let pdf;
+  try {
+    pdf = await pdfjsLib.getDocument({ url: SERVE_URL, withCredentials: true }).promise;
+  } catch (err) {
+    statusEl.innerHTML = '<span style="font-size:26px">&#9888;&#65039;</span><span>Failed to load document. Please try again later.</span>';
+    return;
+  }
+  pdfDoc = pdf;
+  totalPages = pdf.numPages;
+  pageInput.max = totalPages;
+  pageInput.value = 1;
+  pageTotalEl.textContent = `of ${totalPages}`;
+  statusEl.style.display = 'none';
+  wrapEl.classList.add('loaded');
+  toolbarEl.classList.add('visible');
+  refreshZoomUI();
+  await renderAll();
+}
+loadPDF();
+
+wrapEl.addEventListener('contextmenu', e => e.preventDefault(), { passive: false });
+document.addEventListener('contextmenu', e => {
+  if (e.target.closest('#pv-canvas-wrap') || e.target.closest('#pv-shell')) e.preventDefault();
+}, { passive: false });
+window.print = () => false;
+wrapEl.addEventListener('dragstart', e => e.preventDefault(), { passive: false });
+document.getElementById('pv-shell').addEventListener('mousedown', e => {
+  if (e.button === 1) e.preventDefault();
+}, { passive: false });
+</script>
+{% endblock %}

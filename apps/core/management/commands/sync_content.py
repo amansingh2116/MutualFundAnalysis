@@ -62,6 +62,7 @@ class Command(BaseCommand):
                     'size_kb': max(1, round(pdf_path.stat().st_size / 1024)),
                     'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
                     'is_published': bool(meta.get('published', meta.get('is_published', True))),
+                    'downloadable': bool(meta.get('downloadable', False)),
                     'category': meta.get('category') or 'other',
                     'tags': _tags_to_json(meta.get('tags', [])),
                     'synced_at': timezone.now(),

@@ -122,6 +122,8 @@ def metadata_slug(meta, path):
     return slugify(meta.get('slug') or Path(path).stem)[:140]
 
 
+
+
 def read_pdf_manifest():
     if not PDF_GUIDE_MANIFEST.exists():
         return {}
