@@ -163,8 +163,8 @@ Stand-alone calculator for comparing stock-level portfolio overlap between exact
 **Overlap Score — Minimum Weight Method:**
 For each stock present in both funds, the overlap contribution = `min(weight_fund1, weight_fund2)`. Summing these gives the true duplicated exposure as a percentage of AUM. This is the industry-standard method and avoids double-counting.
 
-**Exclusive-circle weights (Venn Diagram):**
-Each circle's displayed percentage = `total_fund_weight − overlap_score`. This correctly represents the non-redundant portion of each fund (exclusive stocks + excess weight of common stocks above the overlap minimum).
+**Exclusive-circle values (Venn Diagram):**
+Each circle's displayed percentage is count-based (i.e. `exclusive_count / total_count` for that fund). This correctly represents the proportion of unique stocks in that fund, giving a clearer picture of stock-level differentiation rather than just raw non-overlapping weight.
 
 **Frontend (`templates/calculators/overlap.html`):**
 - Venn Diagram: CSS-positioned overlapping circles (blue left, orange right). Values-only in each region; hover tooltip shows holding count + fund name
