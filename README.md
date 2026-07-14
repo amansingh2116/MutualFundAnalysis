@@ -96,9 +96,14 @@
   - **Download button** — conditionally shown per guide based on `downloadable` field in `guides.json`; absent from DOM when not allowed
   - Raw serve endpoint (`/learn/resources/guides/serve/<slug>/`) responds with `no-store` cache headers and `X-Robots-Tag: noindex`
 - **Tag filter bar** sits between the Handbook and the filterable sections; allowed tags: `investing`, `fundamentals`, `technicals`, `research`, `analysis`, `mutual funds`, `ipo`
-- **Blogs page** (`/learn/resources/blogs/`) — featured hero article + grid of further posts, filterable by tag
-- File-backed content workflow: PDF metadata via `Resources/PDF Guides/guides.json` (with `category`, `tags`, and `downloadable`); blog front matter in `Resources/Blogs/*.md`
-- `sync_content` management command upserts `LearnPDFGuide` and `LearnBlogPost` DB records; syncs all fields including `downloadable` from `guides.json`
+- **Blogs page** (`/learn/resources/blogs/`) — all articles displayed as sorted horizontal cards, filterable by tag
+  - Cards marked `featured: yes` in frontmatter display a ⭐ **Featured** gold badge and highlighted border — independent of sort order
+  - Any number of blogs can be featured simultaneously
+- **Blog article reader** — two-column layout with a **sticky auto-generated Table of Contents** sidebar on the left
+  - ToC is built at runtime from the article's `h2`, `h3`, `h4` headings — no manual ToC needed in the markdown
+  - Clicking any ToC item smooth-scrolls to the heading; active section highlights automatically as you scroll
+- File-backed content workflow: PDF metadata via `Resources/PDF Guides/guides.json`; blog front matter in `Resources/Blogs/*.md`
+- `sync_content` management command upserts `LearnPDFGuide` and `LearnBlogPost` DB records; syncs all fields
 - **`downloadable` live override**: editing `guides.json` takes effect immediately in the viewer without re-running sync (manifest is always preferred over DB for this field)
 - **Community page** (`/learn/community/`) — realistic static mockup. **Login required** — unauthenticated users are redirected to the login page with `?next=` redirect
 

@@ -104,6 +104,7 @@ class LearnBlogPost(BaseModel):
     read_time = models.CharField(max_length=32, blank=True)
     sort_order = models.PositiveIntegerField(default=100)
     is_published = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
     synced_at = models.DateTimeField(null=True, blank=True)
     # Comma-separated or JSON-list tags stored as plain text
     tags = models.TextField(blank=True, default='')

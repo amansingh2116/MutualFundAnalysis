@@ -90,6 +90,8 @@ def _blog_card_from_model(post):
         'url': reverse('core:learn_blog_detail', args=[post.slug]),
         'source_key': post.markdown_path,
         'tags': post.tag_list(),
+        'sort_order': post.sort_order,
+        'featured': post.is_featured,
     }
 
 
@@ -133,7 +135,8 @@ def _blog_from_file(markdown_path, index=1):
         'markdown_path': markdown_path,
         'markdown_text': markdown_text,
         'source_key': path_to_base_relative(markdown_path),
-        'tags': _parse_tags(raw_tags if isinstance(raw_tags, str) else json.dumps(raw_tags)),
+        'tags': _parse_tags(raw_tags if isinstance(raw_tags, list) else json.dumps(raw_tags)),
+        'featured': bool(meta.get('featured', False)),
     }
 
 

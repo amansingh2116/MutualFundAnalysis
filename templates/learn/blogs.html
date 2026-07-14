@@ -22,55 +22,37 @@
 .tag-clear:hover { border-color:var(--border-accent);color:var(--text-secondary); }
 .card-hidden { display:none !important; }
 
-/* ── Featured hero blog ── */
-.blog-hero {
-  display:flex;flex-direction:row;align-items:stretch;
-  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;
-  text-decoration:none;color:inherit;margin-bottom:28px;
-  transition:border-color .2s,transform .2s,box-shadow .2s;min-height:200px;
-}
-.blog-hero:hover { border-color:var(--border-accent);transform:translateY(-2px);box-shadow:0 10px 36px rgba(99,102,241,.16); }
-.hero-visual {
-  width:220px;flex-shrink:0;
-  background:linear-gradient(145deg,rgba(245,158,11,.28) 0%,rgba(239,68,68,.18) 100%);
-  display:flex;align-items:center;justify-content:center;border-right:1px solid var(--border);
-}
-.hero-visual img { width:100%;height:100%;object-fit:cover;display:block; }
-.hero-cover-mark { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;text-align:center;padding:20px; }
-.hero-cover-mark .icon { font-size:36px; }
-.hero-cover-mark .label { font-size:13px;font-weight:750;color:rgba(255,255,255,.85);line-height:1.3; }
-.hero-info { padding:26px 28px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px; }
-.hero-badge { display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:999px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.30);color:#fcd34d;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;align-self:flex-start; }
-.hero-title { font-size:20px;font-weight:800;color:var(--text-primary);line-height:1.25; }
-.hero-desc { font-size:13px;color:var(--text-secondary);line-height:1.65;max-width:680px; }
-.hero-foot { display:flex;align-items:center;gap:14px;flex-wrap:wrap; }
-.hero-meta { font-size:11px;color:var(--text-muted); }
-.btn-read { display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.32);color:#fcd34d;font-size:12px;font-weight:750;transition:all .18s; }
-.btn-read:hover { background:rgba(245,158,11,.28);border-color:rgba(245,158,11,.55); }
+/* ── Blog list (all cards are horizontal) ── */
+.blog-list { display:flex;flex-direction:column;gap:14px; }
 
-/* ── Blog grid ── */
-.blog-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px; }
-
-/* ── Blog card ── */
+/* ── Blog card — horizontal ── */
 .blog-card {
+  display:flex;flex-direction:row;align-items:stretch;
   background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;
-  text-decoration:none;color:inherit;display:flex;flex-direction:column;min-height:280px;
+  text-decoration:none;color:inherit;min-height:140px;
   transition:border-color .2s,transform .2s,box-shadow .2s;
 }
-.blog-card:hover { border-color:var(--border-accent);transform:translateY(-3px);box-shadow:0 10px 32px rgba(99,102,241,.16); }
-.blog-cover { min-height:148px;border-bottom:1px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0; }
-.blog-cover-bg { background:linear-gradient(135deg,rgba(245,158,11,.22) 0%,rgba(239,68,68,.14) 100%); }
-.blog-cover.has-image::before { display:none; }
+.blog-card:hover { border-color:var(--border-accent);transform:translateY(-2px);box-shadow:0 8px 28px rgba(99,102,241,.14); }
+.blog-card.is-featured { border-color:rgba(245,158,11,.35);box-shadow:0 0 0 1px rgba(245,158,11,.12); }
+.blog-card.is-featured:hover { border-color:rgba(245,158,11,.65);box-shadow:0 8px 28px rgba(245,158,11,.14); }
+
+/* Left thumbnail panel */
+.blog-cover {
+  width:200px;flex-shrink:0;
+  background:linear-gradient(145deg,rgba(99,102,241,.22) 0%,rgba(239,68,68,.14) 100%);
+  display:flex;align-items:center;justify-content:center;border-right:1px solid var(--border);overflow:hidden;
+}
 .blog-cover img { width:100%;height:100%;object-fit:cover;display:block; }
-.blog-cover-mark { position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:min(110px,78%);min-height:100px;padding:14px 12px;border-radius:10px;background:rgba(10,14,26,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.10);box-shadow:0 12px 30px rgba(0,0,0,.30);text-align:center; }
+.blog-cover-mark { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px; }
 .blog-cover-mark-icon { font-size:28px;line-height:1; }
-.blog-cover-mark-label { font-size:11px;font-weight:750;color:rgba(255,255,255,.88);line-height:1.3;word-break:break-word;overflow-wrap:anywhere; }
-.blog-cover-badge { font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-top:2px;background:rgba(245,158,11,.22);color:#fcd34d;border:1px solid rgba(245,158,11,.3); }
+.blog-cover-mark-label { font-size:11px;font-weight:750;color:rgba(255,255,255,.85);line-height:1.3; }
 
 /* Card body */
-.card-body { padding:14px 16px 15px;display:flex;flex-direction:column;gap:7px;flex:1; }
+.card-body { padding:18px 20px;display:flex;flex-direction:column;gap:8px;flex:1;justify-content:center; }
+.card-badges { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
 .blog-type-tag { display:inline-flex;align-items:center;align-self:flex-start;padding:3px 9px;border-radius:999px;border:1px solid rgba(245,158,11,.30);color:#fcd34d;background:rgba(245,158,11,.10);font-size:10px;font-weight:700; }
-.card-title { font-size:14px;font-weight:750;color:var(--text-primary);line-height:1.35; }
+.featured-badge { display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.30);color:#fcd34d;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase; }
+.card-title { font-size:15px;font-weight:750;color:var(--text-primary);line-height:1.35; }
 .card-desc { font-size:12px;color:var(--text-secondary);line-height:1.65;flex:1; }
 .card-tags { display:flex;flex-wrap:wrap;gap:4px;margin-top:2px; }
 .card-tag { display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;border:1px solid rgba(129,140,248,.24);color:var(--indigo-400);background:rgba(99,102,241,.07);font-size:10px;font-weight:650; }
@@ -80,12 +62,9 @@
 /* ── Empty ── */
 .blogs-empty { border:1px dashed var(--border);border-radius:8px;padding:30px;color:var(--text-muted);text-align:center;background:rgba(255,255,255,.02); }
 
-@media (max-width:768px) {
-  .blog-hero { flex-direction:column; }
-  .hero-visual { width:100%;min-height:120px;border-right:none;border-bottom:1px solid var(--border); }
-  .blog-grid { grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
-}
-@media (max-width:480px) {
+@media (max-width:640px) {
+  .blog-card { flex-direction:column; }
+  .blog-cover { width:100%;min-height:110px;border-right:none;border-bottom:1px solid var(--border); }
   .blogs-title { font-size:22px; }
 }
 </style>
@@ -101,7 +80,7 @@
     </div>
   </header>
 
-  {# ── Sticky tag filter ── #}
+  {# ── Tag filter ── #}
   {% if blog_tags %}
   <div class="filter-bar-wrap">
     <div class="filter-inner">
@@ -115,53 +94,25 @@
   {% endif %}
 
   {% if blog_posts %}
-
-  {# ── Featured / latest blog (first entry) ── #}
-  {% with featured=blog_posts.0 %}
-  <a class="blog-hero" href="{{ featured.url }}" data-tags="{{ featured.tags|join:',' }}">
-    <div class="hero-visual {% if not featured.thumbnail_url %}{% endif %}">
-      {% if featured.thumbnail_url %}
-      <img src="{{ featured.thumbnail_url }}" alt="{{ featured.title }}">
-      {% else %}
-      <div class="hero-cover-mark">
-        <div class="icon">✍️</div>
-        <div class="label">{{ featured.title|truncatechars:35 }}</div>
-      </div>
-      {% endif %}
-    </div>
-    <div class="hero-info">
-      <div class="hero-badge">⭐ Featured Article</div>
-      <div class="hero-title">{{ featured.title }}</div>
-      <div class="hero-desc">{{ featured.description }}</div>
-      {% if featured.tags %}
-      <div class="card-tags">{% for tag in featured.tags %}<span class="card-tag">{{ tag }}</span>{% endfor %}</div>
-      {% endif %}
-      <div class="hero-foot">
-        <span class="hero-meta">{{ featured.read_time }}</span>
-        <span class="btn-read">Read Article →</span>
-      </div>
-    </div>
-  </a>
-  {% endwith %}
-
-  {# ── Blog grid (remaining posts) ── #}
-  {% if blog_posts|length > 1 %}
-  <div class="blog-grid" id="blog-grid">
-    {% for blog in blog_posts %}{% if not forloop.first %}
-    <a class="blog-card" href="{{ blog.url }}" data-tags="{{ blog.tags|join:',' }}">
-      <div class="blog-cover blog-cover-bg{% if blog.thumbnail_url %} has-image{% endif %}">
+  {# ── All blogs as horizontal cards sorted by order ── #}
+  <div class="blog-list" id="blog-list">
+    {% for blog in blog_posts %}
+    <a class="blog-card{% if blog.featured %} is-featured{% endif %}" href="{{ blog.url }}" data-tags="{{ blog.tags|join:',' }}">
+      <div class="blog-cover">
         {% if blog.thumbnail_url %}
         <img src="{{ blog.thumbnail_url }}" alt="{{ blog.title }}">
         {% else %}
         <div class="blog-cover-mark">
           <div class="blog-cover-mark-icon">✍️</div>
-          <div class="blog-cover-mark-label">{{ blog.title|truncatechars:30 }}</div>
-          <div class="blog-cover-badge">Article</div>
+          <div class="blog-cover-mark-label">{{ blog.title|truncatechars:28 }}</div>
         </div>
         {% endif %}
       </div>
       <div class="card-body">
-        <div class="blog-type-tag">{{ blog.tag }}</div>
+        <div class="card-badges">
+          <span class="blog-type-tag">{{ blog.tag }}</span>
+          {% if blog.featured %}<span class="featured-badge">⭐ Featured</span>{% endif %}
+        </div>
         <div class="card-title">{{ blog.title }}</div>
         <div class="card-desc">{{ blog.description }}</div>
         {% if blog.tags %}
@@ -173,9 +124,8 @@
         </div>
       </div>
     </a>
-    {% endif %}{% endfor %}
+    {% endfor %}
   </div>
-  {% endif %}
 
   {% else %}
   <div class="blogs-empty">
@@ -191,22 +141,11 @@
 <script>
 (function () {
   function filterBlogs(tag) {
-    // Filter grid cards
-    var grid = document.getElementById('blog-grid');
-    if (grid) {
-      grid.querySelectorAll('.blog-card[data-tags]').forEach(function (card) {
-        if (!tag) { card.classList.remove('card-hidden'); return; }
-        var tags = card.dataset.tags ? card.dataset.tags.split(',').map(function (t) { return t.trim(); }) : [];
-        card.classList.toggle('card-hidden', !tags.includes(tag));
-      });
-    }
-    // Also filter hero if tags provided
-    var hero = document.querySelector('.blog-hero[data-tags]');
-    if (hero) {
-      if (!tag) { hero.classList.remove('card-hidden'); return; }
-      var heroTags = hero.dataset.tags ? hero.dataset.tags.split(',').map(function (t) { return t.trim(); }) : [];
-      hero.classList.toggle('card-hidden', !heroTags.includes(tag));
-    }
+    document.querySelectorAll('.blog-card[data-tags]').forEach(function (card) {
+      if (!tag) { card.classList.remove('card-hidden'); return; }
+      var tags = card.dataset.tags ? card.dataset.tags.split(',').map(function (t) { return t.trim(); }) : [];
+      card.classList.toggle('card-hidden', !tags.includes(tag));
+    });
   }
 
   document.querySelectorAll('.tag-pill:not(.tag-clear)').forEach(function (pill) {

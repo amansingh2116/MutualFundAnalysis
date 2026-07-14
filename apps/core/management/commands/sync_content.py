@@ -104,6 +104,7 @@ class Command(BaseCommand):
                     'read_time': meta.get('read_time') or estimate_read_time(body),
                     'sort_order': int(meta.get('order') or meta.get('sort_order') or index * 10),
                     'is_published': bool(meta.get('published', meta.get('is_published', True))),
+                    'is_featured': bool(meta.get('featured', False)),
                     'tags': _tags_to_json(meta.get('tags', [])),
                     'synced_at': timezone.now(),
                 },

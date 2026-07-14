@@ -4,45 +4,97 @@
 
 {% block extra_head %}
 <style>
-.article-shell { max-width:980px;margin:0 auto; }
-.article-top { margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap; }
+/* ── Outer layout ── */
+.article-shell { max-width:1260px;margin:0 auto; }
+.article-layout {
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:28px;
+  align-items:start;
+}
+
+/* ── Sticky ToC sidebar ── */
+.toc-sidebar {
+  position:sticky;
+  top:80px;
+  max-height:calc(100vh - 120px);
+  overflow-y:auto;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:16px;
+  scrollbar-width:thin;
+}
+.toc-sidebar::-webkit-scrollbar { width:4px; }
+.toc-sidebar::-webkit-scrollbar-thumb { background:var(--border-accent);border-radius:2px; }
+.toc-title {
+  font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-muted);margin-bottom:10px;padding-bottom:8px;
+  border-bottom:1px solid var(--border);
+}
+.toc-list { list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px; }
+.toc-item a {
+  display:block;padding:5px 6px;border-radius:5px;
+  font-size:11.5px;line-height:1.4;color:var(--text-secondary);text-decoration:none;
+  transition:background .15s,color .15s;border-left:2px solid transparent;
+}
+.toc-item a:hover { color:var(--text-primary);background:rgba(255,255,255,.04); }
+.toc-item.active > a { color:var(--indigo-300);border-left-color:var(--indigo-400);background:rgba(99,102,241,.09); }
+.toc-item.toc-h3 > a { padding-left:16px;font-size:11px; }
+.toc-item.toc-h4 > a { padding-left:26px;font-size:10.5px;color:var(--text-muted); }
+
+/* ── Article header ── */
 .article-back { color:var(--text-secondary);font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:14px; }
 .article-back:hover { color:var(--text-primary); }
 .article-kicker { color:var(--indigo-400);font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px; }
-.article-title { color:var(--text-primary);font-size:30px;font-weight:850;line-height:1.16;letter-spacing:0;max-width:760px; }
+.article-title { color:var(--text-primary);font-size:28px;font-weight:850;line-height:1.16;letter-spacing:0;max-width:760px; }
 .article-desc { color:var(--text-secondary);font-size:13px;line-height:1.65;max-width:760px;margin-top:10px; }
 .article-actions { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
 .article-meta { color:var(--text-muted);font-size:11px;margin-top:12px; }
+.article-top { display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px; }
+
+/* ── Article body ── */
 .article-body { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:26px; }
 .article-body h1 { display:none; }
-.article-body h2 { color:var(--text-primary);font-size:22px;line-height:1.25;margin:34px 0 12px;letter-spacing:0; }
-.article-body h3,.article-body h4 { color:var(--text-primary);font-size:17px;line-height:1.35;margin:26px 0 10px; }
+.article-body h2 { color:var(--text-primary);font-size:21px;line-height:1.25;margin:34px 0 12px;letter-spacing:0; }
+.article-body h3,.article-body h4 { color:var(--text-primary);font-size:16px;line-height:1.35;margin:24px 0 10px; }
 .article-body p { color:var(--text-secondary);font-size:14px;line-height:1.8;margin:12px 0; }
 .article-body strong { color:var(--text-primary);font-weight:780; }
 .article-body em { color:var(--text-secondary); }
 .article-body a { color:var(--indigo-400);text-decoration:none; }
 .article-body a:hover { text-decoration:underline; }
-.article-body ul { color:var(--text-secondary);font-size:14px;line-height:1.75;margin:12px 0 12px 20px; }
+.article-body ul,
+.article-body ol { color:var(--text-secondary);font-size:14px;line-height:1.75;margin:12px 0 12px 20px; }
 .article-body li { margin:5px 0; }
 .article-body blockquote { margin:16px 0;padding:12px 14px;border-left:3px solid var(--indigo-500);background:rgba(99,102,241,.08);border-radius:0 7px 7px 0;color:var(--text-secondary);font-size:14px;line-height:1.7; }
 .article-body hr { border:0;border-top:1px solid var(--border);margin:28px 0; }
 .article-figure { margin:20px 0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:rgba(255,255,255,.02); }
 .article-figure img { display:block;width:100%;height:auto; }
 .article-table-wrap { overflow-x:auto;border:1px solid var(--border);border-radius:8px;margin:18px 0;background:rgba(10,14,26,.32); }
-.article-table { width:100%;border-collapse:collapse;min-width:620px; }
+.article-table { width:100%;border-collapse:collapse;min-width:500px; }
 .article-table th,.article-table td { padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;font-size:12px;line-height:1.45;vertical-align:top; }
 .article-table th { color:var(--text-primary);font-weight:750;background:rgba(99,102,241,.10); }
 .article-table td { color:var(--text-secondary); }
 .article-table tr:last-child td { border-bottom:0; }
 .article-tags { display:flex;flex-wrap:wrap;gap:5px;margin-top:10px; }
 .article-tag { display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid rgba(129,140,248,.28);color:var(--indigo-400);background:rgba(99,102,241,.08);font-size:11px;font-weight:650; }
-@media (max-width:640px) { .article-title { font-size:25px; } .article-body { padding:18px; } .article-body h2 { font-size:19px; } .article-actions { width:100%; } .article-actions .btn { flex:1;justify-content:center; } }
+
+@media (max-width:960px) {
+  .article-layout { grid-template-columns:1fr; }
+  .toc-sidebar { position:static;max-height:320px; }
+}
+@media (max-width:640px) {
+  .article-title { font-size:23px; }
+  .article-body { padding:16px; }
+  .article-body h2 { font-size:18px; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="article-shell">
-  <a class="article-back" href="{% url 'core:learn_blogs' %}">← Back to blogs</a>
+  <a class="article-back" href="{% url 'core:learn_blogs' %}">Back to blogs</a>
+
   <header class="article-top">
     <div>
       <div class="article-kicker">{{ blog.tag }}</div>
@@ -62,8 +114,92 @@
     {% endif %}
   </header>
 
-  <article class="article-body">
-    {{ blog.html }}
-  </article>
+  <div class="article-layout">
+    <!-- Sticky ToC (auto-built by JS from article headings) -->
+    <aside class="toc-sidebar" id="toc-sidebar" aria-label="Table of contents">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list" id="toc-list"></ul>
+    </aside>
+
+    <article class="article-body" id="article-body">
+      {{ blog.html }}
+    </article>
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var body    = document.getElementById('article-body');
+  var tocList = document.getElementById('toc-list');
+  var sidebar = document.getElementById('toc-sidebar');
+  if (!body || !tocList) return;
+
+  // 1. Collect headings (h2, h3, h4) from the article body only
+  var headings = Array.from(body.querySelectorAll('h2, h3, h4'));
+
+  if (headings.length === 0) {
+    sidebar.style.display = 'none';
+    return;
+  }
+
+  // 2. Give every heading a stable slug ID if it doesn't already have one
+  var slugCount = {};
+  headings.forEach(function (h) {
+    if (!h.id) {
+      var base = h.textContent.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 64);
+      slugCount[base] = (slugCount[base] || 0) + 1;
+      h.id = slugCount[base] > 1 ? base + '-' + slugCount[base] : base;
+    }
+  });
+
+  // 3. Build the ToC list
+  headings.forEach(function (h) {
+    var li = document.createElement('li');
+    li.className = 'toc-item toc-' + h.tagName.toLowerCase();
+    var a = document.createElement('a');
+    a.href = '#' + h.id;
+    // Strip leading numbering like "1. " from the display text
+    a.textContent = h.textContent.trim().replace(/^\d+\.\s*/, '');
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var target = document.getElementById(h.id);
+      if (target) {
+        var offset = target.getBoundingClientRect().top + window.pageYOffset - 76;
+        window.scrollTo({ top: offset, behavior: 'smooth' });
+      }
+      history.replaceState(null, '', '#' + h.id);
+    });
+    li.appendChild(a);
+    tocList.appendChild(li);
+  });
+
+  // 4. Highlight active section with IntersectionObserver
+  var activeItem = null;
+  var io = new IntersectionObserver(function (entries) {
+    // Find the entry that just crossed the top
+    var visible = entries.filter(function (e) { return e.isIntersecting; });
+    if (visible.length === 0) return;
+    // Pick the topmost visible heading
+    visible.sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
+    var id = visible[0].target.id;
+    var link = tocList.querySelector('a[href="#' + id + '"]');
+    if (!link) return;
+    var item = link.parentElement;
+    if (activeItem) activeItem.classList.remove('active');
+    item.classList.add('active');
+    activeItem = item;
+    // Scroll ToC item into the sidebar viewport smoothly
+    link.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, { rootMargin: '-64px 0px -50% 0px', threshold: 0 });
+
+  headings.forEach(function (h) { io.observe(h); });
+})();
+</script>
 {% endblock %}

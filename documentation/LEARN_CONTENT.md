@@ -186,17 +186,31 @@ thumbnail: "images/my_blog/cover.png"
 read_time: "6 min read"
 order: 20
 published: true
+featured: yes
 tags: ["ipo", "research", "analysis"]
 ---
 ```
 
-**Field notes:**
-- `thumbnail` — relative to the markdown file location.
-- `tags` — JSON array. Approved tags: `ipo`, `research`, `analysis` (more can be added as needed).
-- `order` — controls card ordering; the lowest `order` value is shown as the featured hero article.
-- Blog images use standard markdown syntax: `![Alt text](images/my_blog/chart.png)`.
+**Field reference:**
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | string | Display title shown on listing cards and in the article header |
+| `description` | string | Short summary shown on the Blogs listing card |
+| `slug` | string | URL slug (`/learn/resources/blogs/<slug>/`) — must be unique |
+| `thumbnail` | string | Path to cover image, **relative to the markdown file's own directory** (e.g. `images/my_blog/cover.jpg`) |
+| `read_time` | string | Displayed on card and article header (e.g. `"8 min read"`) |
+| `order` | integer | Sort position in the blog list — lower number appears first. Has **no effect** on featured status |
+| `published` | boolean | `true` to show, `false` to hide. Synced to `is_published` in DB |
+| `featured` | boolean | `yes`/`true` to show a ⭐ Featured gold badge on the card. `no`/`false` (default) for normal display. Any number of blogs can be featured at once |
+| `tags` | array | JSON array. Approved tags: `ipo`, `research`, `analysis`, `investing`, `taxation`, `mutual funds` (more can be added as needed) |
+
+**Notes:**
+- Blog images in the article body use standard markdown syntax: `![Alt text](images/my_blog/chart.png)`.
 - Supported local image types: PNG, JPG, JPEG, WEBP, GIF.
 - `published: false` hides the blog when synced.
+- You do **not** need to add a Table of Contents section — the article reader builds it automatically from `h2`, `h3`, and `h4` headings and displays it as a sticky sidebar.
+- Thumbnail images must be placed inside the `Resources/Blogs/images/` folder. The path in `thumbnail` is relative to the markdown file itself (e.g. if the .md is at `Resources/Blogs/my_blog.md`, the thumbnail `images/my_blog/cover.jpg` resolves to `Resources/Blogs/images/my_blog/cover.jpg`).
 
 ---
 
@@ -213,6 +227,19 @@ The command upserts:
 - `LearnBlogPost` records from markdown front matter in `Resources/Blogs/*.md`.
 
 Tags are stored in the DB as proper JSON arrays (`["tag1", "tag2"]`), not raw Python list strings.
+
+The command syncs the following fields for blog posts:
+
+| DB Field | Frontmatter Key |
+|---|---|
+| `title` | `title` |
+| `description` | `description` |
+| `thumbnail_path` | `thumbnail` |
+| `read_time` | `read_time` |
+| `sort_order` | `order` |
+| `is_published` | `published` |
+| `is_featured` | `featured` |
+| `tags` | `tags` |
 
 > **`downloadable` without sync:** Because `guides.json` is always consulted at request time for this field, you do **not** need to run `sync_content` after changing `downloadable`. The change is live immediately.
 
@@ -241,4 +268,6 @@ Synced records are available in Django admin:
 
 Admin fields for PDF guides include: `title`, `description`, `category`, `tags`, `sort_order`, `is_published`, `downloadable`, and `accent`.
 
-> **Note:** Running `sync_content` will overwrite `downloadable` with the value from `guides.json`. To manage `downloadable` exclusively from the admin panel instead, omit the field from `guides.json` entries (it defaults to `false` when absent).
+Admin fields for blog posts include: `title`, `description`, `thumbnail_path`, `read_time`, `sort_order`, `is_published`, `is_featured`, and `tags`.
+
+> **Note:** Running `sync_content` will overwrite admin-edited values (except `downloadable` for PDFs, which always reads from `guides.json`). Frontmatter is the canonical source of truth for all blog fields.
