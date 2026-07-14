@@ -372,7 +372,13 @@ def calc_overlap_api(request):
                 })
 
         all_keys = set().union(*(set(hmap) for hmap in holding_maps))
-        overlap = []
+        common_holdings = []
+        fund1_exclusive = []
+        fund2_exclusive = []
+        
+        fund1_total_weight = 0.0
+        fund2_total_weight = 0.0
+
         for key in all_keys:
             weights = []
             names = []
@@ -385,20 +391,42 @@ def calc_overlap_api(request):
                     weights.append(round(float(holding.weight_pct), 2))
                 else:
                     weights.append(None)
-            if present_count >= 2:
-                overlap.append({
-                    'security_name': names[0],
-                    'weights': weights,
-                    'present_count': present_count,
-                    'shared_weight': round(sum(w for w in weights if w is not None), 2),
-                })
-        overlap.sort(key=lambda row: (-row['present_count'], -row['shared_weight'], row['security_name']))
+            
+            sec_name = names[0]
+            item = {
+                'security_name': sec_name,
+                'weights': weights,
+                'present_count': present_count,
+            }
+            if present_count == 2:
+                item['shared_weight'] = round(sum(w for w in weights if w is not None), 2)
+                common_holdings.append(item)
+                fund1_total_weight += weights[0]
+                fund2_total_weight += weights[1]
+            elif weights[0] is not None:
+                fund1_exclusive.append(item)
+                fund1_total_weight += weights[0]
+            elif weights[1] is not None:
+                fund2_exclusive.append(item)
+                fund2_total_weight += weights[1]
+
+        common_holdings.sort(key=lambda row: (-row['shared_weight'], row['security_name']))
+        fund1_exclusive.sort(key=lambda row: (-row['weights'][0], row['security_name']))
+        fund2_exclusive.sort(key=lambda row: (-row['weights'][1], row['security_name']))
+
+        # Update the pair summary with exclusive stats
+        pairs[0]['fund1_exclusive_count'] = len(fund1_exclusive)
+        pairs[0]['fund2_exclusive_count'] = len(fund2_exclusive)
+        pairs[0]['fund1_venn_weight'] = max(0.0, round(fund1_total_weight - pairs[0]['overlap_score'], 2))
+        pairs[0]['fund2_venn_weight'] = max(0.0, round(fund2_total_weight - pairs[0]['overlap_score'], 2))
 
         return JsonResponse({
             'funds': fund_rows,
             'pairs': pairs,
-            'all_common_holdings': len([row for row in overlap if row['present_count'] == len(fund_rows)]),
-            'overlap': overlap,
+            'all_common_holdings': len(common_holdings),
+            'common': common_holdings,
+            'fund1_exclusive': fund1_exclusive,
+            'fund2_exclusive': fund2_exclusive,
         })
     except Scheme.DoesNotExist:
         return JsonResponse({'error': 'One or more AMFI codes were not found.'}, status=404)

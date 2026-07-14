@@ -21,7 +21,10 @@
       <div class="form-hint" style="margin-bottom:12px">Select exactly 2 funds. All available portfolio rows from the provider are used.</div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Check Overlap</button>
     </form>
-    <div class="alert alert-info" style="margin-top:16px">Portfolio data is fetched live from available providers and may be unavailable for some schemes.</div>
+    <div class="alert alert-info" style="margin-top:-10px; margin-bottom:24px; font-size:13px; line-height: 1.5;">
+      <div style="margin-bottom: 8px;"><strong>How is Overlap calculated?</strong> We use the standard <em>Portfolio Overlap Method</em>: For each common stock, we find the minimum weight it holds in either fund and sum these minimums up. This represents the exact percentage of your money that is duplicated across the two funds. (e.g. If Fund A has 5% TCS and Fund B has 3% TCS, the overlap for TCS is 3%).</div>
+      <div><strong>How is the Non-Overlap (Exclusive) percentage calculated?</strong> The numbers in the left and right circles represent the unique, non-overlapping portion of each fund. This is calculated as the <strong>Total Weight of the Fund minus the Overlap Percentage</strong>. It includes stocks exclusive to that fund, as well as the "excess" weight of any common stocks.</div>
+    </div>
   </div>
 
   <div class="calc-results">
@@ -35,6 +38,125 @@
 {% endblock %}
 
 {% block extra_js %}
+
+<style>
+.venn-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.venn-diagram {
+  position: relative;
+  width: 400px;
+  height: 240px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.venn-circle {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  text-align: center;
+  /* Using opacity instead of mix-blend-mode for better colors on dark mode */
+  opacity: 0.85;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+.venn-circle:hover, .venn-intersection:hover {
+  opacity: 1;
+}
+.venn-left {
+  background: #2a69b5; /* Deeper blue */
+  left: 0;
+}
+.venn-right {
+  background: #b5692a; /* Deeper orange */
+  right: 0;
+}
+.venn-intersection {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  width: 100px;
+  height: 240px;
+  cursor: pointer;
+}
+.venn-val { font-size: 28px; font-weight: 700; line-height: 1.2; }
+
+/* Position the values inside the circles away from the intersection */
+.venn-left .venn-val { margin-right: 60px; }
+.venn-right .venn-val { margin-left: 60px; }
+
+.venn-legend {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-top: 24px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.legend-item { display: flex; align-items: center; gap: 8px; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s, color 0.2s;
+}
+.tab-btn:hover { background: var(--bg-hover); color: var(--text); }
+.tab-btn.active { background: var(--bg-hover); color: var(--accent); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.weight-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.weight-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+.wb-1 { background: #4189e6; }
+.wb-2 { background: #e68941; }
+</style>
+
 <script>
 const overlapSelected = [];
 const overlapInput = document.getElementById('overlap-search');
@@ -114,44 +236,123 @@ document.getElementById('overlap-form').addEventListener('submit', async (e) => 
   el.innerHTML = renderOverlapResults(d);
 });
 
+
 function renderOverlapResults(d) {
-  const pairCards = d.pairs.map(pair => {
-    const tone = pair.overlap_score > 50 ? 'negative' : pair.overlap_score > 25 ? '' : 'positive';
-    return `
-      <div class="calc-result-highlight">
-        <div class="label">${escapeHtml(shortFund(pair.fund1_name))} vs ${escapeHtml(shortFund(pair.fund2_name))}</div>
-        <div class="value ${tone}">${pair.overlap_score.toFixed(1)}%</div>
-        <div class="sub">${pair.common_holdings} common holdings</div>
+  const p = d.pairs[0];
+  const f1 = shortFund(p.fund1_name);
+  const f2 = shortFund(p.fund2_name);
+
+  const vennHtml = `
+    <div class="venn-container">
+      <div>
+        <div class="venn-diagram">
+          <div class="venn-circle venn-left" title="Only in ${escapeHtml(f1)}&#10;${p.fund1_exclusive_count} holdings">
+            <div class="venn-val">${p.fund1_venn_weight.toFixed(1)}%</div>
+          </div>
+          <div class="venn-circle venn-right" title="Only in ${escapeHtml(f2)}&#10;${p.fund2_exclusive_count} holdings">
+            <div class="venn-val">${p.fund2_venn_weight.toFixed(1)}%</div>
+          </div>
+          <div class="venn-intersection" title="Common Holdings&#10;${p.common_holdings} holdings">
+            <div class="venn-val">${p.overlap_score.toFixed(1)}%</div>
+          </div>
+        </div>
+
+        <div class="venn-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#2a69b5"></div>${escapeHtml(f1)}</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#b5692a"></div>${escapeHtml(f2)}</div>
+        </div>
       </div>
-    `;
-  }).join('');
+    </div>
+    
+    <div class="alert alert-info" style="margin-top:-10px; margin-bottom:24px; font-size:13px; line-height: 1.5;">
+      <div style="margin-bottom: 8px;"><strong>How is Overlap calculated?</strong> We use the standard <em>Portfolio Overlap Method</em>: For each common stock, we find the minimum weight it holds in either fund and sum these minimums up. This represents the exact percentage of your money that is duplicated across the two funds. (e.g. If Fund A has 5% TCS and Fund B has 3% TCS, the overlap for TCS is 3%).</div>
+      <div><strong>How is the Non-Overlap (Exclusive) percentage calculated?</strong> The numbers in the left and right circles represent the unique, non-overlapping portion of each fund. This is calculated as the <strong>Total Weight of the Fund minus the Overlap Percentage</strong>. It includes stocks exclusive to that fund, as well as the "excess" weight of any common stocks.</div>
+    </div>
+
+  `;
+
   const fundSummary = d.funds.map(f => `
     <tr><td>${escapeHtml(f.name)}</td><td>${f.total_holdings}</td><td>${escapeHtml(f.source || 'unavailable')}</td></tr>
   `).join('');
-  const rows = d.overlap.map((h, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${escapeHtml(h.security_name)}</td>
-      ${h.weights.map(w => `<td>${w == null ? '<span class="muted">-</span>' : `<span class="positive">${w.toFixed(2)}%</span>`}</td>`).join('')}
-      <td>${h.present_count}/${d.funds.length}</td>
-    </tr>
-  `).join('');
-  const fundHeads = d.funds.map(f => `<th>${escapeHtml(shortFund(f.name))}</th>`).join('');
+
+  // Table Generator
+  const renderTable = (holdings, isCommon) => {
+    if (!holdings || holdings.length === 0) {
+      return `<tr><td colspan="4" class="muted" style="text-align:center;padding:24px">No holdings found in this category.</td></tr>`;
+    }
+    return holdings.map((h, i) => {
+      const w1 = h.weights[0];
+      const w2 = h.weights[1];
+      const bar1 = w1 != null ? `<div class="weight-bar-bg"><div class="weight-bar-fill wb-1" style="width:${Math.min(w1*5, 100)}%"></div></div>` : '';
+      const bar2 = w2 != null ? `<div class="weight-bar-bg"><div class="weight-bar-fill wb-2" style="width:${Math.min(w2*5, 100)}%"></div></div>` : '';
+      
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td style="width:40%">${escapeHtml(h.security_name)}</td>
+          <td style="width:25%">${w1 != null ? `<div><span class="positive">${w1.toFixed(2)}%</span>${bar1}</div>` : '<span class="muted">-</span>'}</td>
+          <td style="width:25%">${w2 != null ? `<div><span class="positive">${w2.toFixed(2)}%</span>${bar2}</div>` : '<span class="muted">-</span>'}</td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  const commonRows = renderTable(d.common, true);
+  const f1Rows = renderTable(d.fund1_exclusive, false);
+  const f2Rows = renderTable(d.fund2_exclusive, false);
+
+  const tabsHtml = `
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchOverlapTab('common')">Common (${p.common_holdings})</button>
+      <button class="tab-btn" onclick="switchOverlapTab('f1')">Only in ${escapeHtml(f1)} (${p.fund1_exclusive_count})</button>
+      <button class="tab-btn" onclick="switchOverlapTab('f2')">Only in ${escapeHtml(f2)} (${p.fund2_exclusive_count})</button>
+    </div>
+    
+    <div id="tab-common" class="tab-content active">
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>#</th><th>Security</th><th>${escapeHtml(f1)}</th><th>${escapeHtml(f2)}</th></tr></thead>
+          <tbody>${commonRows}</tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div id="tab-f1" class="tab-content">
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>#</th><th>Security</th><th>${escapeHtml(f1)}</th><th>${escapeHtml(f2)}</th></tr></thead>
+          <tbody>${f1Rows}</tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div id="tab-f2" class="tab-content">
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>#</th><th>Security</th><th>${escapeHtml(f1)}</th><th>${escapeHtml(f2)}</th></tr></thead>
+          <tbody>${f2Rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
   return `
-    <div class="grid-3" style="gap:12px;margin-bottom:16px">${pairCards}</div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header"><div class="card-title">Fund Coverage</div><span class="muted" style="font-size:11px">All-common holdings: ${d.all_common_holdings}</span></div>
+    ${vennHtml}
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header"><div class="card-title">Fund Coverage</div></div>
       <div class="table-wrapper"><table><thead><tr><th>Fund</th><th>Holdings Used</th><th>Source</th></tr></thead><tbody>${fundSummary}</tbody></table></div>
     </div>
-    <div class="table-wrapper">
-      <table>
-        <thead><tr><th>#</th><th>Security</th>${fundHeads}<th>Present</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="${d.funds.length + 3}" class="muted">No common holdings found in the available portfolio data.</td></tr>`}</tbody>
-      </table>
-    </div>
+    ${tabsHtml}
   `;
 }
 
+window.switchOverlapTab = function(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tabId).classList.add('active');
+};
 function shortFund(name) {
   return String(name || '').replace(/ - Direct.*$/i, '').replace(/ - Growth.*$/i, '').slice(0, 34);
 }

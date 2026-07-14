@@ -73,6 +73,13 @@
 - **Goal Planner**: Target-corpus reverse-calculation
 - **Net Worth Calculator**: 25+ asset classes, 9 liability classes, Plotly donut chart, and **Solvency Ratio** with color-coded bar
 - **Rolling Return Calculator**: Multi-fund (up to 5), custom benchmark override, color-coded chart with volatility stats
+- **Fund Overlap Checker** (`/calculators/overlap/`): Stock-level portfolio overlap analysis between any two mutual funds
+  - **Venn Diagram** — three sections (left-exclusive, intersection, right-exclusive) each showing the exact portfolio weight percentage; hover tooltip reveals the holding count for that section
+  - **Correct methodology**: Uses the industry-standard *Minimum Weight Method* — for each common stock, the minimum of both funds' weights is taken and summed, representing true duplicated exposure
+  - **Non-overlap calculation**: Exclusive-circle percentages = total fund weight − overlap score, correctly reflecting stocks unique to that fund plus the "excess" weight of common stocks
+  - **Tabbed holdings tables**: Three tabs — *Common*, *Only in Fund A*, *Only in Fund B* — using the actual short fund name (not Fund 1/2)
+  - **Weight bars**: Inline horizontal bars (blue for Fund 1, orange for Fund 2) inside each table row for at-a-glance visual weight comparison
+  - **Inline methodology explanation**: Collapsible info box beneath the Venn diagram explains both the overlap and non-overlap calculation methods in plain English with examples
 - **ⓘ Info Button System** across all calculators: Every key metric and input has a contextual tooltip (hover or click) powered by the shared `initInfoTooltips()` engine. Tooltips cover what the metric is, how to interpret it, benchmark ranges, and caveats — making the platform accessible for users with limited financial knowledge.
 
 ### Learn & Community
@@ -157,6 +164,8 @@ MutualFundAnalysis/
 │   │   ├── pdf_viewer.html      ← In-app PDF viewer (PDF.js, zoom toolbar, download button)
 │   │   ├── blogs.html           ← Blog listing page
 │   │   └── blog_detail.html     ← Blog article reader
+│   ├── calculators/
+│   │   └── overlap.html         ← Fund Overlap Checker (Venn diagram, tabs, weight bars)
 │   └── portfolio/
 │       ├── backtester_hub.html  ← Backtester landing page (Build vs Saved Strategies)
 │       ├── backtester.html      ← Strategy Backtester builder & results UI (~3,800 lines)

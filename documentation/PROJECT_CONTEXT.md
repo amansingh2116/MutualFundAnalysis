@@ -152,7 +152,27 @@ The Learn section is intentionally lightweight and file-backed so educational ma
 
 ---
 
-## 6. URL Structure
+### H. Fund Overlap Checker (`apps/calculators/views.py` — `calc_overlap_api`)
+Stand-alone calculator for comparing stock-level portfolio overlap between exactly two mutual funds.
+
+**API** (`POST /api/calculators/overlap/`):
+- Fetches live holdings for each AMFI code via `get_runtime_snapshot`
+- Uses `holding_key()` (ISIN-preferring, with normalised name fallback) as the join key
+- Returns three lists: `common`, `fund1_exclusive`, `fund2_exclusive`
+
+**Overlap Score — Minimum Weight Method:**
+For each stock present in both funds, the overlap contribution = `min(weight_fund1, weight_fund2)`. Summing these gives the true duplicated exposure as a percentage of AUM. This is the industry-standard method and avoids double-counting.
+
+**Exclusive-circle weights (Venn Diagram):**
+Each circle's displayed percentage = `total_fund_weight − overlap_score`. This correctly represents the non-redundant portion of each fund (exclusive stocks + excess weight of common stocks above the overlap minimum).
+
+**Frontend (`templates/calculators/overlap.html`):**
+- Venn Diagram: CSS-positioned overlapping circles (blue left, orange right). Values-only in each region; hover tooltip shows holding count + fund name
+- Three tabs with short fund names: *Common*, *Only in [Fund A]*, *Only in [Fund B]*
+- Weight bars: scaled horizontal bars (blue=Fund1, orange=Fund2) next to each holding's percentage
+- Methodology info box: explains both overlap and non-overlap calculations inline, with a worked TCS example
+
+---
 
 ```
 /                           ← Home (live market strip, fund search)
@@ -174,6 +194,7 @@ The Learn section is intentionally lightweight and file-backed so educational ma
 /calculators/rolling/       ← Multi-fund Rolling Return Calculator (compare up to 5 funds, custom benchmark override, color-coded chart with deduped benchmarks, volatility stats + distribution table)
 /calculators/net-worth/     ← Comprehensive Net Worth Calculator (assets/liabilities breakdown, plotly donut chart, solvency ratio with color bar)
 /calculators/stp/           ← STP Calculator (Generic and Historical NAV modes with source/target XIRR computations)
+/calculators/overlap/       ← Fund Overlap Checker (Venn diagram, tabbed holdings, weight bars; Minimum Weight Method)
 (etc.)
 
 /recommendations/           ← Risk profiling questionnaire
