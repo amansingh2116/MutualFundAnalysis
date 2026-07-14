@@ -48,7 +48,10 @@ def goal_view(request):
 
 
 def tax_view(request):
-    return render(request, 'calculators/tax.html')
+    return render(request, 'calculators/tax.html', {
+        'fy': '2025-26',
+        'ay': '2026-27',
+    })
 
 
 def overlap_view(request):
