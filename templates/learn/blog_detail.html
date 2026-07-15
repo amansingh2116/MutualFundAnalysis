@@ -79,14 +79,26 @@
 .article-tags { display:flex;flex-wrap:wrap;gap:5px;margin-top:10px; }
 .article-tag { display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid rgba(129,140,248,.28);color:var(--indigo-400);background:rgba(99,102,241,.08);font-size:11px;font-weight:650; }
 
+/* ── Cover image hero ── */
+.article-cover-hero {
+  width:100%;max-height:400px;overflow:hidden;border-radius:8px 8px 0 0;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+  margin-bottom:0;
+}
+.article-cover-hero img {
+  display:block;width:100%;height:auto;max-height:400px;object-fit:cover;
+}
+
 @media (max-width:960px) {
   .article-layout { grid-template-columns:1fr; }
-  .toc-sidebar { position:static;max-height:320px; }
+  .toc-sidebar { display:none; }
 }
 @media (max-width:640px) {
   .article-title { font-size:23px; }
   .article-body { padding:16px; }
   .article-body h2 { font-size:18px; }
+  .article-shell { padding:0 4px; }
 }
 </style>
 {% endblock %}
@@ -111,36 +123,272 @@
   </header>
 
   <div class="article-layout">
-    <!-- Sticky ToC (auto-built by JS from article headings) -->
+    <!-- Sticky ToC sidebar — desktop only, hidden via CSS on mobile -->
     <aside class="toc-sidebar" id="toc-sidebar" aria-label="Table of contents">
       <div class="toc-title">Contents</div>
       <ul class="toc-list" id="toc-list"></ul>
     </aside>
 
     <article class="article-body" id="article-body">
+      {% if blog.thumbnail_url %}
+      <div class="article-cover-hero">
+        <img src="{{ blog.thumbnail_url }}" alt="{{ blog.title }} cover">
+      </div>
+      {% endif %}
       {{ blog.html }}
     </article>
+  </div>
+</div>
+
+<!-- ── Mobile / tablet floating ToC drawer (hidden on desktop via CSS) ── -->
+<div class="toc-drawer" id="toc-drawer" aria-label="Table of contents">
+  <button class="toc-drawer-tab" id="toc-drawer-tab" aria-expanded="false" aria-controls="toc-drawer-panel">
+    <span class="toc-drawer-tab-text">Contents</span>
+  </button>
+  <div class="toc-drawer-panel" id="toc-drawer-panel" role="dialog" aria-modal="true" aria-label="Table of contents">
+    <div class="toc-drawer-header">
+      <span class="toc-drawer-title">Contents</span>
+      <button class="toc-drawer-close" id="toc-drawer-close" aria-label="Close table of contents">&#x2715;</button>
+    </div>
+    <ul class="toc-list toc-drawer-list" id="toc-drawer-list"></ul>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<style>
+/* ════════════════════════════════════════
+   Mobile / tablet floating ToC drawer
+   Completely hidden on desktop (> 960px)
+   ════════════════════════════════════════ */
+.toc-drawer { display:none; }
+
+@media (max-width:960px) {
+  /* Wrapper — just a logical grouping, no layout role */
+  .toc-drawer { display:block; }
+
+  /* ── Pull-tab: fixed, vertically centred on the right edge ── */
+  .toc-drawer-tab {
+    position:fixed;
+    top:50%;
+    right:0;
+    /* normal state: centred, fully visible */
+    transform:translateY(-50%) translateX(0);
+    opacity:1;
+    pointer-events:auto;
+    z-index:902;
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+    background:var(--bg-card, #1a1f35);
+    border:1px solid rgba(99,102,241,.40);
+    border-right:none;
+    border-radius:10px 0 0 10px;
+    padding:16px 8px;
+    cursor:pointer;
+    color:var(--indigo-400, #818cf8);
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    box-shadow:-4px 0 18px rgba(0,0,0,.45);
+    /* animate tab in/out AND colour changes */
+    transition:transform .28s cubic-bezier(.4,0,.2,1),
+               opacity    .22s ease,
+               background .2s,
+               color      .2s,
+               box-shadow .2s,
+               border-color .2s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  /* hamburger icon above the "Contents" label */
+  .toc-drawer-tab::before {
+    content:'☰';
+    writing-mode:horizontal-tb;
+    font-size:14px;
+    display:block;
+  }
+  /* Hover style (only when tab is visible) */
+  .toc-drawer-tab:hover {
+    background:rgba(99,102,241,.22);
+    color:#a5b4fc;
+    border-color:rgba(99,102,241,.6);
+    box-shadow:-4px 0 22px rgba(99,102,241,.32);
+  }
+  /* When panel is open: slide tab fully off the right edge */
+  .toc-drawer[data-open] .toc-drawer-tab {
+    transform:translateY(-50%) translateX(110%);
+    opacity:0;
+    pointer-events:none;
+  }
+
+  /* pulse hint on first load */
+  @keyframes toc-pulse {
+    0%  { box-shadow:-4px 0 18px rgba(0,0,0,.45); }
+    50% { box-shadow:-4px 0 28px rgba(99,102,241,.6); }
+    100%{ box-shadow:-4px 0 18px rgba(0,0,0,.45); }
+  }
+  .toc-drawer-tab { animation:toc-pulse 2.4s ease-in-out 1.2s 2; }
+
+  /* ── Slide-out panel ── */
+  .toc-drawer-panel {
+    position:fixed;
+    top:0;
+    right:-320px;       /* hidden off-screen */
+    width:280px;
+    max-width:84vw;
+    height:100dvh;
+    background:var(--bg-card, #1a1f35);
+    border-left:1px solid var(--border, rgba(255,255,255,.1));
+    box-shadow:-8px 0 40px rgba(0,0,0,.6);
+    display:flex;
+    flex-direction:column;
+    transition:right .28s cubic-bezier(.4,0,.2,1);
+    z-index:901;
+    overflow:hidden;
+  }
+  .toc-drawer[data-open] .toc-drawer-panel { right:0; }
+
+  /* ── Panel header ── */
+  .toc-drawer-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 16px 12px;
+    border-bottom:1px solid var(--border, rgba(255,255,255,.1));
+    flex-shrink:0;
+    background:rgba(99,102,241,.07);
+  }
+  .toc-drawer-title {
+    font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--indigo-400, #818cf8);
+  }
+  .toc-drawer-close {
+    background:none;border:1px solid var(--border,rgba(255,255,255,.1));
+    cursor:pointer;color:var(--text-muted,#64748b);
+    font-size:13px;padding:5px 9px;border-radius:6px;
+    transition:background .15s,color .15s,border-color .15s;line-height:1;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .toc-drawer-close:hover {
+    background:rgba(255,255,255,.08);color:var(--text-primary,#f1f5f9);
+    border-color:var(--border-accent,rgba(255,255,255,.2));
+  }
+
+  /* ── Scrollable list — contained so wheel/touch never escapes to page ── */
+  .toc-drawer-list {
+    flex:1;
+    overflow-y:auto;
+    overscroll-behavior:contain;   /* ← key: keeps scroll inside the panel */
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    padding:10px 10px 24px;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(99,102,241,.4) transparent;
+  }
+  .toc-drawer-list::-webkit-scrollbar { width:4px; }
+  .toc-drawer-list::-webkit-scrollbar-thumb {
+    background:rgba(99,102,241,.4);border-radius:2px;
+  }
+
+  /* ── Dimmed backdrop ── */
+  .toc-backdrop {
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.48);
+    z-index:899;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+    /* backdrop is NOT scrollable */
+    touch-action:none;
+  }
+  .toc-backdrop.visible { display:block; }
+}
+
+@media (max-width:480px) {
+  .toc-drawer-tab { padding:14px 7px; font-size:9px; }
+  .toc-drawer-panel { width:264px; }
+}
+
+</style>
+
 <script>
 (function () {
-  var body    = document.getElementById('article-body');
-  var tocList = document.getElementById('toc-list');
-  var sidebar = document.getElementById('toc-sidebar');
-  if (!body || !tocList) return;
+  var body       = document.getElementById('article-body');
+  var tocList    = document.getElementById('toc-list');         // desktop sidebar list
+  var drawerList = document.getElementById('toc-drawer-list'); // mobile drawer list
+  var sidebar    = document.getElementById('toc-sidebar');
+  var drawer     = document.getElementById('toc-drawer');
+  var drawerTab  = document.getElementById('toc-drawer-tab');
+  var drawerClose= document.getElementById('toc-drawer-close');
+  if (!body) return;
 
-  // 1. Collect headings (h2, h3, h4) from the article body only
+  /* ── Backdrop ── */
+  var backdrop = document.createElement('div');
+  backdrop.className = 'toc-backdrop';
+  document.body.appendChild(backdrop);
+
+  /* ── Drawer open / close ── */
+  function openDrawer() {
+    drawer.dataset.open = '';
+    drawerTab.setAttribute('aria-expanded', 'true');
+    backdrop.classList.add('visible');
+    /* Do NOT set body overflow:hidden — the backdrop's touch-action:none
+       and the list's overscroll-behavior:contain handle scroll isolation */
+  }
+  function closeDrawer() {
+    delete drawer.dataset.open;
+    drawerTab.setAttribute('aria-expanded', 'false');
+    backdrop.classList.remove('visible');
+  }
+  function toggleDrawer() {
+    if ('open' in drawer.dataset) { closeDrawer(); } else { openDrawer(); }
+  }
+
+  if (drawerTab)   drawerTab.addEventListener('click', toggleDrawer);
+  if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+
+  /* Close on Escape key */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && 'open' in drawer.dataset) closeDrawer();
+  });
+
+  /* ── Wheel-scroll containment for desktop/trackpad ──
+     When the mouse is over the drawer panel, wheel events should scroll
+     only the ToC list — never the page behind it. */
+  var drawerPanel = document.getElementById('toc-drawer-panel');
+  if (drawerPanel) {
+    drawerPanel.addEventListener('wheel', function (e) {
+      /* Only intercept if the drawer is actually open */
+      if (!('open' in drawer.dataset)) return;
+      var list = document.getElementById('toc-drawer-list');
+      if (!list) return;
+      var delta = e.deltaY;
+      var atTop    = list.scrollTop === 0;
+      var atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
+      /* If scrolling up at top or down at bottom, the list can't scroll further —
+         prevent the event from reaching the page */
+      if ((delta < 0 && atTop) || (delta > 0 && atBottom)) {
+        e.preventDefault();
+      }
+      /* In all other cases stopPropagation keeps the scroll inside the panel */
+      e.stopPropagation();
+    }, { passive: false });
+  }
+
+  /* ── 1. Collect headings ── */
   var headings = Array.from(body.querySelectorAll('h2, h3, h4'));
-
   if (headings.length === 0) {
-    sidebar.style.display = 'none';
+    if (sidebar) sidebar.style.display = 'none';
+    if (drawer)  drawer.style.display  = 'none';
     return;
   }
 
-  // 2. Give every heading a stable slug ID if it doesn't already have one
+  /* ── 2. Assign stable slug IDs ── */
   var slugCount = {};
   headings.forEach(function (h) {
     if (!h.id) {
@@ -155,13 +403,12 @@
     }
   });
 
-  // 3. Build the ToC list
-  headings.forEach(function (h) {
+  /* ── 3. Build ToC <li> items ── */
+  function makeTocItem(h, isMobile) {
     var li = document.createElement('li');
     li.className = 'toc-item toc-' + h.tagName.toLowerCase();
     var a = document.createElement('a');
     a.href = '#' + h.id;
-    // Strip leading numbering like "1. " from the display text
     a.textContent = h.textContent.trim().replace(/^\d+\.\s*/, '');
     a.addEventListener('click', function (e) {
       e.preventDefault();
@@ -171,31 +418,104 @@
         window.scrollTo({ top: offset, behavior: 'smooth' });
       }
       history.replaceState(null, '', '#' + h.id);
+      if (isMobile) closeDrawer();   // auto-close drawer after navigation on mobile
     });
     li.appendChild(a);
-    tocList.appendChild(li);
+    return li;
+  }
+
+  headings.forEach(function (h) {
+    if (tocList)    tocList.appendChild(makeTocItem(h, false));
+    if (drawerList) drawerList.appendChild(makeTocItem(h, true));
   });
 
-  // 4. Highlight active section with IntersectionObserver
-  var activeItem = null;
-  var io = new IntersectionObserver(function (entries) {
-    // Find the entry that just crossed the top
-    var visible = entries.filter(function (e) { return e.isIntersecting; });
-    if (visible.length === 0) return;
-    // Pick the topmost visible heading
-    visible.sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
-    var id = visible[0].target.id;
-    var link = tocList.querySelector('a[href="#' + id + '"]');
-    if (!link) return;
-    var item = link.parentElement;
-    if (activeItem) activeItem.classList.remove('active');
-    item.classList.add('active');
-    activeItem = item;
-    // Scroll ToC item into the sidebar viewport smoothly
-    link.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, { rootMargin: '-64px 0px -50% 0px', threshold: 0 });
+  /* ── 4. Active-section tracking — scroll-based (rAF-throttled) ──
+     Finds the last heading whose top has scrolled past the OFFSET line
+     (110 px from the viewport top). That heading's section is what the
+     reader is currently in. Fires on every scroll frame and on initial load. */
 
-  headings.forEach(function (h) { io.observe(h); });
+  var activeDesktopItem = null;
+  var activeMobileItem  = null;
+  var rafPending        = false;
+  var OFFSET            = 110; /* px from top of viewport */
+
+  function isSidebarScrollable() {
+    if (!sidebar) return false;
+    var s = window.getComputedStyle(sidebar);
+    return (s.overflowY === 'auto' || s.overflowY === 'scroll') &&
+           sidebar.scrollHeight > sidebar.clientHeight;
+  }
+
+  /* Apply active class to both lists for the given heading id */
+  function setActive(id) {
+    /* ── Desktop sidebar ── */
+    if (tocList) {
+      if (activeDesktopItem) activeDesktopItem.classList.remove('active');
+      activeDesktopItem = null;
+      if (id) {
+        var dLink = tocList.querySelector('a[href="#' + id + '"]');
+        if (dLink) {
+          activeDesktopItem = dLink.parentElement;
+          activeDesktopItem.classList.add('active');
+          /* Scroll within the sidebar to keep the active item visible —
+             never touches window.scrollY */
+          if (isSidebarScrollable()) {
+            dLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        }
+      }
+    }
+
+    /* ── Mobile drawer ── */
+    if (drawerList) {
+      if (activeMobileItem) activeMobileItem.classList.remove('active');
+      activeMobileItem = null;
+      if (id) {
+        var mLink = drawerList.querySelector('a[href="#' + id + '"]');
+        if (mLink) {
+          activeMobileItem = mLink.parentElement;
+          activeMobileItem.classList.add('active');
+          /* Auto-scroll the drawer list ONLY if the drawer is open,
+             and only to keep the active item in view */
+          if ('open' in drawer.dataset) {
+            mLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        }
+      }
+    }
+  }
+
+  /* Walk headings in reverse — the last one whose top <= OFFSET
+     is the section currently being read */
+  function getActiveId() {
+    var active = null;
+    for (var i = 0; i < headings.length; i++) {
+      if (headings[i].getBoundingClientRect().top <= OFFSET) {
+        active = headings[i].id;
+      } else {
+        break;  /* headings are in DOM order; once we pass OFFSET we're done */
+      }
+    }
+    return active;
+  }
+
+  function updateActive() {
+    setActive(getActiveId());
+    rafPending = false;
+  }
+
+  /* Throttle to one update per animation frame */
+  window.addEventListener('scroll', function () {
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(updateActive);
+    }
+  }, { passive: true });
+
+  /* Run once immediately so the correct section is highlighted on page load
+     (e.g. when the user lands on a #hash URL) */
+  updateActive();
 })();
+
 </script>
 {% endblock %}

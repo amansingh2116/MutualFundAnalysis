@@ -110,13 +110,19 @@
   - Raw serve endpoint (`/learn/resources/guides/serve/<slug>/`) responds with `no-store` cache headers and `X-Robots-Tag: noindex`
 - **Tag filter bar** sits between the Handbook and the filterable sections; allowed tags: `investing`, `fundamentals`, `technicals`, `research`, `analysis`, `mutual funds`, `ipo`
 - **Blogs page** (`/learn/resources/blogs/`) — all articles displayed as sorted horizontal cards, filterable by tag
-  - Cards marked `featured: yes` in frontmatter display a ⭐ **Featured** gold badge and highlighted border — independent of sort order
-  - Any number of blogs can be featured simultaneously
-- **Blog article reader** — two-column layout with a **sticky auto-generated Table of Contents** sidebar on the left
+  - Cards marked `featured: true` in frontmatter display a ⭐ **Featured** gold badge and highlighted border
+  - `featured: false` (or omitting the field) shows a normal card — any number of blogs can be featured simultaneously
+- **Blog article reader** — rich reading experience with automatic Table of Contents:
+  - **Cover image hero** — `thumbnail` from front matter is shown as a full-width banner at the top of the article body
+  - **Desktop (> 960 px)**: sticky auto-generated ToC sidebar in a two-column grid layout
+  - **Mobile / tablet (≤ 960 px)**: floating ☰ **Contents** pull-tab fixed to the vertical centre of the right edge; tapping slides a full-height drawer panel in from the right
+    - Tapping the tab hides it and opens the panel; closing the panel (✕ button, backdrop tap, or Escape) slides it back and reveals the tab again
+    - Scroll within the drawer is isolated — page content does not scroll while the drawer is open
   - ToC is built at runtime from the article's `h2`, `h3`, `h4` headings — no manual ToC needed in the markdown
-  - Clicking any ToC item smooth-scrolls to the heading; active section highlights automatically as you scroll
+  - **Dynamic active-heading highlight**: as you scroll the article the current section is highlighted in the ToC in real time (scroll-based, rAF-throttled — reliable in all directions)
+  - Clicking / tapping any ToC item smooth-scrolls to that heading and highlights it immediately
 - File-backed content workflow: PDF metadata via `Resources/PDF Guides/guides.json`; blog front matter in `Resources/Blogs/*.md`
-- `sync_content` management command upserts `LearnPDFGuide` and `LearnBlogPost` DB records; syncs all fields
+- `sync_content` management command upserts `LearnPDFGuide` and `LearnBlogPost` DB records; syncs all fields including `featured` and `tags`
 - **`downloadable` live override**: editing `guides.json` takes effect immediately in the viewer without re-running sync (manifest is always preferred over DB for this field)
 - **Community page** (`/learn/community/`) — realistic static mockup. **Login required** — unauthenticated users are redirected to the login page with `?next=` redirect
 
@@ -180,8 +186,8 @@ MutualFundAnalysis/
 │   ├── learn/
 │   │   ├── pdf_guides.html      ← PDF Guides listing page (3 sections + tag filter)
 │   │   ├── pdf_viewer.html      ← In-app PDF viewer (PDF.js, zoom toolbar, download button)
-│   │   ├── blogs.html           ← Blog listing page
-│   │   └── blog_detail.html     ← Blog article reader (sticky ToC, tag filter)
+│   │   ├── blogs.html           ← Blog listing page (horizontal cards, featured badge, tag filter)
+│   │   └── blog_detail.html     ← Blog article reader (cover hero, sticky ToC desktop, floating ToC drawer mobile, dynamic scroll highlight)
 │   ├── calculators/
 │   │   ├── hub.html             ← Calculator hub / landing page
 │   │   ├── sip.html             ← SIP Calculator (generic + historical NAV)

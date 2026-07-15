@@ -81,6 +81,15 @@ def _parse_metadata_value(value):
         return False
     if lower in {'null', 'none'}:
         return ''
+    # Handle JSON arrays e.g. ["tag1", "tag2"]
+    if value.startswith('[') and value.endswith(']'):
+        try:
+            import json as _json
+            parsed = _json.loads(value)
+            if isinstance(parsed, list):
+                return parsed
+        except (ValueError, TypeError):
+            pass
     try:
         return int(value)
     except ValueError:

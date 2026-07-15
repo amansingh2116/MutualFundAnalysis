@@ -186,7 +186,7 @@ thumbnail: "images/my_blog/cover.png"
 read_time: "6 min read"
 order: 20
 published: true
-featured: yes
+featured: false
 tags: ["ipo", "research", "analysis"]
 ---
 ```
@@ -197,26 +197,28 @@ tags: ["ipo", "research", "analysis"]
 |---|---|---|
 | `title` | string | Display title shown on listing cards and in the article header |
 | `description` | string | Short summary shown on the Blogs listing card |
-| `slug` | string | URL slug (`/learn/resources/blogs/<slug>/`) — must be unique |
-| `thumbnail` | string | Path to cover image, **relative to the markdown file's own directory** (e.g. `images/my_blog/cover.jpg`) |
+| `slug` | string | URL slug (`/learn/resources/blogs/<slug>/`) — must be unique. **Changing the slug creates a new DB record**; run `sync_content` to remove the old orphan. |
+| `thumbnail` | string | Path to cover image, **relative to the markdown file’s own directory** (e.g. `images/my_blog/cover.jpg`). Displayed as a full-width hero banner at the top of the article. |
 | `read_time` | string | Displayed on card and article header (e.g. `"8 min read"`) |
 | `order` | integer | Sort position in the blog list — lower number appears first. Has **no effect** on featured status |
 | `published` | boolean | `true` to show, `false` to hide. Synced to `is_published` in DB |
-| `featured` | boolean | `yes`/`true` to show a ⭐ Featured gold badge on the card. `no`/`false` (default) for normal display. Any number of blogs can be featured at once |
-| `tags` | array | JSON array. Approved tags: `ipo`, `research`, `analysis`, `investing`, `taxation`, `mutual funds` (more can be added as needed) |
+| `featured` | boolean | `true` / `false` (default). `true` shows a ⭐ Featured gold badge and highlighted card border. `yes` / `no` are also accepted. Any number of blogs can be featured at once. |
+| `tags` | array | JSON array, e.g. `["investing", "taxation"]`. Approved tags: `ipo`, `research`, `analysis`, `investing`, `taxation`, `mutual funds` (more can be added as needed) |
 
 **Notes:**
 - Blog images in the article body use standard markdown syntax: `![Alt text](images/my_blog/chart.png)`.
 - Supported local image types: PNG, JPG, JPEG, WEBP, GIF.
 - `published: false` hides the blog when synced.
-- You do **not** need to add a Table of Contents section — the article reader builds it automatically from `h2`, `h3`, and `h4` headings and displays it as a sticky sidebar.
-- Thumbnail images must be placed inside the `Resources/Blogs/images/` folder. The path in `thumbnail` is relative to the markdown file itself (e.g. if the .md is at `Resources/Blogs/my_blog.md`, the thumbnail `images/my_blog/cover.jpg` resolves to `Resources/Blogs/images/my_blog/cover.jpg`).
+- The `thumbnail` is also shown as the card cover image on the Blogs listing page.
+- You do **not** need to add a Table of Contents section — the article reader builds it automatically from `h2`, `h3`, and `h4` headings.
+- Thumbnail images must be placed inside the `Resources/Blogs/images/` folder. The path in `thumbnail` is relative to the markdown file itself (e.g. if the .md is at `Resources/Blogs/my_blog.md`, the thumbnail `images/my_blog/cover.jpg` resolves to `Resources/Blogs/images/my_blog/cover.jpg`).
+- Tags must be written as a JSON array: `["tag1", "tag2"]`. Comma-separated strings are also accepted but JSON arrays are preferred.
 
 ---
 
 ## Sync Command
 
-After adding or changing Learn content, run:
+After adding or changing Learn content, **always run**:
 
 ```bash
 python manage.py sync_content
@@ -234,12 +236,17 @@ The command syncs the following fields for blog posts:
 |---|---|
 | `title` | `title` |
 | `description` | `description` |
+| `slug` | `slug` |
 | `thumbnail_path` | `thumbnail` |
 | `read_time` | `read_time` |
 | `sort_order` | `order` |
 | `is_published` | `published` |
 | `is_featured` | `featured` |
 | `tags` | `tags` |
+
+> **Slug changes:** `update_or_create` uses the file path as its lookup key, so changing `slug` in front matter will create a **new** DB record with the new slug. The old record becomes an orphan and is set to `is_published=False` (hidden) on the next sync. This is the expected behaviour — no manual cleanup required.
+
+> **Stale DB:** The website reads from the DB first. If you edit front matter (e.g. `featured`, `tags`) but do not run `sync_content`, the old DB values remain visible on the site. Always sync after changing front matter.
 
 > **`downloadable` without sync:** Because `guides.json` is always consulted at request time for this field, you do **not** need to run `sync_content` after changing `downloadable`. The change is live immediately.
 
@@ -256,6 +263,33 @@ The Community page (`/learn/community/`) is a **login-required** realistic stati
 - Community stats and moderation notices
 
 Unauthenticated users are redirected to `/accounts/login/?next=/learn/community/` and returned after login.
+
+---
+
+## Blog Article Reader
+
+The blog reader (`templates/learn/blog_detail.html`) provides a rich, fully responsive reading experience:
+
+### Cover Image
+If a `thumbnail` is specified in front matter, it is displayed as a **full-width hero banner** at the top of the article body — before the first paragraph.
+
+### Table of Contents — Desktop (> 960 px)
+- Sticky two-column layout: ToC in the left column (220 px), article in the right column.
+- ToC is built automatically at runtime from `h2`, `h3`, `h4` headings in the article.
+- Scrolls within its own column when the list is taller than the viewport — never hijacks the page scroll.
+
+### Table of Contents — Mobile / Tablet (≤ 960 px)
+- A **floating pull-tab** ({☰ Contents}) is fixed to the vertical centre of the right edge of the screen.
+- Tapping the tab slides a **full-height drawer panel** in from the right and hides the tab.
+- Closing the panel (✕, backdrop tap, or Escape key) slides it back and reveals the tab again.
+- The drawer list scrolls independently — `overscroll-behavior: contain` and a wheel-event guard prevent the page from scrolling while the cursor/touch is inside the panel.
+- Tapping a heading in the drawer scrolls the article to that section and auto-closes the drawer.
+
+### Dynamic Active-Heading Highlight
+- The ToC item for the section currently being read is highlighted in both the desktop sidebar and the mobile drawer.
+- Tracking is scroll-based and `requestAnimationFrame`-throttled — it finds the last heading whose top edge has passed 110 px from the viewport top. This is reliable in both scroll directions and when jumping via ToC links.
+- On desktop, the sidebar auto-scrolls to keep the active ToC item visible.
+- On mobile, the drawer list item is highlighted and auto-scrolled (only when the drawer is open).
 
 ---
 
