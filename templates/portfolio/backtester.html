@@ -3426,7 +3426,7 @@ function renderConditionParams(c, i) {
         </div>
         ${p.reference_id ? `<div style="font-size:10px;color:var(--emerald-400);margin-top:2px">✓ ${p.reference_label||p.reference_id}</div>` : ''}
         ${assets.length ? `<div style="margin-top:6px;font-size:10px;color:var(--text-muted)">Quick pick from your assets:
-          ${assets.map(a=>`<button onclick="updateCondParamNested(${i},'params','reference_id','${a.source_id}');updateCondParamNested(${i},'params','reference_label',${JSON.stringify(a.label)});renderConditions()" style="margin:2px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-elevated);color:var(--text-secondary);font-size:10px;cursor:pointer">${a.label}</button>`).join('')}
+          ${assets.map(a=>`<button onclick="updateCondParamNested(${i},'params','reference_id','${a.source_id}');updateCondParamNested(${i},'params','reference_label',${JSON.stringify(a.label)});renderConditions()" style="margin:2px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-elevated);color:var(--text-secondary);font-size:10px;cursor:pointer">${a.label}`).join('')}
         </div>` : ''}
       </div>` : ''}
       <div class="field-group"><label>Condition</label>${opSelect}</div>

@@ -15,7 +15,12 @@
 - **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Quarterly Performance Analysis
 - **Rolling return distributions** with win rates, medians, and min/max ranges
 - **Composition**: Holdings, sector allocation, and asset allocation from Morningstar
-- **Advanced Fund Screener**: Filter, sort, and export by AUM, Expense Ratio, 1/3/5-year performance, Rolling Returns, Sharpe/Sortino, and Max Drawdown
+- **Advanced Fund Screener** *(login required)*: Filter, sort, and export 2,500+ direct-growth funds across 30+ metrics — see [SCREENER.md](documentation/SCREENER.md) for a full feature guide
+  - **30+ filterable metrics** across Returns, Risk, and Relative Stats (Sharpe, Sortino, Alpha, Beta, Tracking Error, Capture Ratios, ROMAD, and more)
+  - **Add Filters panel**: optional metrics (Fund House, Benchmark, CRISIL Rating, etc.) added as interactive sidebar sections
+  - **Active Filters popover**: click the filter badge to see, edit, or remove any active filter in-place — range metrics show editable inputs; categorical metrics show interactive multi-select dropdowns
+  - **Saved Screens**: save any filter+view configuration by name; load, overwrite, or manage saved screens from the toolbar
+  - **ⓘ Info tooltips** on every filter, every column header, and every metric in the Add Filters panel
 - **Home Page Dashboard**: Benchmark Monitor, Category Return Meter, Top Performing Funds, Category Analysis, Browse by Category, Quartile Rankings
 - **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
 - **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
@@ -93,7 +98,7 @@
   - **SIP FIFO Tax Calculator**: installment-by-installment FIFO breakdown for SIP redemptions
   - **Compare & Plan**: Growth vs IDCW, Fund Switch Tax (dates + fund type), Arbitrage vs Liquid
   - **ITR & Filing Guide**: ITR form selector, FY 2025-26 deadlines, Schedule CG walkthrough
-- **ⓘ Info Button System** across all calculators: Every key metric and input has a contextual tooltip powered by the shared `initInfoTooltips()` engine. Each tab also includes a **Guide section** at the bottom explaining how the calculator works, when to use it, and how to interpret results.
+- **ⓘ Info Button System** across calculators and the screener: Every key metric and input has a contextual tooltip powered by the shared `initInfoTooltips()` engine. Each calculator tab also includes a **Guide section** at the bottom explaining how the calculator works, when to use it, and how to interpret results. The screener extends this system to cover filter labels, Add Filters panel items, column headers, and dynamically-built sidebar widgets — see [UI_TOOLTIPS.md](documentation/UI_TOOLTIPS.md).
 
 ### Learn & Community
 - **PDF Guides page** (`/learn/resources/guides/`) — three sections:
@@ -208,10 +213,16 @@ MutualFundAnalysis/
 │       ├── strategies.html      ← Saved strategies list with search & multi-select compare
 │       └── strategy_compare.html← Side-by-side strategy comparison page
 ├── static/                      ← CSS, JS, and icon static files
+│   ├── css/
+│   │   ├── main.css             ← Global styles, tooltip system, shared component styles
+│   │   └── screener.css         ← Screener-specific styles (filter sidebar, popover, Add Filters panel)
+│   └── js/
+│       └── main.js              ← Global JS: initInfoTooltips(), shared utilities
 ├── scripts/                     ← Utility and development scripts
 ├── Resources/                   ← Learn content source files (PDF guides, markdown blogs, images)
 │
 └── documentation/               ← Technical documentation
+    ├── SCREENER.md                  ← ⭐ Fund Screener feature guide & developer reference
     ├── CALCULATORS.md               ← ⭐ All 12 calculators — inputs, logic, output, audit notes
     ├── backtester_analysis.md       ← ⭐ Full backtester user & developer guide
     ├── backtester_spec_v2.md        ← Backtester V2 design specification
@@ -367,6 +378,7 @@ See `documentation/DEPLOYMENT.md` for detailed deployment instructions.
 
 | Document | Description |
 |----------|-------------|
+| [SCREENER.md](documentation/SCREENER.md) | ⭐ Fund Screener — all features, JS architecture, saved screens, Active Filters popover |
 | [CALCULATORS.md](documentation/CALCULATORS.md) | ⭐ All 12 calculators — inputs, calculation logic, outputs, audit notes |
 | [backtester_analysis.md](documentation/backtester_analysis.md) | ⭐ Complete backtester user guide, math reference, API docs |
 | [BACKTESTER_CHANGELOG.md](documentation/BACKTESTER_CHANGELOG.md) | v2.1 changes, removed features, and pending work |

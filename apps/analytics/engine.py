@@ -38,6 +38,7 @@ ROLLING_WINDOWS = {
     '1Y': 252,
     '3Y': 756,
     '5Y': 1260,
+    '7Y': 1764,
 }
 
 # Trailing period definitions (label → calendar days)

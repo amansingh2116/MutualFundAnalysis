@@ -564,7 +564,7 @@ function renderHistorical(results, amount) {
     const tabBtns = valid.map((d,i) => {
       const raw = d.scheme_name || d._name || 'Fund '+(i+1);
       const short = raw.replace(/Direct|Growth|Option|Plan/gi,'').trim().split(/\s+/).slice(0,3).join(' ');
-      return `<button type="button" class="cf-tab${i===0?' active':''}" id="cftab-${i}" onclick="switchCfTab(${i})"><span style="${FUND_DOT_CSS[i]}">●</span> ${short}</button>`;
+      return `<button type="button" class="cf-tab${i===0?' active':''}" id="cftab-${i}" onclick="switchCfTab(${i})"><span style="${FUND_DOT_CSS[i]}">●</span> ${short}`;
     }).join('');
     const panels = valid.map((d,i)=>`<div id="cfpanel-${i}" style="display:${i===0?'block':'none'}"><div class="res-table-scroll"><table class="data-table" style="width:100%;font-size:11px;white-space:nowrap">${cfHead}<tbody>${cfRows(d)}</tbody></table></div></div>`).join('');
     cfHtml = `<div class="res-table-wrap">

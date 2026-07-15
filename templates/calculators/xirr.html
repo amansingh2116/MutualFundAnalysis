@@ -42,7 +42,7 @@ function addRow() {
   const row = document.createElement('div');
   row.className='cashflow-row';
   row.style.cssText='display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;margin-bottom:8px';
-  row.innerHTML=`<input class="form-control cf-date" type="date" value="${today}"><input class="form-control cf-amount" type="number" placeholder="Amount"><button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0;width:32px;height:36px">✕</button>`;
+  row.innerHTML=`<input class="form-control cf-date" type="date" value="${today}"><input class="form-control cf-amount" type="number" placeholder="Amount"><button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0;width:32px;height:36px">✕`;
   document.getElementById('cashflow-rows').appendChild(row);
 }
 

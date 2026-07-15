@@ -291,53 +291,118 @@ class CategoryListView(TemplateView):
         return ctx
 
 
-class FundScreenerView(TemplateView):
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+class FundScreenerView(LoginRequiredMixin, TemplateView):
     template_name = 'funds/screener.html'
     paginate_by = 50
 
     sort_options = {
-        'name': 'fund_name',
-        'aum': 'aum_cr',
-        'expense': 'expense_ratio',
-        'age': 'fund_age_years',
-        'return_1y': 'returns_1y_pct',
-        'cagr_3y': 'cagr_3y_pct',
-        'return_5y': 'returns_5y_pct',
-        'rolling_3y': 'rolling_return_3y_pct',
-        'rolling_5y': 'rolling_return_5y_pct',
-        'volatility_3y': 'volatility_3y_pct',
-        'sharpe': 'sharpe_ratio',
-        'sortino': 'sortino_ratio',
-        'drawdown': 'max_drawdown',
-        'excess_1y': 'excess_return_1y',
-        'excess_3y': 'excess_return_3y',
-        'updated': 'updated_at',
+        # Scheme info
+        'name':           'fund_name',
+        'aum':            'aum_cr',
+        'expense':        'expense_ratio',
+        'age':            'fund_age_years',
+        'nav':            'nav_latest',
+        'model_score':    'model_score',
+        # Returns
+        'return_1m':      'returns_1m_pct',
+        'return_3m':      'returns_3m_pct',
+        'return_6m':      'returns_6m_pct',
+        'return_1y':      'returns_1y_pct',
+        'cagr_3y':        'cagr_3y_pct',
+        'return_5y':      'returns_5y_pct',
+        'cagr_7y':        'cagr_7y_pct',
+        'cagr_10y':       'cagr_10y_pct',
+        'cagr_si':        'cagr_si_pct',
+        # Rolling returns
+        'rolling_3y':     'rolling_return_3y_pct',
+        'rolling_5y':     'rolling_return_5y_pct',
+        # Risk
+        'volatility_3y':  'volatility_3y_pct',
+        'volatility_5y':  'volatility_5y_pct',
+        'sharpe':         'sharpe_ratio',
+        'sharpe_5y':      'sharpe_ratio_5y',
+        'sortino':        'sortino_ratio',
+        'sortino_5y':     'sortino_ratio_5y',
+        'drawdown':       'max_drawdown',
+        'drawdown_5y':    'max_drawdown_5y',
+        'cur_drawdown':   'current_drawdown',
+        'tracking_3y':    'tracking_error_3y',
+        # Ratios
+        'excess_1y':      'excess_return_1y',
+        'excess_3y':      'excess_return_3y',
+        'alpha_3y':       'alpha_3y',
+        'alpha_5y':       'alpha_5y',
+        'beta_3y':        'beta_3y',
+        'info_ratio_3y':  'info_ratio_3y',
+        'romad_3y':       'romad_3y',
+        'upside_3y':      'upside_capture_3y',
+        'downside_3y':    'downside_capture_3y',
+        'updated':        'updated_at',
     }
 
     export_columns = [
-        ('fund_name', 'Scheme Name'),
-        ('fund_house', 'Fund House'),
-        ('category_group', 'Scheme Category'),
-        ('scheme_sub_category', 'Scheme Sub-category'),
-        ('plan_type', 'Plan Type'),
-        ('benchmark_type', 'Benchmark Type'),
-        ('benchmark_name', 'Benchmark'),
-        ('aum_cr', 'AUM (Cr)'),
-        ('expense_ratio', 'Expense Ratio (%)'),
-        ('fund_age_years', 'Fund Age (Years)'),
-        ('returns_1y_pct', '1-Yr Return (%)'),
-        ('cagr_3y_pct', '3-Yr CAGR (%)'),
-        ('returns_5y_pct', '5-Yr Return (%)'),
-        ('rolling_return_3y_pct', '3-Yr Rolling Return (%)'),
-        ('rolling_return_5y_pct', '5-Yr Rolling Return (%)'),
-        ('volatility_3y_pct', '3-Yr Volatility (%)'),
-        ('sharpe_ratio', '3-Yr Sharpe'),
-        ('sortino_ratio', '3-Yr Sortino'),
-        ('max_drawdown', '3-Yr Max Drawdown (%)'),
-        ('excess_return_1y', '1-Yr Excess Return (%)'),
-        ('excess_return_3y', '3-Yr Excess Return (%)'),
-        ('risk_label', 'Risk'),
-        ('data_as_of', 'Data As Of'),
+        ('fund_name',            'Scheme Name'),
+        ('fund_house',           'Fund House'),
+        ('category_group',       'Scheme Category'),
+        ('scheme_sub_category',  'Sub-category'),
+        ('plan_type',            'Plan Type'),
+        ('fund_manager',         'Fund Manager'),
+        ('benchmark_name',       'Benchmark'),
+        ('nav_latest',           'NAV'),
+        ('aum_cr',               'AUM (Cr)'),
+        ('expense_ratio',        'Expense Ratio (%)'),
+        ('fund_age_years',       'Fund Age (Years)'),
+        ('lock_in_days',         'Lock-in (Days)'),
+        ('sip_min',              'Min SIP'),
+        ('lump_min',             'Min Lumpsum'),
+        ('sip_available',        'SIP Available'),
+        ('crisil_rating',        'CRISIL Rating'),
+        ('model_score',          'Model Score'),
+        ('model_score_badge',    'Score Badge'),
+        # Returns
+        ('returns_1m_pct',       '1M Return (%)'),
+        ('returns_3m_pct',       '3M Return (%)'),
+        ('returns_6m_pct',       '6M Return (%)'),
+        ('returns_1y_pct',       '1Y Return (%)'),
+        ('cagr_3y_pct',          '3Y CAGR (%)'),
+        ('returns_5y_pct',       '5Y Return (%)'),
+        ('cagr_7y_pct',          '7Y CAGR (%)'),
+        ('cagr_10y_pct',         '10Y CAGR (%)'),
+        ('cagr_si_pct',          'Since-Inception CAGR (%)'),
+        # Rolling
+        ('rolling_return_3y_pct','3Y Avg Rolling Return (%)'),
+        ('rolling_return_5y_pct','5Y Avg Rolling Return (%)'),
+        # Risk
+        ('volatility_3y_pct',    '3Y Volatility (%)'),
+        ('volatility_5y_pct',    '5Y Volatility (%)'),
+        ('sharpe_ratio',         '3Y Sharpe'),
+        ('sharpe_ratio_5y',      '5Y Sharpe'),
+        ('sortino_ratio',        '3Y Sortino'),
+        ('sortino_ratio_5y',     '5Y Sortino'),
+        ('max_drawdown',         '3Y Max Drawdown (%)'),
+        ('max_drawdown_5y',      '5Y Max Drawdown (%)'),
+        ('current_drawdown',     'Current Drawdown (%)'),
+        ('tracking_error_3y',    '3Y Tracking Error (%)'),
+        ('tracking_error_5y',    '5Y Tracking Error (%)'),
+        # Ratios
+        ('excess_return_1y',     '1Y Alpha vs Benchmark (%)'),
+        ('excess_return_3y',     '3Y Alpha vs Benchmark (%)'),
+        ('alpha_3y',             "3Y Jensen's Alpha (%)"),
+        ('alpha_5y',             "5Y Jensen's Alpha (%)"),
+        ('beta_3y',              '3Y Beta'),
+        ('beta_5y',              '5Y Beta'),
+        ('r_squared_3y',         '3Y R-squared (%)'),
+        ('r_squared_5y',         '5Y R-squared (%)'),
+        ('info_ratio_3y',        '3Y Information Ratio'),
+        ('info_ratio_5y',        '5Y Information Ratio'),
+        ('upside_capture_3y',    '3Y Upside Capture (%)'),
+        ('downside_capture_3y',  '3Y Downside Capture (%)'),
+        ('romad_3y',             '3Y ROMAD'),
+        ('portfolio_turnover',   'Portfolio Turnover'),
+        ('risk_label',           'Risk'),
+        ('data_as_of',           'Data As Of'),
     ]
 
     def get(self, request, *args, **kwargs):
@@ -352,13 +417,22 @@ class FundScreenerView(TemplateView):
         paginator = Paginator(qs, self.paginate_by)
         page_obj = paginator.get_page(self.request.GET.get('page'))
 
+        try:
+            from apps.core.content import Blog
+            blog_slug = 'growth-vs-idcw'
+            blog = Blog.objects.filter(slug=blog_slug, published=True).first()
+            blog_url = f"/learn/resources/blog/{blog_slug}/" if blog else "/learn/resources/blog/growth-vs-idcw/"
+        except Exception:
+            blog_url = "/learn/resources/blog/growth-vs-idcw/"
+
         ctx.update({
-            'page_obj': page_obj,
-            'snapshots': page_obj.object_list,
-            'total_count': paginator.count,
+            'page_obj':      page_obj,
+            'snapshots':     page_obj.object_list,
+            'total_count':   paginator.count,
             'filter_options': self.filter_options(),
-            'selected': self.selected_filters(),
-            'last_updated': (
+            'selected':      self.selected_filters(),
+            'blog_url':      blog_url,
+            'last_updated':  (
                 FundScreenerSnapshot.objects.order_by('-updated_at')
                 .values_list('updated_at', flat=True)
                 .first()
@@ -369,7 +443,8 @@ class FundScreenerView(TemplateView):
 
     def filtered_queryset(self):
         request = self.request
-        qs = FundScreenerSnapshot.objects.select_related('scheme').all()
+        # ── Base: Direct MFs and ETFs only ────────────────────────────────────
+        qs = FundScreenerSnapshot.objects.select_related('scheme').filter(is_direct=True)
 
         q = request.GET.get('q', '').strip()
         if q:
@@ -378,38 +453,79 @@ class FundScreenerView(TemplateView):
                 | Q(fund_house__icontains=q)
                 | Q(scheme__amfi_code__icontains=q)
                 | Q(benchmark_name__icontains=q)
+                | Q(fund_manager__icontains=q)
             )
 
         list_filters = {
-            'house': 'fund_house__in',
-            'category': 'category_group__in',
-            'sub_category': 'scheme_sub_category__in',
-            'plan_type': 'plan_type__in',
-            'income_type': 'income_type__in',
+            'house':          'fund_house__in',
+            'category':       'category_group__in',
+            'sub_category':   'scheme_sub_category__in',
+            'plan_type':      'plan_type__in',
             'benchmark_type': 'benchmark_type__in',
-            'benchmark': 'benchmark_name__in',
-            'risk': 'risk_label__in',
+            'benchmark':      'benchmark_name__in',
+            'risk':           'risk_label__in',
+            'score_badge':    'model_score_badge__in',
+            'crisil':         'crisil_rating__in',
+            'sip_available':  'sip_available',
         }
         for param, lookup in list_filters.items():
-            values = [v for v in request.GET.getlist(param) if v]
-            if values:
-                qs = qs.filter(**{lookup: values})
+            if param == 'sip_available':
+                val = request.GET.get(param)
+                if val in ('true', '1'):
+                    qs = qs.filter(sip_available=True)
+                elif val in ('false', '0'):
+                    qs = qs.filter(sip_available=False)
+            else:
+                values = [v for v in request.GET.getlist(param) if v]
+                if values:
+                    qs = qs.filter(**{lookup: values})
 
         range_filters = {
-            'aum': 'aum_cr',
-            'expense': 'expense_ratio',
-            'age': 'fund_age_years',
-            'return_1y': 'returns_1y_pct',
-            'cagr_3y': 'cagr_3y_pct',
-            'return_5y': 'returns_5y_pct',
-            'rolling_3y': 'rolling_return_3y_pct',
-            'rolling_5y': 'rolling_return_5y_pct',
+            # Scheme info
+            'aum':           'aum_cr',
+            'expense':       'expense_ratio',
+            'age':           'fund_age_years',
+            'nav':           'nav_latest',
+            'sip_min':       'sip_min',
+            'lump_min':      'lump_min',
+            'lock_in':       'lock_in_days',
+            'pturnover':     'portfolio_turnover',
+            'model_score':   'model_score',
+            # Returns
+            'return_1m':     'returns_1m_pct',
+            'return_3m':     'returns_3m_pct',
+            'return_6m':     'returns_6m_pct',
+            'return_1y':     'returns_1y_pct',
+            'cagr_3y':       'cagr_3y_pct',
+            'return_5y':     'returns_5y_pct',
+            'cagr_7y':       'cagr_7y_pct',
+            'cagr_10y':      'cagr_10y_pct',
+            # Rolling returns
+            'rolling_3y':    'rolling_return_3y_pct',
+            'rolling_5y':    'rolling_return_5y_pct',
+            # Risk
             'volatility_3y': 'volatility_3y_pct',
-            'sharpe': 'sharpe_ratio',
-            'sortino': 'sortino_ratio',
-            'drawdown': 'max_drawdown',
-            'excess_1y': 'excess_return_1y',
-            'excess_3y': 'excess_return_3y',
+            'volatility_5y': 'volatility_5y_pct',
+            'sharpe':        'sharpe_ratio',
+            'sharpe_5y':     'sharpe_ratio_5y',
+            'sortino':       'sortino_ratio',
+            'sortino_5y':    'sortino_ratio_5y',
+            'drawdown':      'max_drawdown',
+            'drawdown_5y':   'max_drawdown_5y',
+            'cur_drawdown':  'current_drawdown',
+            'tracking_3y':   'tracking_error_3y',
+            'tracking_5y':   'tracking_error_5y',
+            # Ratios
+            'excess_1y':     'excess_return_1y',
+            'excess_3y':     'excess_return_3y',
+            'alpha_3y':      'alpha_3y',
+            'alpha_5y':      'alpha_5y',
+            'beta_3y':       'beta_3y',
+            'info_ratio_3y': 'info_ratio_3y',
+            'romad_3y':      'romad_3y',
+            'upside_3y':     'upside_capture_3y',
+            'downside_3y':   'downside_capture_3y',
+            'r_sq_3y':       'r_squared_3y',
         }
         for param, field in range_filters.items():
             min_value = self.decimal_param(f'{param}_min')
@@ -428,60 +544,58 @@ class FundScreenerView(TemplateView):
         return qs
 
     def filter_options(self):
-        base = FundScreenerSnapshot.objects.all()
+        base = FundScreenerSnapshot.objects.filter(is_direct=True)
         return {
-            'houses': self.distinct_values(base, 'fund_house'),
-            'categories': self.distinct_values(base, 'category_group'),
-            'sub_categories': self.distinct_values(base, 'scheme_sub_category'),
-            'plan_types': self.distinct_values(base, 'plan_type'),
+            'houses':          self.distinct_values(base, 'fund_house'),
+            'categories':      self.distinct_values(base, 'category_group'),
+            'sub_categories':  self.distinct_values(base, 'scheme_sub_category'),
+            'plan_types':      self.distinct_values(base, 'plan_type'),
             'benchmark_types': self.distinct_values(base, 'benchmark_type'),
-            'benchmarks': self.distinct_values(base, 'benchmark_name') or benchmark_options(),
-            'risks': self.distinct_values(base, 'risk_label'),
+            'benchmarks':      self.distinct_values(base, 'benchmark_name') or benchmark_options(),
+            'risks':           self.distinct_values(base, 'risk_label'),
+            'score_badges':    [b for b in ['Strong', 'Good', 'Fair', 'Weak', 'Poor'] if
+                                base.filter(model_score_badge=b).exists()],
+            'crisil_options':  self.distinct_values(base, 'crisil_rating'),
         }
 
     def selected_filters(self):
-        request = self.request
-        return {
-            'q': request.GET.get('q', ''),
-            'house': request.GET.getlist('house'),
-            'category': request.GET.getlist('category'),
-            'sub_category': request.GET.getlist('sub_category'),
-            'plan_type': request.GET.getlist('plan_type'),
-            'income_type': request.GET.getlist('income_type'),
-            'benchmark_type': request.GET.getlist('benchmark_type'),
-            'benchmark': request.GET.getlist('benchmark'),
-            'risk': request.GET.getlist('risk'),
-            'aum_min': request.GET.get('aum_min', ''),
-            'aum_max': request.GET.get('aum_max', ''),
-            'expense_min': request.GET.get('expense_min', ''),
-            'expense_max': request.GET.get('expense_max', ''),
-            'age_min': request.GET.get('age_min', ''),
-            'age_max': request.GET.get('age_max', ''),
-            'return_1y_min': request.GET.get('return_1y_min', ''),
-            'return_1y_max': request.GET.get('return_1y_max', ''),
-            'cagr_3y_min': request.GET.get('cagr_3y_min', ''),
-            'cagr_3y_max': request.GET.get('cagr_3y_max', ''),
-            'return_5y_min': request.GET.get('return_5y_min', ''),
-            'return_5y_max': request.GET.get('return_5y_max', ''),
-            'rolling_3y_min': request.GET.get('rolling_3y_min', ''),
-            'rolling_3y_max': request.GET.get('rolling_3y_max', ''),
-            'rolling_5y_min': request.GET.get('rolling_5y_min', ''),
-            'rolling_5y_max': request.GET.get('rolling_5y_max', ''),
-            'volatility_3y_min': request.GET.get('volatility_3y_min', ''),
-            'volatility_3y_max': request.GET.get('volatility_3y_max', ''),
-            'sharpe_min': request.GET.get('sharpe_min', ''),
-            'sharpe_max': request.GET.get('sharpe_max', ''),
-            'sortino_min': request.GET.get('sortino_min', ''),
-            'sortino_max': request.GET.get('sortino_max', ''),
-            'drawdown_min': request.GET.get('drawdown_min', ''),
-            'drawdown_max': request.GET.get('drawdown_max', ''),
-            'excess_1y_min': request.GET.get('excess_1y_min', ''),
-            'excess_1y_max': request.GET.get('excess_1y_max', ''),
-            'excess_3y_min': request.GET.get('excess_3y_min', ''),
-            'excess_3y_max': request.GET.get('excess_3y_max', ''),
-            'sort': request.GET.get('sort', 'name'),
-            'direction': request.GET.get('direction', 'asc'),
-        }
+        g = self.request.GET
+        keys = [
+            # list filters
+            'house', 'category', 'sub_category', 'plan_type', 'benchmark_type',
+            'benchmark', 'risk', 'score_badge', 'crisil', 'sip_available',
+            # range params (all _min/_max pairs)
+            'aum_min', 'aum_max', 'expense_min', 'expense_max',
+            'age_min', 'age_max', 'nav_min', 'nav_max',
+            'sip_min_min', 'sip_min_max', 'lump_min_min', 'lump_min_max',
+            'lock_in_min', 'lock_in_max', 'pturnover_min', 'pturnover_max',
+            'model_score_min', 'model_score_max',
+            'return_1m_min', 'return_1m_max', 'return_3m_min', 'return_3m_max',
+            'return_6m_min', 'return_6m_max', 'return_1y_min', 'return_1y_max',
+            'cagr_3y_min', 'cagr_3y_max', 'return_5y_min', 'return_5y_max',
+            'cagr_7y_min', 'cagr_7y_max', 'cagr_10y_min', 'cagr_10y_max',
+            'rolling_3y_min', 'rolling_3y_max', 'rolling_5y_min', 'rolling_5y_max',
+            'volatility_3y_min', 'volatility_3y_max', 'volatility_5y_min', 'volatility_5y_max',
+            'sharpe_min', 'sharpe_max', 'sharpe_5y_min', 'sharpe_5y_max',
+            'sortino_min', 'sortino_max', 'sortino_5y_min', 'sortino_5y_max',
+            'drawdown_min', 'drawdown_max', 'drawdown_5y_min', 'drawdown_5y_max',
+            'cur_drawdown_min', 'cur_drawdown_max',
+            'tracking_3y_min', 'tracking_3y_max', 'tracking_5y_min', 'tracking_5y_max',
+            'excess_1y_min', 'excess_1y_max', 'excess_3y_min', 'excess_3y_max',
+            'alpha_3y_min', 'alpha_3y_max', 'alpha_5y_min', 'alpha_5y_max',
+            'beta_3y_min', 'beta_3y_max', 'info_ratio_3y_min', 'info_ratio_3y_max',
+            'romad_3y_min', 'romad_3y_max',
+            'upside_3y_min', 'upside_3y_max', 'downside_3y_min', 'downside_3y_max',
+            'r_sq_3y_min', 'r_sq_3y_max',
+        ]
+        sel = {'sort': g.get('sort', 'name'), 'direction': g.get('direction', 'asc'), 'q': g.get('q', '')}
+        for k in keys:
+            if k in ('house', 'category', 'sub_category', 'plan_type', 'benchmark_type',
+                     'benchmark', 'risk', 'score_badge', 'crisil'):
+                sel[k] = g.getlist(k)
+            else:
+                sel[k] = g.get(k, '')
+        return sel
 
     def export_csv(self, qs):
         response = HttpResponse(content_type='text/csv')
@@ -489,7 +603,7 @@ class FundScreenerView(TemplateView):
         writer = csv.writer(response)
         writer.writerow([label for _, label in self.export_columns])
         for row in qs[:5000]:
-            writer.writerow([getattr(row, field) for field, _ in self.export_columns])
+            writer.writerow([getattr(row, field, '') for field, _ in self.export_columns])
         return response
 
     def query_string_without(self, *keys):
@@ -517,12 +631,6 @@ class FundScreenerView(TemplateView):
         )
 
 
-def screener_report_view(request, amfi_code):
-    snapshot = get_object_or_404(
-        FundScreenerSnapshot.objects.select_related('scheme'),
-        scheme__amfi_code=amfi_code,
-    )
-    return HttpResponse(render_fund_report_html(snapshot), content_type='text/html; charset=utf-8')
 
 
 class FundDetailView(DetailView):

@@ -1,314 +1,363 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Mutual Fund Screener{% endblock %}
+{% block title %}Mutual Fund Screener — Direct Funds & ETFs{% endblock %}
+{% block meta_description %}Screen 3,000+ direct mutual funds and ETFs by returns, risk, expense ratio, model score and 30+ more metrics. Filter, compare and export.{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/screener.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'css/screener.css' %}?v=3">
 {% endblock %}
 
 {% block content %}
 <form method="get" id="screener-form" class="screener-page">
+
+  {# ── Page Header ─────────────────────────────────────────────────────────── #}
   <header class="screener-page-header">
     <div>
       <h1>Mutual Fund Screener</h1>
       <div class="screener-view-row">
-        <span class="view-chip">All Funds</span>
+        <span class="view-chip">Direct Funds &amp; ETFs</span>
         <span class="data-freshness">
           <span class="freshness-dot"></span>
           {% if last_updated %}Updated {{ last_updated|date:"d M Y, H:i" }}{% else %}Awaiting first data refresh{% endif %}
         </span>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span id="active-filter-count" class="active-filter-badge" hidden></span>
-      <a class="icon-command" href="{% url 'funds:screener' %}" title="Reset all filters to default" aria-label="Reset all filters">Reset All</a>
+    <div class="header-actions">
+      {# ── Active filter badge ──────────────────────────────────────────────── #}
+      <button type="button" class="active-filter-badge" id="active-filter-btn" title="View and remove active filters">
+        <span id="active-filter-count">0 filters</span>
+      </button>
+      
+      {# ── Saved screens & Save ─────────────────────────────────────────────── #}
+      <button type="button" class="toolbar-button" id="save-screen-trigger-btn">
+        <span>💾 Save Screen</span>
+      </button>
+      
+      <div class="saved-screens-wrap" id="saved-screens-wrap">
+        <button type="button" class="toolbar-button" id="saved-screens-btn" title="Saved screens">
+          <span>📁 Screens</span>
+        </button>
+        <div class="saved-screens-menu" id="saved-screens-menu" hidden>
+          <div class="saved-screens-title">Saved Screens</div>
+          <div id="saved-screens-list"></div>
+        </div>
+      </div>
+      <a class="toolbar-button reset-filters-link" href="{% url 'funds:screener' %}" title="Reset all filters" style="color: var(--red-400); border-color: rgba(248,113,113,0.3);">✕ Reset</a>
     </div>
   </header>
 
-  <div class="screener-workspace">
-    <aside class="screener-filters">
-      <div class="screener-tabs" role="tablist" aria-label="Filter groups">
-        <button type="button" class="screener-tab active" data-tab="basic">Basic</button>
-        <button type="button" class="screener-tab" data-tab="performance">Performance</button>
-        <button type="button" class="screener-tab" data-tab="risk">Risk</button>
-        <button type="button" class="screener-tab" data-tab="advanced">Advanced</button>
+  {# ── Direct-only notice banner ────────────────────────────────────────────── #}
+  <div class="screener-notice">
+    <span class="notice-icon">💡</span>
+    <span>Showing <strong>Direct</strong> mutual funds &amp; ETFs only — no Regular or IDCW plans.
+      <a href="{{ blog_url }}" target="_blank" rel="noopener">Why Direct Growth? →</a>
+    </span>
+  </div>
+
+  {# ── Active-filters popover ───────────────────────────────────────────────── #}
+  <div class="active-filters-popover" id="active-filters-popover" hidden>
+    <div class="afp-header">
+      <span class="afp-title">Active Filters</span>
+      <button type="button" class="afp-close" id="afp-close-btn">✕</button>
+    </div>
+    <div id="afp-list" class="afp-list"></div>
+    <div class="afp-footer">
+      <a href="{% url 'funds:screener' %}" class="btn btn-secondary btn-sm">Clear All</a>
+    </div>
+  </div>
+
+  {# ── Add-filter panel (full-screen overlay) ───────────────────────────────── #}
+  <div class="filter-panel-overlay" id="filter-panel-overlay" hidden>
+    <div class="filter-panel">
+      <div class="filter-panel-header">
+        <span class="filter-panel-title">Add Filters</span>
+        <button type="button" class="filter-panel-close" id="filter-panel-close">✕</button>
       </div>
+      <div class="filter-panel-body">
 
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Scheme Info</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="aum">AUM (Cr) <button type="button" class="info-btn" data-t-title="Assets Under Management (AUM)" data-t-what="Total market value of the investments managed by the fund." data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="expense">Expense Ratio % <button type="button" class="info-btn" data-t-title="Expense Ratio" data-t-what="The annual fee charged by the mutual fund house." data-t-interp="Lower is better as it directly impacts your final returns.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="age">Fund Age (Yrs) <button type="button" class="info-btn" data-t-title="Fund Age" data-t-what="Number of years since the fund was launched." data-t-interp="Older is generally preferred as it indicates a longer track record across multiple market cycles.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="nav">NAV <button type="button" class="info-btn" data-t-title="NAV" data-t-what="Net Asset Value—the price of a single unit of the mutual fund." data-t-interp="NAV absolute value is irrelevant for comparing funds. It only matters for calculating returns.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="model_score">Model Score <button type="button" class="info-btn" data-t-title="Model Score" data-t-what="Our proprietary composite score evaluating a fund's performance, risk, and consistency." data-t-interp="Higher is better. 80+ is typically excellent.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="crisil">CRISIL Rating <button type="button" class="info-btn" data-t-title="CRISIL Rating" data-t-what="Overall rating assigned by CRISIL based on performance and risk." data-t-interp="5-star is highest. 1-star is lowest.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="house">Fund House <button type="button" class="info-btn" data-t-title="Fund House (AMC)" data-t-what="The asset management company offering the mutual fund.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="benchmark">Benchmark <button type="button" class="info-btn" data-t-title="Benchmark" data-t-what="The standard index against which the performance of a mutual fund is measured.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="score_badge">Score Badge <button type="button" class="info-btn" data-t-title="Model Score" data-t-what="Our proprietary composite score evaluating a fund's performance, risk, and consistency." data-t-interp="Higher is better. 80+ is typically excellent.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="sip_available">SIP Available <button type="button" class="info-btn" data-t-title="SIP Available" data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="sip_min">Min SIP (₹) <button type="button" class="info-btn" data-t-title="Min SIP (₹)" data-t-what="The minimum amount required to start a SIP investment.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="lump_min">Min Lumpsum (₹) <button type="button" class="info-btn" data-t-title="Min Lumpsum (₹)" data-t-what="The minimum amount required to start a lumpsum investment.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="lock_in">Lock-in (Days) <button type="button" class="info-btn" data-t-title="Lock-in (Days)" data-t-what="The mandatory period during which you cannot redeem your investment (e.g. 3 years for ELSS funds).">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="pturnover">Portfolio Turnover <button type="button" class="info-btn" data-t-title="Portfolio Turnover" data-t-what="Measures how frequently the fund manager buys and sells securities within a year." data-t-interp="Lower is preferred (lower trading costs). However, high turnover is acceptable if returns justify it.">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Returns</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="return_1m">1M Return % <button type="button" class="info-btn" data-t-title="1M Return" data-t-what="The percentage gain/loss over the past 1 month." data-t-interp="Useful for tracking recent momentum, but shouldn't dictate long-term decisions.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="return_3m">3M Return % <button type="button" class="info-btn" data-t-title="3M Return" data-t-what="The percentage gain/loss over the past 3 months." data-t-interp="Useful for tracking recent momentum, but shouldn't dictate long-term decisions.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="return_6m">6M Return % <button type="button" class="info-btn" data-t-title="6M Return" data-t-what="The percentage gain/loss over the past 6 months." data-t-interp="Useful for tracking recent momentum, but shouldn't dictate long-term decisions.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="return_1y">1Y Return % <button type="button" class="info-btn" data-t-title="1Y Return" data-t-what="The percentage gain/loss over the past 1 year." data-t-interp="Higher is better, but past performance does not guarantee future results.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="cagr_7y">7Y CAGR % <button type="button" class="info-btn" data-t-title="7Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 7 years." data-t-interp="Higher is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="cagr_10y">10Y CAGR % <button type="button" class="info-btn" data-t-title="10Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 10 years." data-t-interp="Higher is better. Focus on 10Y for long-term equity assessment.">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Rolling Returns</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_5y">5Y Avg Rolling % <button type="button" class="info-btn" data-t-title="5Y Avg Rolling Return" data-t-what="The average of all 5-year returns calculated over the period." data-t-interp="Higher is better. Shows long-term consistency.">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Risk Metrics</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="volatility_5y">5Y Volatility % <button type="button" class="info-btn" data-t-title="5Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 5 years." data-t-interp="Lower is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="sharpe_5y">5Y Sharpe <button type="button" class="info-btn" data-t-title="5Y Sharpe Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="sortino">3Y Sortino <button type="button" class="info-btn" data-t-title="3Y Sortino Ratio" data-t-what="Measures risk-adjusted return but only penalizes downside volatility (losses)." data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="sortino_5y">5Y Sortino <button type="button" class="info-btn" data-t-title="5Y Sortino Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="drawdown_5y">5Y Max Drawdown % <button type="button" class="info-btn" data-t-title="5Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough over 5 years." data-t-interp="A smaller negative number is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="cur_drawdown">Current Drawdown % <button type="button" class="info-btn" data-t-title="Current Drawdown" data-t-what="How much the fund is currently down from its all-time high." data-t-interp="A smaller negative number is better. 0% means the fund is at an all-time high.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="tracking_3y">3Y Tracking Error % <button type="button" class="info-btn" data-t-title="3Y Tracking Error" data-t-what="Measures the deviation of the fund's returns from its benchmark." data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible.">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Ratios &amp; Alpha</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="alpha_3y">3Y Jensen's Alpha % <button type="button" class="info-btn" data-t-title="3Y Jensen's Alpha" data-t-what="The excess return of a fund relative to the return of the benchmark, adjusted for risk (Beta)." data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="alpha_5y">5Y Jensen's Alpha % <button type="button" class="info-btn" data-t-title="5Y Jensen's Alpha" data-t-what="The excess return of a fund relative to the benchmark over 5 years, adjusted for risk." data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="beta_3y">3Y Beta <button type="button" class="info-btn" data-t-title="3Y Beta" data-t-what="Measures the fund's volatility relative to its benchmark." data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="info_ratio_3y">3Y Info Ratio <button type="button" class="info-btn" data-t-title="3Y Information Ratio" data-t-what="Measures a portfolio manager's ability to generate excess returns relative to a benchmark, divided by the tracking error." data-t-interp="Higher is better. >0.5 is good.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="romad_3y">3Y ROMAD <button type="button" class="info-btn" data-t-title="3Y ROMAD" data-t-what="Risk-adjusted metric dividing the annualized return by the maximum drawdown." data-t-interp="Higher is better. Indicates how much return you get per unit of maximum pain.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="upside_3y">3Y Upside Capture % <button type="button" class="info-btn" data-t-title="3Y Upside Capture" data-t-what="Measures a manager's performance in up markets relative to the market itself." data-t-interp=">100% means the fund outperformed the market when it was rising. Higher is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="downside_3y">3Y Downside Capture % <button type="button" class="info-btn" data-t-title="3Y Downside Capture" data-t-what="Measures a manager's performance in down markets relative to the market itself." data-t-interp="<100% means the fund lost less than the market during a downturn. Lower is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="r_sq_3y">3Y R-Squared % <button type="button" class="info-btn" data-t-title="3Y R-Squared" data-t-what="Represents the percentage of a fund's movements that can be explained by movements in a benchmark index." data-t-interp="100% means perfectly correlated. Active funds typically have lower R-squared (70-90%).">ⓘ</button></div>
+          </div>
+        </div>
+
+      </div>
+      <div class="filter-panel-footer">
+        <button type="button" class="btn btn-primary" id="filter-panel-done">Done — Apply Selected Filters</button>
+      </div>
+    </div>
+  </div>
+
+  {# ── Save Screen Modal ─────────────────────────────────────────────────────── #}
+  <div class="modal-overlay" id="save-screen-modal" hidden>
+    <div class="modal-card" style="max-height:80vh;display:flex;flex-direction:column;">
+      <div class="modal-header">
+        <span>Save Screen</span>
+        <button type="button" class="afp-close" id="save-modal-close">✕</button>
+      </div>
+      <div class="modal-body" style="overflow-y:auto;">
+        <div style="margin-bottom:12px;">
+          <label for="screen-name-input">Screen name</label>
+          <input type="text" id="screen-name-input" class="filter-search" placeholder="e.g. High Alpha Mid-cap" maxlength="60">
+        </div>
+        <div id="save-modal-error" style="color:var(--red-400);font-size:12px;margin-bottom:12px;" hidden></div>
+        <div class="saved-screens-title" style="margin-top:16px;">Existing Screens</div>
+        <div id="save-modal-screens-list" style="margin-top:8px;"></div>
+      </div>
+      <div class="modal-footer" style="flex-shrink:0;">
+        <button type="button" class="btn btn-primary btn-sm" id="save-screen-confirm">Save</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="save-modal-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screener-workspace">
+
+    {# ── Left sidebar ─────────────────────────────────────────────────────────── #}
+    <aside class="screener-filters">
       <div class="screener-filter-scroll">
-        <section class="screener-tab-panel active" data-panel="basic">
-          <details class="filter-block" open>
-            <summary>AUM (in Cr.)</summary>
-            <div class="range-control" data-range data-param-min="aum_min" data-param-max="aum_max">
-              <div class="range-values"><span data-min-label>0</span><span data-max-label>200,000+</span></div>
-              <div class="dual-range">
-                <input type="range" min="0" max="200000" step="500" data-range-min data-default-min="0" data-init-value="{{ selected.aum_min }}">
-                <input type="range" min="0" max="200000" step="500" data-range-max data-default-max="200000" data-init-value="{{ selected.aum_max }}">
-              </div>
-              <input type="hidden" name="aum_min" data-hidden-min>
-              <input type="hidden" name="aum_max" data-hidden-max>
-              <div class="range-presets">
-                <button type="button" data-set-min="1000">1,000+ Cr</button>
-                <button type="button" data-set-min="5000">5,000+ Cr</button>
-                <button type="button" data-set-min="10000">10,000+ Cr</button>
-              </div>
-            </div>
-          </details>
 
-          <details class="filter-block" open>
-            <summary>Expense Ratio (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="2" data-param-min="expense_min" data-param-max="expense_max">
-              <div class="range-values"><span data-min-label>0.00%</span><span data-max-label>3.00%</span></div>
-              <div class="dual-range">
-                <input type="range" min="0" max="3" step="0.05" data-range-min data-default-min="0" data-init-value="{{ selected.expense_min }}">
-                <input type="range" min="0" max="3" step="0.05" data-range-max data-default-max="3" data-init-value="{{ selected.expense_max }}">
-              </div>
-              <input type="hidden" name="expense_min" data-hidden-min>
-              <input type="hidden" name="expense_max" data-hidden-max>
-              <div class="range-presets">
-                <button type="button" data-set-max="0.4">Ultra Low (&lt;0.4%)</button>
-                <button type="button" data-set-max="1">Low (&lt;1%)</button>
-                <button type="button" data-set-max="1.5">Moderate (&lt;1.5%)</button>
-              </div>
-            </div>
-          </details>
+        {# ── CORE FIXED FILTERS ─────────────────────────────────────────────── #}
+        <div class="filter-section-label">Core Filters</div>
 
-          <details class="filter-block" open>
-            <summary>Fund Age (Years)</summary>
-            <div class="range-control" data-range data-decimals="0" data-param-min="age_min" data-param-max="age_max">
-              <div class="range-values"><span data-min-label>0</span><span data-max-label>30+</span></div>
-              <div class="dual-range">
-                <input type="range" min="0" max="30" step="1" data-range-min data-default-min="0" data-init-value="{{ selected.age_min }}">
-                <input type="range" min="0" max="30" step="1" data-range-max data-default-max="30" data-init-value="{{ selected.age_max }}">
-              </div>
-              <input type="hidden" name="age_min" data-hidden-min>
-              <input type="hidden" name="age_max" data-hidden-max>
-              <div class="range-presets">
-                <button type="button" data-set-min="1">1Y+</button>
-                <button type="button" data-set-min="3">3Y+</button>
-                <button type="button" data-set-min="5">5Y+</button>
-                <button type="button" data-set-min="10">10Y+</button>
-              </div>
-            </div>
-          </details>
+        <details class="filter-block" open>
+          <summary>Scheme Category <button type="button" class="info-btn" data-t-title="Scheme Category" data-t-what="The broad asset class the fund invests in." data-t-interp="Equity for growth, Debt for stability, Hybrid for balance.">ⓘ</button></summary>
+          <div class="checklist compact">
+            {% for option in filter_options.categories %}
+            <label class="check-row"><input type="checkbox" name="category" value="{{ option }}" {% if option in selected.category %}checked{% endif %}><span>{{ option }}</span></label>
+            {% endfor %}
+          </div>
+        </details>
 
-          <details class="filter-block" open>
-            <summary>Fund House</summary>
-            <input class="filter-search" type="search" placeholder="Search fund houses..." data-target="house-options">
-            <div class="checklist" id="house-options">
+        <details class="filter-block" open>
+          <summary>Sub-category <button type="button" class="info-btn" data-t-title="Sub-category" data-t-what="The specific strategy or market cap focus of the fund." data-t-interp="For equity: Large Cap is stable, Small Cap is volatile but high-growth.">ⓘ</button></summary>
+          <input class="filter-search" type="search" placeholder="Search sub-categories..." data-target="subcategory-options">
+          <div class="checklist tall" id="subcategory-options">
+            {% for option in filter_options.sub_categories %}
+            <label class="check-row"><input type="checkbox" name="sub_category" value="{{ option }}" {% if option in selected.sub_category %}checked{% endif %}><span>{{ option }}</span></label>
+            {% endfor %}
+          </div>
+        </details>
+
+        <details class="filter-block" open>
+          <summary>Plan Type <button type="button" class="info-btn" data-t-title="Plan Type" data-t-what="Direct plans have lower expense ratios as they avoid distributor commissions. Regular plans include commissions." data-t-interp="Direct is almost always preferred for better returns.">ⓘ</button></summary>
+          <div class="checklist compact">
+            {% for option in filter_options.plan_types %}
+            <label class="check-row"><input type="checkbox" name="plan_type" value="{{ option }}" {% if option in selected.plan_type %}checked{% endif %}><span>{{ option }}</span></label>
+            {% endfor %}
+          </div>
+        </details>
+
+        <details class="filter-block" open>
+          <summary>AUM (in Cr.) <button type="button" class="info-btn" data-t-title="Assets Under Management (AUM)" data-t-what="Total market value of the investments managed by the fund." data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance.">ⓘ</button></summary>
+          <div class="range-control" data-range data-param-min="aum_min" data-param-max="aum_max">
+            <div class="range-values"><span data-min-label>0</span><span data-max-label>200,000+</span></div>
+            <div class="dual-range">
+              <input type="range" min="0" max="200000" step="500" data-range-min data-default-min="0" data-init-value="{{ selected.aum_min }}">
+              <input type="range" min="0" max="200000" step="500" data-range-max data-default-max="200000" data-init-value="{{ selected.aum_max }}">
+            </div>
+            <input type="hidden" name="aum_min" data-hidden-min>
+            <input type="hidden" name="aum_max" data-hidden-max>
+            <div class="range-presets">
+              <button type="button" data-set-min="1000">1K+ Cr</button>
+              <button type="button" data-set-min="5000">5K+ Cr</button>
+              <button type="button" data-set-min="10000">10K+ Cr</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="filter-block" open>
+          <summary>3-Yr CAGR (%) <button type="button" class="info-btn" data-t-title="3Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 3 years." data-t-interp="Higher is better.">ⓘ</button></summary>
+          <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="cagr_3y_min" data-param-max="cagr_3y_max">
+            <div class="range-values"><span data-min-label>-10%</span><span data-max-label>50%</span></div>
+            <div class="dual-range">
+              <input type="range" min="-10" max="50" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.cagr_3y_min }}">
+              <input type="range" min="-10" max="50" step="0.5" data-range-max data-default-max="50" data-init-value="{{ selected.cagr_3y_max }}">
+            </div>
+            <input type="hidden" name="cagr_3y_min" data-hidden-min>
+            <input type="hidden" name="cagr_3y_max" data-hidden-max>
+            <div class="range-presets">
+              <button type="button" data-set-min="10">10%+</button>
+              <button type="button" data-set-min="15">15%+</button>
+              <button type="button" data-set-min="20">20%+</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="filter-block" open>
+          <summary>3-Yr Volatility (%) <button type="button" class="info-btn" data-t-title="3Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 3 years." data-t-interp="Lower is better. Compare only within the same category (e.g. Small Caps will naturally have higher volatility than Large Caps).">ⓘ</button></summary>
+          <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="volatility_3y_min" data-param-max="volatility_3y_max">
+            <div class="range-values"><span data-min-label>0%</span><span data-max-label>40%</span></div>
+            <div class="dual-range">
+              <input type="range" min="0" max="40" step="0.5" data-range-min data-default-min="0" data-init-value="{{ selected.volatility_3y_min }}">
+              <input type="range" min="0" max="40" step="0.5" data-range-max data-default-max="40" data-init-value="{{ selected.volatility_3y_max }}">
+            </div>
+            <input type="hidden" name="volatility_3y_min" data-hidden-min>
+            <input type="hidden" name="volatility_3y_max" data-hidden-max>
+            <div class="range-presets">
+              <button type="button" data-set-max="10">Low (&lt;10%)</button>
+              <button type="button" data-set-max="15">Mod (&lt;15%)</button>
+              <button type="button" data-set-max="20">High (&lt;20%)</button>
+            </div>
+          </div>
+        </details>
+
+        {# ── DYNAMIC EXTRA FILTERS (user-added via panel) ────────────────────── #}
+        <div id="dynamic-filters-area"></div>
+
+        {#  DYNAMIC CATEGORICAL FILTERS (Hidden by default, shown by JS)  #}
+        <div id="dyn-house" class="dyn-categorical-block" hidden>
+          <details class="filter-block dynamic-filter-block" open data-key="house">
+            <summary>Fund House 
+              <button type="button" class="info-btn" data-t-title="Fund House (AMC)" data-t-what="The asset management company offering the mutual fund.">&#9432;</button>
+              <button type="button" class="dyn-remove-btn" data-key="house" title="Remove this filter">&times;</button>
+            </summary>
+            <div class="checklist compact">
               {% for option in filter_options.houses %}
               <label class="check-row"><input type="checkbox" name="house" value="{{ option }}" {% if option in selected.house %}checked{% endif %}><span>{{ option }}</span></label>
               {% endfor %}
             </div>
           </details>
+        </div>
 
-          <details class="filter-block">
-            <summary>Scheme Category</summary>
+        <div id="dyn-benchmark" class="dyn-categorical-block" hidden>
+          <details class="filter-block dynamic-filter-block" open data-key="benchmark">
+            <summary>Benchmark 
+              <button type="button" class="info-btn" data-t-title="Benchmark" data-t-what="The standard index against which the performance of a mutual fund is measured.">&#9432;</button>
+              <button type="button" class="dyn-remove-btn" data-key="benchmark" title="Remove this filter">&times;</button>
+            </summary>
             <div class="checklist compact">
-              {% for option in filter_options.categories %}
-              <label class="check-row"><input type="checkbox" name="category" value="{{ option }}" {% if option in selected.category %}checked{% endif %}><span>{{ option }}</span></label>
-              {% endfor %}
-            </div>
-          </details>
-
-          <details class="filter-block">
-            <summary>Scheme Sub-category</summary>
-            <input class="filter-search" type="search" placeholder="Search sub-categories..." data-target="subcategory-options">
-            <div class="checklist tall" id="subcategory-options">
-              {% for option in filter_options.sub_categories %}
-              <label class="check-row"><input type="checkbox" name="sub_category" value="{{ option }}" {% if option in selected.sub_category %}checked{% endif %}><span>{{ option }}</span></label>
-              {% endfor %}
-            </div>
-          </details>
-
-          <details class="filter-block">
-            <summary>Plan & Income</summary>
-            <div class="checklist compact">
-              {% for option in filter_options.plan_types %}
-              <label class="check-row"><input type="checkbox" name="plan_type" value="{{ option }}" {% if option in selected.plan_type %}checked{% endif %}><span>{{ option }}</span></label>
-              {% endfor %}
-              <label class="check-row"><input type="checkbox" name="income_type" value="Growth" {% if "Growth" in selected.income_type %}checked{% endif %}><span>Growth</span></label>
-              <label class="check-row"><input type="checkbox" name="income_type" value="IDCW" {% if "IDCW" in selected.income_type %}checked{% endif %}><span>IDCW</span></label>
-            </div>
-          </details>
-        </section>
-
-        <section class="screener-tab-panel" data-panel="performance">
-          <details class="filter-block" open>
-            <summary>1-Yr Return (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="return_1y_min" data-param-max="return_1y_max">
-              <div class="range-values"><span data-min-label>-20%</span><span data-max-label>120%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-20" max="120" step="0.5" data-range-min data-default-min="-20" data-init-value="{{ selected.return_1y_min }}">
-                <input type="range" min="-20" max="120" step="0.5" data-range-max data-default-max="120" data-init-value="{{ selected.return_1y_max }}">
-              </div>
-              <input type="hidden" name="return_1y_min" data-hidden-min>
-              <input type="hidden" name="return_1y_max" data-hidden-max>
-            </div>
-          </details>
-          <details class="filter-block" open>
-            <summary>3-Yr CAGR (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="cagr_3y_min" data-param-max="cagr_3y_max">
-              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>50%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-10" max="50" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.cagr_3y_min }}">
-                <input type="range" min="-10" max="50" step="0.5" data-range-max data-default-max="50" data-init-value="{{ selected.cagr_3y_max }}">
-              </div>
-              <input type="hidden" name="cagr_3y_min" data-hidden-min>
-              <input type="hidden" name="cagr_3y_max" data-hidden-max>
-            </div>
-          </details>
-          <details class="filter-block" open>
-            <summary>5-Yr CAGR (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="return_5y_min" data-param-max="return_5y_max">
-              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>50%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-10" max="50" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.return_5y_min }}">
-                <input type="range" min="-10" max="50" step="0.5" data-range-max data-default-max="50" data-init-value="{{ selected.return_5y_max }}">
-              </div>
-              <input type="hidden" name="return_5y_min" data-hidden-min>
-              <input type="hidden" name="return_5y_max" data-hidden-max>
-            </div>
-          </details>
-          <details class="filter-block" open>
-            <summary>3-Yr Rolling Return (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="rolling_3y_min" data-param-max="rolling_3y_max">
-              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>35%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-10" max="35" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.rolling_3y_min }}">
-                <input type="range" min="-10" max="35" step="0.5" data-range-max data-default-max="35" data-init-value="{{ selected.rolling_3y_max }}">
-              </div>
-              <input type="hidden" name="rolling_3y_min" data-hidden-min>
-              <input type="hidden" name="rolling_3y_max" data-hidden-max>
-            </div>
-          </details>
-          <details class="filter-block">
-            <summary>5-Yr Rolling Return (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="rolling_5y_min" data-param-max="rolling_5y_max">
-              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>35%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-10" max="35" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.rolling_5y_min }}">
-                <input type="range" min="-10" max="35" step="0.5" data-range-max data-default-max="35" data-init-value="{{ selected.rolling_5y_max }}">
-              </div>
-              <input type="hidden" name="rolling_5y_min" data-hidden-min>
-              <input type="hidden" name="rolling_5y_max" data-hidden-max>
-            </div>
-          </details>
-          <details class="filter-block">
-            <summary>1-Yr Alpha vs Benchmark (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="excess_1y_min" data-param-max="excess_1y_max">
-              <div class="range-values"><span data-min-label>-15%</span><span data-max-label>20%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-15" max="20" step="0.5" data-range-min data-default-min="-15" data-init-value="{{ selected.excess_1y_min }}">
-                <input type="range" min="-15" max="20" step="0.5" data-range-max data-default-max="20" data-init-value="{{ selected.excess_1y_max }}">
-              </div>
-              <input type="hidden" name="excess_1y_min" data-hidden-min>
-              <input type="hidden" name="excess_1y_max" data-hidden-max>
-            </div>
-          </details>
-          <details class="filter-block">
-            <summary>3-Yr Alpha vs Benchmark (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="excess_3y_min" data-param-max="excess_3y_max">
-              <div class="range-values"><span data-min-label>-10%</span><span data-max-label>20%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-10" max="20" step="0.5" data-range-min data-default-min="-10" data-init-value="{{ selected.excess_3y_min }}">
-                <input type="range" min="-10" max="20" step="0.5" data-range-max data-default-max="20" data-init-value="{{ selected.excess_3y_max }}">
-              </div>
-              <input type="hidden" name="excess_3y_min" data-hidden-min>
-              <input type="hidden" name="excess_3y_max" data-hidden-max>
-            </div>
-          </details>
-        </section>
-
-        <section class="screener-tab-panel" data-panel="risk">
-          <details class="filter-block" open>
-            <summary>3-Yr Volatility (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="volatility_3y_min" data-param-max="volatility_3y_max">
-              <div class="range-values"><span data-min-label>0%</span><span data-max-label>40%</span></div>
-              <div class="dual-range">
-                <input type="range" min="0" max="40" step="0.5" data-range-min data-default-min="0" data-init-value="{{ selected.volatility_3y_min }}">
-                <input type="range" min="0" max="40" step="0.5" data-range-max data-default-max="40" data-init-value="{{ selected.volatility_3y_max }}">
-              </div>
-              <input type="hidden" name="volatility_3y_min" data-hidden-min>
-              <input type="hidden" name="volatility_3y_max" data-hidden-max>
-            </div>
-          </details>
-          <details class="filter-block">
-            <summary>3-Yr Sharpe Ratio</summary>
-            <div class="range-control" data-range data-decimals="2" data-param-min="sharpe_min" data-param-max="sharpe_max">
-              <div class="range-values"><span data-min-label>-1</span><span data-max-label>3</span></div>
-              <div class="dual-range">
-                <input type="range" min="-1" max="3" step="0.1" data-range-min data-default-min="-1" data-init-value="{{ selected.sharpe_min }}">
-                <input type="range" min="-1" max="3" step="0.1" data-range-max data-default-max="3" data-init-value="{{ selected.sharpe_max }}">
-              </div>
-              <input type="hidden" name="sharpe_min" data-hidden-min>
-              <input type="hidden" name="sharpe_max" data-hidden-max>
-              <div class="range-presets">
-                <button type="button" data-set-min="0.5">&gt;0.5</button>
-                <button type="button" data-set-min="1">High (&gt;1)</button>
-              </div>
-            </div>
-          </details>
-          <details class="filter-block">
-            <summary>3-Yr Max Drawdown (%)</summary>
-            <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="drawdown_min" data-param-max="drawdown_max">
-              <div class="range-values"><span data-min-label>-60%</span><span data-max-label>0%</span></div>
-              <div class="dual-range">
-                <input type="range" min="-60" max="0" step="0.5" data-range-min data-default-min="-60" data-init-value="{{ selected.drawdown_min }}">
-                <input type="range" min="-60" max="0" step="0.5" data-range-max data-default-max="0" data-init-value="{{ selected.drawdown_max }}">
-              </div>
-              <input type="hidden" name="drawdown_min" data-hidden-min>
-              <input type="hidden" name="drawdown_max" data-hidden-max>
-              <div class="range-presets">
-                <button type="button" data-set-min="-20">Low (&gt;-20%)</button>
-                <button type="button" data-set-min="-30">Med (&gt;-30%)</button>
-              </div>
-            </div>
-          </details>
-          <details class="filter-block" open>
-            <summary>Risk Level</summary>
-            <div class="checklist compact">
-              {% for option in filter_options.risks %}
-              <label class="check-row"><input type="checkbox" name="risk" value="{{ option }}" {% if option in selected.risk %}checked{% endif %}><span>{{ option }}</span></label>
-              {% endfor %}
-            </div>
-          </details>
-        </section>
-
-        <section class="screener-tab-panel" data-panel="advanced">
-          <details class="filter-block" open>
-            <summary>Benchmark Type</summary>
-            <div class="checklist compact">
-              {% for option in filter_options.benchmark_types %}
-              <label class="check-row"><input type="checkbox" name="benchmark_type" value="{{ option }}" {% if option in selected.benchmark_type %}checked{% endif %}><span>{{ option }}</span></label>
-              {% endfor %}
-            </div>
-          </details>
-          <details class="filter-block" open>
-            <summary>Benchmark</summary>
-            <input class="filter-search" type="search" placeholder="Search benchmarks..." data-target="benchmark-options">
-            <div class="checklist tall" id="benchmark-options">
               {% for option in filter_options.benchmarks %}
               <label class="check-row"><input type="checkbox" name="benchmark" value="{{ option }}" {% if option in selected.benchmark %}checked{% endif %}><span>{{ option }}</span></label>
               {% endfor %}
             </div>
           </details>
-        </section>
+        </div>
+
+        <div id="dyn-score_badge" class="dyn-categorical-block" hidden>
+          <details class="filter-block dynamic-filter-block" open data-key="score_badge">
+            <summary>Model Score Badge 
+              <button type="button" class="info-btn" data-t-title="Model Score" data-t-what="Our proprietary composite score evaluating a fund's performance, risk, and consistency." data-t-interp="Higher is better. 80+ is typically excellent.">&#9432;</button>
+              <button type="button" class="dyn-remove-btn" data-key="score_badge" title="Remove this filter">&times;</button>
+            </summary>
+            <div class="checklist compact">
+              {% for option in filter_options.score_badges %}
+              <label class="check-row"><input type="checkbox" name="score_badge" value="{{ option }}" {% if option in selected.score_badge %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+        </div>
+
+        <div id="dyn-crisil" class="dyn-categorical-block" hidden>
+          <details class="filter-block dynamic-filter-block" open data-key="crisil">
+            <summary>CRISIL Rating 
+              <button type="button" class="info-btn" data-t-title="CRISIL Rating" data-t-what="Overall rating assigned by CRISIL based on performance and risk." data-t-interp="5-star is highest. 1-star is lowest.">&#9432;</button>
+              <button type="button" class="dyn-remove-btn" data-key="crisil" title="Remove this filter">&times;</button>
+            </summary>
+            <div class="checklist compact">
+              {% for option in filter_options.crisil_options %}
+              <label class="check-row"><input type="checkbox" name="crisil" value="{{ option }}" {% if option in selected.crisil %}checked{% endif %}><span>{{ option }}</span></label>
+              {% endfor %}
+            </div>
+          </details>
+        </div>
+        
+        <div id="dyn-sip_available" class="dyn-categorical-block" hidden>
+          <details class="filter-block dynamic-filter-block" open data-key="sip_available">
+            <summary>SIP Available 
+              <button type="button" class="info-btn" data-t-title="SIP Available" data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund.">&#9432;</button>
+              <button type="button" class="dyn-remove-btn" data-key="sip_available" title="Remove this filter">&times;</button>
+            </summary>
+            <div class="checklist compact">
+              <label class="check-row"><input type="checkbox" name="sip_available" value="Yes" {% if selected.sip_available == 'Yes' %}checked{% endif %}><span>Yes</span></label>
+              <label class="check-row"><input type="checkbox" name="sip_available" value="No" {% if selected.sip_available == 'No' %}checked{% endif %}><span>No</span></label>
+            </div>
+          </details>
+        </div>
+
+
+        {# ── Add filter button ──────────────────────────────────────────────── #}
+        
+
       </div>
 
       <div class="screener-filter-footer">
+        <button type="button" class="add-filter-btn" id="add-filter-btn"> Add Filter</button>
         <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
       </div>
     </aside>
 
+    {# ── Results area ─────────────────────────────────────────────────────────── #}
     <section class="screener-results">
       <div id="compare-tray" class="compare-tray" hidden>
         <div class="compare-tray-title">Compare (<span id="compare-count">0</span>/5):</div>
         <div id="compare-items" class="compare-items"></div>
       </div>
+
       <div class="results-toolbar">
         <div class="results-search">
           <span aria-hidden="true">⌕</span>
-          <input type="search" name="q" value="{{ selected.q }}" placeholder="Search funds by name, AMC, AMFI or benchmark...">
+          <input type="search" name="q" value="{{ selected.q }}" placeholder="Search funds by name, AMC, AMFI, benchmark or manager...">
         </div>
         <div class="results-actions">
           <button type="button" class="toolbar-button" id="compare-selected-btn" disabled title="Select at least 2 funds to compare">⚖️ <span>Compare</span></button>
@@ -317,23 +366,56 @@
             <button type="button" class="toolbar-button" id="column-menu-button" aria-expanded="false">☷ <span>View</span></button>
             <div class="column-menu" id="column-menu" hidden>
               <div class="column-menu-title">Visible columns</div>
+
+              <div class="col-group-label">Scheme Info</div>
+              <label><input type="checkbox" value="nav"> NAV</label>
               <label><input type="checkbox" value="aum" checked> AUM</label>
               <label><input type="checkbox" value="expense" checked> Expense Ratio</label>
               <label><input type="checkbox" value="age" checked> Fund Age</label>
-              <label><input type="checkbox" value="return1y" checked> 1-Yr Return</label>
-              <label><input type="checkbox" value="cagr3y" checked> 3-Yr CAGR</label>
-              <label><input type="checkbox" value="return5y"> 5-Yr CAGR</label>
-              <label><input type="checkbox" value="rolling3y"> 3-Yr Rolling</label>
-              <label><input type="checkbox" value="rolling5y"> 5-Yr Rolling</label>
-              <label><input type="checkbox" value="volatility"> Volatility</label>
-              <label><input type="checkbox" value="sharpe"> Sharpe Ratio</label>
-              <label><input type="checkbox" value="excess1y"> Alpha 1Y</label>
-              <label><input type="checkbox" value="excess3y"> Alpha 3Y</label>
-              <label><input type="checkbox" value="drawdown"> Max Drawdown</label>
-              <label><input type="checkbox" value="risk"> Risk</label>
+              <label><input type="checkbox" value="manager"> Fund Manager</label>
+              <label><input type="checkbox" value="crisil"> CRISIL Rating</label>
+              <label><input type="checkbox" value="sip_avail"> SIP Available</label>
+              <label><input type="checkbox" value="model_score" checked> Model Score</label>
               <label><input type="checkbox" value="benchmark"> Benchmark</label>
               <label><input type="checkbox" value="updated"> Updated</label>
-              <label><input type="checkbox" value="report"> Report</label>
+
+              <div class="col-group-label">Returns</div>
+              <label><input type="checkbox" value="return1m"> 1M Return</label>
+              <label><input type="checkbox" value="return3m"> 3M Return</label>
+              <label><input type="checkbox" value="return6m"> 6M Return</label>
+              <label><input type="checkbox" value="return1y" checked> 1Y Return</label>
+              <label><input type="checkbox" value="cagr3y" checked> 3Y CAGR</label>
+              <label><input type="checkbox" value="return5y"> 5Y CAGR</label>
+              <label><input type="checkbox" value="cagr7y"> 7Y CAGR</label>
+              <label><input type="checkbox" value="cagr10y"> 10Y CAGR</label>
+              <label><input type="checkbox" value="cagrsi"> Since-Inception</label>
+
+              <div class="col-group-label">Rolling Returns</div>
+              <label><input type="checkbox" value="rolling3y"> 3Y Avg Rolling</label>
+              <label><input type="checkbox" value="rolling5y"> 5Y Avg Rolling</label>
+
+              <div class="col-group-label">Risk</div>
+              <label><input type="checkbox" value="volatility" checked> Volatility 3Y</label>
+              <label><input type="checkbox" value="volatility5y"> Volatility 5Y</label>
+              <label><input type="checkbox" value="sharpe"> Sharpe 3Y</label>
+              <label><input type="checkbox" value="sharpe5y"> Sharpe 5Y</label>
+              <label><input type="checkbox" value="sortino"> Sortino 3Y</label>
+              <label><input type="checkbox" value="drawdown"> Max Drawdown 3Y</label>
+              <label><input type="checkbox" value="drawdown5y"> Max Drawdown 5Y</label>
+              <label><input type="checkbox" value="cur_drawdown"> Current Drawdown</label>
+              <label><input type="checkbox" value="risk"> Risk Level</label>
+
+              <div class="col-group-label">Ratios &amp; Alpha</div>
+              <label><input type="checkbox" value="excess1y"> Excess Return 1Y</label>
+              <label><input type="checkbox" value="excess3y"> Excess Return 3Y</label>
+              <label><input type="checkbox" value="alpha3y"> Alpha 3Y</label>
+              <label><input type="checkbox" value="alpha5y"> Alpha 5Y</label>
+              <label><input type="checkbox" value="beta3y"> Beta 3Y</label>
+              <label><input type="checkbox" value="tracking3y"> Tracking Err 3Y</label>
+              <label><input type="checkbox" value="info3y"> Info Ratio 3Y</label>
+              <label><input type="checkbox" value="romad3y"> ROMAD 3Y</label>
+              <label><input type="checkbox" value="upside3y"> Upside Capture 3Y</label>
+              <label><input type="checkbox" value="downside3y"> Downside Capture 3Y</label>
             </div>
           </div>
         </div>
@@ -341,7 +423,7 @@
 
       <div class="results-meta">
         <span>Showing <strong>{{ total_count }}</strong> fund{{ total_count|pluralize }}</span>
-        {% if selected.q or selected.house or selected.category or selected.sub_category or selected.risk %}
+        {% if selected.q or selected.category or selected.sub_category or selected.plan_type %}
         <a href="{% url 'funds:screener' %}" class="reset-filters-link">✕ Reset all filters</a>
         {% endif %}
         <span class="sort-summary">Sorted by {{ selected.sort|title }} · {{ selected.direction|title }}</span>
@@ -354,55 +436,101 @@
             <thead>
               <tr>
                 <th class="favorite-column" aria-label="Favorite"></th>
-                <th data-column="scheme"><button type="button" class="table-sort" data-sort="name">Scheme Name <span>↕</span></button></th>
-                <th data-column="aum"><button type="button" class="table-sort" data-sort="aum">AUM (Cr) <span>↕</span></button></th>
-                <th data-column="expense"><button type="button" class="table-sort" data-sort="expense">Exp Ratio <span>↕</span></button></th>
-                <th data-column="age"><button type="button" class="table-sort" data-sort="age">Age <span>↕</span></button></th>
-                <th data-column="return1y"><button type="button" class="table-sort" data-sort="return_1y">1-Yr % <span>↕</span></button></th>
-                <th data-column="cagr3y"><button type="button" class="table-sort" data-sort="cagr_3y">3-Yr % <span>↕</span></button></th>
-                <th data-column="return5y"><button type="button" class="table-sort" data-sort="return_5y">5-Yr % <span>↕</span></button></th>
-                <th data-column="rolling3y"><button type="button" class="table-sort" data-sort="rolling_3y">Roll 3Y <span>↕</span></button></th>
-                <th data-column="rolling5y"><button type="button" class="table-sort" data-sort="rolling_5y">Roll 5Y <span>↕</span></button></th>
-                <th data-column="volatility"><button type="button" class="table-sort" data-sort="volatility_3y">Vol 3Y <span>↕</span></button></th>
-                <th data-column="sharpe"><button type="button" class="table-sort" data-sort="sharpe">Sharpe <span>↕</span></button></th>
-                <th data-column="excess1y"><button type="button" class="table-sort" data-sort="excess_1y">Alpha 1Y <span>↕</span></button></th>
-                <th data-column="excess3y"><button type="button" class="table-sort" data-sort="excess_3y">Alpha 3Y <span>↕</span></button></th>
-                <th data-column="drawdown"><button type="button" class="table-sort" data-sort="drawdown">Max DD <span>↕</span></button></th>
-                <th data-column="risk">Risk</th>
-                <th data-column="benchmark">Benchmark</th>
-                <th data-column="updated"><button type="button" class="table-sort" data-sort="updated">Updated <span>↕</span></button></th>
-                <th data-column="report">Report</th>
+                <th data-column="scheme"><button type="button" class="table-sort" data-sort="name">Scheme Name   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Scheme Name" data-t-what="The name of the mutual fund scheme.">ⓘ</button></th>
+                <th data-column="nav"><button type="button" class="table-sort" data-sort="nav">NAV   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="NAV" data-t-what="Net Asset Value—the price of a single unit of the mutual fund." data-t-interp="NAV absolute value is irrelevant for comparing funds. It only matters for calculating returns.">ⓘ</button></th>
+                <th data-column="aum"><button type="button" class="table-sort" data-sort="aum">AUM (Cr)   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Assets Under Management (AUM)" data-t-what="Total market value of the investments managed by the fund." data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance.">ⓘ</button></th>
+                <th data-column="expense"><button type="button" class="table-sort" data-sort="expense">Exp%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Expense Ratio" data-t-what="The annual fee charged by the mutual fund house." data-t-interp="Lower is better as it directly impacts your final returns.">ⓘ</button></th>
+                <th data-column="age"><button type="button" class="table-sort" data-sort="age">Age   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Fund Age" data-t-what="Number of years since the fund was launched." data-t-interp="Older is generally preferred as it indicates a longer track record across multiple market cycles.">ⓘ</button></th>
+                <th data-column="manager">Manager  <button type="button" class="info-btn" data-t-title="Fund Manager" data-t-what="The individual or team responsible for making investment decisions for the fund.">ⓘ</button></th>
+                <th data-column="crisil">CRISIL  <button type="button" class="info-btn" data-t-title="CRISIL Rating" data-t-what="Overall rating assigned by CRISIL based on performance and risk." data-t-interp="5-star is highest. 1-star is lowest.">ⓘ</button></th>
+                <th data-column="sip_avail">SIP  <button type="button" class="info-btn" data-t-title="SIP Available" data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund.">ⓘ</button></th>
+                <th data-column="model_score"><button type="button" class="table-sort" data-sort="model_score">Score   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Model Score" data-t-what="Our proprietary composite score evaluating a fund's performance, risk, and consistency." data-t-interp="Higher is better. 80+ is typically excellent.">ⓘ</button></th>
+                <th data-column="benchmark">Benchmark  <button type="button" class="info-btn" data-t-title="Benchmark" data-t-what="The standard index against which the performance of a mutual fund is measured.">ⓘ</button></th>
+                <th data-column="updated"><button type="button" class="table-sort" data-sort="updated">Updated   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Updated Date" data-t-what="The date when the fund's NAV and metrics were last updated in our database.">ⓘ</button></th>
+                <th data-column="return1m"><button type="button" class="table-sort" data-sort="return_1m">1M%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="1M Return" data-t-what="The percentage gain/loss over the past 1 month." data-t-interp="Useful for tracking recent momentum, but shouldn't dictate long-term decisions.">ⓘ</button></th>
+                <th data-column="return3m"><button type="button" class="table-sort" data-sort="return_3m">3M%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3M Return" data-t-what="The percentage gain/loss over the past 3 months." data-t-interp="Useful for tracking recent momentum, but shouldn't dictate long-term decisions.">ⓘ</button></th>
+                <th data-column="return6m"><button type="button" class="table-sort" data-sort="return_6m">6M%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="6M Return" data-t-what="The percentage gain/loss over the past 6 months." data-t-interp="Useful for tracking recent momentum, but shouldn't dictate long-term decisions.">ⓘ</button></th>
+                <th data-column="return1y"><button type="button" class="table-sort" data-sort="return_1y">1Y%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="1Y Return" data-t-what="The percentage gain/loss over the past 1 year." data-t-interp="Higher is better, but past performance does not guarantee future results.">ⓘ</button></th>
+                <th data-column="cagr3y"><button type="button" class="table-sort" data-sort="cagr_3y">3Y%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 3 years." data-t-interp="Higher is better.">ⓘ</button></th>
+                <th data-column="return5y"><button type="button" class="table-sort" data-sort="return_5y">5Y%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 5 years." data-t-interp="Higher is better. A good timeframe for assessing equity funds.">ⓘ</button></th>
+                <th data-column="cagr7y"><button type="button" class="table-sort" data-sort="cagr_7y">7Y%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="7Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 7 years." data-t-interp="Higher is better.">ⓘ</button></th>
+                <th data-column="cagr10y"><button type="button" class="table-sort" data-sort="cagr_10y">10Y%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="10Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 10 years." data-t-interp="Higher is better. Focus on 10Y for long-term equity assessment.">ⓘ</button></th>
+                <th data-column="cagrsi"><button type="button" class="table-sort" data-sort="cagr_si">SI%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Since-Inception CAGR" data-t-what="The annualized percentage growth rate since the fund was launched." data-t-interp="Higher is better.">ⓘ</button></th>
+                <th data-column="rolling3y"><button type="button" class="table-sort" data-sort="rolling_3y">Roll 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Avg Rolling Return" data-t-what="The average of all 3-year returns calculated over the period." data-t-interp="Higher is better. Shows the true consistency of the fund better than point-to-point trailing CAGR.">ⓘ</button></th>
+                <th data-column="rolling5y"><button type="button" class="table-sort" data-sort="rolling_5y">Roll 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Avg Rolling Return" data-t-what="The average of all 5-year returns calculated over the period." data-t-interp="Higher is better. Shows long-term consistency.">ⓘ</button></th>
+                <th data-column="volatility"><button type="button" class="table-sort" data-sort="volatility_3y">Vol 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 3 years." data-t-interp="Lower is better. Compare only within the same category (e.g. Small Caps will naturally have higher volatility than Large Caps).">ⓘ</button></th>
+                <th data-column="volatility5y"><button type="button" class="table-sort" data-sort="volatility_5y">Vol 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 5 years." data-t-interp="Lower is better.">ⓘ</button></th>
+                <th data-column="sharpe"><button type="button" class="table-sort" data-sort="sharpe">Sharpe 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Sharpe Ratio" data-t-what="Measures risk-adjusted return—how much excess return you get for the total risk taken." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></th>
+                <th data-column="sharpe5y"><button type="button" class="table-sort" data-sort="sharpe_5y">Sharpe 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Sharpe Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></th>
+                <th data-column="sortino"><button type="button" class="table-sort" data-sort="sortino">Sortino 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Sortino Ratio" data-t-what="Measures risk-adjusted return but only penalizes downside volatility (losses)." data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button></th>
+                <th data-column="drawdown"><button type="button" class="table-sort" data-sort="drawdown">MaxDD 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough of a portfolio over 3 years." data-t-interp="A smaller negative number is better. Indicates the worst-case scenario.">ⓘ</button></th>
+                <th data-column="drawdown5y"><button type="button" class="table-sort" data-sort="drawdown_5y">MaxDD 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough over 5 years." data-t-interp="A smaller negative number is better.">ⓘ</button></th>
+                <th data-column="cur_drawdown"><button type="button" class="table-sort" data-sort="cur_drawdown">Cur DD   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Current Drawdown" data-t-what="How much the fund is currently down from its all-time high." data-t-interp="A smaller negative number is better. 0% means the fund is at an all-time high.">ⓘ</button></th>
+                <th data-column="risk">Risk  <button type="button" class="info-btn" data-t-title="3Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 3 years." data-t-interp="Lower is better. Compare only within the same category (e.g. Small Caps will naturally have higher volatility than Large Caps).">ⓘ</button></th>
+                <th data-column="excess1y"><button type="button" class="table-sort" data-sort="excess_1y">Excess 1Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="1Y Excess Return" data-t-what="The difference between the fund's return and its benchmark's return over 1 year." data-t-interp="Positive means the fund outperformed its benchmark (higher is better).">ⓘ</button></th>
+                <th data-column="excess3y"><button type="button" class="table-sort" data-sort="excess_3y">Excess 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Excess Return" data-t-what="The difference between the fund's return and its benchmark's return over 3 years." data-t-interp="Positive means the fund outperformed its benchmark (higher is better).">ⓘ</button></th>
+                <th data-column="alpha3y"><button type="button" class="table-sort" data-sort="alpha_3y">Alpha 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Jensen's Alpha" data-t-what="The excess return of a fund relative to the return of the benchmark, adjusted for risk (Beta)." data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></th>
+                <th data-column="alpha5y"><button type="button" class="table-sort" data-sort="alpha_5y">Alpha 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Jensen's Alpha" data-t-what="The excess return of a fund relative to the benchmark over 5 years, adjusted for risk." data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></th>
+                <th data-column="beta3y"><button type="button" class="table-sort" data-sort="beta_3y">Beta 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Beta" data-t-what="Measures the fund's volatility relative to its benchmark." data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile.">ⓘ</button></th>
+                <th data-column="tracking3y"><button type="button" class="table-sort" data-sort="tracking_3y">TE 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Tracking Error" data-t-what="Measures the deviation of the fund's returns from its benchmark." data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible.">ⓘ</button></th>
+                <th data-column="info3y"><button type="button" class="table-sort" data-sort="info_ratio_3y">IR 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Information Ratio" data-t-what="Measures a portfolio manager's ability to generate excess returns relative to a benchmark, divided by the tracking error." data-t-interp="Higher is better. >0.5 is good.">ⓘ</button></th>
+                <th data-column="romad3y"><button type="button" class="table-sort" data-sort="romad_3y">ROMAD 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y ROMAD" data-t-what="Risk-adjusted metric dividing the annualized return by the maximum drawdown." data-t-interp="Higher is better. Indicates how much return you get per unit of maximum pain.">ⓘ</button></th>
+                <th data-column="upside3y"><button type="button" class="table-sort" data-sort="upside_3y">Up Cap 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Upside Capture" data-t-what="Measures a manager's performance in up markets relative to the market itself." data-t-interp=">100% means the fund outperformed the market when it was rising. Higher is better.">ⓘ</button></th>
+                <th data-column="downside3y"><button type="button" class="table-sort" data-sort="downside_3y">Dn Cap 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Downside Capture" data-t-what="Measures a manager's performance in down markets relative to the market itself." data-t-interp="<100% means the fund lost less than the market during a downturn. Lower is better.">ⓘ</button></th>
               </tr>
             </thead>
             <tbody>
               {% for row in snapshots %}
               <tr>
-                <td class="favorite-column"><button type="button" class="favorite-button" data-fund="{{ row.scheme.amfi_code }}" data-name="{{ row.fund_name }}" title="Save fund to favorites" aria-label="Save {{ row.fund_name }} to favorites">☆</button></td>
+                <td class="favorite-column"><button type="button" class="favorite-button" data-fund="{{ row.scheme.amfi_code }}" data-name="{{ row.fund_name }}" title="Add to compare" aria-label="Add {{ row.fund_name }} to compare">☆</button></td>
                 <td data-column="scheme">
-                  <a href="{% url 'funds:detail' row.scheme.amfi_code %}" class="fund-link">{{ row.fund_name|truncatechars:66 }}</a>
+                  <a href="{% url 'funds:detail' row.scheme.amfi_code %}" class="fund-link">{{ row.fund_name|truncatechars:60 }}</a>
                   <div class="scheme-tags">
                     {% if row.plan_type %}<span>{{ row.plan_type }}</span>{% endif %}
-                    {% if row.income_type %}<span>{{ row.income_type }}</span>{% endif %}
                     {% if row.scheme_sub_category %}<small>{{ row.scheme_sub_category }}</small>{% endif %}
+                    {% if row.model_score_badge %}<span class="score-badge score-{{ row.model_score_badge|lower }}">{{ row.model_score_badge }}</span>{% endif %}
                   </div>
                 </td>
+                <td data-column="nav">{% if row.nav_latest != None %}₹{{ row.nav_latest|floatformat:2 }}{% else %}—{% endif %}</td>
                 <td data-column="aum">{% if row.aum_cr != None %}{{ row.aum_cr|floatformat:0 }}{% else %}—{% endif %}</td>
                 <td data-column="expense">{% if row.expense_ratio != None %}{{ row.expense_ratio|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="age">{% if row.fund_age_years != None %}{{ row.fund_age_years|floatformat:1 }}y{% else %}—{% endif %}</td>
+                <td data-column="manager" class="text-sm">{{ row.fund_manager|default:"—"|truncatechars:28 }}</td>
+                <td data-column="crisil">{{ row.crisil_rating|default:"—" }}</td>
+                <td data-column="sip_avail">{% if row.sip_available == True %}✓{% elif row.sip_available == False %}✗{% else %}—{% endif %}</td>
+                <td data-column="model_score">{% if row.model_score != None %}<span class="score-pill score-{{ row.model_score_badge|lower|default:'none' }}">{{ row.model_score|floatformat:0 }}</span>{% else %}—{% endif %}</td>
+                <td data-column="benchmark" class="benchmark-cell">{{ row.benchmark_name|default:"—"|truncatechars:32 }}</td>
+                <td data-column="updated">{% if row.data_as_of %}{{ row.data_as_of|date:"d M Y" }}{% else %}—{% endif %}</td>
+                <td data-column="return1m" class="{% if row.returns_1m_pct > 0 %}positive{% elif row.returns_1m_pct < 0 %}negative{% endif %}">{% if row.returns_1m_pct != None %}{{ row.returns_1m_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="return3m" class="{% if row.returns_3m_pct > 0 %}positive{% elif row.returns_3m_pct < 0 %}negative{% endif %}">{% if row.returns_3m_pct != None %}{{ row.returns_3m_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="return6m" class="{% if row.returns_6m_pct > 0 %}positive{% elif row.returns_6m_pct < 0 %}negative{% endif %}">{% if row.returns_6m_pct != None %}{{ row.returns_6m_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="return1y" class="{% if row.returns_1y_pct > 0 %}positive{% elif row.returns_1y_pct < 0 %}negative{% endif %}">{% if row.returns_1y_pct != None %}{{ row.returns_1y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="cagr3y" class="{% if row.cagr_3y_pct > 0 %}positive{% elif row.cagr_3y_pct < 0 %}negative{% endif %}">{% if row.cagr_3y_pct != None %}{{ row.cagr_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="return5y" class="{% if row.returns_5y_pct > 0 %}positive{% elif row.returns_5y_pct < 0 %}negative{% endif %}">{% if row.returns_5y_pct != None %}{{ row.returns_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="cagr7y" class="{% if row.cagr_7y_pct > 0 %}positive{% elif row.cagr_7y_pct < 0 %}negative{% endif %}">{% if row.cagr_7y_pct != None %}{{ row.cagr_7y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="cagr10y" class="{% if row.cagr_10y_pct > 0 %}positive{% elif row.cagr_10y_pct < 0 %}negative{% endif %}">{% if row.cagr_10y_pct != None %}{{ row.cagr_10y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="cagrsi" class="{% if row.cagr_si_pct > 0 %}positive{% elif row.cagr_si_pct < 0 %}negative{% endif %}">{% if row.cagr_si_pct != None %}{{ row.cagr_si_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="rolling3y">{% if row.rolling_return_3y_pct != None %}{{ row.rolling_return_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="rolling5y">{% if row.rolling_return_5y_pct != None %}{{ row.rolling_return_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="volatility">{% if row.volatility_3y_pct != None %}{{ row.volatility_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="volatility5y">{% if row.volatility_5y_pct != None %}{{ row.volatility_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="sharpe" class="{% if row.sharpe_ratio > 1 %}positive{% elif row.sharpe_ratio < 0 %}negative{% endif %}">{% if row.sharpe_ratio != None %}{{ row.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="sharpe5y" class="{% if row.sharpe_ratio_5y > 1 %}positive{% elif row.sharpe_ratio_5y < 0 %}negative{% endif %}">{% if row.sharpe_ratio_5y != None %}{{ row.sharpe_ratio_5y|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="sortino" class="{% if row.sortino_ratio > 1 %}positive{% elif row.sortino_ratio < 0 %}negative{% endif %}">{% if row.sortino_ratio != None %}{{ row.sortino_ratio|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="drawdown" class="negative">{% if row.max_drawdown != None %}{{ row.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="drawdown5y" class="negative">{% if row.max_drawdown_5y != None %}{{ row.max_drawdown_5y|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="cur_drawdown" class="{% if row.current_drawdown < 0 %}negative{% endif %}">{% if row.current_drawdown != None %}{{ row.current_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="risk">{% if row.risk_label %}<span class="risk-badge risk-{{ row.risk_label|lower|cut:" " }}">{{ row.risk_label }}</span>{% else %}—{% endif %}</td>
                 <td data-column="excess1y" class="{% if row.excess_return_1y > 0 %}positive{% elif row.excess_return_1y < 0 %}negative{% endif %}">{% if row.excess_return_1y != None %}{% if row.excess_return_1y > 0 %}+{% endif %}{{ row.excess_return_1y|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="excess3y" class="{% if row.excess_return_3y > 0 %}positive{% elif row.excess_return_3y < 0 %}negative{% endif %}">{% if row.excess_return_3y != None %}{% if row.excess_return_3y > 0 %}+{% endif %}{{ row.excess_return_3y|floatformat:2 }}%{% else %}—{% endif %}</td>
-                <td data-column="drawdown" class="negative">{% if row.max_drawdown != None %}{{ row.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
-                <td data-column="risk">{% if row.risk_label %}<span class="risk-badge risk-{{ row.risk_label|lower|cut:" " }}">{{ row.risk_label }}</span>{% else %}—{% endif %}</td>
-                <td data-column="benchmark" class="benchmark-cell">{{ row.benchmark_name|default:"—"|truncatechars:34 }}</td>
-                <td data-column="updated">{% if row.data_as_of %}{{ row.data_as_of|date:"d M Y" }}{% else %}—{% endif %}</td>
-                <td data-column="report"><a class="report-link" href="{% url 'funds:screener_report' row.scheme.amfi_code %}" target="_blank" title="Open performance report">↗</a></td>
+                <td data-column="alpha3y" class="{% if row.alpha_3y > 0 %}positive{% elif row.alpha_3y < 0 %}negative{% endif %}">{% if row.alpha_3y != None %}{% if row.alpha_3y > 0 %}+{% endif %}{{ row.alpha_3y|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="alpha5y" class="{% if row.alpha_5y > 0 %}positive{% elif row.alpha_5y < 0 %}negative{% endif %}">{% if row.alpha_5y != None %}{% if row.alpha_5y > 0 %}+{% endif %}{{ row.alpha_5y|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="beta3y">{% if row.beta_3y != None %}{{ row.beta_3y|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="tracking3y">{% if row.tracking_error_3y != None %}{{ row.tracking_error_3y|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="info3y" class="{% if row.info_ratio_3y > 0 %}positive{% elif row.info_ratio_3y < 0 %}negative{% endif %}">{% if row.info_ratio_3y != None %}{{ row.info_ratio_3y|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="romad3y" class="{% if row.romad_3y > 0 %}positive{% elif row.romad_3y < 0 %}negative{% endif %}">{% if row.romad_3y != None %}{{ row.romad_3y|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="upside3y">{% if row.upside_capture_3y != None %}{{ row.upside_capture_3y|floatformat:1 }}%{% else %}—{% endif %}</td>
+                <td data-column="downside3y">{% if row.downside_capture_3y != None %}{{ row.downside_capture_3y|floatformat:1 }}%{% else %}—{% endif %}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -431,229 +559,740 @@
 {% block extra_js %}
 <script>
 (() => {
-  const form = document.getElementById('screener-form');
-  const activeTabKey = 'fund-screener-active-tab';
-  const savedTab = sessionStorage.getItem(activeTabKey) || 'basic';
+  'use strict';
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+  const getParams = () => new URLSearchParams(window.location.search);
 
-  function activateTab(name) {
-    document.querySelectorAll('.screener-tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === name));
-    document.querySelectorAll('.screener-tab-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === name));
-    sessionStorage.setItem(activeTabKey, name);
+  // Current sort state from server
+  const CURRENT_SORT = '{{ selected.sort|escapejs }}';
+  const CURRENT_DIR  = '{{ selected.direction|escapejs }}';
+
+  // ── FILTER META ────────────────────────────────────────────────────────────
+  
+  const TOOLTIPS = {
+    'name': 'data-t-title="Scheme Name" data-t-what="The name of the mutual fund scheme."',
+    'nav': 'data-t-title="NAV" data-t-what="Net Asset Value—the price of a single unit of the mutual fund." data-t-interp="NAV absolute value is irrelevant for comparing funds. It only matters for calculating returns."',
+    'aum': 'data-t-title="Assets Under Management (AUM)" data-t-what="Total market value of the investments managed by the fund." data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance."',
+    'expense': 'data-t-title="Expense Ratio" data-t-what="The annual fee charged by the mutual fund house." data-t-interp="Lower is better as it directly impacts your final returns."',
+    'age': 'data-t-title="Fund Age" data-t-what="Number of years since the fund was launched." data-t-interp="Older is generally preferred as it indicates a longer track record across multiple market cycles."',
+    'manager': 'data-t-title="Fund Manager" data-t-what="The individual or team responsible for making investment decisions for the fund."',
+    'crisil': 'data-t-title="CRISIL Rating" data-t-what="Overall rating assigned by CRISIL based on performance and risk." data-t-interp="5-star is highest. 1-star is lowest."',
+    'sip_avail': 'data-t-title="SIP Available" data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund."',
+    'model_score': 'data-t-title="Model Score" data-t-what="Our proprietary composite score evaluating a fund\'s performance, risk, and consistency." data-t-interp="Higher is better. 80+ is typically excellent."',
+    'benchmark': 'data-t-title="Benchmark" data-t-what="The standard index against which the performance of a mutual fund is measured."',
+    'updated': 'data-t-title="Updated Date" data-t-what="The date when the fund\'s NAV and metrics were last updated in our database."',
+    'return_1m': 'data-t-title="1M Return" data-t-what="The percentage gain/loss over the past 1 month." data-t-interp="Useful for tracking recent momentum, but shouldn\'t dictate long-term decisions."',
+    'return_3m': 'data-t-title="3M Return" data-t-what="The percentage gain/loss over the past 3 months." data-t-interp="Useful for tracking recent momentum, but shouldn\'t dictate long-term decisions."',
+    'return_6m': 'data-t-title="6M Return" data-t-what="The percentage gain/loss over the past 6 months." data-t-interp="Useful for tracking recent momentum, but shouldn\'t dictate long-term decisions."',
+    'return_1y': 'data-t-title="1Y Return" data-t-what="The percentage gain/loss over the past 1 year." data-t-interp="Higher is better, but past performance does not guarantee future results."',
+    'cagr_3y': 'data-t-title="3Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 3 years." data-t-interp="Higher is better."',
+    'return_5y': 'data-t-title="5Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 5 years." data-t-interp="Higher is better. A good timeframe for assessing equity funds."',
+    'cagr_7y': 'data-t-title="7Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 7 years." data-t-interp="Higher is better."',
+    'cagr_10y': 'data-t-title="10Y CAGR" data-t-what="The annualized percentage growth rate of the fund over the past 10 years." data-t-interp="Higher is better. Focus on 10Y for long-term equity assessment."',
+    'cagr_si': 'data-t-title="Since-Inception CAGR" data-t-what="The annualized percentage growth rate since the fund was launched." data-t-interp="Higher is better."',
+    'rolling_3y': 'data-t-title="3Y Avg Rolling Return" data-t-what="The average of all 3-year returns calculated over the period." data-t-interp="Higher is better. Shows the true consistency of the fund better than point-to-point trailing CAGR."',
+    'rolling_5y': 'data-t-title="5Y Avg Rolling Return" data-t-what="The average of all 5-year returns calculated over the period." data-t-interp="Higher is better. Shows long-term consistency."',
+    'volatility_3y': 'data-t-title="3Y Volatility (Std Dev)" data-t-what="Measures how much the fund\'s returns fluctuate from its average return over 3 years." data-t-interp="Lower is better. Compare only within the same category (e.g. Small Caps will naturally have higher volatility than Large Caps)."',
+    'volatility_5y': 'data-t-title="5Y Volatility (Std Dev)" data-t-what="Measures how much the fund\'s returns fluctuate from its average return over 5 years." data-t-interp="Lower is better."',
+    'sharpe_5y': 'data-t-title="5Y Sharpe Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good."',
+    'sortino': 'data-t-title="3Y Sortino Ratio" data-t-what="Measures risk-adjusted return but only penalizes downside volatility (losses)." data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good."',
+    'sortino_5y': 'data-t-title="5Y Sortino Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better."',
+    'drawdown_5y': 'data-t-title="5Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough over 5 years." data-t-interp="A smaller negative number is better."',
+    'cur_drawdown': 'data-t-title="Current Drawdown" data-t-what="How much the fund is currently down from its all-time high." data-t-interp="A smaller negative number is better. 0% means the fund is at an all-time high."',
+    'tracking_3y': 'data-t-title="3Y Tracking Error" data-t-what="Measures the deviation of the fund\'s returns from its benchmark." data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible."',
+    'alpha_3y': 'data-t-title="3Y Jensen\'s Alpha" data-t-what="The excess return of a fund relative to the return of the benchmark, adjusted for risk (Beta)." data-t-interp=">0 means the manager added value. Higher is better."',
+    'alpha_5y': 'data-t-title="5Y Jensen\'s Alpha" data-t-what="The excess return of a fund relative to the benchmark over 5 years, adjusted for risk." data-t-interp=">0 means the manager added value. Higher is better."',
+    'beta_3y': 'data-t-title="3Y Beta" data-t-what="Measures the fund\'s volatility relative to its benchmark." data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile."',
+    'info_ratio_3y': 'data-t-title="3Y Information Ratio" data-t-what="Measures a portfolio manager\'s ability to generate excess returns relative to a benchmark, divided by the tracking error." data-t-interp="Higher is better. >0.5 is good."',
+    'romad_3y': 'data-t-title="3Y ROMAD" data-t-what="Risk-adjusted metric dividing the annualized return by the maximum drawdown." data-t-interp="Higher is better. Indicates how much return you get per unit of maximum pain."',
+    'upside_3y': 'data-t-title="3Y Upside Capture" data-t-what="Measures a manager\'s performance in up markets relative to the market itself." data-t-interp=">100% means the fund outperformed the market when it was rising. Higher is better."',
+    'downside_3y': 'data-t-title="3Y Downside Capture" data-t-what="Measures a manager\'s performance in down markets relative to the market itself." data-t-interp="<100% means the fund lost less than the market during a downturn. Lower is better."',
+    'r_sq_3y': 'data-t-title="3Y R-Squared" data-t-what="Represents the percentage of a fund\'s movements that can be explained by movements in a benchmark index." data-t-interp="100% means perfectly correlated. Active funds typically have lower R-squared (70-90%)."',
+    'sip_min': 'data-t-title="Min SIP (₹)" data-t-what="The minimum amount required to start a SIP investment."',
+    'lump_min': 'data-t-title="Min Lumpsum (₹)" data-t-what="The minimum amount required to start a lumpsum investment."',
+    'lock_in': 'data-t-title="Lock-in (Days)" data-t-what="The mandatory period during which you cannot redeem your investment (e.g. 3 years for ELSS funds)."',
+    'pturnover': 'data-t-title="Portfolio Turnover" data-t-what="Measures how frequently the fund manager buys and sells securities within a year." data-t-interp="Lower is preferred (lower trading costs). However, high turnover is acceptable if returns justify it."',
+  };
+
+  const FILTER_META = {
+    aum:           { label: 'AUM (Cr)',               type: 'range', min: 0,   max: 200000, step: 500,  param: 'aum',          presets: [['1K+ Cr','1000',null],['5K+ Cr','5000',null],['10K+ Cr','10000',null]] },
+    expense:       { label: 'Expense Ratio %',         type: 'range', min: 0,   max: 3,      step: 0.05, param: 'expense',      decimals: 2, suffix: '%', presets: [['<0.4%',null,'0.4'],['<1%',null,'1'],['<1.5%',null,'1.5']] },
+    age:           { label: 'Fund Age (Yrs)',           type: 'range', min: 0,   max: 30,     step: 1,    param: 'age',          decimals: 0, presets: [['1Y+','1',null],['3Y+','3',null],['5Y+','5',null],['10Y+','10',null]] },
+    nav:           { label: 'NAV (₹)',                  type: 'range', min: 0,   max: 5000,   step: 1,    param: 'nav' },
+    model_score:   { label: 'Model Score (0–100)',      type: 'range', min: 0,   max: 100,    step: 1,    param: 'model_score',  presets: [['50+','50',null],['70+','70',null],['85+','85',null]] },
+    return_1m:     { label: '1M Return %',              type: 'range', min: -20, max: 50,     step: 0.5,  param: 'return_1m',   decimals: 1, suffix: '%' },
+    return_3m:     { label: '3M Return %',              type: 'range', min: -30, max: 60,     step: 0.5,  param: 'return_3m',   decimals: 1, suffix: '%' },
+    return_6m:     { label: '6M Return %',              type: 'range', min: -30, max: 80,     step: 0.5,  param: 'return_6m',   decimals: 1, suffix: '%' },
+    return_1y:     { label: '1Y Return %',              type: 'range', min: -20, max: 120,    step: 0.5,  param: 'return_1y',   decimals: 1, suffix: '%' },
+    cagr_7y:       { label: '7Y CAGR %',                type: 'range', min: -5,  max: 40,     step: 0.5,  param: 'cagr_7y',     decimals: 1, suffix: '%', presets: [['10%+','10',null],['15%+','15',null],['20%+','20',null]] },
+    cagr_10y:      { label: '10Y CAGR %',               type: 'range', min: -5,  max: 35,     step: 0.5,  param: 'cagr_10y',    decimals: 1, suffix: '%', presets: [['10%+','10',null],['15%+','15',null]] },
+    rolling_5y:    { label: '5Y Avg Rolling %',         type: 'range', min: -10, max: 35,     step: 0.5,  param: 'rolling_5y',  decimals: 1, suffix: '%' },
+    volatility_5y: { label: '5Y Volatility %',          type: 'range', min: 0,   max: 50,     step: 0.5,  param: 'volatility_5y', decimals: 1, suffix: '%', presets: [['<10%',null,'10'],['<15%',null,'15'],['<25%',null,'25']] },
+    sharpe_5y:     { label: '5Y Sharpe',                type: 'range', min: -1,  max: 3,      step: 0.1,  param: 'sharpe_5y',   decimals: 2, presets: [['>0.5','0.5',null],['High >1','1',null]] },
+    sortino:       { label: '3Y Sortino',               type: 'range', min: -1,  max: 4,      step: 0.1,  param: 'sortino',     decimals: 2, presets: [['>0.5','0.5',null],['High >1','1',null]] },
+    sortino_5y:    { label: '5Y Sortino',               type: 'range', min: -1,  max: 4,      step: 0.1,  param: 'sortino_5y',  decimals: 2 },
+    drawdown_5y:   { label: '5Y Max Drawdown %',        type: 'range', min: -70, max: 0,      step: 0.5,  param: 'drawdown_5y', decimals: 1, suffix: '%', presets: [['Loss <20%','-20',null],['Loss <30%','-30',null]] },
+    cur_drawdown:  { label: 'Current Drawdown %',       type: 'range', min: -60, max: 5,      step: 0.5,  param: 'cur_drawdown', decimals: 1, suffix: '%' },
+    tracking_3y:   { label: '3Y Tracking Error %',      type: 'range', min: 0,   max: 20,     step: 0.5,  param: 'tracking_3y', decimals: 2, suffix: '%', presets: [['<5%',null,'5'],['<10%',null,'10']] },
+    alpha_3y:      { label: "3Y Jensen's Alpha %",       type: 'range', min: -15, max: 20,     step: 0.5,  param: 'alpha_3y',    decimals: 2, suffix: '%', presets: [['>0%','0',null],['>2%','2',null]] },
+    alpha_5y:      { label: "5Y Jensen's Alpha %",       type: 'range', min: -15, max: 20,     step: 0.5,  param: 'alpha_5y',    decimals: 2, suffix: '%' },
+    beta_3y:       { label: '3Y Beta',                  type: 'range', min: 0,   max: 2,      step: 0.05, param: 'beta_3y',     decimals: 2, presets: [['<0.8',null,'0.8'],['<1.0',null,'1.0']] },
+    info_ratio_3y: { label: '3Y Information Ratio',     type: 'range', min: -3,  max: 3,      step: 0.1,  param: 'info_ratio_3y', decimals: 2, presets: [['>0','0',null],['>0.5','0.5',null]] },
+    romad_3y:      { label: '3Y ROMAD',                 type: 'range', min: -5,  max: 5,      step: 0.1,  param: 'romad_3y',    decimals: 2, presets: [['>0','0',null],['>0.5','0.5',null]] },
+    upside_3y:     { label: '3Y Upside Capture %',      type: 'range', min: 0,   max: 200,    step: 1,    param: 'upside_3y',   decimals: 1, suffix: '%', presets: [['>100%','100',null]] },
+    downside_3y:   { label: '3Y Downside Capture %',    type: 'range', min: 0,   max: 200,    step: 1,    param: 'downside_3y', decimals: 1, suffix: '%', presets: [['<80%',null,'80']] },
+    r_sq_3y:       { label: '3Y R-Squared %',           type: 'range', min: 0,   max: 100,    step: 1,    param: 'r_sq_3y',     decimals: 1, suffix: '%' },
+    sip_min:       { label: 'Min SIP (₹)',               type: 'range', min: 0,   max: 5000,   step: 100,  param: 'sip_min' },
+    lump_min:      { label: 'Min Lumpsum (₹)',           type: 'range', min: 0,   max: 50000,  step: 500,  param: 'lump_min' },
+    lock_in:       { label: 'Lock-in (Days)',            type: 'range', min: 0,   max: 1095,   step: 30,   param: 'lock_in',     decimals: 0, presets: [['No lock-in',null,'0'],['ELSS 1095+','1095',null]] },
+    pturnover:     { label: 'Portfolio Turnover',       type: 'range', min: 0,   max: 5,      step: 0.05, param: 'pturnover',   decimals: 2 },
+  };
+
+  // ── Active filter badge ────────────────────────────────────────────────────
+  const filterBtn   = $('#active-filter-btn');
+  const filterCount = $('#active-filter-count');
+  const popover     = $('#active-filters-popover');
+  const afpList     = $('#afp-list');
+
+  const SKIP_KEYS = new Set(['sort', 'direction', 'page', 'export']);
+
+  function countActiveFilters() {
+    const params = getParams();
+    let count = 0;
+    params.forEach((v, k) => { if (v && !SKIP_KEYS.has(k)) count++; });
+
+    return count;
   }
-  document.querySelectorAll('.screener-tab').forEach((tab) => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
-  activateTab(savedTab);
 
-  document.querySelectorAll('.filter-search').forEach((input) => {
-    input.addEventListener('input', () => {
-      const target = document.getElementById(input.dataset.target);
-      const needle = input.value.trim().toLowerCase();
-      target.querySelectorAll('.check-row').forEach((row) => {
-        row.hidden = Boolean(needle) && !row.textContent.toLowerCase().includes(needle);
+  function updateFilterBadge() {
+    const count = countActiveFilters();
+    filterCount.textContent = count === 0 ? '0 filters' : `${count} active filter${count > 1 ? 's' : ''}`;
+    filterBtn.classList.toggle('has-filters', count > 0);
+  }
+  updateFilterBadge();
+  document.addEventListener('change', () => updateFilterBadge());
+
+  // Active-filter popover
+  filterBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const params = getParams();
+    const items = [];
+    params.forEach((v, k) => {
+      if (!v || SKIP_KEYS.has(k)) return;
+      
+      let label = k.replace(/_/g, ' ');
+      // Capitalize first letters for default label
+      label = label.replace(/\b\w/g, l => l.toUpperCase());
+      if (k === 'q') label = 'Search Query';
+      
+      const meta = Object.values(FILTER_META).find(m => m.param === k || `${m.param}_min` === k || `${m.param}_max` === k);
+      if (meta) {
+          label = meta.label;
+      } else {
+          // Attempt to extract label from DOM
+          const rangeInp = document.querySelector(`[data-param-min="${k}"], [data-param-max="${k}"]`);
+          if (rangeInp) {
+              const summary = rangeInp.closest('details')?.querySelector('summary');
+              if (summary) label = summary.textContent.replace(/[\u2716\u24d8x\s]+$/i, '').trim();
+          } else {
+              const cb = document.querySelector(`input[name="${k}"]`);
+              if (cb) {
+                  const summary = cb.closest('details')?.querySelector('summary');
+                  if (summary) label = summary.textContent.replace(/[\u2716\u24d8x\s]+$/i, '').trim();
+              }
+          }
+      }
+      
+      const isRange = (!!meta && meta.type === 'range') || k.endsWith('_min') || k.endsWith('_max');
+      items.push({ key: k, label, value: v, isRange });
+    });
+    
+    let html = '';
+    if (items.length) {
+      html += '<div class="afp-items-wrap" style="max-height:300px;overflow-y:auto;padding-bottom:10px;">';
+      html += items.map(i => {
+          let inputHtml = '';
+          if (i.isRange) {
+              inputHtml = `<input type="text" class="afp-edit-input filter-search" data-key="${i.key}" value="${i.value}" title="Edit value" style="width:70px;padding:2px 4px;font-size:11px;margin-right:6px;height:24px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);">`;
+          } else {
+              const cbs = Array.from(document.querySelectorAll(`input[type="checkbox"][name="${i.key}"]`));
+              const radios = Array.from(document.querySelectorAll(`input[type="radio"][name="${i.key}"]`));
+              
+              if (cbs.length > 0) {
+                  const activeVals = i.value.split(',');
+                  inputHtml = `<select multiple class="afp-edit-input filter-search" data-key="${i.key}" style="width:140px; padding:2px; font-size:11px; height:60px; margin-right:6px; background:transparent; color:var(--text-primary); border:1px solid var(--border); border-radius:4px;">`;
+                  cbs.forEach(cb => {
+                      const val = cb.value;
+                      let text = val;
+                      if (cb.nextElementSibling && cb.nextElementSibling.nextSibling) {
+                          text = cb.nextElementSibling.nextSibling.textContent.trim() || val;
+                      } else if (cb.parentElement && cb.parentElement.textContent) {
+                          text = cb.parentElement.textContent.trim();
+                      }
+                      const sel = activeVals.includes(val) ? 'selected' : '';
+                      inputHtml += `<option value="${val}" ${sel}>${text}</option>`;
+                  });
+                  inputHtml += `</select>`;
+              } else if (radios.length > 0) {
+                  inputHtml = `<select class="afp-edit-input filter-search" data-key="${i.key}" style="width:140px; padding:2px; font-size:11px; margin-right:6px; background:transparent; color:var(--text-primary); border:1px solid var(--border); border-radius:4px;">`;
+                  radios.forEach(rd => {
+                      const val = rd.value;
+                      let text = val;
+                      if (rd.parentElement && rd.parentElement.textContent) {
+                          text = rd.parentElement.textContent.trim();
+                      }
+                      const sel = (i.value === val) ? 'selected' : '';
+                      inputHtml += `<option value="${val}" ${sel}>${text}</option>`;
+                  });
+                  inputHtml += `</select>`;
+              } else {
+                  inputHtml = `<span class="afp-value">${i.value}</span>`;
+              }
+          }
+
+          return `<div class="afp-item" data-key="${i.key}">
+            <span class="afp-label" title="${i.label}" style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${i.label}</span>
+            <div style="display:flex;align-items:center;">
+              ${inputHtml}
+              <button type="button" class="afp-remove" data-key="${i.key}" title="Remove">&#10006;</button>
+            </div>
+          </div>`;
+      }).join('');
+      html += '</div>';
+      html += '<div class="afp-footer" style="padding-top:10px;border-top:1px solid var(--border-subtle);display:flex;justify-content:flex-end;margin-top:10px;"><button type="button" class="btn btn-primary btn-sm" id="afp-apply-btn">Apply Changes</button></div>';
+    } else {
+      html = '<div class="afp-empty">No active filters applied yet.</div>';
+    }
+    
+    afpList.innerHTML = html;
+    
+    let pendingParams = getParams();
+    
+    $$('.afp-remove', afpList).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const itemRow = btn.closest('.afp-item');
+        if (itemRow) {
+          itemRow.style.opacity = '0.5';
+          itemRow.style.pointerEvents = 'none';
+        }
+        pendingParams.delete(btn.dataset.key);
       });
     });
-  });
-
-  // Range filter logic: only submit hidden value when slider moved from its default boundary
-  document.querySelectorAll('[data-range]').forEach((control) => {
-    const minRange = control.querySelector('[data-range-min]');
-    const maxRange = control.querySelector('[data-range-max]');
-    const hiddenMin = control.querySelector('[data-hidden-min]');
-    const hiddenMax = control.querySelector('[data-hidden-max]');
-    const minLabel = control.querySelector('[data-min-label]');
-    const maxLabel = control.querySelector('[data-max-label]');
-    const decimals = Number(control.dataset.decimals || 0);
-    const suffix = control.dataset.suffix || '';
-    const defaultMin = Number(minRange.dataset.defaultMin ?? minRange.min);
-    const defaultMax = Number(maxRange.dataset.defaultMax ?? maxRange.max);
-
-    // Restore from URL param if present, else use default
-    const initMin = minRange.dataset.initValue !== '' && minRange.dataset.initValue !== undefined ? Number(minRange.dataset.initValue) : defaultMin;
-    const initMax = maxRange.dataset.initValue !== '' && maxRange.dataset.initValue !== undefined ? Number(maxRange.dataset.initValue) : defaultMax;
-    minRange.value = isNaN(initMin) ? defaultMin : initMin;
-    maxRange.value = isNaN(initMax) ? defaultMax : initMax;
-
-    const format = (value) => {
-      const number = Number(value);
-      return number.toLocaleString(undefined, {minimumFractionDigits: decimals, maximumFractionDigits: decimals}) + suffix;
-    };
-
-    const sync = (source) => {
-      if (Number(minRange.value) > Number(maxRange.value)) {
-        if (source === minRange) maxRange.value = minRange.value;
-        else minRange.value = maxRange.value;
-      }
-      // Only write hidden value when moved away from the boundary (actual filter active)
-      const curMin = Number(minRange.value);
-      const curMax = Number(maxRange.value);
-      hiddenMin.value = curMin > defaultMin ? curMin : '';
-      hiddenMax.value = curMax < defaultMax ? curMax : '';
-      minLabel.textContent = format(curMin);
-      maxLabel.textContent = format(curMax);
-      const low = ((curMin - Number(minRange.min)) / (Number(minRange.max) - Number(minRange.min))) * 100;
-      const high = ((curMax - Number(maxRange.min)) / (Number(maxRange.max) - Number(maxRange.min))) * 100;
-      control.style.setProperty('--range-low', low + '%');
-      control.style.setProperty('--range-high', high + '%');
-    };
-    minRange.addEventListener('input', () => sync(minRange));
-    maxRange.addEventListener('input', () => sync(maxRange));
-    control.querySelectorAll('[data-set-min]').forEach((button) => button.addEventListener('click', () => { minRange.value = button.dataset.setMin; sync(minRange); }));
-    control.querySelectorAll('[data-set-max]').forEach((button) => button.addEventListener('click', () => { maxRange.value = button.dataset.setMax; sync(maxRange); }));
-    sync();
-  });
-
-  // Active filter counter badge
-  const countBadge = document.getElementById('active-filter-count');
-  if (countBadge) {
-    const params = new URLSearchParams(window.location.search);
-    const skipKeys = new Set(['sort', 'direction', 'page', 'export']);
-    let activeCount = 0;
-    params.forEach((v, k) => { if (v && !skipKeys.has(k)) activeCount++; });
-    if (activeCount > 0) {
-      countBadge.textContent = activeCount + ' filter' + (activeCount > 1 ? 's' : '') + ' active';
-      countBadge.hidden = false;
-    }
-  }
-
-  document.querySelectorAll('.table-sort').forEach((button) => {
-    button.addEventListener('click', () => {
-      let sortInput = form.querySelector('input[name="sort"]');
-      let directionInput = form.querySelector('input[name="direction"]');
-      if (!sortInput) {
-        sortInput = document.createElement('input');
-        sortInput.type = 'hidden';
-        sortInput.name = 'sort';
-        form.appendChild(sortInput);
-      }
-      if (!directionInput) {
-        directionInput = document.createElement('input');
-        directionInput.type = 'hidden';
-        directionInput.name = 'direction';
-        form.appendChild(directionInput);
-      }
-      const sameColumn = sortInput.value === button.dataset.sort || '{{ selected.sort }}' === button.dataset.sort;
-      directionInput.value = sameColumn && '{{ selected.direction }}' === 'asc' ? 'desc' : 'asc';
-      sortInput.value = button.dataset.sort;
-      form.submit();
-    });
-  });
-
-  const columnButton = document.getElementById('column-menu-button');
-  const columnMenu = document.getElementById('column-menu');
-  const columnStorageKey = 'fund-screener-columns-v1';
-  const defaultColumns = ['aum', 'expense', 'age', 'return1y', 'cagr3y'];
-  let visibleColumns = JSON.parse(localStorage.getItem(columnStorageKey) || 'null') || defaultColumns;
-  const applyColumns = () => {
-    document.querySelectorAll('#column-menu input').forEach((box) => { box.checked = visibleColumns.includes(box.value); });
-    document.querySelectorAll('#screener-table [data-column]').forEach((cell) => {
-      if (cell.dataset.column === 'scheme') return;
-      cell.hidden = !visibleColumns.includes(cell.dataset.column);
-    });
-    localStorage.setItem(columnStorageKey, JSON.stringify(visibleColumns));
-  };
-  columnButton.addEventListener('click', () => {
-    columnMenu.hidden = !columnMenu.hidden;
-    columnButton.setAttribute('aria-expanded', String(!columnMenu.hidden));
-  });
-  document.querySelectorAll('#column-menu input').forEach((box) => box.addEventListener('change', () => {
-    visibleColumns = Array.from(document.querySelectorAll('#column-menu input:checked')).map((item) => item.value);
-    applyColumns();
-  }));
-  document.addEventListener('click', (event) => {
-    if (!event.target.closest('.column-menu-wrap')) {
-      columnMenu.hidden = true;
-      columnButton.setAttribute('aria-expanded', 'false');
-    }
-  });
-  applyColumns();
-
-  const favoriteKey = 'fund-screener-favorites';
-  let favorites = JSON.parse(localStorage.getItem(favoriteKey) || '[]');
-  if (favorites.length > 0 && typeof favorites[0] === 'string') {
-    favorites = [];
-    localStorage.setItem(favoriteKey, '[]');
-  }
-
-  const compareTray = document.getElementById('compare-tray');
-  const compareItemsContainer = document.getElementById('compare-items');
-  const compareCountSpan = document.getElementById('compare-count');
-  
-  const syncFavoriteBtn = (button) => {
-    const selected = favorites.some(f => f.id === button.dataset.fund);
-    button.textContent = selected ? '★' : '☆';
-    button.classList.toggle('active', selected);
-  };
-
-  const renderCompareTray = () => {
-    if (!compareTray) return;
-    if (favorites.length === 0) {
-      compareTray.hidden = true;
-      return;
-    }
-    compareTray.hidden = false;
-    compareCountSpan.textContent = favorites.length;
-    compareItemsContainer.innerHTML = '';
-    favorites.forEach((fav) => {
-      const el = document.createElement('div');
-      el.className = 'compare-item';
-      const shortName = fav.name.length > 40 ? fav.name.substring(0, 40) + '...' : fav.name;
-      el.innerHTML = `<span>${shortName}</span> <button type="button" class="compare-item-remove" data-id="${fav.id}" title="Remove">✕</button>`;
-      compareItemsContainer.appendChild(el);
-    });
-    compareItemsContainer.querySelectorAll('.compare-item-remove').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        favorites = favorites.filter((f) => f.id !== btn.dataset.id);
-        localStorage.setItem(favoriteKey, JSON.stringify(favorites));
-        renderCompareTray();
-        syncCompareButton();
-        document.querySelectorAll('.favorite-button').forEach(b => {
-          if (b.dataset.fund === btn.dataset.id) syncFavoriteBtn(b);
+    
+    const applyBtn = $('#afp-apply-btn');
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        $$('.afp-edit-input', afpList).forEach(inp => {
+           const row = inp.closest('.afp-item');
+           if (row && row.style.opacity !== '0.5') {
+              if (inp.tagName === 'SELECT' && inp.multiple) {
+                 const selected = Array.from(inp.selectedOptions).map(o => o.value).join(',');
+                 if (selected) pendingParams.set(inp.dataset.key, selected);
+                 else pendingParams.delete(inp.dataset.key);
+              } else if (inp.tagName === 'SELECT') {
+                 if (inp.value) pendingParams.set(inp.dataset.key, inp.value);
+                 else pendingParams.delete(inp.dataset.key);
+              } else {
+                 if (inp.value.trim()) {
+                    pendingParams.set(inp.dataset.key, inp.value.trim());
+                 } else {
+                    pendingParams.delete(inp.dataset.key);
+                 }
+              }
+           }
+        });
+        window.location.search = pendingParams.toString();
+      });
+      // Allow Enter to apply
+      $$('.afp-edit-input', afpList).forEach(inp => {
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter') applyBtn.click();
         });
       });
-    });
-  };
+    }
+    popover.hidden = !popover.hidden;
+  });
+  $('#afp-close-btn').addEventListener('click', () => { popover.hidden = true; });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#active-filters-popover') && !e.target.closest('#active-filter-btn')) {
+      popover.hidden = true;
+    }
+  });
 
-  document.querySelectorAll('.favorite-button').forEach((button) => {
+  // ── Range Controls ─────────────────────────────────────────────────────────
+  function initRangeControls(ctx) {
+    ctx = ctx || document;
+    $$('[data-range]', ctx).forEach(control => {
+      const minRange  = $('[data-range-min]', control);
+      const maxRange  = $('[data-range-max]', control);
+      const hiddenMin = $('[data-hidden-min]', control);
+      const hiddenMax = $('[data-hidden-max]', control);
+      const minLabel  = $('[data-min-label]', control);
+      const maxLabel  = $('[data-max-label]', control);
+      const decimals  = Number(control.dataset.decimals ?? 0);
+      const suffix    = control.dataset.suffix || '';
+      const defaultMin = parseFloat(minRange.dataset.defaultMin ?? minRange.min);
+      const defaultMax = parseFloat(maxRange.dataset.defaultMax ?? maxRange.max);
+
+      // Only use init-value if it's a non-empty string
+      const rawMin = minRange.dataset.initValue;
+      const rawMax = maxRange.dataset.initValue;
+      const initMin = (rawMin !== '' && rawMin != null) ? parseFloat(rawMin) : defaultMin;
+      const initMax = (rawMax !== '' && rawMax != null) ? parseFloat(rawMax) : defaultMax;
+
+      minRange.value = isNaN(initMin) ? defaultMin : initMin;
+      maxRange.value = isNaN(initMax) ? defaultMax : initMax;
+
+      const fmt = v => Number(v).toLocaleString(undefined, {
+        minimumFractionDigits: decimals, maximumFractionDigits: decimals
+      }) + suffix;
+
+      const sync = (src) => {
+        let lo = parseFloat(minRange.value), hi = parseFloat(maxRange.value);
+        if (lo > hi) { if (src === minRange) hi = lo; else lo = hi; minRange.value = lo; maxRange.value = hi; }
+        // Only emit hidden values when they differ from the absolute default (i.e. filter is active)
+        hiddenMin.value = lo > defaultMin ? lo : '';
+        hiddenMax.value = hi < defaultMax ? hi : '';
+        if (minLabel) minLabel.textContent = fmt(lo);
+        if (maxLabel) maxLabel.textContent = fmt(hi);
+        const rangeSpan = parseFloat(minRange.max) - parseFloat(minRange.min);
+        const loP = rangeSpan > 0 ? ((lo - parseFloat(minRange.min)) / rangeSpan) * 100 : 0;
+        const hiP = rangeSpan > 0 ? ((hi - parseFloat(minRange.min)) / rangeSpan) * 100 : 100;
+        control.style.setProperty('--range-low',  loP + '%');
+        control.style.setProperty('--range-high', hiP + '%');
+        updateFilterBadge();
+      };
+
+      minRange.addEventListener('input', () => sync(minRange));
+      maxRange.addEventListener('input', () => sync(maxRange));
+      $$('[data-set-min]', control).forEach(b => b.addEventListener('click', e => {
+        e.preventDefault(); minRange.value = b.dataset.setMin; sync(minRange);
+      }));
+      $$('[data-set-max]', control).forEach(b => b.addEventListener('click', e => {
+        e.preventDefault(); maxRange.value = b.dataset.setMax; sync(maxRange);
+      }));
+      sync(null);
+    });
+  }
+  initRangeControls(document);
+
+  // ── Checklist search ───────────────────────────────────────────────────────
+  $$('.filter-search[data-target]').forEach(input => {
+    input.addEventListener('input', () => {
+      const target = document.getElementById(input.dataset.target);
+      if (!target) return;
+      const needle = input.value.trim().toLowerCase();
+      $$('.check-row', target).forEach(row => {
+        row.hidden = needle !== '' && !row.textContent.toLowerCase().includes(needle);
+      });
+    });
+  });
+
+  // ── Table sorting ─────────────────────────────────────────────────────────
+  // Use URL navigation so we don't fight with form hidden inputs
+  $$('.table-sort').forEach(button => {
     button.addEventListener('click', () => {
-      const isSelected = favorites.some(f => f.id === button.dataset.fund);
-      if (isSelected) {
-        favorites = favorites.filter((f) => f.id !== button.dataset.fund);
-      } else {
-        if (favorites.length >= 5) {
-          alert('You can compare a maximum of 5 funds at a time.');
-          return;
-        }
-        favorites.push({ id: button.dataset.fund, name: button.dataset.name });
-      }
-      localStorage.setItem(favoriteKey, JSON.stringify(favorites));
-      syncFavoriteBtn(button);
-      renderCompareTray();
-      syncCompareButton();
+      const col = button.dataset.sort;
+      const p = getParams();
+      const isActive = (p.get('sort') || CURRENT_SORT) === col;
+      const curDir   = p.get('direction') || CURRENT_DIR || 'asc';
+      p.set('sort',      col);
+      p.set('direction', isActive && curDir === 'asc' ? 'desc' : 'asc');
+      p.delete('page');
+      window.location.search = p.toString();
     });
-    syncFavoriteBtn(button);
+    // Highlight the active sort column
+    const col = button.dataset.sort;
+    const p   = getParams();
+    const activeSort = p.get('sort') || CURRENT_SORT;
+    const activeDir  = p.get('direction') || CURRENT_DIR || 'asc';
+    if (col === activeSort) {
+      button.querySelector('span').textContent = activeDir === 'asc' ? '↑' : '↓';
+      button.closest('th').classList.add('sort-active');
+    }
   });
 
-  const compareBtn = document.getElementById('compare-selected-btn');
-  const syncCompareButton = () => {
-    if (!compareBtn) return;
-    if (favorites.length >= 2) {
-      compareBtn.disabled = false;
-      compareBtn.title = `Compare ${favorites.length} selected funds`;
-    } else {
-      compareBtn.disabled = true;
-      compareBtn.title = "Select at least 2 funds to compare";
-    }
+  // ── Column visibility ──────────────────────────────────────────────────────
+  const colButton = $('#column-menu-button');
+  const colMenu   = $('#column-menu');
+  const COL_KEY   = 'fund-screener-columns-v2';
+  const DEFAULT_COLS = ['aum', 'expense', 'age', 'model_score', 'return1y', 'cagr3y', 'volatility'];
+  let visibleCols = (() => {
+    try { return JSON.parse(localStorage.getItem(COL_KEY)) || DEFAULT_COLS; } catch { return DEFAULT_COLS; }
+  })();
+
+  const applyCols = () => {
+    $$('#column-menu input[type=checkbox]').forEach(box => { box.checked = visibleCols.includes(box.value); });
+    $$('#screener-table [data-column]').forEach(cell => {
+      if (cell.dataset.column === 'scheme') return;
+      cell.hidden = !visibleCols.includes(cell.dataset.column);
+    });
+    localStorage.setItem(COL_KEY, JSON.stringify(visibleCols));
   };
-  compareBtn?.addEventListener('click', () => {
-    if (favorites.length >= 2) {
-      window.open("{% url 'calculators:compare' %}?funds=" + favorites.map(f => f.id).join(','), "_blank");
+
+  colButton.addEventListener('click', e => {
+    e.stopPropagation(); // prevent document handler from immediately closing
+    const isOpen = !colMenu.hidden;
+    colMenu.hidden = isOpen;
+    colButton.setAttribute('aria-expanded', String(!isOpen));
+  });
+  $$('#column-menu input[type=checkbox]').forEach(box => {
+    box.addEventListener('change', () => {
+      visibleCols = $$('#column-menu input[type=checkbox]:checked').map(b => b.value);
+      applyCols();
+    });
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.column-menu-wrap')) {
+      colMenu.hidden = true;
+      colButton.setAttribute('aria-expanded', 'false');
     }
   });
-  
-  // Initial sync
-  syncCompareButton();
-  renderCompareTray();
+  applyCols();
 
+  // ── Dynamic "Add Filter" Panel ─────────────────────────────────────────────
+  const filterOverlay = $('#filter-panel-overlay');
+  const addFilterBtn  = $('#add-filter-btn');
+  const fpClose       = $('#filter-panel-close');
+  const fpDone        = $('#filter-panel-done');
+  const dynArea       = $('#dynamic-filters-area');
+  const DYNAMIC_KEY   = 'screener-dynamic-filters-v2';
+  let activeDynamic   = (() => { try { return JSON.parse(localStorage.getItem(DYNAMIC_KEY)) || []; } catch { return []; } })();
+
+  function buildRangeWidget(key, meta) {
+    const p      = getParams();
+    const initMin = p.get(`${meta.param}_min`) || '';
+    const initMax = p.get(`${meta.param}_max`) || '';
+    const suf = meta.suffix || '';
+    const dec = meta.decimals ?? 0;
+    const presetsHtml = (meta.presets || []).map(([label, minVal, maxVal]) => {
+      if (minVal != null) return `<button type="button" data-set-min="${minVal}">${label}</button>`;
+      if (maxVal != null) return `<button type="button" data-set-max="${maxVal}">${label}</button>`;
+      return '';
+    }).join('');
+    return `<details class="filter-block dynamic-filter-block" open data-dyn-key="${key}">
+      <summary>${meta.label}
+        ${TOOLTIPS[key] ? `<button type="button" class="info-btn" ${TOOLTIPS[key]}>ⓘ</button>` : ''}
+        <button type="button" class="dyn-remove-btn" data-key="${key}" title="Remove this filter">✕</button>
+      </summary>
+      <div class="range-control" data-range data-suffix="${suf}" data-decimals="${dec}"
+           data-param-min="${meta.param}_min" data-param-max="${meta.param}_max">
+        <div class="range-values"><span data-min-label>${meta.min}${suf}</span><span data-max-label>${meta.max}${suf}</span></div>
+        <div class="dual-range">
+          <input type="range" min="${meta.min}" max="${meta.max}" step="${meta.step}"
+                 data-range-min data-default-min="${meta.min}" data-init-value="${initMin}">
+          <input type="range" min="${meta.min}" max="${meta.max}" step="${meta.step}"
+                 data-range-max data-default-max="${meta.max}" data-init-value="${initMax}">
+        </div>
+        <input type="hidden" name="${meta.param}_min" data-hidden-min>
+        <input type="hidden" name="${meta.param}_max" data-hidden-max>
+        ${presetsHtml ? `<div class="range-presets">${presetsHtml}</div>` : ''}
+      </div>
+    </details>`;
+  }
+
+  function buildDynamic() {
+    dynArea.innerHTML = '';
+    
+    // 1. Render range filters via JS
+    activeDynamic.forEach(key => {
+      const meta = FILTER_META[key];
+      if (meta && meta.type === 'range') {
+        dynArea.insertAdjacentHTML('beforeend', buildRangeWidget(key, meta));
+      }
+    });
+    
+    // 2. Toggle visibility of categorical filters rendered by Django
+    const categoricalKeys = ['house', 'benchmark', 'score_badge', 'crisil', 'sip_available'];
+    categoricalKeys.forEach(key => {
+      const block = document.getElementById('dyn-' + key);
+      if (block) {
+        if (activeDynamic.includes(key)) {
+          block.hidden = false;
+        } else {
+          block.hidden = true;
+          // Uncheck all inputs if it is removed
+          block.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        }
+      }
+    });
+    
+    initRangeControls(dynArea);
+    if (window.initInfoTooltips) window.initInfoTooltips(dynArea);
+    
+    // Handle remove buttons (both in JS rendered range widgets and Django rendered categorical blocks)
+    $$('.dyn-remove-btn').forEach(btn => {
+      // Avoid attaching multiple listeners if already attached, but we are replacing dynArea HTML anyway
+      // For the Django blocks, we need to carefully attach. To prevent double firing, use an onclick.
+      btn.onclick = e => {
+        e.preventDefault(); e.stopPropagation();
+        activeDynamic = activeDynamic.filter(k => k !== btn.dataset.key);
+        localStorage.setItem(DYNAMIC_KEY, JSON.stringify(activeDynamic));
+        buildDynamic();
+        updateFilterBadge();
+      };
+    });
+    
+    // Refresh "selected" state of fp-items
+    $$('.fp-item').forEach(b => {
+      b.classList.toggle('preselected', activeDynamic.includes(b.dataset.filter));
+    });
+  }
+  buildDynamic();
+
+  // Open panel — stopPropagation keeps document click handler from closing it
+  addFilterBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    filterOverlay.hidden = false;
+  });
+  fpClose.addEventListener('click', () => { filterOverlay.hidden = true; });
+  filterOverlay.addEventListener('click', e => {
+    // Close if clicking the dark backdrop (not the panel itself)
+    if (e.target === filterOverlay) filterOverlay.hidden = true;
+  });
+  fpDone.addEventListener('click', () => {
+    const toAdd = $$('.fp-item.fp-selected', filterOverlay).map(b => b.dataset.filter);
+    toAdd.forEach(k => { if (!activeDynamic.includes(k)) activeDynamic.push(k); });
+    $$('.fp-item', filterOverlay).forEach(b => b.classList.remove('fp-selected'));
+    localStorage.setItem(DYNAMIC_KEY, JSON.stringify(activeDynamic));
+    filterOverlay.hidden = true;
+    buildDynamic();
+    updateFilterBadge();
+  });
+
+  // Toggle selection inside panel — keep highlighted when selected, dim when already active
+  $$('.fp-item').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (btn.classList.contains('preselected')) return; // already active, ignore
+      btn.classList.toggle('fp-selected');
+    });
+  });
+
+  // ── Compare tray ───────────────────────────────────────────────────────────
+  const FAV_KEY     = 'fund-screener-favorites';
+  let favorites     = (() => {
+    try {
+      const f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+      // migrate old string[] format
+      if (f.length && typeof f[0] === 'string') { localStorage.setItem(FAV_KEY, '[]'); return []; }
+      return f;
+    } catch { return []; }
+  })();
+
+  const compareTray  = $('#compare-tray');
+  const compareItems = $('#compare-items');
+  const compareCount = $('#compare-count');
+  const compareBtn   = $('#compare-selected-btn');
+
+  const syncFavBtn = btn => {
+    const sel = favorites.some(f => f.id === btn.dataset.fund);
+    btn.textContent = sel ? '★' : '☆';
+    btn.classList.toggle('active', sel);
+    btn.title = sel ? 'Remove from compare' : 'Add to compare';
+  };
+
+  const syncCompareBtn = () => {
+    if (!compareBtn) return;
+    const ok = favorites.length >= 2;
+    compareBtn.disabled = !ok;
+    compareBtn.title = ok ? `Compare ${favorites.length} funds` : 'Select at least 2 funds to compare';
+  };
+
+  const renderTray = () => {
+    if (!compareTray) return;
+    compareTray.hidden = favorites.length === 0;
+    if (!favorites.length) return;
+    compareCount.textContent = favorites.length;
+    compareItems.innerHTML = '';
+    favorites.forEach(fav => {
+      const el = document.createElement('div');
+      el.className = 'compare-item';
+      el.innerHTML = `<span>${fav.name.length > 40 ? fav.name.slice(0,40)+'…' : fav.name}</span>
+        <button type="button" class="compare-item-remove" data-id="${fav.id}" title="Remove">✕</button>`;
+      compareItems.appendChild(el);
+    });
+    $$('.compare-item-remove', compareItems).forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        favorites = favorites.filter(f => f.id !== btn.dataset.id);
+        localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
+        renderTray(); syncCompareBtn();
+        $$('.favorite-button').forEach(b => { if (b.dataset.fund === btn.dataset.id) syncFavBtn(b); });
+      });
+    });
+  };
+
+  $$('.favorite-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.fund, isSel = favorites.some(f => f.id === id);
+      if (isSel) { favorites = favorites.filter(f => f.id !== id); }
+      else {
+        if (favorites.length >= 5) { alert('Max 5 funds for comparison.'); return; }
+        favorites.push({ id, name: btn.dataset.name });
+      }
+      localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
+      syncFavBtn(btn); renderTray(); syncCompareBtn();
+    });
+    syncFavBtn(btn);
+  });
+  compareBtn?.addEventListener('click', () => {
+    if (favorites.length >= 2)
+      window.open("{% url 'calculators:compare' %}?funds=" + favorites.map(f => f.id).join(','), '_blank');
+  });
+  syncCompareBtn(); renderTray();
+
+  // ── Saved Screens ─────────────────────────────────────────────────────────
+  const SCREENS_KEY  = 'screener-saved-screens-v1';
+  let savedScreens   = (() => { try { return JSON.parse(localStorage.getItem(SCREENS_KEY)) || []; } catch { return []; } })();
+
+  const screensBtn   = $('#saved-screens-btn');
+  const screensMenu  = $('#saved-screens-menu');
+  const screensList  = $('#saved-screens-list');
+  const saveTriggerBtn = $('#save-screen-trigger-btn');
+  const saveModal    = $('#save-screen-modal');
+  const nameInput    = $('#screen-name-input');
+  const saveConfirm  = $('#save-screen-confirm');
+  const saveClose    = $('#save-modal-close');
+  const saveCancel   = $('#save-modal-cancel');
+
+  const renderScreens = () => {
+    if (!savedScreens.length) {
+      screensList.innerHTML = '<div class="saved-empty">No saved screens yet.</div>';
+      return;
+    }
+    screensList.innerHTML = savedScreens.map((s, i) =>
+      `<div class="saved-item">
+        <button type="button" class="saved-load" data-idx="${i}" title="${s.saved ? 'Saved: ' + s.saved.slice(0,10) : ''}">${s.name}</button>
+        <button type="button" class="saved-del" data-idx="${i}" title="Delete">🗑</button>
+      </div>`
+    ).join('');
+    $$('.saved-load', screensList).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const screen = savedScreens[+btn.dataset.idx];
+        if (screen.columns) {
+          visibleCols = screen.columns; applyCols();
+          localStorage.setItem(COL_KEY, JSON.stringify(visibleCols));
+        }
+        const url = new URL(window.location.href);
+        url.search = screen.filters || '';
+        window.location.href = url.toString();
+      });
+    });
+    $$('.saved-del', screensList).forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        savedScreens.splice(+btn.dataset.idx, 1);
+        localStorage.setItem(SCREENS_KEY, JSON.stringify(savedScreens));
+        renderScreens();
+      });
+    });
+  };
+
+  // Screens dropdown — stopPropagation prevents immediate close
+  screensBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = !screensMenu.hidden;
+    screensMenu.hidden = isOpen;
+    if (!isOpen) renderScreens();
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#saved-screens-wrap')) screensMenu.hidden = true;
+  });
+
+  const finishSave = (name) => {
+    localStorage.setItem(SCREENS_KEY, JSON.stringify(savedScreens));
+    closeSaveModal();
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999;background:#34d399;color:#0a1520;padding:10px 18px;border-radius:8px;font-weight:700;font-size:13px;box-shadow:0 8px 30px rgba(0,0,0,.4)';
+    toast.textContent = `✓ Screen "${name}" saved`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2800);
+  };
+
+  const renderModalScreensList = () => {
+    const list = $('#save-modal-screens-list');
+    if (!savedScreens.length) {
+      list.innerHTML = '<div class="saved-empty" style="color:var(--text-muted);font-size:12px;">No saved screens.</div>';
+      return;
+    }
+    list.innerHTML = savedScreens.map((s, i) =>
+      `<div class="saved-item" style="justify-content:space-between;cursor:default;">
+        <span class="saved-load" style="pointer-events:none;">${s.name}</span>
+        <button type="button" class="btn btn-secondary btn-sm modal-overwrite-btn" data-idx="${i}" style="padding:2px 8px;font-size:11px;min-height:24px;">Overwrite
+      </div>`
+    ).join('');
+    $$('.modal-overwrite-btn', list).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = +btn.dataset.idx;
+        const s = savedScreens[idx];
+        s.filters = window.location.search;
+        s.columns = visibleCols.slice();
+        s.saved = new Date().toISOString();
+        finishSave(s.name);
+      });
+    });
+  };
+
+  // Save screen — opens modal
+  saveTriggerBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    screensMenu.hidden = true;
+    nameInput.value = '';
+    $('#save-modal-error').hidden = true;
+    saveConfirm.textContent = 'Save';
+    delete saveConfirm.dataset.confirmOverwrite;
+    renderModalScreensList();
+    saveModal.hidden = false;
+    setTimeout(() => nameInput.focus(), 50);
+  });
+
+  const closeSaveModal = () => { saveModal.hidden = true; };
+  saveClose.addEventListener('click', closeSaveModal);
+  saveCancel.addEventListener('click', closeSaveModal);
+  saveModal.addEventListener('click', e => { if (e.target === saveModal) closeSaveModal(); });
+  
+  nameInput.addEventListener('input', () => {
+    $('#save-modal-error').hidden = true;
+    saveConfirm.textContent = 'Save';
+    delete saveConfirm.dataset.confirmOverwrite;
+  });
+
+  saveConfirm.addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); return; }
+    
+    const existingIndex = savedScreens.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
+    
+    if (existingIndex !== -1 && !saveConfirm.dataset.confirmOverwrite) {
+      $('#save-modal-error').textContent = 'Same name screen exists. Enter different name or overwrite the old screen.';
+      $('#save-modal-error').hidden = false;
+      saveConfirm.textContent = 'Overwrite';
+      saveConfirm.dataset.confirmOverwrite = 'true';
+      return;
+    }
+    
+    const screenData = {
+      name,
+      filters: window.location.search,
+      columns: visibleCols.slice(),
+      saved:   new Date().toISOString(),
+    };
+    
+    if (existingIndex !== -1) {
+      savedScreens[existingIndex] = screenData;
+    } else {
+      if (savedScreens.length >= 20) { alert('Maximum 20 saved screens.'); return; }
+      savedScreens.unshift(screenData);
+    }
+    
+    finishSave(name);
+  });
+  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveConfirm.click(); });
+
+  if (window.initInfoTooltips) window.initInfoTooltips(document);
 })();
 </script>
 {% endblock %}

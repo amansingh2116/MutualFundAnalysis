@@ -9,7 +9,6 @@ urlpatterns = [
     path('home/category-funds/', views.home_category_funds, name='home_category_funds'),
     path('funds/', views.CategoryListView.as_view(), name='category_list'),
     path('funds/screener/', views.FundScreenerView.as_view(), name='screener'),
-    path('funds/screener/<str:amfi_code>/report/', views.screener_report_view, name='screener_report'),
     path('funds/search/', views.fund_search_api, name='search'),
     path('funds/<str:amfi_code>/', views.FundDetailView.as_view(), name='detail'),
     path('funds/<str:amfi_code>/export/', views.export_pdf_view, name='export_pdf'),

@@ -10,6 +10,7 @@ The tooltip engine is a self-contained IIFE in `static/js/main.js` (`initInfoToo
 - **Plain text in attributes** — no HTML is embedded in `data-t-*` values. The engine renders sections in its own structured layout.
 - **`_tooltipBound` guard** — prevents double-binding when `initInfoTooltips()` is called multiple times.
 - **Dynamic content** — after any JS re-render (e.g., SIP results), call `initInfoTooltips(container)` with the updated DOM subtree to bind new buttons.
+- **`&#9432;` character** — every `<button class="info-btn">` must have this as its text content so the ⓘ glyph renders correctly.
 
 ---
 
@@ -22,7 +23,7 @@ Add an info button next to any metric or label:
         aria-label="Metric Name"
         data-t-title="Full Metric Name"
         data-t-what="What this metric is in plain English."
-        data-t-interp="How to interpret it (e.g., Higher is better).">i</button>
+        data-t-interp="How to interpret it (e.g., Higher is better).">&#9432;</button>
 ```
 
 ### Available Attributes
@@ -51,7 +52,7 @@ data-t-range='[{"dot":"good","label":"< 1%","text":"Low cost"},{"dot":"bad","lab
 <div class="metric-key">AUM
   <button class="info-btn"
           data-t-title="Assets Under Management (AUM)"
-          data-t-what="The total amount of money managed by this mutual fund.">i</button>
+          data-t-what="The total amount of money managed by this mutual fund.">&#9432;</button>
 </div>
 ```
 
@@ -61,7 +62,7 @@ data-t-range='[{"dot":"good","label":"< 1%","text":"Low cost"},{"dot":"bad","lab
         data-t-title="Expected Annual Return"
         data-t-what="Assumed annualised growth rate of your investment. This is a projection, not a guarantee."
         data-t-interp="Debt funds: 6-8% | Hybrid: 9-11% | Nifty 50 avg: ~12% | Smallcap/Midcap: 12-16%"
-        data-t-note="Past performance does not guarantee future returns.">i</button>
+        data-t-note="Past performance does not guarantee future returns.">&#9432;</button>
 ```
 
 ### Binding After Dynamic Render
@@ -79,15 +80,35 @@ if (window.initInfoTooltips) {
 
 ## Coverage
 
-| Page / Calculator | Buttons |
+| Page / Calculator | Metric Buttons |
 |---|---|
 | **Net Worth** | Market Investments, Retirement Accounts, Total Assets, Total Liabilities, Net Worth, Solvency Ratio |
 | **SIP Calculator** | Monthly Amount, Investment Period, Return Rate, Start Date, Instalment, Absolute Gain, XIRR (results) |
 | **Step-Up SIP Calculator** | Same as SIP + Annual Step-Up % |
 | **XIRR Calculator** | XIRR metric, Cashflow entry guide |
 | **Fund detail pages** | Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Expense Ratio, AUM, and more |
-| **Screener** | All sortable metrics |
+| **Screener — filter sidebar** | All ~30 filterable metrics (AUM, Returns, Volatility, Sharpe, Sortino, Drawdown, Alpha, Beta, Tracking Error, etc.) |
+| **Screener — Add Filters panel** | Every metric in all 4 filter categories (Scheme Info, Returns, Risk, Relative Stats) |
+| **Screener — column headers** | Every sortable column header in the results table |
 | **Backtester results** | Key risk and return metrics |
+
+---
+
+## Screener-Specific Tooltips
+
+The Screener uses a dedicated `const TOOLTIPS` object (in `templates/funds/screener.html`) that maps each filter key to its tooltip HTML attribute string. This is used for **dynamically added filters** (the Add Filter panel and left sidebar) so that tooltips are generated at render time via JavaScript.
+
+Example entry:
+
+```javascript
+const TOOLTIPS = {
+  aum: 'data-t-title="AUM (Cr)" data-t-what="Total assets managed by the fund." data-t-interp="..."',
+  volatility_3y: 'data-t-title="3Y Volatility %" data-t-what="..." data-t-interp="..."',
+  // ...
+};
+```
+
+When `buildRangeWidget(key, meta)` renders a dynamic filter, it uses `TOOLTIPS[key]` to inject the full tooltip definition into the `ⓘ` button.
 
 ---
 

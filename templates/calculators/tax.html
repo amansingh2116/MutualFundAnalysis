@@ -1909,7 +1909,7 @@ el('add-sip-row').addEventListener('click', () => {
     <td><input type="number" placeholder="10000" oninput="updateSipUnits(${sipRowCounter})"></td>
     <td><input type="number" placeholder="42.50" step="0.01" oninput="updateSipUnits(${sipRowCounter})"></td>
     <td id="sip-units-${sipRowCounter}" style="color:var(--text-muted);font-size:11px;">—</td>
-    <td><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:var(--text-muted);cursor:pointer;">✕</button></td>`;
+    <td><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:var(--text-muted);cursor:pointer;">✕</td>`;
   el('sip-tbody').appendChild(tr);
 });
 

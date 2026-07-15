@@ -110,7 +110,7 @@
       const el = document.createElement('div');
       el.className = 'compare-item';
       const shortName = fav.name.length > 40 ? fav.name.substring(0, 40) + '...' : fav.name;
-      el.innerHTML = `<span>${shortName}</span> <button type="button" class="compare-item-remove" data-id="${fav.id}" title="Remove">✕</button>`;
+      el.innerHTML = `<span>${shortName}</span> <button type="button" class="compare-item-remove" data-id="${fav.id}" title="Remove">✕`;
       compareItemsContainer.appendChild(el);
     });
     compareItemsContainer.querySelectorAll('.compare-item-remove').forEach((btn) => {

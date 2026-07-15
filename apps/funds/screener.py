@@ -91,7 +91,7 @@ def refresh_snapshot_for_scheme(scheme):
         RiskMetrics.objects.filter(scheme=scheme).order_by("period", "-as_of"),
         "period",
     )
-    
+
     from apps.analytics.models import CalendarReturn
     calendar_returns = CalendarReturn.objects.filter(scheme=scheme).order_by("-year")
     calendar_returns_json = {}
@@ -118,17 +118,20 @@ def refresh_snapshot_for_scheme(scheme):
     trailing_1y = latest_trailing.get("1Y")
     trailing_3y = latest_trailing.get("3Y")
     trailing_5y = latest_trailing.get("5Y")
+    trailing_7y = latest_trailing.get("7Y")
+    trailing_10y = latest_trailing.get("10Y")
+    trailing_si  = latest_trailing.get("SI")
     rolling_3y = latest_rolling.get("3Y")
     rolling_5y = latest_rolling.get("5Y")
 
     rolling_returns_json = {}
-    for period in ("1Y", "3Y", "5Y"):
+    for period in ("1Y", "3Y", "5Y", "7Y"):
         row = latest_rolling.get(period)
         if row:
             rolling_returns_json[period] = {
-                "avg": float(row.mean_pct) if row.mean_pct is not None else None,
-                "max": float(row.max_pct) if row.max_pct is not None else None,
-                "min": float(row.min_pct) if row.min_pct is not None else None,
+                "avg":     float(row.mean_pct) if row.mean_pct is not None else None,
+                "max":     float(row.max_pct)  if row.max_pct  is not None else None,
+                "min":     float(row.min_pct)  if row.min_pct  is not None else None,
                 "pos_pct": float(row.win_rate_0) if row.win_rate_0 is not None else None,
             }
 
@@ -139,17 +142,65 @@ def refresh_snapshot_for_scheme(scheme):
     if volatility is None:
         volatility = _decimal(getattr(meta, "volatility", None))
 
-    sharpe = _decimal(getattr(risk_3y, "sharpe_ratio", None))
-    sortino = _decimal(getattr(risk_3y, "sortino_ratio", None))
-    drawdown = _decimal(getattr(risk_3y, "max_drawdown", None))
+    sharpe   = _decimal(getattr(risk_3y, "sharpe_ratio", None))
+    sortino  = _decimal(getattr(risk_3y, "sortino_ratio", None))
+    drawdown = _decimal(getattr(risk_3y, "max_drawdown",  None))
 
     volatility_5y = _decimal(getattr(risk_5y, "std_dev_ann", None))
-    sharpe_5y = _decimal(getattr(risk_5y, "sharpe_ratio", None))
-    sortino_5y = _decimal(getattr(risk_5y, "sortino_ratio", None))
-    drawdown_5y = _decimal(getattr(risk_5y, "max_drawdown", None))
+    sharpe_5y     = _decimal(getattr(risk_5y, "sharpe_ratio", None))
+    sortino_5y    = _decimal(getattr(risk_5y, "sortino_ratio", None))
+    drawdown_5y   = _decimal(getattr(risk_5y, "max_drawdown",  None))
 
     excess_1y = _decimal(getattr(trailing_1y, "excess", None))
     excess_3y = _decimal(getattr(trailing_3y, "excess", None))
+
+    # ── Benchmark-relative metrics from RiskMetrics ─────────────────────────
+    alpha_3y          = _decimal(getattr(risk_3y, "alpha_ann",        None))
+    alpha_5y          = _decimal(getattr(risk_5y, "alpha_ann",        None))
+    beta_3y           = _decimal(getattr(risk_3y, "beta",             None))
+    beta_5y           = _decimal(getattr(risk_5y, "beta",             None))
+    r_squared_3y      = _decimal(getattr(risk_3y, "r_squared",        None))
+    r_squared_5y      = _decimal(getattr(risk_5y, "r_squared",        None))
+    tracking_error_3y = _decimal(getattr(risk_3y, "tracking_error",   None))
+    tracking_error_5y = _decimal(getattr(risk_5y, "tracking_error",   None))
+    info_ratio_3y     = _decimal(getattr(risk_3y, "info_ratio",       None))
+    info_ratio_5y     = _decimal(getattr(risk_5y, "info_ratio",       None))
+    upside_capture_3y   = _decimal(getattr(risk_3y, "upside_capture",   None))
+    downside_capture_3y = _decimal(getattr(risk_3y, "downside_capture", None))
+
+    # ── Current drawdown (vs 1Y rolling peak from NAV history) ───────────────
+    current_drawdown = _compute_current_drawdown(scheme)
+
+    # ── ROMAD (Return / Max-Drawdown) ─────────────────────────────────────────
+    cagr_3y_val  = _decimal(getattr(trailing_3y, "cagr_pct", None) or getattr(meta, "returns_3y", None))
+    romad_3y = None
+    if cagr_3y_val is not None and drawdown is not None and drawdown != 0:
+        try:
+            from decimal import Decimal as D
+            romad_3y = _decimal(float(cagr_3y_val) / abs(float(drawdown)))
+        except Exception:
+            romad_3y = None
+
+    # ── SchemeMeta fields ─────────────────────────────────────────────────────
+    fund_manager_str   = getattr(meta, "fund_manager",       "") or ""
+    crisil_rating_str  = getattr(meta, "crisil_rating",      "") or ""
+    lock_in_days_val   = getattr(meta, "lock_in_period",     None)
+    sip_min_val        = _decimal(getattr(meta, "sip_min",   None))
+    lump_min_val       = _decimal(getattr(meta, "lump_min",  None))
+    pturnover_val      = _decimal(getattr(meta, "portfolio_turnover", None))
+    sip_available_val  = getattr(meta, "sip_available", None)
+
+    # ── Model score (denormalised after FundModelScore is computed) ───────────
+    model_score_val   = None
+    model_badge_val   = ""
+    try:
+        from apps.funds.models import FundModelScore
+        ms = FundModelScore.objects.filter(scheme=scheme).first()
+        if ms:
+            model_score_val = _decimal(ms.final_score)
+            model_badge_val = ms.score_badge or ""
+    except Exception:
+        pass
 
     analytics_dates = [
         getattr(row, "as_of", None)
@@ -161,56 +212,89 @@ def refresh_snapshot_for_scheme(scheme):
     snapshot, _ = FundScreenerSnapshot.objects.update_or_create(
         scheme=scheme,
         defaults={
-            "fund_name": scheme.scheme_name,
-            "fund_house": clean_fund_house(scheme.fund_house),
-            "category_group": category_group,
+            "fund_name":           scheme.scheme_name,
+            "fund_house":          clean_fund_house(scheme.fund_house),
+            "category_group":      category_group,
             "scheme_sub_category": sub_category,
-            "income_type": infer_income_type(scheme.scheme_name, scheme.plan),
-            "plan_type": infer_plan_type(scheme.scheme_name, scheme.is_direct),
-            "is_direct": scheme.is_direct,
-            "is_etf": is_etf(scheme.scheme_name),
-            "benchmark_type": benchmark_type,
-            "benchmark_name": benchmark_name,
-            "risk_label": risk_label(volatility),
-            "aum_cr": _decimal(scheme.aum_cr or getattr(meta, "aum", None)),
-            "expense_ratio": _decimal(scheme.expense_ratio or getattr(meta, "expense_ratio", None)),
-            "fund_age_years": fund_age_years,
-            "returns_1y_pct": _decimal(getattr(trailing_1y, "cagr_pct", None) or getattr(meta, "returns_1y", None)),
-            "returns_3y_pct": _decimal(getattr(trailing_3y, "cagr_pct", None) or getattr(meta, "returns_3y", None)),
-            "returns_5y_pct": _decimal(getattr(trailing_5y, "cagr_pct", None) or getattr(meta, "returns_5y", None)),
-            "cagr_3y_pct": _decimal(getattr(trailing_3y, "cagr_pct", None) or getattr(meta, "returns_3y", None)),
+            "income_type":         infer_income_type(scheme.scheme_name, scheme.plan),
+            "plan_type":           infer_plan_type(scheme.scheme_name, scheme.is_direct),
+            "is_direct":           scheme.is_direct,
+            "is_etf":              is_etf(scheme.scheme_name),
+            "benchmark_type":      benchmark_type,
+            "benchmark_name":      benchmark_name,
+            "risk_label":          risk_label(volatility),
+            "aum_cr":              _decimal(scheme.aum_cr or getattr(meta, "aum", None)),
+            "expense_ratio":       _decimal(scheme.expense_ratio or getattr(meta, "expense_ratio", None)),
+            "fund_age_years":      fund_age_years,
+            # ── Returns ──────────────────────────────────────────────────────
+            "returns_1y_pct":      _decimal(getattr(trailing_1y, "cagr_pct", None) or getattr(meta, "returns_1y", None)),
+            "returns_3y_pct":      _decimal(getattr(trailing_3y, "cagr_pct", None) or getattr(meta, "returns_3y", None)),
+            "returns_5y_pct":      _decimal(getattr(trailing_5y, "cagr_pct", None) or getattr(meta, "returns_5y", None)),
+            "cagr_3y_pct":         cagr_3y_val,
+            "cagr_7y_pct":         _decimal(getattr(trailing_7y,  "cagr_pct", None)),
+            "cagr_10y_pct":        _decimal(getattr(trailing_10y, "cagr_pct", None)),
+            "cagr_si_pct":         _decimal(getattr(trailing_si,  "cagr_pct", None)),
             "rolling_return_3y_pct": _decimal(getattr(rolling_3y, "mean_pct", None)),
             "rolling_return_5y_pct": _decimal(getattr(rolling_5y, "mean_pct", None)),
-            "volatility_3y_pct": volatility,
-            "volatility_5y_pct": volatility_5y,
-            "sharpe_ratio": sharpe,
-            "sortino_ratio": sortino,
-            "max_drawdown": drawdown,
-            "sharpe_ratio_5y": sharpe_5y,
-            "sortino_ratio_5y": sortino_5y,
-            "max_drawdown_5y": drawdown_5y,
-            "rolling_returns_json": rolling_returns_json,
-            "calendar_returns_json": calendar_returns_json,
-            "excess_return_1y": excess_1y,
-            "excess_return_3y": excess_3y,
-            # Short-period returns from captnemo SchemeMeta
-            "returns_1w_pct": _decimal(getattr(meta, "returns_1w", None)),
-            "returns_1m_pct": _decimal(getattr(meta, "returns_1m", None)),
-            "returns_3m_pct": _decimal(getattr(meta, "returns_3m", None)),
-            "returns_6m_pct": _decimal(
-                # Try 6M trailing return first, fall back to None (captnemo doesn't provide 6M)
-                getattr(
-                    latest_trailing.get("6M"), "cagr_pct", None
-                )
+            # ── Volatility / Risk ─────────────────────────────────────────────
+            "volatility_3y_pct":   volatility,
+            "volatility_5y_pct":   volatility_5y,
+            "sharpe_ratio":        sharpe,
+            "sortino_ratio":       sortino,
+            "max_drawdown":        drawdown,
+            "sharpe_ratio_5y":     sharpe_5y,
+            "sortino_ratio_5y":    sortino_5y,
+            "max_drawdown_5y":     drawdown_5y,
+            # ── Extended risk metrics ─────────────────────────────────────────
+            "alpha_3y":            alpha_3y,
+            "alpha_5y":            alpha_5y,
+            "beta_3y":             beta_3y,
+            "beta_5y":             beta_5y,
+            "r_squared_3y":        r_squared_3y,
+            "r_squared_5y":        r_squared_5y,
+            "tracking_error_3y":   tracking_error_3y,
+            "tracking_error_5y":   tracking_error_5y,
+            "info_ratio_3y":       info_ratio_3y,
+            "info_ratio_5y":       info_ratio_5y,
+            "upside_capture_3y":   upside_capture_3y,
+            "downside_capture_3y": downside_capture_3y,
+            "current_drawdown":    current_drawdown,
+            "romad_3y":            romad_3y,
+            # ── Excess returns ────────────────────────────────────────────────
+            "excess_return_1y":    excess_1y,
+            "excess_return_3y":    excess_3y,
+            # ── Short-period returns from SchemeMeta ──────────────────────────
+            "returns_1w_pct":      _decimal(getattr(meta, "returns_1w", None)),
+            "returns_1m_pct":      _decimal(getattr(meta, "returns_1m", None)),
+            "returns_3m_pct":      _decimal(getattr(meta, "returns_3m", None)),
+            "returns_6m_pct":      _decimal(
+                getattr(latest_trailing.get("6M"), "cagr_pct", None)
             ),
-            "data_as_of": data_as_of,
-            "nav_as_of": latest_nav_date,
-            "analytics_as_of": max([d for d in analytics_dates if d], default=None),
-            "metadata_as_of": getattr(meta, "last_fetched", None),
-            "source_notes": "Scheme + SchemeMeta + latest analytics tables",
+            # ── SchemeMeta fund details ───────────────────────────────────────
+            "fund_manager":        fund_manager_str,
+            "crisil_rating":       crisil_rating_str,
+            "lock_in_days":        lock_in_days_val,
+            "sip_min":             sip_min_val,
+            "lump_min":            lump_min_val,
+            "portfolio_turnover":  pturnover_val,
+            "sip_available":       sip_available_val,
+            "nav_latest":          _decimal(scheme.nav_latest),
+            # ── Model score ───────────────────────────────────────────────────
+            "model_score":         model_score_val,
+            "model_score_badge":   model_badge_val,
+            # ── Rolling returns JSON (now includes 7Y) ────────────────────────
+            "rolling_returns_json":  rolling_returns_json,
+            "calendar_returns_json": calendar_returns_json,
+            # ── Provenance ────────────────────────────────────────────────────
+            "data_as_of":        data_as_of,
+            "nav_as_of":         latest_nav_date,
+            "analytics_as_of":   max([d for d in analytics_dates if d], default=None),
+            "metadata_as_of":    getattr(meta, "last_fetched", None),
+            "source_notes":      "Scheme + SchemeMeta + latest analytics tables",
         },
     )
     return snapshot
+
 
 
 def classify_scheme(category: str, scheme_name: str) -> tuple[str, str]:
@@ -316,6 +400,31 @@ def _fund_age_years(start: date | None, end: date | None) -> Decimal | None:
     if not start or not end or end <= start:
         return None
     return Decimal(str(round((end - start).days / 365.25, 1)))
+
+
+def _compute_current_drawdown(scheme) -> Decimal | None:
+    """
+    Return the current drawdown as a percentage from the 1Y peak NAV.
+    Formula: (latest_nav - peak_1y_nav) / peak_1y_nav * 100.
+    Returns None if fewer than 30 NAV points are available for the past year.
+    """
+    from apps.funds.models import NAVHistory
+    from datetime import date, timedelta
+    one_year_ago = date.today() - timedelta(days=365)
+    qs = (
+        NAVHistory.objects
+        .filter(scheme=scheme, date__gte=one_year_ago)
+        .order_by("date")
+        .values_list("nav", flat=True)
+    )
+    navs = list(qs)
+    if len(navs) < 30:
+        return None
+    peak = max(navs)
+    latest = navs[-1]
+    if peak <= 0:
+        return None
+    return _decimal((float(latest) - float(peak)) / float(peak) * 100)
 
 
 def _decimal(value) -> Decimal | None:

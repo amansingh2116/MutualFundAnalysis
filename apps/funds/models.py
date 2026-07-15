@@ -272,6 +272,66 @@ class FundScreenerSnapshot(BaseModel):
     returns_6m_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                          help_text="6-month return %")
 
+    # ── Extended CAGR periods (from TrailingReturn) ───────────────────────────
+    cagr_7y_pct  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                       help_text="7Y trailing CAGR %")
+    cagr_10y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                       help_text="10Y trailing CAGR %")
+    cagr_si_pct  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                       help_text="Since-inception CAGR %")
+
+    # ── Benchmark-relative risk metrics (from RiskMetrics 3Y / 5Y) ───────────
+    alpha_3y          = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="3Y annualised Jensen's alpha %")
+    alpha_5y          = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="5Y annualised Jensen's alpha %")
+    beta_3y           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="3Y Beta vs benchmark")
+    beta_5y           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="5Y Beta vs benchmark")
+    r_squared_3y      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="3Y R-squared vs benchmark (%)")
+    r_squared_5y      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="5Y R-squared vs benchmark (%)")
+    tracking_error_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="3Y annualised tracking error %")
+    tracking_error_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="5Y annualised tracking error %")
+    info_ratio_3y     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="3Y information ratio")
+    info_ratio_5y     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="5Y information ratio")
+    upside_capture_3y   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                              help_text="3Y upside capture ratio %")
+    downside_capture_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                              help_text="3Y downside capture ratio %")
+
+    # ── Composite risk metrics ────────────────────────────────────────────────
+    current_drawdown = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="Current drawdown from 1Y peak (%)")
+    romad_3y         = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                           help_text="Return over Max Drawdown: 3Y CAGR / |3Y Max DD|")
+
+    # ── Fund details from SchemeMeta ─────────────────────────────────────────
+    fund_manager      = models.TextField(blank=True, help_text="Semicolon-separated manager names")
+    crisil_rating     = models.CharField(max_length=100, blank=True, help_text="CRISIL fund rating")
+    lock_in_days      = models.IntegerField(null=True, blank=True, help_text="Lock-in period in days")
+    sip_min           = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
+                                            help_text="Minimum SIP amount")
+    lump_min          = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
+                                            help_text="Minimum lumpsum amount")
+    portfolio_turnover = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                             help_text="Portfolio turnover ratio")
+    sip_available     = models.BooleanField(null=True, blank=True, help_text="SIP investment available")
+    nav_latest        = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
+                                            help_text="Latest NAV value")
+
+    # ── Model score (denormalized from FundModelScore) ────────────────────────
+    model_score       = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                            db_index=True, help_text="Our composite model score 0–100")
+    model_score_badge = models.CharField(max_length=20, blank=True,
+                                         help_text="Score badge: Strong/Good/Fair/Weak/Poor")
+
     # ── Quartile ranks within scheme_sub_category (1=top, 4=bottom) ──────────
     quartile_return_1y   = models.IntegerField(null=True, blank=True, db_index=True,
                                                help_text="Q1–Q4 rank for 1Y return within sub-category")
@@ -314,6 +374,8 @@ class FundScreenerSnapshot(BaseModel):
             models.Index(fields=['plan_type', 'is_direct']),
             models.Index(fields=['benchmark_type', 'benchmark_name']),
             models.Index(fields=['cagr_3y_pct']),
+            models.Index(fields=['cagr_7y_pct']),
+            models.Index(fields=['cagr_10y_pct']),
             models.Index(fields=['rolling_return_3y_pct']),
             models.Index(fields=['volatility_3y_pct']),
             models.Index(fields=['sharpe_ratio']),
@@ -324,6 +386,9 @@ class FundScreenerSnapshot(BaseModel):
             models.Index(fields=['quartile_return_3y']),
             models.Index(fields=['quartile_return_5y']),
             models.Index(fields=['quartile_model_score']),
+            models.Index(fields=['model_score']),
+            models.Index(fields=['alpha_3y']),
+            models.Index(fields=['current_drawdown']),
         ]
 
     def __str__(self):
