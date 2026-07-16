@@ -2,11 +2,67 @@
 {% block title %}Benchmark Monitor{% endblock %}
 {% block meta_description %}Deep-dive analysis of benchmark indices — returns, volatility, Sharpe ratio, and max drawdown.{% endblock %}
 
+{% block extra_head %}
+<style>
+.bench-link { color: inherit; text-decoration: none; transition: color 0.15s; }
+.bench-link:hover { color: var(--indigo-400); text-decoration: underline; }
+
+/* Sticky tables */
+.bench-table-card {
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.data-table {
+  border-collapse: separate; /* Fixes sticky background bleeding bug */
+  border-spacing: 0;
+}
+.data-table tbody td {
+  border-bottom: 1px solid var(--border);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Sticky headers and first column for benchmark tables */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-card);
+  z-index: 20;
+  box-shadow: 0 1px 0 var(--border);
+  border-bottom: none;
+}
+.data-table tbody td:first-child,
+.data-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  background-color: var(--bg-card);
+  background-clip: padding-box;
+  z-index: 21;
+  box-shadow: 1px 0 0 var(--border);
+}
+.data-table thead th:first-child {
+  z-index: 22;
+  box-shadow: 1px 1px 0 var(--border);
+}
+.data-table tbody tr:hover td:first-child {
+  background-color: var(--bg-elevated);
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header" style="margin-bottom:24px">
   <div>
     <h1 style="font-size:24px;font-weight:700;margin:0">📡 Benchmark Monitor</h1>
-    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Personalised index returns, risk metrics, and drawdown analysis</p>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">
+      Personalised index returns, risk metrics, and drawdown analysis
+      {% if selected_returns and selected_returns.0.data_as_of %}
+      · <span class="badge" style="font-size:11px; margin-left:4px; background:var(--bg-elevated); color:var(--text-secondary); padding:2px 8px; border-radius:99px; border:1px solid var(--border)">Updated: {{ selected_returns.0.data_as_of|date:"M d, Y" }}</span>
+      {% endif %}
+    </p>
   </div>
   <div style="display:flex;gap:10px;align-items:center">
     {% if user.is_authenticated %}
@@ -42,28 +98,30 @@
     <button class="tab-btn" style="font-size:12px; padding:6px 12px" id="bench-subtab-rolling" onclick="switchBenchReturnsSubTab('rolling')">Rolling Returns</button>
   </div>
   
-  <div class="card" style="overflow-x:auto" id="bench-returns-trailing">
+  <div class="card bench-table-card" id="bench-returns-trailing">
     <table class="data-table" id="bench-returns-table">
       <thead>
         <tr>
           <th class="sortable" onclick="sortTable('bench-returns-table',0)">Index ↕</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',1)">1W%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',2)">1M%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',3)">3M%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',4)">6M%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',5)">YTD%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',6)">1Y%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',7)">3Y%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',8)">5Y%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',9)">10Y%</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',10)">Since Launch%</th>
-          <th class="num">As Of</th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',1)">1W% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Week Return" data-t-what="Trailing 1-week absolute return">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',2)">1M% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Month Return" data-t-what="Trailing 1-month absolute return">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',3)">3M% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Month Return" data-t-what="Trailing 3-month absolute return">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',4)">6M% <button type="button" class="info-btn" aria-label="Info" data-t-title="6-Month Return" data-t-what="Trailing 6-month absolute return">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',5)">YTD% <button type="button" class="info-btn" aria-label="Info" data-t-title="Year To Date" data-t-what="Absolute return since January 1st of the current year">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',6)">1Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Return" data-t-what="Trailing 1-year Compound Annual Growth Rate">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',7)">3Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Year Return" data-t-what="Trailing 3-year CAGR">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',8)">5Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="5-Year Return" data-t-what="Trailing 5-year CAGR">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',9)">10Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="10-Year Return" data-t-what="Trailing 10-year CAGR">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',10)">Since Launch% <button type="button" class="info-btn" aria-label="Info" data-t-title="Since Launch" data-t-what="CAGR since the index inception date">&#9432;</button></th>
+          <th class="num">As Of <button type="button" class="info-btn" aria-label="Info" data-t-title="As Of Date" data-t-what="The latest NAV date used for these calculations">&#9432;</button></th>
         </tr>
       </thead>
       <tbody>
         {% for br in selected_returns %}
         <tr>
-          <td style="font-weight:600;white-space:nowrap">{{ br.index.name }}</td>
+          <td style="font-weight:600;white-space:nowrap">
+            <a href="{% url 'funds:screener' %}?benchmark={{ br.index.name|urlencode }}" class="bench-link" title="View funds benchmarking to {{ br.index.name }}">{{ br.index.name }}</a>
+          </td>
           <td class="num {% if br.ret_1w %}{% if br.ret_1w > 0 %}text-success{% elif br.ret_1w < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_1w|floatformat:2|default:"—" }}{% if br.ret_1w %}%{% endif %}</td>
           <td class="num {% if br.ret_1m %}{% if br.ret_1m > 0 %}text-success{% elif br.ret_1m < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_1m|floatformat:2|default:"—" }}{% if br.ret_1m %}%{% endif %}</td>
           <td class="num {% if br.ret_3m %}{% if br.ret_3m > 0 %}text-success{% elif br.ret_3m < 0 %}text-danger{% endif %}{% endif %}">{{ br.ret_3m|floatformat:2|default:"—" }}{% if br.ret_3m %}%{% endif %}</td>
@@ -81,7 +139,7 @@
     </table>
   </div>
   
-  <div class="card" style="overflow-x:auto; display:none;" id="bench-returns-calendar">
+  <div class="card bench-table-card" style="display:none;" id="bench-returns-calendar">
     <table class="data-table" id="calendar-table">
       <thead id="calendar-head">
         <tr><th>Index</th></tr>
@@ -91,7 +149,7 @@
     </table>
   </div>
   
-  <div class="card" style="overflow-x:auto; display:none;" id="bench-returns-rolling">
+  <div class="card bench-table-card" style="display:none;" id="bench-returns-rolling">
     <table class="data-table" id="rolling-table">
       <thead>
         <tr>
@@ -113,26 +171,28 @@
 
 {# ── Risk Metrics Table ── #}
 <div id="panel-risk" style="display:none">
-  <div class="card" style="overflow-x:auto">
+  <div class="card bench-table-card">
     <table class="data-table" id="bench-risk-table">
       <thead>
         <tr>
           <th>Index</th>
-          <th class="num">1Y CAGR%</th>
+          <th class="num">1Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y CAGR" data-t-what="Trailing 1-year Compound Annual Growth Rate">&#9432;</button></th>
           <th class="num">1Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Volatility" data-t-what="Annualised Volatility (Standard Deviation) over 1 year">&#9432;</button></th>
           <th class="num">1Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Sharpe Ratio" data-t-what="Sharpe Ratio (Risk-Adjusted Return) over 1 year">&#9432;</button></th>
-          <th class="num">3Y CAGR%</th>
-          <th class="num">3Y Vol%</th>
-          <th class="num">3Y Sharpe</th>
-          <th class="num">5Y CAGR%</th>
-          <th class="num">5Y Vol%</th>
-          <th class="num">5Y Sharpe</th>
+          <th class="num">3Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y CAGR" data-t-what="Trailing 3-year Compound Annual Growth Rate">&#9432;</button></th>
+          <th class="num">3Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Volatility" data-t-what="Annualised Volatility (Standard Deviation) over 3 years">&#9432;</button></th>
+          <th class="num">3Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Sharpe Ratio" data-t-what="Sharpe Ratio (Risk-Adjusted Return) over 3 years">&#9432;</button></th>
+          <th class="num">5Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y CAGR" data-t-what="Trailing 5-year Compound Annual Growth Rate">&#9432;</button></th>
+          <th class="num">5Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Volatility" data-t-what="Annualised Volatility (Standard Deviation) over 5 years">&#9432;</button></th>
+          <th class="num">5Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Sharpe Ratio" data-t-what="Sharpe Ratio (Risk-Adjusted Return) over 5 years">&#9432;</button></th>
         </tr>
       </thead>
       <tbody>
         {% for r in selected_returns %}
         <tr>
-          <td style="font-weight:600;white-space:nowrap">{{ r.index.name }}</td>
+          <td style="font-weight:600;white-space:nowrap">
+            <a href="{% url 'funds:screener' %}?benchmark={{ r.index.name|urlencode }}" class="bench-link" title="View funds benchmarking to {{ r.index.name }}">{{ r.index.name }}</a>
+          </td>
           <td class="num {% if r.ret_1y %}{% if r.ret_1y > 0 %}text-success{% else %}text-danger{% endif %}{% endif %}">{{ r.ret_1y|floatformat:2|default:"—" }}{% if r.ret_1y %}%{% endif %}</td>
           <td class="num">{{ r.volatility_1y|floatformat:2|default:"—" }}{% if r.volatility_1y %}%{% endif %}</td>
           <td class="num {% if r.sharpe_1y %}{% if r.sharpe_1y > 1 %}text-success{% elif r.sharpe_1y < 0.5 %}text-danger{% endif %}{% endif %}">{{ r.sharpe_1y|floatformat:2|default:"—" }}</td>
@@ -151,7 +211,7 @@
 
 {# ── Drawdown Table ── #}
 <div id="panel-drawdown" style="display:none">
-  <div class="card" style="overflow-x:auto">
+  <div class="card bench-table-card">
     <table class="data-table" id="bench-dd-table">
       <thead>
         <tr>
@@ -159,16 +219,18 @@
           <th class="num">1Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 1 year">&#9432;</button></th>
           <th class="num">3Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 3 years">&#9432;</button></th>
           <th class="num">5Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 5 years">&#9432;</button></th>
-          <th class="num">1Y Return%</th>
-          <th class="num">3Y CAGR%</th>
-          <th class="num">5Y CAGR%</th>
-          <th class="num">3Y Sharpe</th>
+          <th class="num">1Y Return% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Return" data-t-what="Trailing 1-year return for context against drawdown">&#9432;</button></th>
+          <th class="num">3Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y CAGR" data-t-what="Trailing 3-year CAGR for context against drawdown">&#9432;</button></th>
+          <th class="num">5Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y CAGR" data-t-what="Trailing 5-year CAGR for context against drawdown">&#9432;</button></th>
+          <th class="num">3Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Sharpe Ratio" data-t-what="Sharpe Ratio over 3 years">&#9432;</button></th>
         </tr>
       </thead>
       <tbody>
         {% for r in selected_returns %}
         <tr>
-          <td style="font-weight:600;white-space:nowrap">{{ r.index.name }}</td>
+          <td style="font-weight:600;white-space:nowrap">
+            <a href="{% url 'funds:screener' %}?benchmark={{ r.index.name|urlencode }}" class="bench-link" title="View funds benchmarking to {{ r.index.name }}">{{ r.index.name }}</a>
+          </td>
           <td class="num text-danger">{{ r.max_drawdown_1y|floatformat:2|default:"—" }}{% if r.max_drawdown_1y %}%{% endif %}</td>
           <td class="num text-danger">{{ r.max_drawdown_3y|floatformat:2|default:"—" }}{% if r.max_drawdown_3y %}%{% endif %}</td>
           <td class="num text-danger">{{ r.max_drawdown_5y|floatformat:2|default:"—" }}{% if r.max_drawdown_5y %}%{% endif %}</td>
@@ -316,7 +378,7 @@ function renderCalendar() {
   if (years.length === 0) return; // No data yet
   
   const thead = document.getElementById('calendar-head');
-  thead.innerHTML = `<tr><th>Index</th>${years.map(y => `<th class="num">${y}</th>`).join('')}</tr>`;
+  thead.innerHTML = `<tr><th>Index</th>${years.map(y => `<th class="num">${y} <button type="button" class="info-btn" aria-label="Info" data-t-title="${y} Return" data-t-what="Absolute calendar year return for ${y}">&#9432;</button></th>`).join('')}</tr>`;
   
   const minMax = {};
   years.forEach(y => {

@@ -195,38 +195,51 @@ class BenchmarkAdapter(BaseAdapter):
 
         ⚠️ yfinance is rate-limited — sleep 2s before each call.
         Returns same format as fetch_index_history: [{'date': date, 'close': float}]
+
+        Note: Some tickers (e.g. BSE .BO tickers) don't support period='max'.
+        We try period='max' first and fall back to a date-range query.
         """
         import yfinance as yf
+        import datetime as _dt
 
         configure_yfinance_cache(yf)
         time.sleep(2)   # avoid rate limit — confirmed necessary in notebook
-        try:
-            ticker = yf.Ticker(yahoo_ticker)
-            # Always fetch period='max' to prevent yfinance timezone-checking failures
-            # when start date is prior to the ticker's historical inception date.
-            hist = ticker.history(period='max')
-            if hist is not None and not hist.empty and from_date:
-                # Remove timezone info from index to compare with from_date
-                if hasattr(hist.index, 'tz') and hist.index.tz is not None:
-                    hist.index = hist.index.tz_localize(None)
-                # Filter to records >= from_date
-                hist = hist[hist.index.date >= from_date]
 
+        effective_start = from_date or _dt.date(2000, 1, 1)
+        end_date = _dt.date.today()
+
+        def _normalise(hist):
             if hist is None or hist.empty:
                 return []
-
-            # Remove timezone info from index
             if hasattr(hist.index, 'tz') and hist.index.tz is not None:
                 hist.index = hist.index.tz_localize(None)
-
             results = []
             for ts, row in hist.iterrows():
-                results.append({
-                    'date':  ts.date() if hasattr(ts, 'date') else ts,
-                    'close': float(row['Close']),
-                })
-            logger.debug(f"[yfinance] {yahoo_ticker}: {len(results)} rows")
+                d = ts.date() if hasattr(ts, 'date') else ts
+                if d >= effective_start:
+                    results.append({'date': d, 'close': float(row['Close'])})
             return results
+
+        try:
+            ticker = yf.Ticker(yahoo_ticker)
+
+            # First try period='max' (works for most tickers)
+            try:
+                hist = ticker.history(period='max')
+                rows = _normalise(hist)
+                if rows:
+                    logger.debug(f"[yfinance] {yahoo_ticker}: {len(rows)} rows (period=max)")
+                    return rows
+            except Exception as e_max:
+                logger.debug(f"[yfinance] {yahoo_ticker}: period=max failed ({e_max}), trying date range")
+
+            # Fallback: explicit date range (required for some BSE .BO tickers)
+            hist = ticker.history(start=str(effective_start), end=str(end_date))
+            rows = _normalise(hist)
+            if rows:
+                logger.debug(f"[yfinance] {yahoo_ticker}: {len(rows)} rows (date range)")
+            return rows
+
         except Exception as e:
             logger.warning(f"[yfinance] fetch failed for {yahoo_ticker}: {e}")
             return []

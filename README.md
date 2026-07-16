@@ -29,7 +29,7 @@
   - Sticky column headers and sticky fund-name column while scrolling; sortable columns; pagination (50 per page)
   - ⓘ info tooltips on every metric column header explaining direction and interpretation
   - Ranks are always computed on the **full cohort** — searching/filtering only changes which rows are displayed, not the rank values
-- **Home Page Dashboard**: Benchmark Monitor, Category Return Meter, Category Analysis, Quartile Rankings preview
+- **Home Page Dashboard**: Category Return Meter, Category Analysis, Quartile Rankings preview, and a comprehensive **Benchmark Monitor** (inspired by [AdvisorKhoj](https://www.advisorkhoj.com/mutual-funds-research/mutual-fund-benchmark-monitor))
 - **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
 - **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
 - **Peer Comparison**: Scored India-focused peer matching by fund fingerprint, plan type, category, sector/theme, and AUM ranking

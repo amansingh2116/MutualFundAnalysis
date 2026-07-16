@@ -20,9 +20,9 @@ python manage.py build_scheme_master
 ```
 
 ### 2. `ingest_benchmarks`
-**Purpose:** Fetches metadata and historical daily NAV values for the 113 registered benchmark indices (NIFTY, SENSEX, BSE, global indices).
+**Purpose:** Fetches metadata and historical daily NAV values for the exact whitelist of 42 required benchmark indices defined in `benchmark_config.py`.
 **When to run:** Daily, before updating fund snapshots.
-**Action:** Connects to Yahoo Finance (via `yfinance` with exponential backoff) and the NSE API. Updates `BenchmarkIndex` and `BenchmarkNAV`.
+**Action:** Tries the **NSE Direct API** first, and immediately falls back to **Yahoo Finance** on failure. Updates `BenchmarkIndex` and `BenchmarkNAV`. Features SQLite lock resilience.
 
 ```bash
 python manage.py ingest_benchmarks

@@ -56,7 +56,11 @@
   transition: border-color 0.18s, transform 0.18s;
 }
 .bench-card:hover { border-color: var(--indigo-500); transform: translateY(-2px); }
-.bench-name { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.bench-name {
+  font-size: 12px; font-weight: 600; color: var(--text-primary);
+  margin-bottom: 8px; display: block; text-decoration: none;
+}
+.bench-name:hover { color: var(--indigo-500); text-decoration: underline; }
 .bench-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
 .bench-lbl { color: var(--text-muted); }
 .bench-val { font-weight: 600; }
@@ -252,7 +256,11 @@
   <div class="dash-section-header">
     <div class="dash-section-title">📡 Benchmark Monitor</div>
     <div style="display:flex;align-items:center;gap:12px">
+      {% if benchmark_returns and benchmark_returns.0.data_as_of %}
+      <span class="dash-section-badge">Updated: {{ benchmark_returns.0.data_as_of|date:"M d, Y" }}</span>
+      {% else %}
       <span class="dash-section-badge">Precomputed from BenchmarkNAV</span>
+      {% endif %}
       <a href="{% url 'funds:research_benchmarks' %}" class="btn btn-secondary btn-sm">Full Analysis →</a>
     </div>
   </div>
@@ -261,15 +269,15 @@
   <div class="bench-grid">
     {% for br in benchmark_returns %}
     <div class="bench-card">
-      <div class="bench-name">{{ br.index.name }}</div>
+      <a href="{% url 'funds:screener' %}?benchmark={{ br.index.name|urlencode }}" class="bench-name" title="View funds benchmarking to {{ br.index.name }}">{{ br.index.name }}</a>
       <div class="bench-row" style="margin-bottom:4px">
-        <span class="bench-lbl">1Y</span>
+        <span class="bench-lbl" title="1-Year CAGR">1Y</span>
         {% if br.ret_1y %}
           <span class="bench-val {% if br.ret_1y >= 0 %}pos{% else %}neg{% endif %}">
             {% if br.ret_1y >= 0 %}+{% endif %}{{ br.ret_1y|floatformat:1 }}%
           </span>
         {% else %}<span class="bench-val neu">—</span>{% endif %}
-        <span class="bench-lbl" style="margin-left:8px">3Y</span>
+        <span class="bench-lbl" style="margin-left:8px" title="3-Year CAGR">3Y</span>
         {% if br.ret_3y %}
           <span class="bench-val {% if br.ret_3y >= 0 %}pos{% else %}neg{% endif %}">
             {% if br.ret_3y >= 0 %}+{% endif %}{{ br.ret_3y|floatformat:1 }}%
@@ -277,22 +285,19 @@
         {% else %}<span class="bench-val neu">—</span>{% endif %}
       </div>
       <div class="bench-row">
-        <span class="bench-lbl">5Y</span>
+        <span class="bench-lbl" title="5-Year CAGR">5Y</span>
         {% if br.ret_5y %}
           <span class="bench-val {% if br.ret_5y >= 0 %}pos{% else %}neg{% endif %}">
             {% if br.ret_5y >= 0 %}+{% endif %}{{ br.ret_5y|floatformat:1 }}%
           </span>
         {% else %}<span class="bench-val neu">—</span>{% endif %}
-        <span class="bench-lbl" style="margin-left:8px">YTD</span>
+        <span class="bench-lbl" style="margin-left:8px" title="Year-to-Date Return">YTD</span>
         {% if br.ret_ytd %}
           <span class="bench-val {% if br.ret_ytd >= 0 %}pos{% else %}neg{% endif %}">
             {% if br.ret_ytd >= 0 %}+{% endif %}{{ br.ret_ytd|floatformat:1 }}%
           </span>
         {% else %}<span class="bench-val neu">—</span>{% endif %}
       </div>
-      {% if br.data_as_of %}
-      <div style="font-size:9px;color:var(--text-muted);margin-top:6px">as of {{ br.data_as_of }}</div>
-      {% endif %}
     </div>
     {% endfor %}
   </div>
