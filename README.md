@@ -21,7 +21,8 @@
   - **Active Filters popover**: click the filter badge to see, edit, or remove any active filter in-place — range metrics show editable inputs; categorical metrics show interactive multi-select dropdowns
   - **Saved Screens**: save any filter+view configuration by name; load, overwrite, or manage saved screens from the toolbar
   - **ⓘ Info tooltips** on every filter, every column header, and every metric in the Add Filters panel
-- **Home Page Dashboard**: Benchmark Monitor, Category Return Meter, Top Performing Funds, Category Analysis, Browse by Category, Quartile Rankings
+- **Browse Funds Page** *(lite screener)*: Filter by AMC, AUM, Category, Risk, and view key metrics with dynamic page sizing and sorting.
+- **Home Page Dashboard**: Benchmark Monitor, Category Return Meter, Top Performing Funds, Category Analysis, Quartile Rankings
 - **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
 - **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
 - **Peer Comparison**: Scored India-focused peer matching by fund fingerprint, plan type, category, sector/theme, and AUM ranking

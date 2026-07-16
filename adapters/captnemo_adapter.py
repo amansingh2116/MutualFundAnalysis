@@ -172,7 +172,7 @@ class CaptnemoAdapter(BaseAdapter):
             # Cost metrics
             'expense_ratio':        _dec_safe(fund_info.get('expense_ratio')),
             'expense_ratio_date':   parse_iso_date(fund_info.get('expense_ratio_date', '')),
-            'aum':                  _int_safe(fund_info.get('aum')),
+            'aum':                  (_dec_safe(fund_info.get('aum')) / 10.0) if _dec_safe(fund_info.get('aum')) is not None else None,
             'fund_rating':          _int_safe(fund_info.get('fund_rating')),
             'fund_rating_date':     parse_iso_date(fund_info.get('fund_rating_date', '')),
             'volatility':           _dec_safe(fund_info.get('volatility')),

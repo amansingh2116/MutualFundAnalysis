@@ -110,19 +110,28 @@
         <div class="fp-category">
           <h4 class="fp-cat-title">Rolling Returns</h4>
           <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_1y">1Y Avg Rolling % <button type="button" class="info-btn" data-t-title="1Y Avg Rolling Return" data-t-what="The average of all 1-year returns calculated over the period." data-t-interp="Higher is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_3y">3Y Avg Rolling % <button type="button" class="info-btn" data-t-title="3Y Avg Rolling Return" data-t-what="The average of all 3-year returns calculated over the period." data-t-interp="Higher is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="rolling_5y">5Y Avg Rolling % <button type="button" class="info-btn" data-t-title="5Y Avg Rolling Return" data-t-what="The average of all 5-year returns calculated over the period." data-t-interp="Higher is better. Shows long-term consistency.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_7y">7Y Avg Rolling % <button type="button" class="info-btn" data-t-title="7Y Avg Rolling Return" data-t-what="The average of all 7-year returns calculated over the period." data-t-interp="Higher is better.">ⓘ</button></div>
           </div>
         </div>
 
         <div class="fp-category">
           <h4 class="fp-cat-title">Risk Metrics</h4>
           <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="volatility_1y">1Y Volatility % <button type="button" class="info-btn" data-t-title="1Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 1 year." data-t-interp="Lower is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="volatility_5y">5Y Volatility % <button type="button" class="info-btn" data-t-title="5Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 5 years." data-t-interp="Lower is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="volatility_7y">7Y Volatility % <button type="button" class="info-btn" data-t-title="7Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 7 years." data-t-interp="Lower is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="volatility_si">SI Volatility % <button type="button" class="info-btn" data-t-title="Since Inception Volatility" data-t-what="Measures how much the fund's returns fluctuate from its average return since inception." data-t-interp="Lower is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sharpe_5y">5Y Sharpe <button type="button" class="info-btn" data-t-title="5Y Sharpe Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sortino">3Y Sortino <button type="button" class="info-btn" data-t-title="3Y Sortino Ratio" data-t-what="Measures risk-adjusted return but only penalizes downside volatility (losses)." data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sortino_5y">5Y Sortino <button type="button" class="info-btn" data-t-title="5Y Sortino Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="drawdown_1y">1Y Max Drawdown % <button type="button" class="info-btn" data-t-title="1Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough over 1 year." data-t-interp="A smaller negative number is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="drawdown_5y">5Y Max Drawdown % <button type="button" class="info-btn" data-t-title="5Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough over 5 years." data-t-interp="A smaller negative number is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="drawdown_si">SI Max Drawdown % <button type="button" class="info-btn" data-t-title="SI Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough since inception." data-t-interp="A smaller negative number is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="cur_drawdown">Current Drawdown % <button type="button" class="info-btn" data-t-title="Current Drawdown" data-t-what="How much the fund is currently down from its all-time high." data-t-interp="A smaller negative number is better. 0% means the fund is at an all-time high.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="away_from_ath">% Away from ATH <button type="button" class="info-btn" data-t-title="% Away from ATH" data-t-what="Percentage distance from the all-time high NAV." data-t-interp="A smaller negative number is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="tracking_3y">3Y Tracking Error % <button type="button" class="info-btn" data-t-title="3Y Tracking Error" data-t-what="Measures the deviation of the fund's returns from its benchmark." data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible.">ⓘ</button></div>
           </div>
         </div>
@@ -132,12 +141,33 @@
           <div class="fp-grid">
             <div class="fp-item" role="button" tabindex="0" data-filter="alpha_3y">3Y Jensen's Alpha % <button type="button" class="info-btn" data-t-title="3Y Jensen's Alpha" data-t-what="The excess return of a fund relative to the return of the benchmark, adjusted for risk (Beta)." data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="alpha_5y">5Y Jensen's Alpha % <button type="button" class="info-btn" data-t-title="5Y Jensen's Alpha" data-t-what="The excess return of a fund relative to the benchmark over 5 years, adjusted for risk." data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></div>
-            <div class="fp-item" role="button" tabindex="0" data-filter="beta_3y">3Y Beta <button type="button" class="info-btn" data-t-title="3Y Beta" data-t-what="Measures the fund's volatility relative to its benchmark." data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="beta_3y">3Y Beta < <button type="button" class="info-btn" data-t-title="3Y Beta" data-t-what="Measures the fund's volatility relative to its benchmark." data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="info_ratio_3y">3Y Info Ratio <button type="button" class="info-btn" data-t-title="3Y Information Ratio" data-t-what="Measures a portfolio manager's ability to generate excess returns relative to a benchmark, divided by the tracking error." data-t-interp="Higher is better. >0.5 is good.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="romad_3y">3Y ROMAD <button type="button" class="info-btn" data-t-title="3Y ROMAD" data-t-what="Risk-adjusted metric dividing the annualized return by the maximum drawdown." data-t-interp="Higher is better. Indicates how much return you get per unit of maximum pain.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="upside_3y">3Y Upside Capture % <button type="button" class="info-btn" data-t-title="3Y Upside Capture" data-t-what="Measures a manager's performance in up markets relative to the market itself." data-t-interp=">100% means the fund outperformed the market when it was rising. Higher is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="downside_3y">3Y Downside Capture % <button type="button" class="info-btn" data-t-title="3Y Downside Capture" data-t-what="Measures a manager's performance in down markets relative to the market itself." data-t-interp="<100% means the fund lost less than the market during a downturn. Lower is better.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="r_sq_3y">3Y R-Squared % <button type="button" class="info-btn" data-t-title="3Y R-Squared" data-t-what="Represents the percentage of a fund's movements that can be explained by movements in a benchmark index." data-t-interp="100% means perfectly correlated. Active funds typically have lower R-squared (70-90%).">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="sharpe_si">SI Sharpe <button type="button" class="info-btn" data-t-title="SI Sharpe" data-t-what="Since Inception Sharpe">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="sortino_si">SI Sortino <button type="button" class="info-btn" data-t-title="SI Sortino" data-t-what="Since Inception Sortino">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="romad_si">SI ROMAD <button type="button" class="info-btn" data-t-title="SI ROMAD" data-t-what="Since Inception ROMAD">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="rsq_si">SI R-Squared % <button type="button" class="info-btn" data-t-title="SI R-Squared" data-t-what="Since Inception R-Squared">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="alpha_si">SI Alpha % <button type="button" class="info-btn" data-t-title="SI Alpha" data-t-what="Since Inception Alpha">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="beta_si">SI Beta <button type="button" class="info-btn" data-t-title="SI Beta" data-t-what="Since Inception Beta">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="upside_si">SI Upside Capture % <button type="button" class="info-btn" data-t-title="SI Upside Capture" data-t-what="Since Inception Upside Capture">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="downside_si">SI Downside Capture % <button type="button" class="info-btn" data-t-title="SI Downside Capture" data-t-what="Since Inception Downside Capture">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="info_si">SI Info Ratio <button type="button" class="info-btn" data-t-title="SI Info Ratio" data-t-what="Since Inception Information Ratio">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Portfolio</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="port_eq">Equity Holding % <button type="button" class="info-btn" data-t-title="Equity Holding %" data-t-what="Percentage of the portfolio invested in Equity.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="port_debt">Debt Holding % <button type="button" class="info-btn" data-t-title="Debt Holding %" data-t-what="Percentage of the portfolio invested in Debt.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="port_cash">Cash Holding % <button type="button" class="info-btn" data-t-title="Cash Holding %" data-t-what="Percentage of the portfolio held in Cash.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="port_top3">Top 3 Concentration % <button type="button" class="info-btn" data-t-title="Top 3 Concentration" data-t-what="Percentage of the portfolio in the top 3 holdings.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="port_top5">Top 5 Concentration % <button type="button" class="info-btn" data-t-title="Top 5 Concentration" data-t-what="Percentage of the portfolio in the top 5 holdings.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="port_top10">Top 10 Concentration % <button type="button" class="info-btn" data-t-title="Top 10 Concentration" data-t-what="Percentage of the portfolio in the top 10 holdings.">ⓘ</button></div>
           </div>
         </div>
 
@@ -395,14 +425,20 @@
               <label><input type="checkbox" value="rolling5y"> 5Y Avg Rolling</label>
 
               <div class="col-group-label">Risk</div>
+              <label><input type="checkbox" value="volatility1y"> Volatility 1Y</label>
               <label><input type="checkbox" value="volatility" checked> Volatility 3Y</label>
               <label><input type="checkbox" value="volatility5y"> Volatility 5Y</label>
+              <label><input type="checkbox" value="volatility7y"> Volatility 7Y</label>
+              <label><input type="checkbox" value="volatilitysi"> Volatility SI</label>
               <label><input type="checkbox" value="sharpe"> Sharpe 3Y</label>
               <label><input type="checkbox" value="sharpe5y"> Sharpe 5Y</label>
               <label><input type="checkbox" value="sortino"> Sortino 3Y</label>
+              <label><input type="checkbox" value="drawdown1y"> Max Drawdown 1Y</label>
               <label><input type="checkbox" value="drawdown"> Max Drawdown 3Y</label>
               <label><input type="checkbox" value="drawdown5y"> Max Drawdown 5Y</label>
+              <label><input type="checkbox" value="drawdownsi"> Max Drawdown SI</label>
               <label><input type="checkbox" value="cur_drawdown"> Current Drawdown</label>
+              <label><input type="checkbox" value="away_from_ath"> Away from ATH</label>
               <label><input type="checkbox" value="risk"> Risk Level</label>
 
               <div class="col-group-label">Ratios &amp; Alpha</div>
@@ -416,6 +452,23 @@
               <label><input type="checkbox" value="romad3y"> ROMAD 3Y</label>
               <label><input type="checkbox" value="upside3y"> Upside Capture 3Y</label>
               <label><input type="checkbox" value="downside3y"> Downside Capture 3Y</label>
+              <label><input type="checkbox" value="sharpesi"> Sharpe SI</label>
+              <label><input type="checkbox" value="sortinosi"> Sortino SI</label>
+              <label><input type="checkbox" value="romadsi"> ROMAD SI</label>
+              <label><input type="checkbox" value="rsqsi"> R-Squared SI</label>
+              <label><input type="checkbox" value="alphasi"> Alpha SI</label>
+              <label><input type="checkbox" value="betasi"> Beta SI</label>
+              <label><input type="checkbox" value="upsidesi"> Upside Cap SI</label>
+              <label><input type="checkbox" value="downsidesi"> Downside Cap SI</label>
+              <label><input type="checkbox" value="infosi"> Info Ratio SI</label>
+              
+              <div class="col-group-label">Portfolio Concentration</div>
+              <label><input type="checkbox" value="port_eq"> Equity %</label>
+              <label><input type="checkbox" value="port_debt"> Debt %</label>
+              <label><input type="checkbox" value="port_cash"> Cash %</label>
+              <label><input type="checkbox" value="port_top3"> Top 3 %</label>
+              <label><input type="checkbox" value="port_top5"> Top 5 %</label>
+              <label><input type="checkbox" value="port_top10"> Top 10 %</label>
             </div>
           </div>
         </div>
@@ -458,14 +511,20 @@
                 <th data-column="cagrsi"><button type="button" class="table-sort" data-sort="cagr_si">SI%   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Since-Inception CAGR" data-t-what="The annualized percentage growth rate since the fund was launched." data-t-interp="Higher is better.">ⓘ</button></th>
                 <th data-column="rolling3y"><button type="button" class="table-sort" data-sort="rolling_3y">Roll 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Avg Rolling Return" data-t-what="The average of all 3-year returns calculated over the period." data-t-interp="Higher is better. Shows the true consistency of the fund better than point-to-point trailing CAGR.">ⓘ</button></th>
                 <th data-column="rolling5y"><button type="button" class="table-sort" data-sort="rolling_5y">Roll 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Avg Rolling Return" data-t-what="The average of all 5-year returns calculated over the period." data-t-interp="Higher is better. Shows long-term consistency.">ⓘ</button></th>
+                <th data-column="volatility1y"><button type="button" class="table-sort" data-sort="volatility_1y">Vol 1Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="1Y Volatility" data-t-what="Volatility over 1 year.">ⓘ</button></th>
                 <th data-column="volatility"><button type="button" class="table-sort" data-sort="volatility_3y">Vol 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 3 years." data-t-interp="Lower is better. Compare only within the same category (e.g. Small Caps will naturally have higher volatility than Large Caps).">ⓘ</button></th>
                 <th data-column="volatility5y"><button type="button" class="table-sort" data-sort="volatility_5y">Vol 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 5 years." data-t-interp="Lower is better.">ⓘ</button></th>
+                <th data-column="volatility7y"><button type="button" class="table-sort" data-sort="volatility_7y">Vol 7Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="7Y Volatility" data-t-what="Volatility over 7 years.">ⓘ</button></th>
+                <th data-column="volatilitysi"><button type="button" class="table-sort" data-sort="volatility_si">Vol SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Volatility" data-t-what="Volatility since inception.">ⓘ</button></th>
                 <th data-column="sharpe"><button type="button" class="table-sort" data-sort="sharpe">Sharpe 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Sharpe Ratio" data-t-what="Measures risk-adjusted return—how much excess return you get for the total risk taken." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></th>
                 <th data-column="sharpe5y"><button type="button" class="table-sort" data-sort="sharpe_5y">Sharpe 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Sharpe Ratio" data-t-what="Measures risk-adjusted return over 5 years." data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></th>
                 <th data-column="sortino"><button type="button" class="table-sort" data-sort="sortino">Sortino 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Sortino Ratio" data-t-what="Measures risk-adjusted return but only penalizes downside volatility (losses)." data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button></th>
+                <th data-column="drawdown1y"><button type="button" class="table-sort" data-sort="drawdown_1y">MaxDD 1Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="1Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough over 1 year." data-t-interp="A smaller negative number is better.">ⓘ</button></th>
                 <th data-column="drawdown"><button type="button" class="table-sort" data-sort="drawdown">MaxDD 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough of a portfolio over 3 years." data-t-interp="A smaller negative number is better. Indicates the worst-case scenario.">ⓘ</button></th>
                 <th data-column="drawdown5y"><button type="button" class="table-sort" data-sort="drawdown_5y">MaxDD 5Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough over 5 years." data-t-interp="A smaller negative number is better.">ⓘ</button></th>
+                <th data-column="drawdownsi"><button type="button" class="table-sort" data-sort="drawdown_si">MaxDD SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Max Drawdown" data-t-what="The maximum observed loss from a peak to a trough since inception." data-t-interp="A smaller negative number is better.">ⓘ</button></th>
                 <th data-column="cur_drawdown"><button type="button" class="table-sort" data-sort="cur_drawdown">Cur DD   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Current Drawdown" data-t-what="How much the fund is currently down from its all-time high." data-t-interp="A smaller negative number is better. 0% means the fund is at an all-time high.">ⓘ</button></th>
+                <th data-column="away_from_ath"><button type="button" class="table-sort" data-sort="away_from_ath">Away ATH   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="% Away from ATH" data-t-what="Percentage distance from the all-time high NAV.">ⓘ</button></th>
                 <th data-column="risk">Risk  <button type="button" class="info-btn" data-t-title="3Y Volatility (Std Dev)" data-t-what="Measures how much the fund's returns fluctuate from its average return over 3 years." data-t-interp="Lower is better. Compare only within the same category (e.g. Small Caps will naturally have higher volatility than Large Caps).">ⓘ</button></th>
                 <th data-column="excess1y"><button type="button" class="table-sort" data-sort="excess_1y">Excess 1Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="1Y Excess Return" data-t-what="The difference between the fund's return and its benchmark's return over 1 year." data-t-interp="Positive means the fund outperformed its benchmark (higher is better).">ⓘ</button></th>
                 <th data-column="excess3y"><button type="button" class="table-sort" data-sort="excess_3y">Excess 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Excess Return" data-t-what="The difference between the fund's return and its benchmark's return over 3 years." data-t-interp="Positive means the fund outperformed its benchmark (higher is better).">ⓘ</button></th>
@@ -477,6 +536,22 @@
                 <th data-column="romad3y"><button type="button" class="table-sort" data-sort="romad_3y">ROMAD 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y ROMAD" data-t-what="Risk-adjusted metric dividing the annualized return by the maximum drawdown." data-t-interp="Higher is better. Indicates how much return you get per unit of maximum pain.">ⓘ</button></th>
                 <th data-column="upside3y"><button type="button" class="table-sort" data-sort="upside_3y">Up Cap 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Upside Capture" data-t-what="Measures a manager's performance in up markets relative to the market itself." data-t-interp=">100% means the fund outperformed the market when it was rising. Higher is better.">ⓘ</button></th>
                 <th data-column="downside3y"><button type="button" class="table-sort" data-sort="downside_3y">Dn Cap 3Y   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Downside Capture" data-t-what="Measures a manager's performance in down markets relative to the market itself." data-t-interp="<100% means the fund lost less than the market during a downturn. Lower is better.">ⓘ</button></th>
+                <th data-column="sharpesi"><button type="button" class="table-sort" data-sort="sharpe_si">Sharpe SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Sharpe" data-t-what="Since Inception Sharpe Ratio">ⓘ</button></th>
+                <th data-column="sortinosi"><button type="button" class="table-sort" data-sort="sortino_si">Sortino SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Sortino" data-t-what="Since Inception Sortino Ratio">ⓘ</button></th>
+                <th data-column="romadsi"><button type="button" class="table-sort" data-sort="romad_si">ROMAD SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI ROMAD" data-t-what="Since Inception ROMAD">ⓘ</button></th>
+                <th data-column="rsqsi"><button type="button" class="table-sort" data-sort="r_sq_si">R² SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI R-Squared" data-t-what="Since Inception R-Squared">ⓘ</button></th>
+                <th data-column="alphasi"><button type="button" class="table-sort" data-sort="alpha_si">Alpha SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Alpha" data-t-what="Since Inception Alpha">ⓘ</button></th>
+                <th data-column="betasi"><button type="button" class="table-sort" data-sort="beta_si">Beta SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Beta" data-t-what="Since Inception Beta">ⓘ</button></th>
+                <th data-column="upsidesi"><button type="button" class="table-sort" data-sort="upside_si">Up Cap SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Upside Capture" data-t-what="Since Inception Upside Capture">ⓘ</button></th>
+                <th data-column="downsidesi"><button type="button" class="table-sort" data-sort="downside_si">Dn Cap SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Downside Capture" data-t-what="Since Inception Downside Capture">ⓘ</button></th>
+                <th data-column="infosi"><button type="button" class="table-sort" data-sort="info_ratio_si">IR SI   <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Info Ratio" data-t-what="Since Inception Information Ratio">ⓘ</button></th>
+                
+                <th data-column="port_eq"><button type="button" class="table-sort" data-sort="port_equity">Equity %   <span>↕</span></button></th>
+                <th data-column="port_debt"><button type="button" class="table-sort" data-sort="port_debt">Debt %   <span>↕</span></button></th>
+                <th data-column="port_cash"><button type="button" class="table-sort" data-sort="port_cash">Cash %   <span>↕</span></button></th>
+                <th data-column="port_top3"><button type="button" class="table-sort" data-sort="port_top3">Top 3 %   <span>↕</span></button></th>
+                <th data-column="port_top5"><button type="button" class="table-sort" data-sort="port_top5">Top 5 %   <span>↕</span></button></th>
+                <th data-column="port_top10"><button type="button" class="table-sort" data-sort="port_top10">Top 10 %   <span>↕</span></button></th>
               </tr>
             </thead>
             <tbody>
@@ -512,14 +587,20 @@
                 <td data-column="cagrsi" class="{% if row.cagr_si_pct > 0 %}positive{% elif row.cagr_si_pct < 0 %}negative{% endif %}">{% if row.cagr_si_pct != None %}{{ row.cagr_si_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="rolling3y">{% if row.rolling_return_3y_pct != None %}{{ row.rolling_return_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="rolling5y">{% if row.rolling_return_5y_pct != None %}{{ row.rolling_return_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="volatility1y">{% if row.volatility_1y_pct != None %}{{ row.volatility_1y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="volatility">{% if row.volatility_3y_pct != None %}{{ row.volatility_3y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="volatility5y">{% if row.volatility_5y_pct != None %}{{ row.volatility_5y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="volatility7y">{% if row.volatility_7y_pct != None %}{{ row.volatility_7y_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="volatilitysi">{% if row.volatility_si_pct != None %}{{ row.volatility_si_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="sharpe" class="{% if row.sharpe_ratio > 1 %}positive{% elif row.sharpe_ratio < 0 %}negative{% endif %}">{% if row.sharpe_ratio != None %}{{ row.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>
                 <td data-column="sharpe5y" class="{% if row.sharpe_ratio_5y > 1 %}positive{% elif row.sharpe_ratio_5y < 0 %}negative{% endif %}">{% if row.sharpe_ratio_5y != None %}{{ row.sharpe_ratio_5y|floatformat:2 }}{% else %}—{% endif %}</td>
                 <td data-column="sortino" class="{% if row.sortino_ratio > 1 %}positive{% elif row.sortino_ratio < 0 %}negative{% endif %}">{% if row.sortino_ratio != None %}{{ row.sortino_ratio|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="drawdown1y" class="negative">{% if row.max_drawdown_1y != None %}{{ row.max_drawdown_1y|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="drawdown" class="negative">{% if row.max_drawdown != None %}{{ row.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="drawdown5y" class="negative">{% if row.max_drawdown_5y != None %}{{ row.max_drawdown_5y|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="drawdownsi" class="negative">{% if row.max_drawdown_si != None %}{{ row.max_drawdown_si|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="cur_drawdown" class="{% if row.current_drawdown < 0 %}negative{% endif %}">{% if row.current_drawdown != None %}{{ row.current_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="away_from_ath" class="{% if row.away_from_ath_pct < 0 %}negative{% endif %}">{% if row.away_from_ath_pct != None %}{{ row.away_from_ath_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="risk">{% if row.risk_label %}<span class="risk-badge risk-{{ row.risk_label|lower|cut:" " }}">{{ row.risk_label }}</span>{% else %}—{% endif %}</td>
                 <td data-column="excess1y" class="{% if row.excess_return_1y > 0 %}positive{% elif row.excess_return_1y < 0 %}negative{% endif %}">{% if row.excess_return_1y != None %}{% if row.excess_return_1y > 0 %}+{% endif %}{{ row.excess_return_1y|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td data-column="excess3y" class="{% if row.excess_return_3y > 0 %}positive{% elif row.excess_return_3y < 0 %}negative{% endif %}">{% if row.excess_return_3y != None %}{% if row.excess_return_3y > 0 %}+{% endif %}{{ row.excess_return_3y|floatformat:2 }}%{% else %}—{% endif %}</td>
@@ -531,6 +612,23 @@
                 <td data-column="romad3y" class="{% if row.romad_3y > 0 %}positive{% elif row.romad_3y < 0 %}negative{% endif %}">{% if row.romad_3y != None %}{{ row.romad_3y|floatformat:2 }}{% else %}—{% endif %}</td>
                 <td data-column="upside3y">{% if row.upside_capture_3y != None %}{{ row.upside_capture_3y|floatformat:1 }}%{% else %}—{% endif %}</td>
                 <td data-column="downside3y">{% if row.downside_capture_3y != None %}{{ row.downside_capture_3y|floatformat:1 }}%{% else %}—{% endif %}</td>
+                
+                <td data-column="sharpesi" class="{% if row.sharpe_ratio_si > 1 %}positive{% elif row.sharpe_ratio_si < 0 %}negative{% endif %}">{% if row.sharpe_ratio_si != None %}{{ row.sharpe_ratio_si|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="sortinosi" class="{% if row.sortino_ratio_si > 1 %}positive{% elif row.sortino_ratio_si < 0 %}negative{% endif %}">{% if row.sortino_ratio_si != None %}{{ row.sortino_ratio_si|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="romadsi" class="{% if row.romad_si > 0 %}positive{% elif row.romad_si < 0 %}negative{% endif %}">{% if row.romad_si != None %}{{ row.romad_si|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="rsqsi">{% if row.r_squared_si != None %}{{ row.r_squared_si|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="alphasi" class="{% if row.alpha_si > 0 %}positive{% elif row.alpha_si < 0 %}negative{% endif %}">{% if row.alpha_si != None %}{{ row.alpha_si|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="betasi">{% if row.beta_si != None %}{{ row.beta_si|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td data-column="upsidesi">{% if row.upside_capture_si != None %}{{ row.upside_capture_si|floatformat:1 }}%{% else %}—{% endif %}</td>
+                <td data-column="downsidesi">{% if row.downside_capture_si != None %}{{ row.downside_capture_si|floatformat:1 }}%{% else %}—{% endif %}</td>
+                <td data-column="infosi" class="{% if row.info_ratio_si > 0 %}positive{% elif row.info_ratio_si < 0 %}negative{% endif %}">{% if row.info_ratio_si != None %}{{ row.info_ratio_si|floatformat:2 }}{% else %}—{% endif %}</td>
+                
+                <td data-column="port_eq">{% if row.port_equity_pct != None %}{{ row.port_equity_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="port_debt">{% if row.port_debt_pct != None %}{{ row.port_debt_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="port_cash">{% if row.port_cash_pct != None %}{{ row.port_cash_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="port_top3">{% if row.port_top3_concentration != None %}{{ row.port_top3_concentration|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="port_top5">{% if row.port_top5_concentration != None %}{{ row.port_top5_concentration|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td data-column="port_top10">{% if row.port_top10_concentration != None %}{{ row.port_top10_concentration|floatformat:2 }}%{% else %}—{% endif %}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -628,22 +726,46 @@
     return_1y:     { label: '1Y Return %',              type: 'range', min: -20, max: 120,    step: 0.5,  param: 'return_1y',   decimals: 1, suffix: '%' },
     cagr_7y:       { label: '7Y CAGR %',                type: 'range', min: -5,  max: 40,     step: 0.5,  param: 'cagr_7y',     decimals: 1, suffix: '%', presets: [['10%+','10',null],['15%+','15',null],['20%+','20',null]] },
     cagr_10y:      { label: '10Y CAGR %',               type: 'range', min: -5,  max: 35,     step: 0.5,  param: 'cagr_10y',    decimals: 1, suffix: '%', presets: [['10%+','10',null],['15%+','15',null]] },
+    rolling_1y:    { label: '1Y Avg Rolling %',         type: 'range', min: -20, max: 80,     step: 0.5,  param: 'rolling_1y',  decimals: 1, suffix: '%' },
+    rolling_3y:    { label: '3Y Avg Rolling %',         type: 'range', min: -10, max: 50,     step: 0.5,  param: 'rolling_3y',  decimals: 1, suffix: '%' },
     rolling_5y:    { label: '5Y Avg Rolling %',         type: 'range', min: -10, max: 35,     step: 0.5,  param: 'rolling_5y',  decimals: 1, suffix: '%' },
+    rolling_7y:    { label: '7Y Avg Rolling %',         type: 'range', min: -5,  max: 40,     step: 0.5,  param: 'rolling_7y',  decimals: 1, suffix: '%' },
+    volatility_1y: { label: '1Y Volatility %',          type: 'range', min: 0,   max: 80,     step: 0.5,  param: 'volatility_1y', decimals: 1, suffix: '%' },
     volatility_5y: { label: '5Y Volatility %',          type: 'range', min: 0,   max: 50,     step: 0.5,  param: 'volatility_5y', decimals: 1, suffix: '%', presets: [['<10%',null,'10'],['<15%',null,'15'],['<25%',null,'25']] },
+    volatility_7y: { label: '7Y Volatility %',          type: 'range', min: 0,   max: 40,     step: 0.5,  param: 'volatility_7y', decimals: 1, suffix: '%' },
+    volatility_si: { label: 'SI Volatility %',          type: 'range', min: 0,   max: 40,     step: 0.5,  param: 'volatility_si', decimals: 1, suffix: '%' },
     sharpe_5y:     { label: '5Y Sharpe',                type: 'range', min: -1,  max: 3,      step: 0.1,  param: 'sharpe_5y',   decimals: 2, presets: [['>0.5','0.5',null],['High >1','1',null]] },
+    sharpe_si:     { label: 'SI Sharpe',                type: 'range', min: -1,  max: 3,      step: 0.1,  param: 'sharpe_si',   decimals: 2 },
     sortino:       { label: '3Y Sortino',               type: 'range', min: -1,  max: 4,      step: 0.1,  param: 'sortino',     decimals: 2, presets: [['>0.5','0.5',null],['High >1','1',null]] },
     sortino_5y:    { label: '5Y Sortino',               type: 'range', min: -1,  max: 4,      step: 0.1,  param: 'sortino_5y',  decimals: 2 },
+    sortino_si:    { label: 'SI Sortino',               type: 'range', min: -1,  max: 4,      step: 0.1,  param: 'sortino_si',  decimals: 2 },
+    drawdown_1y:   { label: '1Y Max Drawdown %',        type: 'range', min: -50, max: 0,      step: 0.5,  param: 'drawdown_1y', decimals: 1, suffix: '%' },
     drawdown_5y:   { label: '5Y Max Drawdown %',        type: 'range', min: -70, max: 0,      step: 0.5,  param: 'drawdown_5y', decimals: 1, suffix: '%', presets: [['Loss <20%','-20',null],['Loss <30%','-30',null]] },
+    drawdown_si:   { label: 'SI Max Drawdown %',        type: 'range', min: -80, max: 0,      step: 0.5,  param: 'drawdown_si', decimals: 1, suffix: '%' },
     cur_drawdown:  { label: 'Current Drawdown %',       type: 'range', min: -60, max: 5,      step: 0.5,  param: 'cur_drawdown', decimals: 1, suffix: '%' },
+    away_from_ath: { label: '% Away from ATH',          type: 'range', min: -80, max: 0,      step: 0.5,  param: 'away_from_ath', decimals: 1, suffix: '%' },
     tracking_3y:   { label: '3Y Tracking Error %',      type: 'range', min: 0,   max: 20,     step: 0.5,  param: 'tracking_3y', decimals: 2, suffix: '%', presets: [['<5%',null,'5'],['<10%',null,'10']] },
     alpha_3y:      { label: "3Y Jensen's Alpha %",       type: 'range', min: -15, max: 20,     step: 0.5,  param: 'alpha_3y',    decimals: 2, suffix: '%', presets: [['>0%','0',null],['>2%','2',null]] },
     alpha_5y:      { label: "5Y Jensen's Alpha %",       type: 'range', min: -15, max: 20,     step: 0.5,  param: 'alpha_5y',    decimals: 2, suffix: '%' },
+    alpha_si:      { label: 'SI Alpha %',               type: 'range', min: -15, max: 20,     step: 0.5,  param: 'alpha_si',    decimals: 2, suffix: '%' },
     beta_3y:       { label: '3Y Beta',                  type: 'range', min: 0,   max: 2,      step: 0.05, param: 'beta_3y',     decimals: 2, presets: [['<0.8',null,'0.8'],['<1.0',null,'1.0']] },
+    beta_si:       { label: 'SI Beta',                  type: 'range', min: 0,   max: 2,      step: 0.05, param: 'beta_si',     decimals: 2 },
     info_ratio_3y: { label: '3Y Information Ratio',     type: 'range', min: -3,  max: 3,      step: 0.1,  param: 'info_ratio_3y', decimals: 2, presets: [['>0','0',null],['>0.5','0.5',null]] },
+    info_si:       { label: 'SI Info Ratio',            type: 'range', min: -3,  max: 3,      step: 0.1,  param: 'info_ratio_si', decimals: 2 },
     romad_3y:      { label: '3Y ROMAD',                 type: 'range', min: -5,  max: 5,      step: 0.1,  param: 'romad_3y',    decimals: 2, presets: [['>0','0',null],['>0.5','0.5',null]] },
+    romad_si:      { label: 'SI ROMAD',                 type: 'range', min: -5,  max: 5,      step: 0.1,  param: 'romad_si',    decimals: 2 },
     upside_3y:     { label: '3Y Upside Capture %',      type: 'range', min: 0,   max: 200,    step: 1,    param: 'upside_3y',   decimals: 1, suffix: '%', presets: [['>100%','100',null]] },
+    upside_si:     { label: 'SI Upside Capture %',      type: 'range', min: 0,   max: 200,    step: 1,    param: 'upside_si',   decimals: 1, suffix: '%' },
     downside_3y:   { label: '3Y Downside Capture %',    type: 'range', min: 0,   max: 200,    step: 1,    param: 'downside_3y', decimals: 1, suffix: '%', presets: [['<80%',null,'80']] },
+    downside_si:   { label: 'SI Downside Capture %',    type: 'range', min: 0,   max: 200,    step: 1,    param: 'downside_si', decimals: 1, suffix: '%' },
     r_sq_3y:       { label: '3Y R-Squared %',           type: 'range', min: 0,   max: 100,    step: 1,    param: 'r_sq_3y',     decimals: 1, suffix: '%' },
+    rsq_si:        { label: 'SI R-Squared %',           type: 'range', min: 0,   max: 100,    step: 1,    param: 'r_sq_si',     decimals: 1, suffix: '%' },
+    port_eq:       { label: 'Equity Holding %',         type: 'range', min: 0,   max: 100,    step: 0.5,  param: 'port_equity', decimals: 1, suffix: '%' },
+    port_debt:     { label: 'Debt Holding %',           type: 'range', min: 0,   max: 100,    step: 0.5,  param: 'port_debt',   decimals: 1, suffix: '%' },
+    port_cash:     { label: 'Cash Holding %',           type: 'range', min: 0,   max: 100,    step: 0.5,  param: 'port_cash',   decimals: 1, suffix: '%' },
+    port_top3:     { label: 'Top 3 Concentration %',    type: 'range', min: 0,   max: 100,    step: 0.5,  param: 'port_top3',   decimals: 1, suffix: '%' },
+    port_top5:     { label: 'Top 5 Concentration %',    type: 'range', min: 0,   max: 100,    step: 0.5,  param: 'port_top5',   decimals: 1, suffix: '%' },
+    port_top10:    { label: 'Top 10 Concentration %',   type: 'range', min: 0,   max: 100,    step: 0.5,  param: 'port_top10',  decimals: 1, suffix: '%' },
     sip_min:       { label: 'Min SIP (₹)',               type: 'range', min: 0,   max: 5000,   step: 100,  param: 'sip_min' },
     lump_min:      { label: 'Min Lumpsum (₹)',           type: 'range', min: 0,   max: 50000,  step: 500,  param: 'lump_min' },
     lock_in:       { label: 'Lock-in (Days)',            type: 'range', min: 0,   max: 1095,   step: 30,   param: 'lock_in',     decimals: 0, presets: [['No lock-in',null,'0'],['ELSS 1095+','1095',null]] },

@@ -60,11 +60,13 @@
 .screener-table-shell { border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#0d1321; }
 .screener-workspace .screener-table { min-width:1040px; }
 .screener-workspace .screener-table th,.screener-workspace .screener-table td { white-space:nowrap;text-align:right;border-right:0; }
-.screener-workspace .screener-table thead th { height:48px;text-transform:none;letter-spacing:0;font-size:11px;font-weight:550;text-align:right;cursor:default;background:#0f1524; }
+.screener-workspace .table-wrapper { overflow: auto; max-height: calc(100vh - 150px); }
+.screener-workspace .screener-table thead th { height:48px;text-transform:none;letter-spacing:0;font-size:11px;font-weight:550;text-align:right;cursor:default;background:#0f1524; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--border); }
 .screener-workspace .screener-table tbody td { height:70px;padding-top:12px;padding-bottom:12px; }
-.screener-workspace .screener-table th[data-column="scheme"],.screener-workspace .screener-table td[data-column="scheme"] { min-width:315px;white-space:normal;text-align:left; }
+.screener-workspace .screener-table th[data-column="scheme"],.screener-workspace .screener-table td[data-column="scheme"] { min-width:315px;white-space:normal;text-align:left; position: sticky; left: 46px; z-index: 1; background: #0d1321; border-right: 1px solid var(--border); }
 .screener-table th[data-column="benchmark"],.screener-workspace .screener-table td[data-column="benchmark"] { min-width:200px; max-width:250px; white-space:normal; text-align:right; }
-.screener-workspace .screener-table .favorite-column { width:46px;min-width:46px;padding-left:12px;padding-right:6px;text-align:center; }
+.screener-workspace .screener-table .favorite-column { width:46px;min-width:46px;padding-left:12px;padding-right:6px;text-align:center; position: sticky; left: 0; z-index: 1; background: #0d1321; }
+.screener-workspace .screener-table thead th.favorite-column, .screener-workspace .screener-table thead th[data-column="scheme"] { z-index: 20; background: #0f1524; }
 .table-sort { border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0; }
 .table-sort:hover { color:var(--text-primary); }
 .table-sort span { color:var(--text-muted);margin-left:5px; }

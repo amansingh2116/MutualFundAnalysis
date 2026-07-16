@@ -21,6 +21,7 @@ WINDOW_CHOICES = [
     ('1Y', '1 Year'),
     ('3Y', '3 Years'),
     ('5Y', '5 Years'),
+    ('7Y', '7 Years'),
 ]
 
 
@@ -79,6 +80,7 @@ class RollingReturn(BaseModel):
     min_pct     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     max_pct     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     mean_pct    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    median_pct  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     std_dev     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     win_rate_0  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
                                       help_text="% of rolling periods with return > 0%")
@@ -104,7 +106,10 @@ class RiskMetrics(BaseModel):
     """
     scheme           = models.ForeignKey('funds.Scheme', on_delete=models.CASCADE,
                                          related_name='risk_metrics')
-    period           = models.CharField(max_length=5, choices=[('3Y','3 Years'), ('5Y','5 Years')])
+    period           = models.CharField(max_length=5, choices=[
+        ('1Y', '1 Year'), ('3Y', '3 Years'), ('5Y', '5 Years'),
+        ('7Y', '7 Years'), ('SI', 'Since Inception')
+    ])
     period_days      = models.IntegerField()
 
     # ── Volatility ─────────────────────────────────────────────────────────────

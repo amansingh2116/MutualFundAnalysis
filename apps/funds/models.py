@@ -133,7 +133,8 @@ class SchemeMeta(BaseModel):
     expense_ratio      = models.DecimalField(max_digits=5, decimal_places=2,
                                              null=True, blank=True)
     expense_ratio_date = models.DateField(null=True, blank=True)
-    aum                = models.BigIntegerField(null=True, blank=True,
+    aum                = models.DecimalField(max_digits=14, decimal_places=2,
+                                                null=True, blank=True,
                                                 help_text="AUM in crores")
     fund_rating        = models.IntegerField(null=True, blank=True,
                                              help_text="Kuvera rating 1-5")
@@ -239,7 +240,9 @@ class FundScreenerSnapshot(BaseModel):
     rolling_return_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     volatility_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     volatility_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-
+    volatility_1y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    volatility_7y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    volatility_si_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     # Risk-adjusted metrics (from RiskMetrics 3Y)
     sharpe_ratio = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                        help_text="3Y Sharpe ratio")
@@ -256,12 +259,22 @@ class FundScreenerSnapshot(BaseModel):
     max_drawdown_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                           help_text="5Y max drawdown %")
 
+    # SI and extended max drawdowns
+    max_drawdown_1y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    max_drawdown_si = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    sharpe_ratio_si = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    sortino_ratio_si = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     # Excess return vs benchmark (fund return - benchmark return)
     excess_return_1y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                            help_text="1Y fund CAGR minus benchmark CAGR")
     excess_return_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                            help_text="3Y fund CAGR minus benchmark CAGR")
-
+    
+    # Excess return vs sub-category
+    excess_cat_1y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    excess_cat_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    excess_cat_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    excess_cat_7y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     # ── Short-period returns (from SchemeMeta captnemo data) ─────────────────
     returns_1w_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                          help_text="1-week return %")
@@ -306,12 +319,31 @@ class FundScreenerSnapshot(BaseModel):
     downside_capture_3y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                               help_text="3Y downside capture ratio %")
 
+    # Since inception benchmark-relative metrics
+    alpha_si          = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    beta_si           = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    r_squared_si      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    info_ratio_si     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    upside_capture_si   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    downside_capture_si = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     # ── Composite risk metrics ────────────────────────────────────────────────
     current_drawdown = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                            help_text="Current drawdown from 1Y peak (%)")
+    away_from_ath_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                            help_text="Current drawdown from all-time high (%)")
     romad_3y         = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
                                            help_text="Return over Max Drawdown: 3Y CAGR / |3Y Max DD|")
+    romad_si         = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
 
+    # ── Portfolio Concentration ───────────────────────────────────────────────
+    port_equity_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    port_debt_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    port_cash_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    port_top3_concentration = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    port_top5_concentration = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    port_top10_concentration = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    
+    category_st_dev = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     # ── Fund details from SchemeMeta ─────────────────────────────────────────
     fund_manager      = models.TextField(blank=True, help_text="Semicolon-separated manager names")
     crisil_rating     = models.CharField(max_length=100, blank=True, help_text="CRISIL fund rating")

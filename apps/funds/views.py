@@ -13,6 +13,7 @@ from django.core.paginator import Paginator
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import DetailView, ListView, TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from apps.funds.models import (
     CategorySnapshot, FundModelScore, FundScreenerSnapshot,
@@ -273,21 +274,137 @@ def home_category_funds(request):
         return JsonResponse({'error': 'server error'}, status=500)
 
 
-class CategoryListView(TemplateView):
+class CategoryListView(LoginRequiredMixin, TemplateView):
     template_name = 'funds/category_list.html'
+    paginate_by = 100
+
+    sort_options = {
+        'name':      'fund_name',
+        'aum':       'aum_cr',
+        'expense':   'expense_ratio',
+        'return_1y': 'returns_1y_pct',
+        'cagr_3y':   'cagr_3y_pct',
+        'volatility': 'volatility_3y_pct',
+    }
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def filtered_queryset(self):
+        request = self.request
+        qs = FundScreenerSnapshot.objects.select_related('scheme').filter(is_direct=True)
+
+        q = request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(fund_name__icontains=q)
+                | Q(fund_house__icontains=q)
+                | Q(scheme__amfi_code__icontains=q)
+            )
+
+        list_filters = {
+            'house':          'fund_house__in',
+            'category':       'category_group__in',
+            'sub_category':   'scheme_sub_category__in',
+            'risk':           'risk_label__in',
+        }
+        for param, lookup in list_filters.items():
+            values = [v for v in request.GET.getlist(param) if v]
+            if values:
+                qs = qs.filter(**{lookup: values})
+
+        range_filters = {
+            'aum':       'aum_cr',
+            'expense':   'expense_ratio',
+            'return_1y': 'returns_1y_pct',
+            'cagr_3y':   'cagr_3y_pct',
+        }
+        for param, field in range_filters.items():
+            min_value = self.decimal_param(f'{param}_min')
+            max_value = self.decimal_param(f'{param}_max')
+            if min_value is not None:
+                qs = qs.filter(**{f'{field}__gte': min_value})
+            if max_value is not None:
+                qs = qs.filter(**{f'{field}__lte': max_value})
+
+        sort = request.GET.get('sort', 'aum')
+        sort_field = self.sort_options.get(sort, 'aum_cr')
+        direction = request.GET.get('direction', 'desc')
+        if direction == 'desc':
+            sort_field = f'-{sort_field}'
+        
+        return qs.order_by(sort_field, 'fund_name')
+
+    def decimal_param(self, name):
+        value = self.request.GET.get(name)
+        if value in (None, ''):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def distinct_values(qs, field):
+        return list(
+            qs.exclude(**{field: ''})
+            .order_by(field)
+            .values_list(field, flat=True)
+            .distinct()
+        )
+
+    def filter_options(self):
+        base = FundScreenerSnapshot.objects.filter(is_direct=True)
+        return {
+            'houses':          self.distinct_values(base, 'fund_house'),
+            'categories':      self.distinct_values(base, 'category_group'),
+            'sub_categories':  self.distinct_values(base, 'scheme_sub_category'),
+            'risks':           self.distinct_values(base, 'risk_label'),
+        }
+
+    def query_string_without(self, *keys):
+        q = self.request.GET.copy()
+        for k in keys:
+            if k in q:
+                del q[k]
+        return q.urlencode()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        category = self.request.GET.get('category', '')
-        qs = Scheme.objects.filter(is_active=True, is_direct=True, plan='GROWTH')
-        if category:
-            qs = qs.filter(scheme_category=category)
-            ctx['current_category'] = category
-        ctx['schemes'] = qs.order_by('scheme_name')[:200]
-        ctx['categories'] = (
-            Scheme.objects.filter(is_active=True).values('scheme_category')
-            .annotate(count=Count('id')).order_by('-count')
-        )
+        qs = self.filtered_queryset()
+        
+        per_page = self.request.GET.get('per_page', str(self.paginate_by))
+        if per_page == 'all':
+            limit = max(qs.count(), 1)
+        else:
+            try:
+                limit = int(per_page)
+            except ValueError:
+                limit = self.paginate_by
+                
+        paginator = Paginator(qs, limit)
+        page_obj = paginator.get_page(self.request.GET.get('page'))
+
+        selected = {
+            'house': self.request.GET.getlist('house'),
+            'category': self.request.GET.getlist('category'),
+            'sub_category': self.request.GET.getlist('sub_category'),
+            'risk': self.request.GET.getlist('risk'),
+        }
+
+        ctx.update({
+            'page_obj':      page_obj,
+            'snapshots':     page_obj.object_list,
+            'total_count':   paginator.count,
+            'filter_options': self.filter_options(),
+            'selected':      selected,
+            'last_updated':  (
+                FundScreenerSnapshot.objects.order_by('-updated_at')
+                .values_list('updated_at', flat=True)
+                .first()
+            ),
+            'query_string':  self.query_string_without('page'),
+        })
         return ctx
 
 
@@ -339,6 +456,32 @@ class FundScreenerView(LoginRequiredMixin, TemplateView):
         'romad_3y':       'romad_3y',
         'upside_3y':      'upside_capture_3y',
         'downside_3y':    'downside_capture_3y',
+        'volatility_1y':  'volatility_1y_pct',
+        'volatility_7y':  'volatility_7y_pct',
+        'volatility_si':  'volatility_si_pct',
+        'drawdown_1y':    'max_drawdown_1y',
+        'drawdown_si':    'max_drawdown_si',
+        'sharpe_si':      'sharpe_ratio_si',
+        'sortino_si':     'sortino_ratio_si',
+        'romad_si':       'romad_si',
+        'r_sq_si':        'r_squared_si',
+        'alpha_si':       'alpha_si',
+        'beta_si':        'beta_si',
+        'upside_si':      'upside_capture_si',
+        'downside_si':    'downside_capture_si',
+        'info_ratio_si':  'info_ratio_si',
+        'excess_cat_1y':  'excess_cat_1y',
+        'excess_cat_3y':  'excess_cat_3y',
+        'excess_cat_5y':  'excess_cat_5y',
+        'excess_cat_7y':  'excess_cat_7y',
+        'away_from_ath':  'away_from_ath_pct',
+        'port_equity':    'port_equity_pct',
+        'port_debt':      'port_debt_pct',
+        'port_cash':      'port_cash_pct',
+        'port_top3':      'port_top3_concentration',
+        'port_top5':      'port_top5_concentration',
+        'port_top10':     'port_top10_concentration',
+        'cat_st_dev':     'category_st_dev',
         'updated':        'updated_at',
     }
 
@@ -386,20 +529,32 @@ class FundScreenerView(LoginRequiredMixin, TemplateView):
         ('current_drawdown',     'Current Drawdown (%)'),
         ('tracking_error_3y',    '3Y Tracking Error (%)'),
         ('tracking_error_5y',    '5Y Tracking Error (%)'),
-        # Ratios
-        ('excess_return_1y',     '1Y Alpha vs Benchmark (%)'),
-        ('excess_return_3y',     '3Y Alpha vs Benchmark (%)'),
-        ('alpha_3y',             "3Y Jensen's Alpha (%)"),
-        ('alpha_5y',             "5Y Jensen's Alpha (%)"),
-        ('beta_3y',              '3Y Beta'),
-        ('beta_5y',              '5Y Beta'),
-        ('r_squared_3y',         '3Y R-squared (%)'),
-        ('r_squared_5y',         '5Y R-squared (%)'),
-        ('info_ratio_3y',        '3Y Information Ratio'),
-        ('info_ratio_5y',        '5Y Information Ratio'),
-        ('upside_capture_3y',    '3Y Upside Capture (%)'),
-        ('downside_capture_3y',  '3Y Downside Capture (%)'),
-        ('romad_3y',             '3Y ROMAD'),
+        ('volatility_1y_pct',    '1Y Volatility (%)'),
+        ('volatility_7y_pct',    '7Y Volatility (%)'),
+        ('volatility_si_pct',    'SI Volatility (%)'),
+        ('max_drawdown_1y',      '1Y Max Drawdown (%)'),
+        ('max_drawdown_si',      'SI Max Drawdown (%)'),
+        ('sharpe_ratio_si',      'SI Sharpe'),
+        ('sortino_ratio_si',     'SI Sortino'),
+        ('romad_si',             'SI ROMAD'),
+        ('r_squared_si',         'SI R-squared (%)'),
+        ('alpha_si',             "SI Jensen's Alpha (%)"),
+        ('beta_si',              'SI Beta'),
+        ('info_ratio_si',        'SI Information Ratio'),
+        ('upside_capture_si',    'SI Upside Capture (%)'),
+        ('downside_capture_si',  'SI Downside Capture (%)'),
+        ('excess_cat_1y',        '1Y Alpha vs Sub-Category (%)'),
+        ('excess_cat_3y',        '3Y Alpha vs Sub-Category (%)'),
+        ('excess_cat_5y',        '5Y Alpha vs Sub-Category (%)'),
+        ('excess_cat_7y',        '7Y Alpha vs Sub-Category (%)'),
+        ('away_from_ath_pct',    '% Away from ATH'),
+        ('port_equity_pct',      'Equity Holding (%)'),
+        ('port_debt_pct',        'Debt Holding (%)'),
+        ('port_cash_pct',        'Cash Holding (%)'),
+        ('port_top3_concentration','Top 3 Concentration (%)'),
+        ('port_top5_concentration','Top 5 Concentration (%)'),
+        ('port_top10_concentration','Top 10 Concentration (%)'),
+        ('category_st_dev',      'Category Volatility (%)'),
         ('portfolio_turnover',   'Portfolio Turnover'),
         ('risk_label',           'Risk'),
         ('data_as_of',           'Data As Of'),
@@ -526,6 +681,32 @@ class FundScreenerView(LoginRequiredMixin, TemplateView):
             'upside_3y':     'upside_capture_3y',
             'downside_3y':   'downside_capture_3y',
             'r_sq_3y':       'r_squared_3y',
+            'volatility_1y': 'volatility_1y_pct',
+            'volatility_7y': 'volatility_7y_pct',
+            'volatility_si': 'volatility_si_pct',
+            'drawdown_1y':   'max_drawdown_1y',
+            'drawdown_si':   'max_drawdown_si',
+            'sharpe_si':     'sharpe_ratio_si',
+            'sortino_si':    'sortino_ratio_si',
+            'romad_si':      'romad_si',
+            'r_sq_si':       'r_squared_si',
+            'alpha_si':      'alpha_si',
+            'beta_si':       'beta_si',
+            'upside_si':     'upside_capture_si',
+            'downside_si':   'downside_capture_si',
+            'info_ratio_si': 'info_ratio_si',
+            'excess_cat_1y': 'excess_cat_1y',
+            'excess_cat_3y': 'excess_cat_3y',
+            'excess_cat_5y': 'excess_cat_5y',
+            'excess_cat_7y': 'excess_cat_7y',
+            'away_from_ath': 'away_from_ath_pct',
+            'port_equity':   'port_equity_pct',
+            'port_debt':     'port_debt_pct',
+            'port_cash':     'port_cash_pct',
+            'port_top3':     'port_top3_concentration',
+            'port_top5':     'port_top5_concentration',
+            'port_top10':    'port_top10_concentration',
+            'cat_st_dev':    'category_st_dev',
         }
         for param, field in range_filters.items():
             min_value = self.decimal_param(f'{param}_min')
@@ -587,6 +768,19 @@ class FundScreenerView(LoginRequiredMixin, TemplateView):
             'romad_3y_min', 'romad_3y_max',
             'upside_3y_min', 'upside_3y_max', 'downside_3y_min', 'downside_3y_max',
             'r_sq_3y_min', 'r_sq_3y_max',
+            'volatility_1y_min', 'volatility_1y_max', 'volatility_7y_min', 'volatility_7y_max',
+            'volatility_si_min', 'volatility_si_max', 'drawdown_1y_min', 'drawdown_1y_max',
+            'drawdown_si_min', 'drawdown_si_max', 'sharpe_si_min', 'sharpe_si_max',
+            'sortino_si_min', 'sortino_si_max', 'romad_si_min', 'romad_si_max',
+            'r_sq_si_min', 'r_sq_si_max', 'alpha_si_min', 'alpha_si_max',
+            'beta_si_min', 'beta_si_max', 'upside_si_min', 'upside_si_max',
+            'downside_si_min', 'downside_si_max', 'info_ratio_si_min', 'info_ratio_si_max',
+            'excess_cat_1y_min', 'excess_cat_1y_max', 'excess_cat_3y_min', 'excess_cat_3y_max',
+            'excess_cat_5y_min', 'excess_cat_5y_max', 'excess_cat_7y_min', 'excess_cat_7y_max',
+            'away_from_ath_min', 'away_from_ath_max', 'port_equity_min', 'port_equity_max',
+            'port_debt_min', 'port_debt_max', 'port_cash_min', 'port_cash_max',
+            'port_top3_min', 'port_top3_max', 'port_top5_min', 'port_top5_max',
+            'port_top10_min', 'port_top10_max', 'cat_st_dev_min', 'cat_st_dev_max',
         ]
         sel = {'sort': g.get('sort', 'name'), 'direction': g.get('direction', 'asc'), 'q': g.get('q', '')}
         for k in keys:

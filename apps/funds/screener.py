@@ -132,11 +132,15 @@ def refresh_snapshot_for_scheme(scheme):
                 "avg":     float(row.mean_pct) if row.mean_pct is not None else None,
                 "max":     float(row.max_pct)  if row.max_pct  is not None else None,
                 "min":     float(row.min_pct)  if row.min_pct  is not None else None,
+                "median":  float(row.median_pct) if getattr(row, "median_pct", None) is not None else None,
                 "pos_pct": float(row.win_rate_0) if row.win_rate_0 is not None else None,
             }
 
+    risk_1y = latest_risk.get("1Y")
     risk_3y = latest_risk.get("3Y")
     risk_5y = latest_risk.get("5Y")
+    risk_7y = latest_risk.get("7Y")
+    risk_si = latest_risk.get("SI")
 
     volatility = _decimal(getattr(risk_3y, "std_dev_ann", None))
     if volatility is None:
@@ -146,10 +150,16 @@ def refresh_snapshot_for_scheme(scheme):
     sortino  = _decimal(getattr(risk_3y, "sortino_ratio", None))
     drawdown = _decimal(getattr(risk_3y, "max_drawdown",  None))
 
+    volatility_1y = _decimal(getattr(risk_1y, "std_dev_ann", None))
     volatility_5y = _decimal(getattr(risk_5y, "std_dev_ann", None))
+    volatility_7y = _decimal(getattr(risk_7y, "std_dev_ann", None))
+    volatility_si = _decimal(getattr(risk_si, "std_dev_ann", None))
+    
+    drawdown_1y   = _decimal(getattr(risk_1y, "max_drawdown",  None))
+    drawdown_5y   = _decimal(getattr(risk_5y, "max_drawdown",  None))
+    drawdown_si   = _decimal(getattr(risk_si, "max_drawdown",  None))
     sharpe_5y     = _decimal(getattr(risk_5y, "sharpe_ratio", None))
     sortino_5y    = _decimal(getattr(risk_5y, "sortino_ratio", None))
-    drawdown_5y   = _decimal(getattr(risk_5y, "max_drawdown",  None))
 
     excess_1y = _decimal(getattr(trailing_1y, "excess", None))
     excess_3y = _decimal(getattr(trailing_3y, "excess", None))
@@ -168,6 +178,16 @@ def refresh_snapshot_for_scheme(scheme):
     upside_capture_3y   = _decimal(getattr(risk_3y, "upside_capture",   None))
     downside_capture_3y = _decimal(getattr(risk_3y, "downside_capture", None))
 
+    # ── Since Inception Benchmark metrics ─────────────────────────────────────
+    alpha_si          = _decimal(getattr(risk_si, "alpha_ann",        None))
+    beta_si           = _decimal(getattr(risk_si, "beta",             None))
+    r_squared_si      = _decimal(getattr(risk_si, "r_squared",        None))
+    info_ratio_si     = _decimal(getattr(risk_si, "info_ratio",       None))
+    upside_capture_si = _decimal(getattr(risk_si, "upside_capture",   None))
+    downside_capture_si = _decimal(getattr(risk_si, "downside_capture", None))
+    sharpe_si         = _decimal(getattr(risk_si, "sharpe_ratio",     None))
+    sortino_si        = _decimal(getattr(risk_si, "sortino_ratio",    None))
+
     # ── Current drawdown (vs 1Y rolling peak from NAV history) ───────────────
     current_drawdown = _compute_current_drawdown(scheme)
 
@@ -180,6 +200,54 @@ def refresh_snapshot_for_scheme(scheme):
             romad_3y = _decimal(float(cagr_3y_val) / abs(float(drawdown)))
         except Exception:
             romad_3y = None
+
+    cagr_si_val = _decimal(getattr(trailing_si, "cagr_pct", None))
+    romad_si = None
+    if cagr_si_val is not None and drawdown_si is not None and drawdown_si != 0:
+        try:
+            romad_si = _decimal(float(cagr_si_val) / abs(float(drawdown_si)))
+        except Exception:
+            romad_si = None
+            
+    # ── % Away from ATH ───────────────────────────────────────────────────────
+    from django.db.models import Max
+    ath_nav_dict = NAVHistory.objects.filter(scheme=scheme).aggregate(max_nav=Max('nav'))
+    ath_nav = ath_nav_dict.get('max_nav')
+    away_from_ath = None
+    if ath_nav and scheme.nav_latest:
+        away_from_ath = _decimal(((float(scheme.nav_latest) - float(ath_nav)) / float(ath_nav)) * 100)
+
+    # ── Portfolio Concentration ───────────────────────────────────────────────
+    from apps.funds.runtime import fetch_db_portfolio
+    portfolio = fetch_db_portfolio(scheme)
+    port_equity_pct = port_debt_pct = port_cash_pct = port_other_pct = None
+    port_top3 = port_top5 = port_top10 = None
+
+    if portfolio and portfolio.get('holdings'):
+        holdings = portfolio['holdings']
+        weights = [float(h.weight_pct) for h in holdings if getattr(h, 'weight_pct', None) is not None]
+        if weights:
+            weights = sorted(weights, reverse=True)
+            port_top3 = _decimal(sum(weights[:3]))
+            port_top5 = _decimal(sum(weights[:5]))
+            port_top10 = _decimal(sum(weights[:10]))
+            
+        eq_w = sum([float(h.weight_pct) for h in holdings if h.holding_type == 'Equity' and getattr(h, 'weight_pct', None)])
+        debt_w = sum([float(h.weight_pct) for h in holdings if h.holding_type == 'Debt' and getattr(h, 'weight_pct', None)])
+        cash_w = sum([float(h.weight_pct) for h in holdings if h.holding_type == 'Cash' and getattr(h, 'weight_pct', None)])
+        other_w = sum([float(h.weight_pct) for h in holdings if h.holding_type not in ('Equity', 'Debt', 'Cash') and getattr(h, 'weight_pct', None)])
+        
+        total_w = eq_w + debt_w + cash_w + other_w
+        if total_w > 0:
+            port_equity_pct = _decimal(eq_w)
+            port_debt_pct = _decimal(debt_w)
+            port_cash_pct = _decimal(cash_w)
+            port_other_pct = _decimal(other_w)
+    
+    # ── Category Standard Deviation ───────────────────────────────────────────
+    from apps.funds.models import CategorySnapshot
+    cat_snap = CategorySnapshot.objects.filter(scheme_sub_category=sub_category).first()
+    category_st_dev = _decimal(cat_snap.avg_volatility if cat_snap else None)
 
     # ── SchemeMeta fields ─────────────────────────────────────────────────────
     fund_manager_str   = getattr(meta, "fund_manager",       "") or ""
@@ -237,14 +305,21 @@ def refresh_snapshot_for_scheme(scheme):
             "rolling_return_3y_pct": _decimal(getattr(rolling_3y, "mean_pct", None)),
             "rolling_return_5y_pct": _decimal(getattr(rolling_5y, "mean_pct", None)),
             # ── Volatility / Risk ─────────────────────────────────────────────
+            "volatility_1y_pct":   volatility_1y,
             "volatility_3y_pct":   volatility,
             "volatility_5y_pct":   volatility_5y,
+            "volatility_7y_pct":   volatility_7y,
+            "volatility_si_pct":   volatility_si,
             "sharpe_ratio":        sharpe,
             "sortino_ratio":       sortino,
             "max_drawdown":        drawdown,
+            "max_drawdown_1y":     drawdown_1y,
+            "max_drawdown_5y":     drawdown_5y,
+            "max_drawdown_si":     drawdown_si,
             "sharpe_ratio_5y":     sharpe_5y,
             "sortino_ratio_5y":    sortino_5y,
-            "max_drawdown_5y":     drawdown_5y,
+            "sharpe_ratio_si":     sharpe_si,
+            "sortino_ratio_si":    sortino_si,
             # ── Extended risk metrics ─────────────────────────────────────────
             "alpha_3y":            alpha_3y,
             "alpha_5y":            alpha_5y,
@@ -259,10 +334,30 @@ def refresh_snapshot_for_scheme(scheme):
             "upside_capture_3y":   upside_capture_3y,
             "downside_capture_3y": downside_capture_3y,
             "current_drawdown":    current_drawdown,
+            "away_from_ath_pct":   away_from_ath,
             "romad_3y":            romad_3y,
+            "romad_si":            romad_si,
+            "alpha_si":            alpha_si,
+            "beta_si":             beta_si,
+            "r_squared_si":        r_squared_si,
+            "info_ratio_si":       info_ratio_si,
+            "upside_capture_si":   upside_capture_si,
+            "downside_capture_si": downside_capture_si,
             # ── Excess returns ────────────────────────────────────────────────
             "excess_return_1y":    excess_1y,
             "excess_return_3y":    excess_3y,
+            "excess_cat_1y":       None,
+            "excess_cat_3y":       None,
+            "excess_cat_5y":       None,
+            "excess_cat_7y":       None,
+            # ── Portfolio Concentration ───────────────────────────────────────
+            "port_equity_pct":         port_equity_pct,
+            "port_debt_pct":           port_debt_pct,
+            "port_cash_pct":           port_cash_pct,
+            "port_top3_concentration": port_top3,
+            "port_top5_concentration": port_top5,
+            "port_top10_concentration":port_top10,
+            "category_st_dev":         category_st_dev,
             # ── Short-period returns from SchemeMeta ──────────────────────────
             "returns_1w_pct":      _decimal(getattr(meta, "returns_1w", None)),
             "returns_1m_pct":      _decimal(getattr(meta, "returns_1m", None)),
@@ -431,7 +526,10 @@ def _decimal(value) -> Decimal | None:
     if value in ("", None):
         return None
     try:
-        return Decimal(str(value))
+        val = Decimal(str(value))
+        if val.is_nan() or val.is_infinite():
+            return None
+        return val
     except (InvalidOperation, TypeError, ValueError):
         return None
 

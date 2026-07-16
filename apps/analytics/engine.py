@@ -56,8 +56,10 @@ TRAILING_PERIODS = {
 
 # Risk metric period definitions (label → calendar days)
 RISK_PERIODS = {
+    '1Y': 365,
     '3Y': 1096,
     '5Y': 1826,
+    '7Y': 2556,
 }
 
 
@@ -292,6 +294,7 @@ def _compute_rolling_returns(scheme, nav: pd.Series) -> None:
             min_pct  = float(np.min(cagrs)),
             max_pct  = float(np.max(cagrs)),
             mean_pct = float(np.mean(cagrs)),
+            median_pct = float(np.median(cagrs)),
             std_dev  = float(np.std(cagrs)),
             win_rate_0  = float(np.mean(cagrs > 0) * 100),
             win_rate_12 = float(np.mean(cagrs > 12) * 100),
@@ -322,82 +325,91 @@ def _compute_risk_metrics(scheme, nav: pd.Series, bm: Optional[pd.Series]) -> No
         if len(nav_sub) < 126:   # need minimum 6 months
             continue
 
-        ret_sub    = nav_sub.pct_change().dropna()
-        excess_ret = ret_sub - rf_d
+        _save_risk_period(scheme, label, cal_days, nav_sub, bm, today, rf_d, rf, cutoff)
+        
+    # Also do 'SI' (Since Inception)
+    if len(nav) >= 126:
+        cal_days_si = (nav.index[-1] - nav.index[0]).days
+        _save_risk_period(scheme, 'SI', cal_days_si, nav, bm, today, rf_d, rf, nav.index[0])
 
-        # Volatility
-        std_ann = float(ret_sub.std() * math.sqrt(TRADING_DAYS) * 100)
+def _save_risk_period(scheme, label, cal_days, nav_sub, bm, today, rf_d, rf, cutoff):
+    from apps.analytics.models import RiskMetrics
 
-        # Sharpe (annualised)
-        sharpe = float(
-            (excess_ret.mean() / excess_ret.std()) * math.sqrt(TRADING_DAYS)
-        ) if excess_ret.std() > 0 else None
+    ret_sub    = nav_sub.pct_change().dropna()
+    excess_ret = ret_sub - rf_d
 
-        # Sortino (downside deviation only)
-        downside = ret_sub[ret_sub < rf_d]
-        sortino  = float(
-            excess_ret.mean() * TRADING_DAYS / (downside.std() * math.sqrt(TRADING_DAYS))
-        ) if (len(downside) > 5 and downside.std() > 0) else None
+    # Volatility
+    std_ann = float(ret_sub.std() * math.sqrt(TRADING_DAYS) * 100)
 
-        # Max drawdown
-        running_max = nav_sub.cummax()
-        drawdown_series = (nav_sub - running_max) / running_max * 100
-        max_dd = float(drawdown_series.min())
+    # Sharpe (annualised)
+    sharpe = float(
+        (excess_ret.mean() / excess_ret.std()) * math.sqrt(TRADING_DAYS)
+    ) if excess_ret.std() > 0 else None
 
-        # Benchmark-relative metrics
-        beta = alpha = r_sq = up_cap = dn_cap = track_err = info_ratio = None
+    # Sortino (downside deviation only)
+    downside = ret_sub[ret_sub < rf_d]
+    sortino  = float(
+        excess_ret.mean() * TRADING_DAYS / (downside.std() * math.sqrt(TRADING_DAYS))
+    ) if (len(downside) > 5 and downside.std() > 0) else None
 
-        if bm is not None:
-            bm_sub  = bm[bm.index >= cutoff]
-            bm_ret  = bm_sub.pct_change().dropna()
-            aligned = pd.DataFrame({'fund': ret_sub, 'bm': bm_ret}).dropna()
+    # Max drawdown
+    running_max = nav_sub.cummax()
+    drawdown_series = (nav_sub - running_max) / running_max * 100
+    max_dd = float(drawdown_series.min())
 
-            if len(aligned) > 30:
-                slope, intercept, r_val, *_ = stats.linregress(
-                    aligned['bm'].values, aligned['fund'].values
-                )
-                beta  = float(slope)
-                alpha = float(intercept * TRADING_DAYS * 100)
-                r_sq  = float(r_val ** 2 * 100)
+    # Benchmark-relative metrics
+    beta = alpha = r_sq = up_cap = dn_cap = track_err = info_ratio = None
 
-                up_mask = aligned['bm'] > 0
-                dn_mask = aligned['bm'] < 0
-                if up_mask.sum() > 5:
-                    up_cap = float(
-                        aligned.loc[up_mask, 'fund'].mean() /
-                        aligned.loc[up_mask, 'bm'].mean() * 100
-                    )
-                if dn_mask.sum() > 5:
-                    dn_cap = float(
-                        aligned.loc[dn_mask, 'fund'].mean() /
-                        aligned.loc[dn_mask, 'bm'].mean() * 100
-                    )
+    if bm is not None:
+        bm_sub  = bm[bm.index >= cutoff]
+        bm_ret  = bm_sub.pct_change().dropna()
+        aligned = pd.DataFrame({'fund': ret_sub, 'bm': bm_ret}).dropna()
 
-                diff = aligned['fund'] - aligned['bm']
-                te   = diff.std() * math.sqrt(TRADING_DAYS) * 100
-                if te > 0:
-                    track_err  = float(te)
-                    info_ratio = float(diff.mean() * TRADING_DAYS * 100 / te)
-
-        RiskMetrics.objects.update_or_create(
-            scheme=scheme, period=label, as_of=today,
-            defaults=dict(
-                period_days     = cal_days,
-                std_dev_ann     = std_ann,
-                sharpe_ratio    = sharpe,
-                sortino_ratio   = sortino,
-                max_drawdown    = max_dd,
-                beta            = beta,
-                alpha_ann       = alpha,
-                r_squared       = r_sq,
-                upside_capture  = up_cap,
-                downside_capture= dn_cap,
-                tracking_error  = track_err,
-                info_ratio      = info_ratio,
-                rf_rate_used    = rf,
+        if len(aligned) > 30:
+            slope, intercept, r_val, *_ = stats.linregress(
+                aligned['bm'].values, aligned['fund'].values
             )
+            beta  = float(slope)
+            alpha = float(intercept * TRADING_DAYS * 100)
+            r_sq  = float(r_val ** 2 * 100)
+
+            up_mask = aligned['bm'] > 0
+            dn_mask = aligned['bm'] < 0
+            if up_mask.sum() > 5:
+                up_cap = float(
+                    aligned.loc[up_mask, 'fund'].mean() /
+                    aligned.loc[up_mask, 'bm'].mean() * 100
+                )
+            if dn_mask.sum() > 5:
+                dn_cap = float(
+                    aligned.loc[dn_mask, 'fund'].mean() /
+                    aligned.loc[dn_mask, 'bm'].mean() * 100
+                )
+
+            diff = aligned['fund'] - aligned['bm']
+            te   = diff.std() * math.sqrt(TRADING_DAYS) * 100
+            if te > 0:
+                track_err  = float(te)
+                info_ratio = float(diff.mean() * TRADING_DAYS * 100 / te)
+
+    RiskMetrics.objects.update_or_create(
+        scheme=scheme, period=label, as_of=today,
+        defaults=dict(
+            period_days     = cal_days,
+            std_dev_ann     = std_ann,
+            sharpe_ratio    = sharpe,
+            sortino_ratio   = sortino,
+            max_drawdown    = max_dd,
+            beta            = beta,
+            alpha_ann       = alpha,
+            r_squared       = r_sq,
+            upside_capture  = up_cap,
+            downside_capture= dn_cap,
+            tracking_error  = track_err,
+            info_ratio      = info_ratio,
+            rf_rate_used    = rf,
         )
-    logger.debug(f"[{scheme.amfi_code}] Risk metrics saved")
+    )
 
 
 # ── SIP Simulation ─────────────────────────────────────────────────────────────
@@ -709,6 +721,7 @@ def compute_rolling_return_stats(nav_series: pd.Series) -> dict:
             'avg': round(rolling_returns.mean(), 2),
             'max': round(rolling_returns.max(), 2),
             'min': round(rolling_returns.min(), 2),
+            'median': round(rolling_returns.median(), 2),
             'pos_pct': round((rolling_returns > 0).mean() * 100, 1)
         }
         

@@ -1,172 +1,479 @@
 {% extends "base.html" %}
-{% block title %}Browse Funds{% endblock %}
+{% load static %}
+{% block title %}Browse Mutual Funds{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Simplified Browse UI styles */
+.browse-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 20px;
+}
+.browse-filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    background: var(--bg-card);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    align-items: center;
+}
+.filter-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.browse-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 12px;
+    background: var(--bg-elevated, #1a2332);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    gap: 6px;
+}
+.browse-filter-chip:hover {
+    background: var(--bg-hover, #2d3748);
+}
+.filter-dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: var(--bg-card, #151c2d);
+    min-width: 220px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    z-index: 100;
+}
+.filter-dropdown.active .filter-dropdown-content {
+    display: block;
+}
+.filter-dropdown-content label.field-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+.filter-dropdown-content input[type="number"] {
+    width: 100%;
+    padding: 6px;
+    background: var(--bg-default, #0c1220);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+.checkbox-list {
+    max-height: 180px;
+    overflow-y: auto;
+    background: var(--bg-default, #0c1220);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px;
+    margin-bottom: 12px;
+}
+.check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.check-row:hover {
+    background: var(--bg-hover, rgba(72,201,196,0.1));
+    color: var(--text-primary);
+}
+.check-row input {
+    margin: 0;
+}
+.filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+    align-items: center;
+}
+.active-filter-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    background: rgba(72,201,196,0.18);
+    border: 1px solid rgba(72,201,196,0.6);
+    border-radius: 12px;
+    color: #48c9c4;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Table styling for sticky header */
+.table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.browse-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: right;
+}
+.browse-table th, .browse-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    font-size: 13px;
+}
+.browse-table th {
+    background: var(--bg-elevated, #1a2332);
+    font-weight: 600;
+    color: var(--text-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-top: none;
+}
+.browse-table th.left-align, .browse-table td.left-align {
+    text-align: left;
+}
+.browse-table td.sticky-col {
+    position: sticky;
+    left: 0;
+    background: var(--bg-card, #151c2d);
+    z-index: 5;
+    border-right: 1px solid var(--border);
+}
+.browse-table th.sticky-col {
+    position: sticky;
+    left: 0;
+    background: var(--bg-elevated, #1a2332);
+    z-index: 15;
+    border-right: 1px solid var(--border);
+}
+.fund-name {
+    color: var(--indigo-400);
+    text-decoration: none;
+    font-weight: 500;
+}
+.fund-name:hover {
+    text-decoration: underline;
+}
+.fund-cat {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <div>
-    <div class="page-title">📂 Browse Mutual Funds</div>
-    <div class="page-subtitle">{{ schemes|length }} funds shown{% if current_category %} · {{ current_category }}{% endif %}</div>
-  </div>
-  <div class="header-actions">
-    <button type="button" class="btn btn-secondary" id="compare-selected-btn" disabled title="Select at least 2 funds to compare">⚖️ Compare Selected</button>
-  </div>
-</div>
-<div id="compare-tray" class="compare-tray" hidden style="margin-bottom: 15px;">
-  <div class="compare-tray-title">Compare (<span id="compare-count">0</span>/5):</div>
-  <div id="compare-items" class="compare-items"></div>
-</div>
-
-
-<!-- Fund Cards -->
-{% if schemes %}
-<div class="card">
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 40px; text-align: center;"></th>
-          <th>Fund Name</th>
-          <th>Category</th>
-          <th>AUM (Cr)</th>
-          <th>Expense %</th>
-          <th>NAV</th>
-          <th>Direct?</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for s in schemes %}
-        <tr>
-          <td style="text-align: center;">
-            <button type="button" class="favorite-button" data-fund="{{ s.amfi_code }}" data-name="{{ s.scheme_name }}" style="background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:0;" title="Select for comparison">☆</button>
-          </td>
-          <td>
-            <a href="{% url 'funds:detail' s.amfi_code %}" class="fund-link">{{ s.scheme_name|truncatechars:60 }}</a>
-            <div class="fund-house">{{ s.fund_house }}</div>
-          </td>
-          <td class="muted" style="font-size:11px;max-width:160px">{{ s.scheme_category|truncatechars:45 }}</td>
-          <td class="muted">{% if s.aum_cr %}₹{{ s.aum_cr|floatformat:0 }}{% else %}—{% endif %}</td>
-          <td class="muted">{% if s.expense_ratio %}{{ s.expense_ratio }}%{% else %}—{% endif %}</td>
-          <td class="muted">{% if s.nav_latest %}₹{{ s.nav_latest }}{% else %}—{% endif %}</td>
-          <td>{% if s.is_direct %}<span class="pill pill-indigo">Direct</span>{% else %}<span class="pill pill-gray">Regular</span>{% endif %}</td>
-          <td>
-            <div style="display: flex; gap: 4px;">
-              <a href="{% url 'calculators:compare' %}?funds={{ s.amfi_code }}" class="btn btn-secondary btn-sm" title="Compare Fund">⚖️</a>
-              <a href="{% url 'funds:detail' s.amfi_code %}" class="btn btn-secondary btn-sm">View →</a>
+<div class="browse-header">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%;">
+        <div>
+            <h1 style="margin-bottom: 4px;">📂 Browse Mutual Funds</h1>
+            <div style="color: var(--text-muted); font-size: 14px; margin-bottom: 6px;">Explore and filter funds across various categories and metrics.</div>
+            <div style="font-size: 13px; color: var(--indigo-400);">
+                💡 Looking for advanced filters? <a href="{% url 'funds:screener' %}" style="color: var(--indigo-400); text-decoration: underline;">Check out the Fund Screener</a> for detailed analysis.
             </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% if schemes|length == 200 %}
-  <div class="card-footer" style="text-align:center;font-size:12px;color:var(--text-muted)">
-    Showing first 200 results. Use the top search box to jump directly to a fund by name, AMC, AMFI code, or ISIN.
-  </div>
-  {% endif %}
+        </div>
+        <div style="text-align: right; color: var(--text-muted); font-size: 12px; margin-bottom: 8px;">
+            🕒 {% if last_updated %}Updated {{ last_updated|date:"d M Y, H:i" }}{% else %}Awaiting first data refresh{% endif %}
+        </div>
+    </div>
 </div>
-{% else %}
-<div class="card">
-  <div class="card-body chart-placeholder" style="min-height:200px">
-    <span class="placeholder-icon">📂</span>
-    <span style="font-size:13px;color:var(--text-muted)">
-      No funds loaded yet.<br>
-      Run <code style="color:var(--indigo-400)">python manage.py build_scheme_master</code> to fetch ~14,000 schemes from AMFI.
-    </span>
-  </div>
+
+<form method="get" id="browse-form">
+    <div class="browse-filters-bar">
+        <!-- AMC Dropdown -->
+        <div class="filter-dropdown" id="dd-house">
+            <button type="button" class="browse-filter-chip">
+                AMC ▾
+            </button>
+            <div class="filter-dropdown-content">
+                <label class="field-label">Select Fund House</label>
+                <div class="checkbox-list">
+                    {% for h in filter_options.houses %}
+                    <label class="check-row">
+                        <input type="checkbox" name="house" value="{{ h }}" {% if h in selected.house %}checked{% endif %}>
+                        <span>{{ h }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-primary btn-sm apply-btn" style="width: 100%;">Apply</button>
+            </div>
+        </div>
+
+        <!-- Category Dropdown -->
+        <div class="filter-dropdown" id="dd-category">
+            <button type="button" class="browse-filter-chip">
+                Category ▾
+            </button>
+            <div class="filter-dropdown-content" style="min-width: 250px;">
+                <label class="field-label">Main Category</label>
+                <div class="checkbox-list">
+                    {% for c in filter_options.categories %}
+                    <label class="check-row">
+                        <input type="checkbox" name="category" value="{{ c }}" {% if c in selected.category %}checked{% endif %}>
+                        <span>{{ c }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                
+                <label class="field-label">Sub Category</label>
+                <div class="checkbox-list">
+                    {% for sc in filter_options.sub_categories %}
+                    <label class="check-row">
+                        <input type="checkbox" name="sub_category" value="{{ sc }}" {% if sc in selected.sub_category %}checked{% endif %}>
+                        <span>{{ sc }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-primary btn-sm apply-btn" style="width: 100%;">Apply</button>
+            </div>
+        </div>
+
+        <!-- Risk Dropdown -->
+        <div class="filter-dropdown" id="dd-risk">
+            <button type="button" class="browse-filter-chip" title="Risk as defined by SEBI guidelines based on volatility.">
+                Risk ⓘ ▾
+            </button>
+            <div class="filter-dropdown-content">
+                <label class="field-label">Risk Level</label>
+                <div class="checkbox-list">
+                    {% for r in filter_options.risks %}
+                    <label class="check-row">
+                        <input type="checkbox" name="risk" value="{{ r }}" {% if r in selected.risk %}checked{% endif %}>
+                        <span>{{ r }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-primary btn-sm apply-btn" style="width: 100%;">Apply</button>
+            </div>
+        </div>
+
+        <!-- AUM Dropdown -->
+        <div class="filter-dropdown" id="dd-aum">
+            <button type="button" class="browse-filter-chip">
+                AUM (Cr) ▾
+            </button>
+            <div class="filter-dropdown-content">
+                <label class="field-label">Min AUM (Cr)</label>
+                <input type="number" name="aum_min" value="{{ request.GET.aum_min }}" placeholder="e.g. 500">
+                <label class="field-label">Max AUM (Cr)</label>
+                <input type="number" name="aum_max" value="{{ request.GET.aum_max }}" placeholder="e.g. 10000">
+                <button type="button" class="btn btn-primary btn-sm apply-btn" style="width: 100%;">Apply</button>
+            </div>
+        </div>
+
+        <!-- Expense Dropdown -->
+        <div class="filter-dropdown" id="dd-expense">
+            <button type="button" class="browse-filter-chip">
+                Expense Ratio % ▾
+            </button>
+            <div class="filter-dropdown-content">
+                <label class="field-label">Min Expense %</label>
+                <input type="number" step="0.01" name="expense_min" value="{{ request.GET.expense_min }}" placeholder="0.0">
+                <label class="field-label">Max Expense %</label>
+                <input type="number" step="0.01" name="expense_max" value="{{ request.GET.expense_max }}" placeholder="2.0">
+                <button type="button" class="btn btn-primary btn-sm apply-btn" style="width: 100%;">Apply</button>
+            </div>
+        </div>
+
+        <!-- Returns Dropdown -->
+        <div class="filter-dropdown" id="dd-returns">
+            <button type="button" class="browse-filter-chip">
+                Returns % ▾
+            </button>
+            <div class="filter-dropdown-content">
+                <label class="field-label">Min 1Y Return %</label>
+                <input type="number" step="0.1" name="return_1y_min" value="{{ request.GET.return_1y_min }}">
+                <label class="field-label">Min 3Y CAGR %</label>
+                <input type="number" step="0.1" name="cagr_3y_min" value="{{ request.GET.cagr_3y_min }}">
+                <button type="button" class="btn btn-primary btn-sm apply-btn" style="width: 100%;">Apply</button>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <span style="font-size: 12px; color: var(--text-muted);">{{ total_count }} funds</span>
+            
+            <select name="per_page" class="browse-filter-chip" style="background: var(--bg-elevated, #1a2332); min-height: 28px; padding: 0 8px; color: var(--text-primary);" onchange="document.getElementById('browse-form').submit();">
+                <option value="50" style="background: #151c2d; color: #fff;" {% if request.GET.per_page == '50' %}selected{% endif %}>Show 50</option>
+                <option value="100" style="background: #151c2d; color: #fff;" {% if request.GET.per_page == '100' or not request.GET.per_page %}selected{% endif %}>Show 100</option>
+                <option value="200" style="background: #151c2d; color: #fff;" {% if request.GET.per_page == '200' %}selected{% endif %}>Show 200</option>
+                <option value="all" style="background: #151c2d; color: #fff;" {% if request.GET.per_page == 'all' %}selected{% endif %}>Show All</option>
+            </select>
+            
+            <div id="active-filters-badge" class="active-filter-badge" style="display: none;"></div>
+            
+            <a href="{% url 'funds:category_list' %}" class="btn btn-secondary btn-sm" style="border-color: rgba(248,113,113,0.3); color: var(--red-400);">Clear Filters</a>
+            <input type="hidden" name="sort" id="sort-input" value="{{ request.GET.sort|default:'aum' }}">
+            <input type="hidden" name="direction" id="direction-input" value="{{ request.GET.direction|default:'desc' }}">
+        </div>
+    </div>
+</form>
+
+<div class="card" style="padding: 0; background: transparent; border: none;">
+    <div class="table-wrapper">
+        <table class="browse-table">
+            <thead>
+                <tr>
+                    <th class="left-align sticky-col" style="min-width: 250px; cursor: pointer;" onclick="setSort('name')">
+                        Fund Name {% if request.GET.sort == 'name' %}{% if request.GET.direction == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                    </th>
+                    <th style="cursor: pointer;" onclick="setSort('aum')">
+                        AUM (Cr) <button type="button" class="info-btn" data-t-title="Assets Under Management (AUM)" data-t-what="Total market value of the investments managed by the fund." data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance." onclick="event.stopPropagation()">ⓘ</button> {% if request.GET.sort == 'aum' or not request.GET.sort %}{% if request.GET.direction == 'desc' or not request.GET.sort %}▼{% else %}▲{% endif %}{% endif %}
+                    </th>
+                    <th style="cursor: pointer;" onclick="setSort('expense')">
+                        Expense Ratio <button type="button" class="info-btn" data-t-title="Expense Ratio" data-t-what="The annual fee charged by the mutual fund house." data-t-interp="Lower is better as it directly impacts your final returns." onclick="event.stopPropagation()">ⓘ</button> {% if request.GET.sort == 'expense' %}{% if request.GET.direction == 'desc' %}▼{% else %}▲{% endif %}{% endif %}
+                    </th>
+                    <th style="cursor: pointer;" onclick="setSort('ret1y')">
+                        1Y Return <button type="button" class="info-btn" data-t-title="1 Year Return" data-t-what="Absolute return generated by the fund over the past 1 year." onclick="event.stopPropagation()">ⓘ</button> {% if request.GET.sort == 'ret1y' %}{% if request.GET.direction == 'desc' %}▼{% else %}▲{% endif %}{% endif %}
+                    </th>
+                    <th style="cursor: pointer;" onclick="setSort('ret3y')">
+                        3Y CAGR <button type="button" class="info-btn" data-t-title="3 Year CAGR" data-t-what="Compound Annual Growth Rate over the last 3 years." onclick="event.stopPropagation()">ⓘ</button> {% if request.GET.sort == 'ret3y' %}{% if request.GET.direction == 'desc' %}▼{% else %}▲{% endif %}{% endif %}
+                    </th>
+                    <th style="cursor: pointer;" onclick="setSort('vol')">
+                        Volatility <button type="button" class="info-btn" data-t-title="Volatility" data-t-what="Standard deviation of returns. Measures how much the fund's returns fluctuate." data-t-interp="Lower volatility means steadier, less risky returns." onclick="event.stopPropagation()">ⓘ</button> {% if request.GET.sort == 'vol' %}{% if request.GET.direction == 'desc' %}▼{% else %}▲{% endif %}{% endif %}
+                    </th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody style="background: var(--bg-card);">
+                {% for s in snapshots %}
+                <tr>
+                    <td class="left-align sticky-col">
+                        <a href="{% url 'funds:detail' s.scheme.amfi_code %}" class="fund-name">{{ s.fund_name }}</a>
+                        <div class="fund-cat">{{ s.category_group }} - {{ s.scheme_sub_category }}</div>
+                    </td>
+                    <td>{% if s.aum_cr %}₹{{ s.aum_cr|floatformat:0 }}{% else %}—{% endif %}</td>
+                    <td>{% if s.expense_ratio %}{{ s.expense_ratio }}%{% else %}—{% endif %}</td>
+                    <td style="color: {% if s.returns_1y_pct > 0 %}var(--green-400){% elif s.returns_1y_pct < 0 %}var(--red-400){% endif %}">
+                        {% if s.returns_1y_pct %}{{ s.returns_1y_pct }}%{% else %}—{% endif %}
+                    </td>
+                    <td style="color: {% if s.cagr_3y_pct > 0 %}var(--green-400){% elif s.cagr_3y_pct < 0 %}var(--red-400){% endif %}">
+                        {% if s.cagr_3y_pct %}{{ s.cagr_3y_pct }}%{% else %}—{% endif %}
+                    </td>
+                    <td>{% if s.volatility_3y_pct %}{{ s.volatility_3y_pct }}%{% else %}—{% endif %}</td>
+                    <td><a href="{% url 'funds:detail' s.scheme.amfi_code %}" class="btn btn-secondary btn-sm">View</a></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        No funds match your filters.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div style="padding: 15px; text-align: center; display: flex; justify-content: center; gap: 8px; background: var(--bg-card); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px;">
+        {% if page_obj.has_previous %}
+        <a href="?{{ query_string }}&page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm">Prev</a>
+        {% endif %}
+        <span style="font-size: 13px; align-self: center; color: var(--text-muted);">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?{{ query_string }}&page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 
 <script>
-(function() {
-  const favoriteKey = 'fund-browse-favorites';
-  let favorites = JSON.parse(localStorage.getItem(favoriteKey) || '[]');
-  if (favorites.length > 0 && typeof favorites[0] === 'string') {
-    favorites = [];
-    localStorage.setItem(favoriteKey, '[]');
-  }
-  
-  const compareTray = document.getElementById('compare-tray');
-  const compareItemsContainer = document.getElementById('compare-items');
-  const compareCountSpan = document.getElementById('compare-count');
-
-  const syncFavoriteBtn = (button) => {
-    const selected = favorites.some(f => f.id === button.dataset.fund);
-    button.textContent = selected ? '★' : '☆';
-    button.style.color = selected ? 'var(--yellow-400)' : 'var(--text-muted)';
-  };
-
-  const renderCompareTray = () => {
-    if (!compareTray) return;
-    if (favorites.length === 0) {
-      compareTray.hidden = true;
-      return;
-    }
-    compareTray.hidden = false;
-    compareCountSpan.textContent = favorites.length;
-    compareItemsContainer.innerHTML = '';
-    favorites.forEach((fav) => {
-      const el = document.createElement('div');
-      el.className = 'compare-item';
-      const shortName = fav.name.length > 40 ? fav.name.substring(0, 40) + '...' : fav.name;
-      el.innerHTML = `<span>${shortName}</span> <button type="button" class="compare-item-remove" data-id="${fav.id}" title="Remove">✕`;
-      compareItemsContainer.appendChild(el);
-    });
-    compareItemsContainer.querySelectorAll('.compare-item-remove').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        favorites = favorites.filter((f) => f.id !== btn.dataset.id);
-        localStorage.setItem(favoriteKey, JSON.stringify(favorites));
-        renderCompareTray();
-        syncCompareButton();
-        document.querySelectorAll('.favorite-button').forEach(b => {
-          if (b.dataset.fund === btn.dataset.id) syncFavoriteBtn(b);
+document.addEventListener('DOMContentLoaded', () => {
+    // Dropdown toggle logic
+    document.querySelectorAll('.browse-filter-chip').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const dropdown = e.currentTarget.closest('.filter-dropdown');
+            const isActive = dropdown.classList.contains('active');
+            
+            // Close all other dropdowns
+            document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.remove('active'));
+            
+            if (!isActive) {
+                dropdown.classList.add('active');
+            }
+            e.stopPropagation();
         });
-      });
     });
-  };
 
-  const compareBtn = document.getElementById('compare-selected-btn');
-  const syncCompareButton = () => {
-    if (!compareBtn) return;
-    if (favorites.length >= 2) {
-      compareBtn.disabled = false;
-      compareBtn.title = `Compare ${favorites.length} selected funds`;
-    } else {
-      compareBtn.disabled = true;
-      compareBtn.title = "Select at least 2 funds to compare";
-    }
-  };
-
-  document.querySelectorAll('.favorite-button').forEach((button) => {
-    button.addEventListener('click', () => {
-      const isSelected = favorites.some(f => f.id === button.dataset.fund);
-      if (isSelected) {
-        favorites = favorites.filter((f) => f.id !== button.dataset.fund);
-      } else {
-        if (favorites.length >= 5) {
-          alert('You can compare a maximum of 5 funds at a time.');
-          return;
+    // Close dropdowns on click outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.filter-dropdown')) {
+            document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.remove('active'));
         }
-        favorites.push({ id: button.dataset.fund, name: button.dataset.name });
-      }
-      localStorage.setItem(favoriteKey, JSON.stringify(favorites));
-      syncFavoriteBtn(button);
-      renderCompareTray();
-      syncCompareButton();
     });
-    syncFavoriteBtn(button);
-  });
-  
-  compareBtn?.addEventListener('click', () => {
-    if (favorites.length >= 2) {
-      window.open("{% url 'calculators:compare' %}?funds=" + favorites.map(f => f.id).join(','), "_blank");
+
+    // Prevent closing when clicking inside dropdown content
+    document.querySelectorAll('.filter-dropdown-content').forEach(content => {
+        content.addEventListener('click', e => {
+            e.stopPropagation();
+        });
+    });
+
+    // Submit form on "Apply" button click
+    document.querySelectorAll('.apply-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('browse-form').submit();
+        });
+    });
+
+    // Calculate active filters
+    const urlParams = new URLSearchParams(window.location.search);
+    let filterCount = 0;
+    const skipKeys = ['sort', 'direction', 'page', 'per_page'];
+    for (const [key, value] of urlParams.entries()) {
+        if (value && !skipKeys.includes(key)) {
+            filterCount++;
+        }
     }
-  });
-  
-  syncCompareButton();
-  renderCompareTray();
-})();
+    
+    if (filterCount > 0) {
+        const badge = document.getElementById('active-filters-badge');
+        badge.textContent = filterCount + (filterCount === 1 ? ' Active Filter' : ' Active Filters');
+        badge.style.display = 'inline-flex';
+    }
+
+    // Initialize Tooltips
+    if (window.initInfoTooltips) {
+        window.initInfoTooltips(document);
+    }
+});
+
+function setSort(field) {
+    const sortInput = document.getElementById('sort-input');
+    const dirInput = document.getElementById('direction-input');
+    
+    if (sortInput.value === field) {
+        dirInput.value = dirInput.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortInput.value = field;
+        dirInput.value = 'desc';
+        if (field === 'name' || field === 'expense' || field === 'vol') {
+            dirInput.value = 'asc';
+        }
+    }
+    document.getElementById('browse-form').submit();
+}
 </script>
 {% endblock %}
