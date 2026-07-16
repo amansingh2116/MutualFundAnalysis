@@ -21,5 +21,5 @@ urlpatterns = [
     path('research/categories/<str:slug>/', views.ResearchCategoryDetailView.as_view(), name='research_category_detail'),
     path('research/categories/<str:slug>/funds/', views.category_detail_funds_api, name='category_detail_funds_api'),
     path('research/quartiles/', views.ResearchQuartilesView.as_view(), name='research_quartiles'),
-    path('research/top-funds/', views.ResearchTopFundsView.as_view(), name='research_top_funds'),
+    path('research/quartiles/api/', views.quartile_rankings_api, name='quartile_rankings_api'),
 ]

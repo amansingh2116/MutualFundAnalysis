@@ -21,8 +21,15 @@
   - **Active Filters popover**: click the filter badge to see, edit, or remove any active filter in-place — range metrics show editable inputs; categorical metrics show interactive multi-select dropdowns
   - **Saved Screens**: save any filter+view configuration by name; load, overwrite, or manage saved screens from the toolbar
   - **ⓘ Info tooltips** on every filter, every column header, and every metric in the Add Filters panel
-- **Browse Funds Page** *(lite screener)*: Filter by AMC, AUM, Category, Risk, and view key metrics with dynamic page sizing and sorting.
-- **Home Page Dashboard**: Benchmark Monitor, Category Return Meter, Top Performing Funds, Category Analysis, Quartile Rankings
+- **Browse Funds Page** *(lite screener)*: Filter by AMC, Category, Risk, AUM range, Expense Ratio, and Returns. Dynamic page sizing (50/100/200/All), sortable columns, sticky fund-name and column headers, last-updated timestamp.
+- **Quartile Rankings** *(Research → Quartile Rankings)*: Dynamic on-the-fly peer ranking — no stored rank data; ranks are computed live against the full sub-category cohort on every request
+  - Filter by **Category Group** → **Sub-Category** cascade, with fund name search
+  - Three **Metric Groups** toggle: **Returns** (1Y/3Y/5Y CAGR, 3Y/5Y Avg Rolling), **Volatility** (1Y/5Y Vol, 3Y Tracking Error, 1Y/5Y/SI Max Drawdown), **Ratios** (Sharpe, Sortino, Alpha, Beta, Info Ratio, Upside/Downside Capture)
+  - Each cell shows value + **Q1–Q4 quartile badge** (colour-coded green/blue/amber/red) + numeric rank (e.g. `+12.3% Q2 15/67`)
+  - Sticky column headers and sticky fund-name column while scrolling; sortable columns; pagination (50 per page)
+  - ⓘ info tooltips on every metric column header explaining direction and interpretation
+  - Ranks are always computed on the **full cohort** — searching/filtering only changes which rows are displayed, not the rank values
+- **Home Page Dashboard**: Benchmark Monitor, Category Return Meter, Category Analysis, Quartile Rankings preview
 - **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
 - **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
 - **Peer Comparison**: Scored India-focused peer matching by fund fingerprint, plan type, category, sector/theme, and AUM ranking

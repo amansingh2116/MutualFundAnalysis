@@ -113,33 +113,6 @@ class HomeView(TemplateView):
             ctx['category_snapshots_by_group'] = []
             ctx['category_snapshots_json'] = '[]'
 
-        # ── Section 3: Top Performing Funds (Extensible Baskets) ───────────────
-        try:
-            top_baskets = []
-            for basket_name, basket_filter in TOP_FUND_BASKETS.items():
-                funds = (
-                    FundScreenerSnapshot.objects
-                    .filter(is_direct=True, **basket_filter)
-                    .exclude(returns_5y_pct=None)
-                    .order_by('-returns_5y_pct')
-                    .select_related('scheme')
-                    .only(
-                        'fund_name', 'fund_house', 'expense_ratio',
-                        'returns_1y_pct', 'returns_3y_pct', 'returns_5y_pct',
-                        'aum_cr', 'scheme_sub_category', 'scheme',
-                    )[:8]
-                )
-                if funds:
-                    top_baskets.append({
-                        'name': basket_name,
-                        'slug': basket_name.lower().replace(' ', '-'),
-                        'funds': list(funds),
-                        'filter': basket_filter,
-                    })
-            ctx['top_fund_baskets'] = top_baskets
-        except Exception as exc:
-            logger.warning("HomeView: top baskets failed: %s", exc)
-            ctx['top_fund_baskets'] = []
 
         # ── Section 5: Browse counts per sub-category ─────────────────────────
         try:
@@ -1364,60 +1337,227 @@ def category_detail_funds_api(request, slug):
 
 class ResearchQuartilesView(TemplateView):
     """
-    Research > Quartile Rankings: Full standalone page with category filter.
+    Research > Quartile Rankings: Full standalone page with dynamic on-the-fly
+    quartile computation. No stored quartile data — all calculated from
+    FundScreenerSnapshot on request.
     """
     template_name = 'research/quartile_rankings.html'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         try:
-            ctx['all_sub_categories'] = list(
+            # Category groups and sub-categories for filter dropdowns
+            all_sub_cats = list(
                 FundScreenerSnapshot.objects
                 .filter(is_direct=True)
                 .exclude(scheme_sub_category='')
-                .values('scheme_sub_category')
-                .annotate(cnt=Count('id'))
-                .order_by('scheme_sub_category')
                 .values_list('scheme_sub_category', flat=True)
+                .distinct()
+                .order_by('scheme_sub_category')
             )
-            ctx['default_sub_cat'] = self.request.GET.get('cat', '')
-            if not ctx['default_sub_cat'] and ctx['all_sub_categories']:
-                ctx['default_sub_cat'] = ctx['all_sub_categories'][0]
+            # Build grouped structure: {category_group: [sub_cat, ...]}
+            cat_group_map = {}
+            for row in (
+                FundScreenerSnapshot.objects
+                .filter(is_direct=True)
+                .exclude(scheme_sub_category='')
+                .values('category_group', 'scheme_sub_category')
+                .distinct()
+                .order_by('category_group', 'scheme_sub_category')
+            ):
+                cat_group_map.setdefault(row['category_group'], []).append(row['scheme_sub_category'])
+
+            ctx['all_sub_categories'] = all_sub_cats
+            ctx['cat_group_map'] = cat_group_map
+            ctx['category_groups'] = sorted(cat_group_map.keys())
+            ctx['default_sub_cat'] = self.request.GET.get('sub_category', '')
+            ctx['default_category'] = self.request.GET.get('category', '')
+            ctx['default_metric_group'] = self.request.GET.get('metric_group', 'returns')
+            if not ctx['default_sub_cat'] and all_sub_cats:
+                ctx['default_sub_cat'] = all_sub_cats[0]
         except Exception as exc:
             logger.warning('ResearchQuartilesView error: %s', exc)
             ctx['all_sub_categories'] = []
+            ctx['cat_group_map'] = {}
+            ctx['category_groups'] = []
             ctx['default_sub_cat'] = ''
+            ctx['default_category'] = ''
+            ctx['default_metric_group'] = 'returns'
         return ctx
 
 
-class ResearchTopFundsView(TemplateView):
-    """
-    Research > Top Performing Funds: Full basket tabs page.
-    """
-    template_name = 'research/top_funds.html'
+# ── Metric definitions for on-the-fly quartile computation ──────────────────
+QUARTILE_METRIC_GROUPS = {
+    'returns': [
+        {'key': 'cagr_1y',   'label': '1Y CAGR',          'field': 'returns_1y_pct',      'higher_is_better': True,
+         'tooltip': 'Compound Annual Growth Rate over 1 year within this sub-category.'},
+        {'key': 'cagr_3y',   'label': '3Y CAGR',          'field': 'cagr_3y_pct',         'higher_is_better': True,
+         'tooltip': 'Compound Annual Growth Rate over 3 years within this sub-category.'},
+        {'key': 'cagr_5y',   'label': '5Y CAGR',          'field': 'returns_5y_pct',      'higher_is_better': True,
+         'tooltip': 'Compound Annual Growth Rate over 5 years within this sub-category.'},
+        {'key': 'rolling_3y','label': '3Y Avg Rolling',   'field': 'rolling_return_3y_pct','higher_is_better': True,
+         'tooltip': 'Average of all 3-year rolling return windows. Reflects consistency over time.'},
+        {'key': 'rolling_5y','label': '5Y Avg Rolling',   'field': 'rolling_return_5y_pct','higher_is_better': True,
+         'tooltip': 'Average of all 5-year rolling return windows. Reflects long-term consistency.'},
+    ],
+    'volatility': [
+        {'key': 'vol_1y',    'label': '1Y Volatility',    'field': 'volatility_1y_pct',   'higher_is_better': False,
+         'tooltip': 'Standard deviation of daily returns annualised over 1 year. Lower is better.'},
+        {'key': 'vol_5y',    'label': '5Y Volatility',    'field': 'volatility_5y_pct',   'higher_is_better': False,
+         'tooltip': 'Standard deviation of daily returns annualised over 5 years. Lower is better.'},
+        {'key': 'te_3y',     'label': '3Y Tracking Error','field': 'tracking_error_3y',   'higher_is_better': False,
+         'tooltip': 'Annualised deviation of fund returns from benchmark returns over 3 years. For index funds, lower is better.'},
+        {'key': 'dd_1y',     'label': '1Y Max Drawdown',  'field': 'max_drawdown_1y',     'higher_is_better': False,
+         'tooltip': 'Maximum peak-to-trough decline over 1 year. A less negative number is better.'},
+        {'key': 'dd_5y',     'label': '5Y Max Drawdown',  'field': 'max_drawdown_5y',     'higher_is_better': False,
+         'tooltip': 'Maximum peak-to-trough decline over 5 years. A less negative number is better.'},
+        {'key': 'dd_si',     'label': 'SI Max Drawdown',  'field': 'max_drawdown_si',     'higher_is_better': False,
+         'tooltip': 'Maximum peak-to-trough decline since inception. A less negative number is better.'},
+    ],
+    'ratios': [
+        {'key': 'sharpe',    'label': 'Sharpe (3Y)',       'field': 'sharpe_ratio',        'higher_is_better': True,
+         'tooltip': 'Return per unit of total risk (3Y). Higher is better. Ratio > 1 is generally good.'},
+        {'key': 'sortino',   'label': 'Sortino (3Y)',      'field': 'sortino_ratio',       'higher_is_better': True,
+         'tooltip': 'Return per unit of downside risk (3Y). Higher is better. Preferred over Sharpe for equities.'},
+        {'key': 'alpha',     'label': 'Alpha (3Y)',        'field': 'alpha_3y',            'higher_is_better': True,
+         'tooltip': "Jensen's Alpha over 3Y: excess annualised return above what CAPM would predict. Higher is better."},
+        {'key': 'beta',      'label': 'Beta (3Y)',         'field': 'beta_3y',             'higher_is_better': None,
+         'tooltip': 'Sensitivity to benchmark movements (3Y). Beta=1 moves with market. <1 is defensive, >1 is aggressive. No universal "better" direction.'},
+        {'key': 'info_ratio','label': 'Info Ratio (3Y)',   'field': 'info_ratio_3y',       'higher_is_better': True,
+         'tooltip': 'Excess return over benchmark per unit of tracking error (3Y). Higher is better.'},
+        {'key': 'upside',    'label': 'Upside Capture',   'field': 'upside_capture_3y',   'higher_is_better': True,
+         'tooltip': '% of benchmark upside the fund captures (3Y). Higher is better — captures more gains.'},
+        {'key': 'downside',  'label': 'Downside Capture', 'field': 'downside_capture_3y', 'higher_is_better': False,
+         'tooltip': '% of benchmark downside the fund captures (3Y). Lower is better — less loss in down markets.'},
+    ],
+}
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        try:
-            from apps.funds.screener import TOP_FUND_BASKETS
-            top_baskets = []
-            for basket_name, basket_filter in TOP_FUND_BASKETS.items():
-                funds = (
-                    FundScreenerSnapshot.objects
-                    .filter(is_direct=True, **basket_filter)
-                    .exclude(returns_5y_pct=None)
-                    .order_by('-returns_5y_pct')
-                    .select_related('scheme')
-                    [:20]  # Full page shows 20 vs 8 on home
+
+def _compute_quartile(value, all_values, higher_is_better):
+    """
+    Compute 1-indexed quartile (Q1=best, Q4=worst) for a value among all_values.
+    Returns (quartile, rank, total) or (None, None, total) if value is None.
+    """
+    valid = [v for v in all_values if v is not None]
+    total = len(valid)
+    if value is None or total == 0:
+        return None, None, total
+    if higher_is_better is None:
+        # No ranking (e.g. Beta) — just return total
+        return None, None, total
+    # Sort: best first
+    sorted_vals = sorted(valid, reverse=bool(higher_is_better))
+    try:
+        rank = sorted_vals.index(float(value)) + 1
+    except ValueError:
+        # Handle float precision: find nearest
+        fv = float(value)
+        rank = min(range(len(sorted_vals)), key=lambda i: abs(sorted_vals[i] - fv)) + 1
+    # Q1=top 25%, Q4=bottom 25%
+    import math
+    quartile = min(4, math.ceil(rank / (total / 4))) if total > 0 else None
+    return quartile, rank, total
+
+
+def quartile_rankings_api(request):
+    """
+    AJAX endpoint: GET /research/quartiles/api/
+    Params: sub_category, metric_group (returns/volatility/ratios), q (search), sort, direction, page
+    Returns JSON with funds + on-the-fly quartile data.
+
+    Quartile ranks are ALWAYS computed against the full sub-category cohort,
+    even when a search filter is active. Search only filters which rows are displayed.
+    """
+    sub_category = request.GET.get('sub_category', '').strip()
+    metric_group = request.GET.get('metric_group', 'returns')
+    q = request.GET.get('q', '').strip()
+    sort_key = request.GET.get('sort', '')
+    direction = request.GET.get('direction', 'asc')
+    page_num = int(request.GET.get('page', 1))
+    per_page = 50
+
+    if not sub_category:
+        return JsonResponse({'error': 'sub_category required'}, status=400)
+
+    metrics = QUARTILE_METRIC_GROUPS.get(metric_group, QUARTILE_METRIC_GROUPS['returns'])
+
+    try:
+        # Always fetch ALL funds in sub-category for accurate quartile computation
+        all_funds = list(
+            FundScreenerSnapshot.objects
+            .filter(scheme_sub_category=sub_category, is_direct=True)
+            .select_related('scheme')
+            .order_by('fund_name')
+        )
+
+        # Pre-gather all values per metric from full cohort (for correct quartile ranks)
+        metric_all_values = {}
+        for m in metrics:
+            metric_all_values[m['key']] = [
+                _flt(getattr(f, m['field'])) for f in all_funds
+            ]
+
+        # Build rows with quartile data (using full cohort ranks)
+        all_rows = []
+        for f in all_funds:
+            row = {
+                'name': f.fund_name,
+                'house': f.fund_house,
+                'amfi': f.scheme.amfi_code,
+                'metrics': {},
+            }
+            for m in metrics:
+                val = _flt(getattr(f, m['field']))
+                q_num, rank, total = _compute_quartile(
+                    val, metric_all_values[m['key']], m['higher_is_better']
                 )
-                if funds:
-                    top_baskets.append({
-                        'name': basket_name,
-                        'slug': basket_name.lower().replace(' ', '-'),
-                        'funds': list(funds),
-                    })
-            ctx['top_fund_baskets'] = top_baskets
-        except Exception as exc:
-            logger.warning('ResearchTopFundsView error: %s', exc)
-            ctx['top_fund_baskets'] = []
-        return ctx
+                row['metrics'][m['key']] = {
+                    'value': val,
+                    'quartile': q_num,
+                    'rank': rank,
+                    'total': total,
+                }
+            all_rows.append(row)
+
+        # Apply search filter to display rows only (ranks unchanged)
+        if q:
+            q_lower = q.lower()
+            rows = [r for r in all_rows if q_lower in r['name'].lower() or q_lower in r['house'].lower()]
+        else:
+            rows = all_rows
+
+        total_count = len(rows)
+
+        # Sort by selected metric
+        if sort_key and sort_key in {m['key'] for m in metrics}:
+            rows = sorted(
+                rows,
+                key=lambda r: (r['metrics'][sort_key]['value'] is None,
+                               r['metrics'][sort_key]['value'] or 0),
+                reverse=(direction == 'desc')
+            )
+        elif sort_key == 'name':
+            rows = sorted(rows, key=lambda r: r['name'], reverse=(direction == 'desc'))
+
+        # Paginate
+        import math
+        total_pages = max(1, math.ceil(total_count / per_page))
+        page_num = max(1, min(page_num, total_pages))
+        start = (page_num - 1) * per_page
+        page_rows = rows[start:start + per_page]
+
+        return JsonResponse({
+            'funds': page_rows,
+            'total_count': total_count,
+            'cohort_size': len(all_funds),
+            'page': page_num,
+            'total_pages': total_pages,
+            'per_page': per_page,
+            'metric_group': metric_group,
+            'metrics': [{'key': m['key'], 'label': m['label'],
+                         'higher_is_better': m['higher_is_better'],
+                         'tooltip': m['tooltip']} for m in metrics],
+        })
+    except Exception as exc:
+        logger.error('quartile_rankings_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)

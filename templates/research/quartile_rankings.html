@@ -1,116 +1,665 @@
 {% extends "base.html" %}
-{% block title %}Quartile Rankings{% endblock %}
-{% block meta_description %}Fund quartile rankings within each SEBI sub-category — performance, risk, and model score.{% endblock %}
+{% block title %}Quartile Rankings – MutualFundAnalysis{% endblock %}
+{% block meta_description %}On-the-fly quartile rankings for mutual funds by returns, volatility, and risk ratios. Compare all direct growth funds within any sub-category.{% endblock %}
 
 {% block content %}
-<div class="page-header" style="margin-bottom:20px">
+<style>
+/* ── Page Layout ─────────────────────────────────────────────────────────── */
+.qr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.qr-title { font-size: 22px; font-weight: 700; }
+.qr-subtitle { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+/* ── Filter Bar ──────────────────────────────────────────────────────────── */
+.qr-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.qr-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.qr-filter-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.qr-select {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
+  min-width: 180px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.qr-select:focus { outline: none; border-color: var(--indigo-500); }
+.qr-select option { background: #151c2d; color: #fff; }
+
+.qr-search {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
+  min-width: 200px;
+  transition: border-color 0.2s;
+}
+.qr-search:focus { outline: none; border-color: var(--indigo-500); }
+.qr-search::placeholder { color: var(--text-muted); }
+
+/* ── Metric Group Buttons ─────────────────────────────────────────────────── */
+.qr-metric-group {
+  display: flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.qr-metric-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-right: 1px solid var(--border);
+}
+.qr-metric-btn:last-child { border-right: none; }
+.qr-metric-btn.active {
+  background: var(--indigo-600);
+  color: #fff;
+}
+.qr-metric-btn:hover:not(.active) { background: var(--bg-elevated); color: var(--text-primary); }
+
+/* ── Active Filters Badge ─────────────────────────────────────────────────── */
+.qr-active-badge {
+  background: linear-gradient(135deg, var(--indigo-600), var(--violet-600));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.qr-clear-btn {
+  font-size: 12px;
+  color: var(--red-400);
+  background: none;
+  border: 1px solid rgba(248,113,113,0.3);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.qr-clear-btn:hover { background: rgba(248,113,113,0.1); }
+
+/* ── Stats Bar ────────────────────────────────────────────────────────────── */
+.qr-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+#qr-total-count { font-weight: 600; color: var(--text-primary); }
+
+/* ── Table ────────────────────────────────────────────────────────────────── */
+.qr-table-wrapper {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  position: relative;
+  max-height: calc(100vh - 280px);
+  min-height: 300px;
+}
+.qr-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+/* Sticky header row — sticks inside the scrollable wrapper */
+.qr-table thead tr th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-elevated);
+  border-bottom: 2px solid var(--border);
+  padding: 10px 12px;
+  white-space: nowrap;
+  user-select: none;
+}
+/* Sticky fund name column */
+.qr-table td:first-child,
+.qr-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 9;
+  background: var(--bg-card);
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  border-right: 2px solid var(--border);
+  /* Critical: clip content so it doesn't bleed over metric columns */
+  overflow: hidden;
+}
+.qr-table th:first-child { z-index: 11; background: var(--bg-elevated); }
+
+.qr-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.qr-table tr:last-child td { border-bottom: none; }
+.qr-table tr:hover td { background: var(--bg-elevated); }
+.qr-table tr:hover td:first-child { background: var(--bg-elevated); }
+
+.sort-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  white-space: nowrap;
+}
+.sort-btn .sort-arrow { color: var(--text-muted); font-size: 11px; }
+.sort-btn.sort-asc .sort-arrow::after { content: ' ↑'; color: var(--indigo-400); }
+.sort-btn.sort-desc .sort-arrow::after { content: ' ↓'; color: var(--indigo-400); }
+.sort-btn:not(.sort-asc):not(.sort-desc) .sort-arrow::after { content: ' ↕'; }
+
+/* ── Metric Cell ──────────────────────────────────────────────────────────── */
+.metric-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: 110px;
+}
+.metric-val {
+  font-weight: 600;
+  font-size: 13px;
+}
+.metric-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.q-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+.q1 { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+.q2 { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+.q3 { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+.q4 { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+.q-na { color: var(--text-muted); font-style: italic; }
+.rank-text { color: var(--text-muted); font-size: 10px; }
+
+.fund-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 13px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 218px;
+}
+.fund-link:hover { color: var(--indigo-400); text-decoration: underline; }
+.fund-house {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 218px;
+}
+
+/* ── Pagination ───────────────────────────────────────────────────────────── */
+.qr-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+}
+.qr-page-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.qr-page-btn:hover { background: var(--indigo-600); border-color: var(--indigo-600); color: #fff; }
+.qr-page-btn.active { background: var(--indigo-600); border-color: var(--indigo-600); color: #fff; font-weight: 700; }
+.qr-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Loading Spinner ──────────────────────────────────────────────────────── */
+.qr-loading {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.qr-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--border);
+  border-top-color: var(--indigo-500);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.qr-empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-muted);
+  display: none;
+}
+.qr-empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ── Info Tooltip ─────────────────────────────────────────────────────────── */
+.info-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  transition: color 0.15s;
+  vertical-align: middle;
+}
+.info-btn:hover { color: var(--indigo-400); }
+</style>
+
+<!-- Header -->
+<div class="qr-header">
   <div>
-    <h1 style="font-size:24px;font-weight:700;margin:0">🎯 Quartile Rankings</h1>
-    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Q1–Q4 rankings within each fund sub-category</p>
+    <div class="qr-title">🎯 Quartile Rankings</div>
+    <div class="qr-subtitle">
+      Compare funds within a sub-category. Rankings are calculated live — no stale data.
+      Q1 = top quartile (best) · Q4 = bottom quartile · Direct Growth plans only.
+    </div>
   </div>
 </div>
 
-<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
-  <select id="cat-select" onchange="loadCategory(this.value)"
-          style="padding:9px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;min-width:280px">
-    {% for cat in all_sub_categories %}
-    <option value="{{ cat }}" style="background:var(--bg-elevated);color:var(--text-primary)" {% if cat == default_sub_cat %}selected{% endif %}>{{ cat }}</option>
-    {% endfor %}
-  </select>
-  <input type="text" id="fund-search" placeholder="Search funds…" oninput="filterFunds(this.value)"
-         style="padding:9px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;width:220px">
+<!-- Filter Bar -->
+<div class="qr-filters">
+  <!-- Category Group -->
+  <div class="qr-filter-group">
+    <div class="qr-filter-label">Category</div>
+    <select class="qr-select" id="qr-cat-select">
+      <option value="">All Categories</option>
+      {% for grp in category_groups %}
+      <option value="{{ grp }}" {% if grp == default_category %}selected{% endif %}>{{ grp }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Sub-Category -->
+  <div class="qr-filter-group">
+    <div class="qr-filter-label">Sub-Category</div>
+    <select class="qr-select" id="qr-subcat-select" style="min-width: 220px;">
+      {% for sc in all_sub_categories %}
+      <option value="{{ sc }}" {% if sc == default_sub_cat %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Search -->
+  <div class="qr-filter-group">
+    <div class="qr-filter-label">Search Fund</div>
+    <input class="qr-search" id="qr-search" type="text" placeholder="🔍 Fund name…" value="">
+  </div>
+
+  <!-- Metric Group Buttons -->
+  <div class="qr-filter-group">
+    <div class="qr-filter-label">Metric Group</div>
+    <div class="qr-metric-group">
+      <button class="qr-metric-btn {% if default_metric_group == 'returns' %}active{% endif %}" data-group="returns" onclick="setMetricGroup('returns', this)">Returns</button>
+      <button class="qr-metric-btn {% if default_metric_group == 'volatility' %}active{% endif %}" data-group="volatility" onclick="setMetricGroup('volatility', this)">Volatility</button>
+      <button class="qr-metric-btn {% if default_metric_group == 'ratios' %}active{% endif %}" data-group="ratios" onclick="setMetricGroup('ratios', this)">Ratios</button>
+    </div>
+  </div>
+
+  <!-- Active filters & clear -->
+  <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; align-self: flex-end;">
+    <span id="qr-active-badge" class="qr-active-badge" style="display:none;"></span>
+    <button class="qr-clear-btn" onclick="clearFilters()">Clear</button>
+  </div>
 </div>
 
-<div id="quartile-count" style="color:var(--text-muted);font-size:13px;margin-bottom:12px"></div>
-
-{% if not all_sub_categories %}
-<div class="empty-state" style="padding:60px 24px;text-align:center">
-  <div style="font-size:48px;margin-bottom:16px">🎯</div>
-  <h3>No data yet</h3>
-  <p style="color:var(--text-muted)">Run <code>python manage.py populate_home_dashboard</code> to compute quartile ranks.</p>
+<!-- Stats bar -->
+<div class="qr-stats-bar">
+  <span>Showing <strong id="qr-total-count">—</strong> funds</span>
+  <span id="qr-page-info" style="color: var(--text-muted);"></span>
 </div>
-{% else %}
-<div class="card" style="overflow-x:auto">
-  <table class="data-table" id="quartile-table">
-    <thead>
-      <tr>
-        <th>Fund</th>
-        <th class="num">1Y Ret%</th>
-        <th class="num">Q (1Y) <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Quartile" data-t-what="Quartile ranking for 1 Year Return within the category. Q1 is Top 25%.">&#9432;</button></th>
-        <th class="num">Rank 1Y</th>
-        <th class="num">3Y CAGR%</th>
-        <th class="num">Q (3Y) <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Quartile" data-t-what="Quartile ranking for 3 Year Return within the category">&#9432;</button></th>
-        <th class="num">5Y CAGR%</th>
-        <th class="num">Q (5Y) <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Quartile" data-t-what="Quartile ranking for 5 Year Return within the category">&#9432;</button></th>
-        <th class="num">Volatility Q <button type="button" class="info-btn" aria-label="Info" data-t-title="Volatility Quartile" data-t-what="Quartile ranking for Annualised Volatility. Q1 is lowest risk.">&#9432;</button></th>
-        <th class="num">Sharpe Q <button type="button" class="info-btn" aria-label="Info" data-t-title="Sharpe Quartile" data-t-what="Quartile ranking for Sharpe Ratio (risk-adjusted return). Q1 is best.">&#9432;</button></th>
-        <th class="num">Model Score Q <button type="button" class="info-btn" aria-label="Info" data-t-title="Model Score Quartile" data-t-what="Quartile ranking for the Antigravity Proprietary Score. Q1 is best.">&#9432;</th>
-        <th class="num">Score</th>
-      </tr>
-    </thead>
-    <tbody id="quartile-body">
-      <tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
-    </tbody>
+
+<!-- Table area -->
+<div class="qr-table-wrapper" id="qr-table-wrapper">
+  <div class="qr-loading" id="qr-loading">
+    <div class="qr-spinner"></div> Loading…
+  </div>
+  <div class="qr-empty" id="qr-empty">
+    <div class="qr-empty-icon">🔍</div>
+    <div>No funds found for the selected filters.</div>
+  </div>
+  <table class="qr-table" id="qr-table" style="display:none;">
+    <thead id="qr-thead"></thead>
+    <tbody id="qr-tbody"></tbody>
   </table>
 </div>
-{% endif %}
-{% endblock %}
 
-{% block extra_js %}
+<!-- Pagination -->
+<div class="qr-pagination" id="qr-pagination" style="display:none;"></div>
+
 <script>
-const API = '{% url "funds:home_category_funds" %}';
+// ── State ─────────────────────────────────────────────────────────────────
+const API_URL = "{% url 'funds:quartile_rankings_api' %}";
+const CAT_GROUP_MAP = {{ cat_group_map|safe }};
+let state = {
+  sub_category: "{{ default_sub_cat|escapejs }}",
+  category: "{{ default_category|escapejs }}",
+  metric_group: "{{ default_metric_group|escapejs }}",
+  q: "",
+  sort: "",
+  direction: "asc",
+  page: 1,
+};
+let currentMetrics = [];
 
-function qBadge(q) {
-  if (!q) return '<span style="color:var(--text-muted)">—</span>';
-  const colors = {1:'var(--success)',2:'#3b82f6',3:'var(--warning)',4:'var(--danger)'};
-  return `<span style="background:${colors[q]};color:#fff;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700">Q${q}</span>`;
+// ── Init ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Wire category dropdown to filter sub-categories
+  document.getElementById('qr-cat-select').addEventListener('change', function() {
+    state.category = this.value;
+    state.page = 1;
+    populateSubcatDropdown(this.value);
+    updateActiveBadge();
+    fetchData();
+  });
+
+  document.getElementById('qr-subcat-select').addEventListener('change', function() {
+    state.sub_category = this.value;
+    state.page = 1;
+    updateActiveBadge();
+    fetchData();
+  });
+
+  let searchTimer;
+  document.getElementById('qr-search').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.q = this.value.trim();
+      state.page = 1;
+      updateActiveBadge();
+      fetchData();
+    }, 350);
+  });
+
+  fetchData();
+});
+
+function populateSubcatDropdown(categoryGroup) {
+  const sel = document.getElementById('qr-subcat-select');
+  const prevVal = sel.value;
+  sel.innerHTML = '';
+  let subcats = categoryGroup ? (CAT_GROUP_MAP[categoryGroup] || []) : Object.values(CAT_GROUP_MAP).flat();
+  subcats.sort();
+  subcats.forEach(sc => {
+    const opt = document.createElement('option');
+    opt.value = sc;
+    opt.textContent = sc;
+    if (sc === prevVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // If previous value not in list, pick first
+  if (!subcats.includes(prevVal) && subcats.length) {
+    state.sub_category = subcats[0];
+    sel.value = subcats[0];
+  } else {
+    state.sub_category = sel.value;
+  }
 }
 
-function retFmt(v) {
-  if (v === null || v === undefined) return '—';
-  return `<span style="color:${v>0?'var(--success)':v<0?'var(--danger)':'inherit'}">${v.toFixed(2)}%</span>`;
+function setMetricGroup(group, btn) {
+  state.metric_group = group;
+  state.sort = '';
+  state.direction = 'asc';
+  state.page = 1;
+  document.querySelectorAll('.qr-metric-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  fetchData();
 }
 
-async function loadCategory(cat) {
-  const tbody = document.getElementById('quartile-body');
-  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>';
-  const resp = await fetch(`${API}?sub_category=${encodeURIComponent(cat)}`);
-  const json = await resp.json();
-  const funds = json.funds || [];
-  document.getElementById('quartile-count').textContent = `${funds.length} funds in "${cat}"`;
-  tbody.innerHTML = '';
-  funds.forEach(f => {
-    const tr = document.createElement('tr');
-    tr.dataset.name = (f.name + ' ' + f.house).toLowerCase();
-    tr.innerHTML = `
+function clearFilters() {
+  state.q = '';
+  state.page = 1;
+  document.getElementById('qr-search').value = '';
+  updateActiveBadge();
+  fetchData();
+}
+
+function updateActiveBadge() {
+  const badge = document.getElementById('qr-active-badge');
+  let count = 0;
+  if (state.q) count++;
+  if (state.category) count++;
+  if (count > 0) {
+    badge.textContent = count + (count === 1 ? ' Active Filter' : ' Active Filters');
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ── Fetch & Render ────────────────────────────────────────────────────────
+async function fetchData() {
+  const params = new URLSearchParams({
+    sub_category: state.sub_category,
+    metric_group: state.metric_group,
+    page: state.page,
+  });
+  if (state.q) params.set('q', state.q);
+  if (state.sort) { params.set('sort', state.sort); params.set('direction', state.direction); }
+
+  document.getElementById('qr-loading').style.display = 'flex';
+  document.getElementById('qr-table').style.display = 'none';
+  document.getElementById('qr-empty').style.display = 'none';
+  document.getElementById('qr-pagination').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API_URL}?${params}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderData(data);
+  } catch (e) {
+    document.getElementById('qr-loading').style.display = 'none';
+    document.getElementById('qr-empty').style.display = 'block';
+    document.getElementById('qr-empty').innerHTML = `<div class="qr-empty-icon">⚠️</div><div>Error loading data: ${e.message}</div>`;
+  }
+}
+
+function renderData(data) {
+  currentMetrics = data.metrics;
+  document.getElementById('qr-loading').style.display = 'none';
+  // Stats bar
+  const cohortInfo = data.cohort_size && data.total_count !== data.cohort_size
+    ? ` (filtered from ${data.cohort_size} total in sub-category — ranks computed on full cohort)`
+    : ` in sub-category — ranks computed live`;
+  document.getElementById('qr-total-count').textContent = data.total_count;
+  document.getElementById('qr-page-info').textContent =
+    (data.total_pages > 1 ? `Page ${data.page} of ${data.total_pages} · ` : '') + cohortInfo;
+
+  if (!data.funds || data.funds.length === 0) {
+    document.getElementById('qr-empty').style.display = 'block';
+    return;
+  }
+
+  // Build thead
+  const thead = document.getElementById('qr-thead');
+  let hRow = '<tr><th>' + makeSortHeader('name', 'Fund') + '</th>';
+  data.metrics.forEach(m => {
+    const hib = m.higher_is_better === true ? '↑ better' : m.higher_is_better === false ? '↓ better' : '—';
+    hRow += `<th style="text-align:right">${makeSortHeader(m.key, m.label)}
+      <button class="info-btn" data-t-title="${m.label}" data-t-what="${m.tooltip}" data-t-interp="${hib}">ⓘ</button>
+    </th>`;
+  });
+  hRow += '</tr>';
+  thead.innerHTML = hRow;
+
+  // Build tbody
+  const tbody = document.getElementById('qr-tbody');
+  let rows = '';
+  data.funds.forEach(f => {
+    rows += `<tr>
       <td>
-        <a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a>
-        <br><span style="color:var(--text-muted);font-size:11px">${f.house}</span>
-      </td>
-      <td class="num">${retFmt(f.ret_1y)}</td>
-      <td class="num">${qBadge(f.q_ret_1y)}</td>
-      <td class="num" style="color:var(--text-muted);font-size:12px">${f.rank_1y||'—'}/${f.total||'?'}</td>
-      <td class="num">${retFmt(f.ret_3y)}</td>
-      <td class="num">${qBadge(f.q_ret_3y)}</td>
-      <td class="num">${retFmt(f.ret_5y)}</td>
-      <td class="num">${qBadge(f.q_ret_5y)}</td>
-      <td class="num">${qBadge(f.q_vol)}</td>
-      <td class="num">${qBadge(f.q_sharpe)}</td>
-      <td class="num">${qBadge(f.q_score)}</td>
-      <td class="num" style="font-weight:700;color:var(--indigo-400)">${f.score ? f.score.toFixed(1) : '—'}</td>`;
-    tbody.appendChild(tr);
+        <a class="fund-link" href="/funds/${f.amfi}/" title="${f.name}">${f.name}</a>
+        <div class="fund-house" title="${f.house}">${f.house}</div>
+      </td>`;
+    data.metrics.forEach(m => {
+      const md = f.metrics[m.key];
+      rows += `<td><div class="metric-cell">${renderMetricCell(md, m)}</div></td>`;
+    });
+    rows += '</tr>';
   });
+  tbody.innerHTML = rows;
+
+  document.getElementById('qr-table').style.display = '';
+  renderPagination(data.page, data.total_pages);
+
+  // Re-init tooltips
+  if (window.initInfoTooltips) window.initInfoTooltips(document);
 }
 
-function filterFunds(q) {
-  q = q.toLowerCase();
-  document.querySelectorAll('#quartile-body tr').forEach(tr => {
-    tr.style.display = (tr.dataset.name||'').includes(q) ? '' : 'none';
-  });
+function renderMetricCell(md, metric) {
+  if (md.value === null || md.value === undefined) {
+    return '<span class="q-na">—</span>';
+  }
+  const val = metric.key.startsWith('dd') || metric.key === 'vol_1y' || metric.key === 'vol_5y' || metric.key === 'te_3y'
+    ? (md.value >= 0 ? '+' : '') + md.value.toFixed(2) + '%'
+    : (md.value >= 0 ? '+' : '') + md.value.toFixed(2) + '%';
+
+  let qBadge = '';
+  if (md.quartile) {
+    qBadge = `<span class="q-badge q${md.quartile}">Q${md.quartile}</span>`;
+  } else if (metric.higher_is_better === null) {
+    qBadge = `<span class="rank-text">—</span>`;
+  }
+  const rankText = md.rank ? `<span class="rank-text">${md.rank}/${md.total}</span>` : '';
+
+  const colour = getValColor(md.value, metric.higher_is_better);
+  return `<span class="metric-val" style="color:${colour}">${val}</span>
+    <div class="metric-meta">${qBadge}${rankText}</div>`;
 }
 
-// Initial load
-const initialCat = document.getElementById('cat-select')?.value;
-if (initialCat) loadCategory(initialCat);
+function getValColor(val, hib) {
+  if (val === null) return 'var(--text-muted)';
+  if (hib === true) return val >= 0 ? '#34d399' : '#f87171';
+  if (hib === false) return val <= 0 ? '#34d399' : '#f87171'; // negative is better for drawdown
+  return 'var(--text-primary)';
+}
+
+function makeSortHeader(key, label) {
+  const isCurrent = state.sort === key;
+  const cls = isCurrent ? (state.direction === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+  return `<button class="sort-btn ${cls}" onclick="setSort('${key}')">${label}<span class="sort-arrow"></span></button>`;
+}
+
+function setSort(key) {
+  if (state.sort === key) {
+    state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.sort = key;
+    state.direction = 'asc';
+  }
+  state.page = 1;
+  fetchData();
+}
+
+function renderPagination(page, totalPages) {
+  const el = document.getElementById('qr-pagination');
+  if (totalPages <= 1) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  let html = `<button class="qr-page-btn" onclick="goPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>← Prev</button>`;
+  // Show up to 7 page buttons with ellipsis
+  const pages = getPageNumbers(page, totalPages);
+  pages.forEach(p => {
+    if (p === '...') {
+      html += `<span style="color:var(--text-muted);padding:0 4px">…</span>`;
+    } else {
+      html += `<button class="qr-page-btn ${p === page ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+    }
+  });
+  html += `<button class="qr-page-btn" onclick="goPage(${page + 1})" ${page === totalPages ? 'disabled' : ''}>Next →</button>`;
+  el.innerHTML = html;
+}
+
+function getPageNumbers(current, total) {
+  if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+  const pages = [];
+  if (current <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i);
+    pages.push('...', total);
+  } else if (current >= total - 3) {
+    pages.push(1, '...');
+    for (let i = total - 4; i <= total; i++) pages.push(i);
+  } else {
+    pages.push(1, '...', current - 1, current, current + 1, '...', total);
+  }
+  return pages;
+}
+
+function goPage(p) {
+  state.page = p;
+  fetchData();
+  document.getElementById('qr-table-wrapper').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
 </script>
 {% endblock %}
