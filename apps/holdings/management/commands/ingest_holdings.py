@@ -40,7 +40,11 @@ class Command(BaseCommand):
 
         mstar_adapter = ADAPTERS['mstarpy']()
 
-        qs = Scheme.objects.filter(is_direct=True, plan='GROWTH', is_active=True).exclude(morningstar_id__isnull=True).exclude(morningstar_id='')
+        from django.db.models import Q
+        qs = Scheme.objects.filter(
+            Q(is_direct=True, plan='GROWTH') | Q(is_etf=True),
+            is_active=True
+        ).exclude(morningstar_id__isnull=True).exclude(morningstar_id='')
         
         if amfi:
             qs = qs.filter(amfi_code=amfi)

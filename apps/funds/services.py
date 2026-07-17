@@ -47,18 +47,21 @@ def get_amfi_scheme_list() -> list[dict]:
         from adapters.amfi_adapter import AMFIAdapter
         adapter = AMFIAdapter()
         schemes = adapter.fetch_scheme_universe()
-        # Keep only the fields we need for search
-        slim = [
-            {
-                'amfi_code':   s['amfi_code'],
-                'scheme_name': s['scheme_name'],
-                'amc_name':    s['amc_name'],
-                'nav':         s.get('nav', ''),
-                'scheme_type': s.get('scheme_type', ''),
-            }
-            for s in schemes
-            if s.get('amfi_code')
-        ]
+        from apps.core.utils import is_direct_scheme, is_growth_scheme, is_etf_scheme
+        # Keep only the fields we need for search and filter for Direct Growth / ETFs
+        slim = []
+        for s in schemes:
+            if not s.get('amfi_code'):
+                continue
+            name = s['scheme_name']
+            if is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name)):
+                slim.append({
+                    'amfi_code':   s['amfi_code'],
+                    'scheme_name': s['scheme_name'],
+                    'amc_name':    s['amc_name'],
+                    'nav':         s.get('nav', ''),
+                    'scheme_type': s.get('scheme_type', ''),
+                })
         cache.set(AMFI_LIST_CACHE_KEY, slim, AMFI_LIST_TTL)
         logger.info(f"Cached {len(slim)} schemes from AMFI NAVAll.txt")
         return slim

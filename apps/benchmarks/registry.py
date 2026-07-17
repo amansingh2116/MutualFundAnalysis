@@ -654,6 +654,13 @@ CATEGORY_BENCHMARK_RULES: tuple[tuple[str, str], ...] = (
 
 # ── Explicit regex rules (applied before category-map & keyword rules) ─────────
 EXPLICIT_INDEX_RULES: tuple[tuple[str, str], ...] = (
+    # International / Global indices (must come FIRST before NIFTY rules)
+    (r"\bnasdaq\s*100\b",                               "NASDAQ 100"),
+    (r"\bnasdaq\b",                                     "NASDAQ 100"),
+    (r"\bs\s*&\s*p\s*500\b|\bsp\s*500\b",              "S&P 500"),
+    (r"\bmsci\s+acwi\b",                                "MSCI ACWI"),
+    (r"\bmsci\s+world\b",                               "MSCI WORLD"),
+    (r"\bsensex\b",                                     "SENSEX"),
     # Exact large-midcap references
     (r"\bnifty\s+large\s*(mid|&|and)\s*cap\s+250\b",   "NIFTY LARGE MIDCAP 250"),
     # Multi cap
@@ -669,7 +676,6 @@ EXPLICIT_INDEX_RULES: tuple[tuple[str, str], ...] = (
     # Broad
     (r"\bnifty\s+next\s+50\b|\bnext\s+50\b",           "NIFTY NEXT 50"),
     (r"\bnifty\s+bank\b|\bbank\s+nifty\b",             "NIFTY BANK"),
-    (r"\bsensex\b",                                    "SENSEX"),
     (r"\bnifty\s*500\b",                               "NIFTY 500"),
     (r"\bnifty\s*200\b",                               "NIFTY 200"),
     (r"\bnifty\s*100\b",                               "NIFTY 100"),
@@ -1138,12 +1144,25 @@ def fetch_niftyindices_history_for_benchmark(
         session = _make_niftyindices_session()
         index_name = _niftyindices_trading_name(session, requested_index)
         chunk_start = start
+        consecutive_empty = 0
+        MAX_CONSECUTIVE_EMPTY = 3  # abort if 3 consecutive yearly chunks return nothing
         while chunk_start <= end:
             if deadline is not None and _time.monotonic() >= deadline:
                 logger.info("Nifty Indices deadline exceeded for %s, aborting chunk loop", requested_index)
                 break
             chunk_end = min(chunk_start + timedelta(days=365), end)
+            prev_len = len(rows)
             rows.extend(_fetch_niftyindices_rows(session, index_name, requested_index, chunk_start, chunk_end))
+            if len(rows) == prev_len:
+                consecutive_empty += 1
+                if consecutive_empty >= MAX_CONSECUTIVE_EMPTY:
+                    logger.debug(
+                        "Nifty Indices %s: %d consecutive empty chunks at %s — skipping older dates",
+                        requested_index, consecutive_empty, chunk_start,
+                    )
+                    break
+            else:
+                consecutive_empty = 0  # reset on any success
             chunk_start = chunk_end + timedelta(days=1)
     except Exception as exc:
         logger.info("Nifty Indices benchmark fetch failed for %s: %s", requested_index, exc)

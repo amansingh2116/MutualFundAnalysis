@@ -22,7 +22,7 @@ import time
 from datetime import date, datetime
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Max
+from django.db.models import Max, Q
 
 from adapters.amfi_adapter import AMFIAdapter
 from apps.funds.models import Scheme, NAVHistory
@@ -56,7 +56,10 @@ class Command(BaseCommand):
             if not schemes.exists():
                 raise CommandError(f"Scheme {amfi_code} not found in DB. Run build_scheme_master first.")
         else:
-            schemes = Scheme.objects.filter(is_direct=True, plan='GROWTH', is_active=True)
+            schemes = Scheme.objects.filter(
+                Q(is_direct=True, plan='GROWTH') | Q(is_etf=True),
+                is_active=True
+            )
 
         if limit:
             schemes = schemes[:limit]

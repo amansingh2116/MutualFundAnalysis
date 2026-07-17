@@ -192,6 +192,50 @@
         </div>
 
         <div class="fp-category">
+          <h4 class="fp-cat-title">Median Rolling Returns</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_med_1y">1Y Median Rolling % <button
+                type="button" class="info-btn" data-t-title="1Y Median Rolling Return"
+                data-t-what="The median of all 1-year rolling returns (the middle value, not the average)."
+                data-t-interp="More robust than the average. Higher is better. Indicates the typical 1Y experience.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_med_3y">3Y Median Rolling % <button
+                type="button" class="info-btn" data-t-title="3Y Median Rolling Return"
+                data-t-what="The median of all 3-year rolling returns."
+                data-t-interp="Higher is better. Unaffected by outlier periods.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_med_5y">5Y Median Rolling % <button
+                type="button" class="info-btn" data-t-title="5Y Median Rolling Return"
+                data-t-what="The median of all 5-year rolling returns."
+                data-t-interp="Higher is better. Shows long-term consistency at the mid-point.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="rolling_med_7y">7Y Median Rolling % <button
+                type="button" class="info-btn" data-t-title="7Y Median Rolling Return"
+                data-t-what="The median of all 7-year rolling returns."
+                data-t-interp="Higher is better.">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Returns vs Sub-Category</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_1y">1Y Alpha vs Category % <button
+                type="button" class="info-btn" data-t-title="1Y Alpha vs Sub-Category"
+                data-t-what="The fund's 1-year return minus the average 1-year return of all funds in the same sub-category."
+                data-t-interp="Positive means this fund beat its category peers over 1 year. Higher is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_3y">3Y Alpha vs Category % <button
+                type="button" class="info-btn" data-t-title="3Y Alpha vs Sub-Category"
+                data-t-what="The fund's 3-year CAGR minus the average 3-year CAGR of all funds in the same sub-category."
+                data-t-interp="Positive means this fund outperformed peers over a 3-year horizon. Higher is better.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_5y">5Y Alpha vs Category % <button
+                type="button" class="info-btn" data-t-title="5Y Alpha vs Sub-Category"
+                data-t-what="The fund's 5-year CAGR minus the average 5-year CAGR of all funds in the same sub-category."
+                data-t-interp="Positive means this fund has delivered above-average long-term returns for its category.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_7y">7Y Alpha vs Category % <button
+                type="button" class="info-btn" data-t-title="7Y Alpha vs Sub-Category"
+                data-t-what="The fund's 7-year CAGR minus the average 7-year CAGR of all funds in the same sub-category."
+                data-t-interp="Positive means this fund has sustained outperformance over a full market cycle.">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
           <h4 class="fp-cat-title">Risk Metrics</h4>
           <div class="fp-grid">
             <div class="fp-item" role="button" tabindex="0" data-filter="volatility_1y">1Y Volatility % <button
@@ -338,6 +382,28 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="port_top10">Top 10 Concentration % <button
                 type="button" class="info-btn" data-t-title="Top 10 Concentration"
                 data-t-what="Percentage of the portfolio in the top 10 holdings.">ⓘ</button></div>
+          </div>
+        </div>
+
+        <div class="fp-category">
+          <h4 class="fp-cat-title">Category Peer Metrics</h4>
+          <div class="fp-grid">
+            <div class="fp-item" role="button" tabindex="0" data-filter="cat_alpha">Category Avg Alpha (3Y) <button
+                type="button" class="info-btn" data-t-title="Category Avg Alpha (3Y)"
+                data-t-what="Average 3-year Jensen's Alpha of all funds in the same sub-category."
+                data-t-interp="Filter by how good/bad the category as a whole is at beating benchmarks.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="cat_beta">Category Avg Beta (3Y) <button
+                type="button" class="info-btn" data-t-title="Category Avg Beta (3Y)"
+                data-t-what="Average 3-year Beta of all funds in the same sub-category."
+                data-t-interp="Filter by how sensitive this category typically is to market movements.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="cat_expense">Category Avg Expense % <button
+                type="button" class="info-btn" data-t-title="Category Avg Expense Ratio"
+                data-t-what="Average expense ratio of all funds in the same sub-category."
+                data-t-interp="Lower is better. Compare to find lower-cost category alternatives.">ⓘ</button></div>
+            <div class="fp-item" role="button" tabindex="0" data-filter="cat_turnover">Category Avg Turnover <button
+                type="button" class="info-btn" data-t-title="Category Avg Portfolio Turnover"
+                data-t-what="Average portfolio turnover ratio of all funds in the same sub-category."
+                data-t-interp="Higher turnover categories tend to have higher hidden transaction costs.">ⓘ</button></div>
           </div>
         </div>
 
@@ -1138,6 +1204,21 @@
       'lump_min': 'data-t-title="Min Lumpsum (₹)" data-t-what="The minimum amount required to start a lumpsum investment."',
       'lock_in': 'data-t-title="Lock-in (Days)" data-t-what="The mandatory period during which you cannot redeem your investment (e.g. 3 years for ELSS funds)."',
       'pturnover': 'data-t-title="Portfolio Turnover" data-t-what="Measures how frequently the fund manager buys and sells securities within a year." data-t-interp="Lower is preferred (lower trading costs). However, high turnover is acceptable if returns justify it."',
+      // Returns vs Sub-Category
+      'excess_cat_1y': 'data-t-title="1Y Alpha vs Sub-Category" data-t-what="The fund\'s 1-year return minus the average 1-year return of all funds in the same sub-category." data-t-interp="Positive means this fund beat its category peers over 1 year. Higher is better."',
+      'excess_cat_3y': 'data-t-title="3Y Alpha vs Sub-Category" data-t-what="The fund\'s 3-year CAGR minus the average 3-year CAGR of all funds in the same sub-category." data-t-interp="Positive means this fund outperformed peers over a 3-year horizon."',
+      'excess_cat_5y': 'data-t-title="5Y Alpha vs Sub-Category" data-t-what="The fund\'s 5-year CAGR minus the average 5-year CAGR of all funds in the same sub-category." data-t-interp="Positive means this fund delivered above-average long-term returns for its category."',
+      'excess_cat_7y': 'data-t-title="7Y Alpha vs Sub-Category" data-t-what="The fund\'s 7-year CAGR minus the average 7-year CAGR of all funds in the same sub-category." data-t-interp="Positive means this fund has sustained outperformance over a full market cycle."',
+      // Rolling medians
+      'rolling_med_1y': 'data-t-title="1Y Median Rolling Return" data-t-what="The median of all 1-year rolling returns — the middle value, not the average." data-t-interp="More robust than the average. Higher is better."',
+      'rolling_med_3y': 'data-t-title="3Y Median Rolling Return" data-t-what="The median of all 3-year rolling returns." data-t-interp="Higher is better. Unaffected by outlier periods."',
+      'rolling_med_5y': 'data-t-title="5Y Median Rolling Return" data-t-what="The median of all 5-year rolling returns." data-t-interp="Shows long-term consistency at the mid-point."',
+      'rolling_med_7y': 'data-t-title="7Y Median Rolling Return" data-t-what="The median of all 7-year rolling returns." data-t-interp="Higher is better."',
+      // Category peer averages
+      'cat_alpha': 'data-t-title="Category Avg Alpha (3Y)" data-t-what="Average 3-year Jensen\'s Alpha of all funds in the same sub-category." data-t-interp="Filter by how good the category as a whole is at beating benchmarks."',
+      'cat_beta': 'data-t-title="Category Avg Beta (3Y)" data-t-what="Average 3-year Beta of all funds in the same sub-category." data-t-interp="How sensitive this category typically is to market movements."',
+      'cat_expense': 'data-t-title="Category Avg Expense %" data-t-what="Average expense ratio of all funds in the same sub-category." data-t-interp="Lower is better. Compare to find lower-cost category alternatives."',
+      'cat_turnover': 'data-t-title="Category Avg Portfolio Turnover" data-t-what="Average portfolio turnover ratio of all funds in the same sub-category." data-t-interp="Higher turnover categories tend to have higher hidden transaction costs."',
     };
 
     const FILTER_META = {
@@ -1156,6 +1237,11 @@
       rolling_3y: { label: '3Y Avg Rolling %', type: 'range', min: -10, max: 50, step: 0.5, param: 'rolling_3y', decimals: 1, suffix: '%' },
       rolling_5y: { label: '5Y Avg Rolling %', type: 'range', min: -10, max: 35, step: 0.5, param: 'rolling_5y', decimals: 1, suffix: '%' },
       rolling_7y: { label: '7Y Avg Rolling %', type: 'range', min: -5, max: 40, step: 0.5, param: 'rolling_7y', decimals: 1, suffix: '%' },
+      // Rolling medians
+      rolling_med_1y: { label: '1Y Median Rolling %', type: 'range', min: -20, max: 80, step: 0.5, param: 'rolling_med_1y', decimals: 1, suffix: '%' },
+      rolling_med_3y: { label: '3Y Median Rolling %', type: 'range', min: -10, max: 50, step: 0.5, param: 'rolling_med_3y', decimals: 1, suffix: '%' },
+      rolling_med_5y: { label: '5Y Median Rolling %', type: 'range', min: -10, max: 35, step: 0.5, param: 'rolling_med_5y', decimals: 1, suffix: '%' },
+      rolling_med_7y: { label: '7Y Median Rolling %', type: 'range', min: -5, max: 40, step: 0.5, param: 'rolling_med_7y', decimals: 1, suffix: '%' },
       volatility_1y: { label: '1Y Volatility %', type: 'range', min: 0, max: 80, step: 0.5, param: 'volatility_1y', decimals: 1, suffix: '%' },
       volatility_5y: { label: '5Y Volatility %', type: 'range', min: 0, max: 50, step: 0.5, param: 'volatility_5y', decimals: 1, suffix: '%', presets: [['<10%', null, '10'], ['<15%', null, '15'], ['<25%', null, '25']] },
       volatility_7y: { label: '7Y Volatility %', type: 'range', min: 0, max: 40, step: 0.5, param: 'volatility_7y', decimals: 1, suffix: '%' },
@@ -1196,6 +1282,16 @@
       lump_min: { label: 'Min Lumpsum (₹)', type: 'range', min: 0, max: 50000, step: 500, param: 'lump_min' },
       lock_in: { label: 'Lock-in (Days)', type: 'range', min: 0, max: 1095, step: 30, param: 'lock_in', decimals: 0, presets: [['No lock-in', null, '0'], ['ELSS 1095+', '1095', null]] },
       pturnover: { label: 'Portfolio Turnover', type: 'range', min: 0, max: 5, step: 0.05, param: 'pturnover', decimals: 2 },
+      // Category peer averages
+      cat_alpha:    { label: 'Category Avg Alpha (3Y) %', type: 'range', min: -10, max: 15, step: 0.5, param: 'cat_alpha', decimals: 2, suffix: '%', presets: [['>0%', '0', null], ['>2%', '2', null]] },
+      cat_beta:     { label: 'Category Avg Beta (3Y)', type: 'range', min: 0, max: 2, step: 0.05, param: 'cat_beta', decimals: 2, presets: [['<0.8', null, '0.8'], ['<1.0', null, '1.0']] },
+      cat_expense:  { label: 'Category Avg Expense %', type: 'range', min: 0, max: 3, step: 0.05, param: 'cat_expense', decimals: 2, suffix: '%', presets: [['<0.4%', null, '0.4'], ['<1%', null, '1']] },
+      cat_turnover: { label: 'Category Avg Turnover', type: 'range', min: 0, max: 5, step: 0.05, param: 'cat_turnover', decimals: 2 },
+      // Returns vs Sub-Category (excess over category average)
+      excess_cat_1y: { label: '1Y Alpha vs Category %', type: 'range', min: -20, max: 30, step: 0.5, param: 'excess_cat_1y', decimals: 2, suffix: '%', presets: [['>0% (above avg)', '0', null], ['>3%', '3', null], ['>5%', '5', null]] },
+      excess_cat_3y: { label: '3Y Alpha vs Category %', type: 'range', min: -15, max: 20, step: 0.5, param: 'excess_cat_3y', decimals: 2, suffix: '%', presets: [['>0% (above avg)', '0', null], ['>2%', '2', null], ['>5%', '5', null]] },
+      excess_cat_5y: { label: '5Y Alpha vs Category %', type: 'range', min: -15, max: 20, step: 0.5, param: 'excess_cat_5y', decimals: 2, suffix: '%', presets: [['>0% (above avg)', '0', null], ['>2%', '2', null]] },
+      excess_cat_7y: { label: '7Y Alpha vs Category %', type: 'range', min: -15, max: 20, step: 0.5, param: 'excess_cat_7y', decimals: 2, suffix: '%', presets: [['>0% (above avg)', '0', null], ['>2%', '2', null]] },
     };
 
     // ── Active filter badge ────────────────────────────────────────────────────

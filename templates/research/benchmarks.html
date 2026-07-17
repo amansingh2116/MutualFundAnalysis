@@ -157,6 +157,12 @@
           <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Average" data-t-what="Average 1-Year Rolling Return">&#9432;</button></th>
           <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Average" data-t-what="Average 3-Year Rolling Return">&#9432;</button></th>
           <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Average" data-t-what="Average 5-Year Rolling Return">&#9432;</button></th>
+          <th class="num">1Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Median" data-t-what="Median 1-Year Rolling Return">&#9432;</button></th>
+          <th class="num">3Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Median" data-t-what="Median 3-Year Rolling Return">&#9432;</button></th>
+          <th class="num">5Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Median" data-t-what="Median 5-Year Rolling Return">&#9432;</button></th>
+          <th class="num">1Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Min" data-t-what="Minimum 1-Year Rolling Return">&#9432;</button></th>
+          <th class="num">3Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Min" data-t-what="Minimum 3-Year Rolling Return">&#9432;</button></th>
+          <th class="num">5Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Min" data-t-what="Minimum 5-Year Rolling Return">&#9432;</button></th>
           <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Maximum 1-Year Rolling Return">&#9432;</button></th>
           <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max" data-t-what="Maximum 3-Year Rolling Return">&#9432;</button></th>
           <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max" data-t-what="Maximum 5-Year Rolling Return">&#9432;</button></th>
@@ -424,9 +430,21 @@ function renderRolling() {
       html += `<td class="num" style="background:${bg}">${fmt(val)}</td>`;
     });
     
+    // Median
+    periods.forEach(p => {
+      const val = (d.rolling && d.rolling[p] && d.rolling[p].median != null) ? d.rolling[p].median : null;
+      html += `<td class="num">${fmt(val)}</td>`;
+    });
+    
+    // Min
+    periods.forEach(p => {
+      const val = (d.rolling && d.rolling[p] && d.rolling[p].min != null) ? d.rolling[p].min : null;
+      html += `<td class="num">${fmt(val)}</td>`;
+    });
+    
     // Max
     periods.forEach(p => {
-      const val = (d.rolling && d.rolling[p]) ? d.rolling[p].max : null;
+      const val = (d.rolling && d.rolling[p] && d.rolling[p].max != null) ? d.rolling[p].max : null;
       html += `<td class="num">${fmt(val)}</td>`;
     });
     

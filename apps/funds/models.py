@@ -36,6 +36,8 @@ class Scheme(BaseModel):
                                        default='GROWTH')
     is_direct       = models.BooleanField(default=False, db_index=True)
     is_active       = models.BooleanField(default=True, db_index=True)
+    is_etf          = models.BooleanField(default=False, db_index=True,
+                                          help_text='True for ETFs (detected from scheme name)')
 
     # ── Cross-source identifiers (populated by mapping commands) ──────────────
     morningstar_id = models.CharField(max_length=20, null=True, blank=True,
@@ -238,6 +240,29 @@ class FundScreenerSnapshot(BaseModel):
     cagr_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     rolling_return_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     rolling_return_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    # ── Rolling return medians (derived from rolling_returns_json for screener filtering) ──
+    rolling_median_1y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                                help_text="Median 1Y rolling return %")
+    rolling_median_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                                help_text="Median 3Y rolling return %")
+    rolling_median_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                                help_text="Median 5Y rolling return %")
+    rolling_median_7y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                                help_text="Median 7Y rolling return %")
+    # ── Rolling min/max (from RollingReturn table — previously in migration 0013) ──
+    rolling_return_7y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    rolling_min_3y_pct    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    rolling_min_5y_pct    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    rolling_min_7y_pct    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    # ── Category peer metrics (populated by compute_quartile_ranks_for_category) ──
+    category_alpha_3y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Category avg alpha_3y at time of ranking")
+    category_beta_3y     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Category avg beta_3y at time of ranking")
+    category_expense_ratio = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+                                                 help_text="Category avg expense_ratio at time of ranking")
+    category_turnover    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Category avg portfolio_turnover at time of ranking")
     volatility_3y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     volatility_5y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     volatility_1y_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
@@ -527,6 +552,24 @@ class CategorySnapshot(BaseModel):
     avg_sharpe_5y       = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     avg_sortino_5y      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     avg_max_drawdown_5y = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+
+    # ── Alpha / Beta / Cost / Turnover statistics ─────────────────────────────
+    avg_alpha_3y         = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Average 3Y alpha across funds")
+    median_alpha_3y      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Median 3Y alpha across funds")
+    avg_beta_3y          = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Average 3Y beta across funds")
+    median_beta_3y       = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Median 3Y beta across funds")
+    avg_expense_ratio    = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+                                               help_text="Average expense ratio across funds")
+    median_expense_ratio = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+                                               help_text="Median expense ratio across funds")
+    avg_turnover         = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Average portfolio turnover across funds")
+    median_turnover      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+                                               help_text="Median portfolio turnover across funds")
 
     # ── Score distribution ────────────────────────────────────────────────────
     avg_model_score  = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)

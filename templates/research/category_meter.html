@@ -121,9 +121,13 @@
           <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Average" data-t-what="Average 1-Year Rolling Return over the fund's history" data-t-interp="Indicates the typical 1-year return experience when investing at any random point in time.">ⓘ</button></th>
           <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Average" data-t-what="Average 3-Year Rolling Return" data-t-interp="Indicates the typical 3-year return experience when investing at any random point in time.">ⓘ</button></th>
           <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Average" data-t-what="Average 5-Year Rolling Return" data-t-interp="Indicates the typical 5-year return experience when investing at any random point in time.">ⓘ</button></th>
-          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Maximum 1-Year Rolling Return observed" data-t-interp="Shows the best-case 1-year return window.">ⓘ</button></th>
-          <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max" data-t-what="Maximum 3-Year Rolling Return observed" data-t-interp="Shows the best-case 3-year return window.">ⓘ</button></th>
-          <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max" data-t-what="Maximum 5-Year Rolling Return observed" data-t-interp="Shows the best-case 5-year return window.">ⓘ</button></th>
+          <th class="num">1Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Median" data-t-what="Median 1-Year Rolling Return — the middle value across all rolling 1-year periods." data-t-interp="More robust than the average; unaffected by extremely good or bad years.">ⓘ</button></th>
+          <th class="num">3Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Median" data-t-what="Median 3-Year Rolling Return" data-t-interp="Typical mid-point 3-year return experience.">ⓘ</button></th>
+          <th class="num">5Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Median" data-t-what="Median 5-Year Rolling Return" data-t-interp="Typical mid-point 5-year return experience.">ⓘ</button></th>
+          <th class="num">1Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Min" data-t-what="Average worst-case 1-Year Rolling Return across funds in this category." data-t-interp="Shows how bad the worst 1-year window has typically been for this category.">ⓘ</button></th>
+          <th class="num">3Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Min" data-t-what="Average worst-case 3-Year Rolling Return across funds in this category." data-t-interp="Shows the worst 3-year window typically seen for this category.">ⓘ</button></th>
+          <th class="num">5Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Min" data-t-what="Average worst-case 5-Year Rolling Return across funds in this category." data-t-interp="Shows the worst 5-year window typically seen for this category.">ⓘ</button></th>
+          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Average best-case 1-Year Rolling Return across funds in this category." data-t-interp="Shows how good the best 1-year window has typically been.">ⓘ</button></th>
           <th class="num">1Y Positive% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Positive%" data-t-what="Percentage of 1-Year rolling periods with positive returns" data-t-interp="Higher percentages indicate a lower historical probability of facing losses over any 1-year period.">ⓘ</button></th>
         </tr>
       </thead>
@@ -244,19 +248,31 @@ function renderRolling() {
     let html = `<td><a href="${cat_url}" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${d.name}</a><br><span style="color:var(--text-muted);font-size:11px">${d.group}</span></td>`;
     html += `<td class="num">${d.fund_count}</td>`;
     
-    // Average
+    const fv = v => v != null ? `<span style="color:${v>0?'var(--success)':v<0?'var(--danger)':'inherit'}">${v.toFixed(2)}%</span>` : '<span style="color:var(--text-muted)">—</span>';
+
+    // Average (heat-coloured)
     periods.forEach(p => {
       const val = (d.rolling && d.rolling[p]) ? d.rolling[p].avg : null;
       const mm = minMax[p] || {min:0, max:1};
       const bg = heatColor(val, mm.min, mm.max);
-      html += `<td class="num" style="background:${bg}">${fmt(val)}</td>`;
+      html += `<td class="num" style="background:${bg}">${fv(val)}</td>`;
     });
     
-    // Max
+    // Median
     periods.forEach(p => {
-      const val = (d.rolling && d.rolling[p]) ? d.rolling[p].max : null;
-      html += `<td class="num">${fmt(val)}</td>`;
+      const val = (d.rolling && d.rolling[p] && d.rolling[p].median != null) ? d.rolling[p].median : null;
+      html += `<td class="num">${fv(val)}</td>`;
     });
+    
+    // Min
+    periods.forEach(p => {
+      const val = (d.rolling && d.rolling[p] && d.rolling[p].min != null) ? d.rolling[p].min : null;
+      html += `<td class="num">${fv(val)}</td>`;
+    });
+
+    // Max
+    const maxVal = (d.rolling && d.rolling['1Y'] && d.rolling['1Y'].max != null) ? d.rolling['1Y'].max : null;
+    html += `<td class="num">${fv(maxVal)}</td>`;
     
     // Positive %
     const pos = (d.rolling && d.rolling['1Y']) ? d.rolling['1Y'].pos_pct : null;

@@ -1,6 +1,6 @@
 # Fund Screener — Feature Guide & Developer Reference
 
-The **Mutual Fund Screener** (`/funds/screener/`) is a login-required, full-featured fund discovery tool that lets users filter, sort, and evaluate 2,500+ direct-growth mutual funds across 30+ metrics.
+The **Mutual Fund Screener** (`/funds/screener/`) is a login-required, full-featured fund discovery tool that lets users filter, sort, and evaluate the complete universe of **Direct Growth mutual funds and all ETFs** (~2,300+ active snapshots) across 30+ metrics.
 
 ---
 
@@ -18,7 +18,7 @@ The left sidebar contains all always-visible core filters split into sections:
 Every filter has an `ⓘ` info button with a detailed tooltip explaining what the metric means, how to interpret it, and tips for analysis.
 
 ### 2. Add Filters Panel
-A full-screen overlay panel accessible via the **"+ Add Filter"** button (pinned to the filter sidebar footer). Contains optional filters grouped into 4 categories:
+A full-screen overlay panel accessible via the **"+ Add Filter"** button (pinned to the filter sidebar footer). Contains optional filters grouped into categories:
 
 | Category | Filters |
 |---|---|
@@ -26,6 +26,9 @@ A full-screen overlay panel accessible via the **"+ Add Filter"** button (pinned
 | **Returns** | 1M, 3M, 6M, 1Y, 7Y, 10Y Returns, 5Y Rolling Return |
 | **Risk** | 5Y Volatility, 5Y Sharpe, 3Y/5Y Sortino, 5Y Drawdown, Current Drawdown |
 | **Relative Stats** | 3Y Tracking Error, 3Y/5Y Alpha, 3Y Beta, 3Y Info Ratio, 3Y R², ROMAD, Upside/Downside Capture, Min SIP, Min Lumpsum, Lock-in Period, Portfolio Turnover |
+| **Returns vs Sub-Category** | Excess Category Returns for 1Y, 3Y, 5Y, and 7Y — how much a fund beats or lags its sub-category average |
+| **Median Rolling Returns** | 1Y, 3Y, 5Y, 7Y median rolling returns — consistent long-term performance distribution |
+| **Category Peer Metrics** | Avg Alpha (3Y), Avg Beta (3Y), Avg Expense Ratio, Avg Portfolio Turnover across fund's sub-category |
 
 All items in the Add Filters panel also have `ⓘ` info buttons. Categorical filters (Fund House, Benchmark, CRISIL Rating, Model Score Badge, SIP Available) appear as **dynamic sidebar sections** when added.
 
@@ -94,7 +97,9 @@ python manage.py populate_screener
 python manage.py populate_screener --limit=100
 ```
 
-Each snapshot contains computed values for all 30+ metrics including CAGR, Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Tracking Error, and more.
+Each snapshot contains computed values for all 30+ metrics including CAGR, Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Tracking Error, excess category returns (1Y/3Y/5Y/7Y), and more.
+
+> **Note on short-history funds:** Funds with less than 1 year of NAV history appear in the screener with `null` for metrics that require more data (e.g. 1Y CAGR, 3Y volatility). These display as `--` in the UI and sort to last in sortable columns.
 
 ---
 

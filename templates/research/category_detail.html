@@ -106,59 +106,61 @@
 <script>
 const CAT_SNAP = {
   avg_1y: {{ category_snap.avg_return_1y|default:"null" }},
+  med_1y: {{ category_snap.median_return_1y|default:"null" }},
   avg_3y: {{ category_snap.avg_return_3y|default:"null" }},
+  med_3y: {{ category_snap.median_return_3y|default:"null" }},
   avg_5y: {{ category_snap.avg_return_5y|default:"null" }},
+  med_5y: {{ category_snap.median_return_5y|default:"null" }},
   avg_vol: {{ category_snap.avg_volatility|default:"null" }},
   avg_sharpe: {{ category_snap.avg_sharpe|default:"null" }},
   avg_drawdown: {{ category_snap.avg_max_drawdown|default:"null" }},
-  avg_score: {{ category_snap.avg_model_score|default:"null" }},
+  avg_alpha: {{ category_snap.avg_alpha_3y|default:"null" }},
+  med_alpha: {{ category_snap.median_alpha_3y|default:"null" }},
+  avg_beta: {{ category_snap.avg_beta_3y|default:"null" }},
+  med_beta: {{ category_snap.median_beta_3y|default:"null" }},
+  avg_expense: {{ category_snap.avg_expense_ratio|default:"null" }},
+  med_expense: {{ category_snap.median_expense_ratio|default:"null" }},
+  avg_turnover: {{ category_snap.avg_turnover|default:"null" }},
+  med_turnover: {{ category_snap.median_turnover|default:"null" }},
   fund_count: {{ category_snap.fund_count }},
 };
 const metrics = [
-  ['Avg 1Y Return', CAT_SNAP.avg_1y, '%', CAT_SNAP.avg_1y > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Avg 3Y CAGR', CAT_SNAP.avg_3y, '%', CAT_SNAP.avg_3y > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Avg 5Y CAGR', CAT_SNAP.avg_5y, '%', CAT_SNAP.avg_5y > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Avg Volatility', CAT_SNAP.avg_vol, '%', 'var(--warning)'],
-  ['Avg Sharpe', CAT_SNAP.avg_sharpe, '', 'var(--indigo-400)'],
-  ['Avg Max Drawdown', CAT_SNAP.avg_drawdown, '%', 'var(--danger)'],
-  ['Avg Model Score', CAT_SNAP.avg_score, '/100', 'var(--indigo-400)'],
+  ['Avg 1Y Return',   CAT_SNAP.avg_1y,      '%',    CAT_SNAP.avg_1y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med 1Y Return',   CAT_SNAP.med_1y,      '%',    CAT_SNAP.med_1y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg 3Y CAGR',     CAT_SNAP.avg_3y,      '%',    CAT_SNAP.avg_3y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med 3Y CAGR',     CAT_SNAP.med_3y,      '%',    CAT_SNAP.med_3y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg 5Y CAGR',     CAT_SNAP.avg_5y,      '%',    CAT_SNAP.avg_5y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med 5Y CAGR',     CAT_SNAP.med_5y,      '%',    CAT_SNAP.med_5y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg Volatility',  CAT_SNAP.avg_vol,     '%',    'var(--warning)'],
+  ['Avg Sharpe',      CAT_SNAP.avg_sharpe,  '',     'var(--indigo-400)'],
+  ['Avg Max Drawdown',CAT_SNAP.avg_drawdown,'%',    'var(--danger)'],
+  ['Avg Alpha (3Y)',  CAT_SNAP.avg_alpha,   '%',    CAT_SNAP.avg_alpha > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med Alpha (3Y)',  CAT_SNAP.med_alpha,   '%',    CAT_SNAP.med_alpha > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg Beta (3Y)',   CAT_SNAP.avg_beta,    '',     'var(--indigo-400)'],
+  ['Med Beta (3Y)',   CAT_SNAP.med_beta,    '',     'var(--indigo-400)'],
+  ['Avg Expense%',    CAT_SNAP.avg_expense, '%',    'var(--warning)'],
+  ['Med Expense%',    CAT_SNAP.med_expense, '%',    'var(--warning)'],
+  ['Avg Turnover',    CAT_SNAP.avg_turnover,'x',    'var(--text-muted)'],
+  ['Med Turnover',    CAT_SNAP.med_turnover,'x',    'var(--text-muted)'],
 ];
 const STRIP_TOOLTIPS = {
-  'Avg 1Y Return': {
-    title: 'Average 1Y Return',
-    what: 'The average 1-year trailing absolute return of all funds in this category.',
-    interp: 'Shows the average short-term performance of the category.'
-  },
-  'Avg 3Y CAGR': {
-    title: 'Average 3Y CAGR',
-    what: 'The average 3-year Compound Annual Growth Rate of all funds in this category.',
-    interp: 'Indicates the average medium-term compound performance of the category.'
-  },
-  'Avg 5Y CAGR': {
-    title: 'Average 5Y CAGR',
-    what: 'The average 5-year Compound Annual Growth Rate of all funds in this category.',
-    interp: 'Indicates the average long-term compound performance of the category.'
-  },
-  'Avg Volatility': {
-    title: 'Average Volatility',
-    what: 'The average annualised standard deviation of returns of all funds in this category.',
-    interp: 'Measures the general risk level of the category. Higher values mean larger price fluctuations.'
-  },
-  'Avg Sharpe': {
-    title: 'Average Sharpe',
-    what: 'The average Sharpe Ratio of all funds in this category over the last 3 years.',
-    interp: 'Represents risk-adjusted return. Higher is better, showing more return generated per unit of risk.'
-  },
-  'Avg Max Drawdown': {
-    title: 'Average Max Drawdown',
-    what: 'The average maximum peak-to-trough drop of all funds in this category.',
-    interp: 'Indicates the historical worst-case average loss of the category during downturns.'
-  },
-  'Avg Model Score': {
-    title: 'Average Model Score',
-    what: 'The average Antigravity score (0-100) of funds in this category.',
-    interp: 'A higher category average score indicates better overall quality of funds within this category.'
-  }
+  'Avg 1Y Return': { title: 'Average 1Y Return', what: 'Average 1-year trailing return of all funds in this category.', interp: 'Shows average short-term performance.' },
+  'Med 1Y Return': { title: 'Median 1Y Return', what: 'Median 1-year trailing return — the middle value when all fund returns are sorted.', interp: 'More robust than the average; not skewed by outlier funds.' },
+  'Avg 3Y CAGR': { title: 'Average 3Y CAGR', what: 'Average 3-year Compound Annual Growth Rate of all funds in this category.', interp: 'Indicates average medium-term compound performance.' },
+  'Med 3Y CAGR': { title: 'Median 3Y CAGR', what: 'Median 3-year CAGR — the middle fund when sorted by 3Y CAGR.', interp: 'More representative of the typical fund experience than the average.' },
+  'Avg 5Y CAGR': { title: 'Average 5Y CAGR', what: 'Average 5-year CAGR of all funds in this category.', interp: 'Indicates average long-term compound performance.' },
+  'Med 5Y CAGR': { title: 'Median 5Y CAGR', what: 'Median 5-year CAGR — the middle fund when sorted by 5Y CAGR.', interp: 'More representative of typical long-term returns, unaffected by outliers.' },
+  'Avg Volatility': { title: 'Average Volatility', what: 'Average annualised standard deviation of returns of all funds.', interp: 'Higher values mean larger price fluctuations and greater risk.' },
+  'Avg Sharpe': { title: 'Average Sharpe Ratio', what: 'Average Sharpe Ratio over the last 3 years.', interp: 'Higher is better — shows more return per unit of risk.' },
+  'Avg Max Drawdown': { title: 'Average Max Drawdown', what: 'Average maximum peak-to-trough drop across all funds.', interp: 'Closer to 0% is better. Indicates historical worst-case average loss.' },
+  'Avg Alpha (3Y)': { title: 'Average Alpha (3Y)', what: 'Average 3-year Jensen\'s Alpha across funds — excess return above the benchmark.', interp: 'Positive values indicate that on average funds are beating their benchmarks.' },
+  'Med Alpha (3Y)': { title: 'Median Alpha (3Y)', what: 'Median 3-year Alpha — the middle value across all funds.', interp: 'A positive median alpha means the majority of funds beat their benchmarks.' },
+  'Avg Beta (3Y)': { title: 'Average Beta (3Y)', what: 'Average 3-year Beta — measures sensitivity of fund returns to the benchmark.', interp: 'Beta > 1 means more volatile than the benchmark; < 1 means more stable.' },
+  'Med Beta (3Y)': { title: 'Median Beta (3Y)', what: 'Median 3-year Beta across all funds in this category.', interp: 'Typical benchmark sensitivity of funds in this category.' },
+  'Avg Expense%': { title: 'Average Expense Ratio', what: 'Average annual expense ratio charged by funds in this category.', interp: 'Lower is better — fees directly reduce your net returns.' },
+  'Med Expense%': { title: 'Median Expense Ratio', what: 'Median expense ratio — the typical fee charged by the middle fund.', interp: 'Useful benchmark: prefer funds with expense ratio below this value.' },
+  'Avg Turnover': { title: 'Average Portfolio Turnover', what: 'Average portfolio turnover ratio — how often holdings are traded.', interp: 'Higher turnover often means higher transaction costs and a more active strategy.' },
+  'Med Turnover': { title: 'Median Portfolio Turnover', what: 'Median portfolio turnover ratio across all funds in this category.', interp: 'Typical trading frequency. Funds well above this median tend to have higher hidden costs.' },
 };
 
 const strip = document.getElementById('cat-summary-strip');
@@ -264,10 +266,18 @@ const HEADERS = {
     '1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Avg Rolling Return" data-t-what="Average 1-year rolling return of this fund over its lifetime." data-t-interp="Typical 1-year return experience.">ⓘ</button>',
     '3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Avg Rolling Return" data-t-what="Average 3-year rolling return of this fund over its lifetime." data-t-interp="Typical 3-year return experience.">ⓘ</button>',
     '5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Avg Rolling Return" data-t-what="Average 5-year rolling return of this fund over its lifetime." data-t-interp="Typical 5-year return experience.">ⓘ</button>',
+    '1Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Median Rolling Return" data-t-what="Median 1-year rolling return — the middle value of all 1-year periods." data-t-interp="More robust than average; not affected by extreme short-term windows.">ⓘ</button>',
+    '3Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Median Rolling Return" data-t-what="Median 3-year rolling return." data-t-interp="Typical mid-point 3-year experience unaffected by outliers.">ⓘ</button>',
+    '5Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Median Rolling Return" data-t-what="Median 5-year rolling return." data-t-interp="Typical mid-point 5-year experience unaffected by outliers.">ⓘ</button>',
+    '1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max Rolling Return" data-t-what="Best-case 1-year rolling return of this fund." data-t-interp="Best 1-year window seen historically.">ⓘ</button>',
+    '3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max Rolling Return" data-t-what="Best-case 3-year rolling return of this fund." data-t-interp="Best 3-year window seen historically.">ⓘ</button>',
+    '5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max Rolling Return" data-t-what="Best-case 5-year rolling return of this fund." data-t-interp="Best 5-year window seen historically.">ⓘ</button>',
     '1Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Min Rolling Return" data-t-what="Worst-case 1-year rolling return of this fund." data-t-interp="Shows the worst 1-year performance history.">ⓘ</button>',
     '3Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Min Rolling Return" data-t-what="Worst-case 3-year rolling return of this fund." data-t-interp="Shows the worst 3-year performance history.">ⓘ</button>',
     '5Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Min Rolling Return" data-t-what="Worst-case 5-year rolling return of this fund." data-t-interp="Shows the worst 5-year performance history.">ⓘ</button>',
-    '1Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Performance Rank" data-t-what="The percentile rank of this fund\'s 1-year performance relative to its peers." data-t-interp="A lower rank/total (e.g., 1/15) is better.">ⓘ</button>'
+    '1Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Rank" data-t-what="Percentile rank of this fund\'s 1-year performance vs peers." data-t-interp="Lower rank/total is better.">ⓘ</button>',
+    '3Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Rank" data-t-what="Percentile rank of this fund\'s 3-year performance vs peers." data-t-interp="Lower rank/total is better.">ⓘ</button>',
+    '5Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Rank" data-t-what="Percentile rank of this fund\'s 5-year performance vs peers." data-t-interp="Lower rank/total is better.">ⓘ</button>',
   ],
   portfolio: ['Fund Name'], // Appended dynamically
   risk: [
@@ -384,10 +394,18 @@ function renderTable(data) {
           <td>${f.rolling && f.rolling['1Y'] ? retCell(f.rolling['1Y'].avg) : '—'}</td>
           <td>${f.rolling && f.rolling['3Y'] ? retCell(f.rolling['3Y'].avg) : '—'}</td>
           <td>${f.rolling && f.rolling['5Y'] ? retCell(f.rolling['5Y'].avg) : '—'}</td>
-          <td>${f.rolling && f.rolling['1Y'] ? retCell(f.rolling['1Y'].min) : '—'}</td>
-          <td>${f.rolling && f.rolling['3Y'] ? retCell(f.rolling['3Y'].min) : '—'}</td>
-          <td>${f.rolling && f.rolling['5Y'] ? retCell(f.rolling['5Y'].min) : '—'}</td>
-          <td>${rankCell(f.rank_1y,f.total)}</td>`;
+          <td>${f.rolling && f.rolling['1Y'] && f.rolling['1Y'].median != null ? retCell(f.rolling['1Y'].median) : '—'}</td>
+          <td>${f.rolling && f.rolling['3Y'] && f.rolling['3Y'].median != null ? retCell(f.rolling['3Y'].median) : '—'}</td>
+          <td>${f.rolling && f.rolling['5Y'] && f.rolling['5Y'].median != null ? retCell(f.rolling['5Y'].median) : '—'}</td>
+          <td>${f.rolling && f.rolling['1Y'] && f.rolling['1Y'].max != null ? retCell(f.rolling['1Y'].max) : '—'}</td>
+          <td>${f.rolling && f.rolling['3Y'] && f.rolling['3Y'].max != null ? retCell(f.rolling['3Y'].max) : '—'}</td>
+          <td>${f.rolling && f.rolling['5Y'] && f.rolling['5Y'].max != null ? retCell(f.rolling['5Y'].max) : '—'}</td>
+          <td>${f.rolling && f.rolling['1Y'] && f.rolling['1Y'].min != null ? retCell(f.rolling['1Y'].min) : '—'}</td>
+          <td>${f.rolling && f.rolling['3Y'] && f.rolling['3Y'].min != null ? retCell(f.rolling['3Y'].min) : '—'}</td>
+          <td>${f.rolling && f.rolling['5Y'] && f.rolling['5Y'].min != null ? retCell(f.rolling['5Y'].min) : '—'}</td>
+          <td>${rankCell(f.rank_1y,f.total)}</td>
+          <td>${rankCell(f.rank_3y,f.total)}</td>
+          <td>${rankCell(f.rank_5y,f.total)}</td>`;
       }
     } else if (currentTab === 'portfolio') {
         cells = `<td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>` +
@@ -454,17 +472,22 @@ function switchCatTab(tab) {
       grid.innerHTML = '';
       ['1Y', '3Y', '5Y'].forEach(p => {
         if (CAT_ROLLING[p]) {
+            const r = CAT_ROLLING[p];
+            const fv = v => v != null ? v.toFixed(2)+'%' : '—';
             grid.innerHTML += `
               <div style="background:var(--bg-elevated);border-radius:8px;padding:12px">
                 <div style="font-size:12px;color:var(--text-muted);font-weight:600;margin-bottom:8px">${p} Rolling Stats</div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-                  <span style="color:var(--text-secondary)">Average</span><span style="font-weight:600">${CAT_ROLLING[p].avg.toFixed(2)}%</span>
+                  <span style="color:var(--text-secondary)">Average</span><span style="font-weight:600">${fv(r.avg)}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-                  <span style="color:var(--text-secondary)">Max / Min</span><span><span style="color:var(--success)">${CAT_ROLLING[p].max.toFixed(2)}%</span> / <span style="color:var(--danger)">${CAT_ROLLING[p].min.toFixed(2)}%</span></span>
+                  <span style="color:var(--text-secondary)">Median</span><span style="font-weight:600;color:var(--indigo-400)">${fv(r.median)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span style="color:var(--text-secondary)">Max / Min</span><span><span style="color:var(--success)">${fv(r.max)}</span> / <span style="color:var(--danger)">${fv(r.min)}</span></span>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:12px">
-                  <span style="color:var(--text-secondary)">% Positive</span><span style="color:var(--indigo-400);font-weight:600">${CAT_ROLLING[p].pos_pct.toFixed(1)}%</span>
+                  <span style="color:var(--text-secondary)">% Positive</span><span style="color:var(--indigo-400);font-weight:600">${r.pos_pct != null ? r.pos_pct.toFixed(1)+'%' : '—'}</span>
                 </div>
               </div>
             `;

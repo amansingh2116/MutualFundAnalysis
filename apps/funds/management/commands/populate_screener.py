@@ -22,13 +22,16 @@ Usage:
     python manage.py populate_screener --skip-home-dashboard  (skip populate_home_dashboard)
     python manage.py populate_screener --force-nav            (re-fetch NAV even if up to date)
     python manage.py populate_screener --force-metadata       (re-fetch metadata even if fresh)
+    python manage.py populate_screener --resume               (skip already-processed funds)
+    python manage.py populate_screener --resume-hours=24      (resume window in hours, default 24)
+    python manage.py populate_screener --start-from=120503    (skip all funds before this AMFI code)
 """
 import logging
 import time
 from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
-from django.db.models import Max
+from django.db.models import Max, Q
 
 from adapters.amfi_adapter import AMFIAdapter
 from adapters.captnemo_adapter import CaptnemoAdapter
@@ -53,7 +56,7 @@ class Command(BaseCommand):
             "--direct-growth-only",
             action="store_true",
             default=True,
-            help="Only process active Direct Growth schemes (default: True)",
+            help="Only process active Direct Growth schemes or ETFs (default: True)",
         )
         parser.add_argument("--skip-nav", action="store_true")
         parser.add_argument("--skip-metadata", action="store_true")
@@ -64,6 +67,24 @@ class Command(BaseCommand):
                             help="Skip populate_home_dashboard auto-call at end")
         parser.add_argument("--force-nav", action="store_true")
         parser.add_argument("--force-metadata", action="store_true")
+        parser.add_argument(
+            "--resume",
+            action="store_true",
+            help="Skip schemes already processed (FundScreenerSnapshot updated within --resume-hours).",
+        )
+        parser.add_argument(
+            "--resume-hours",
+            type=int,
+            default=24,
+            help="Hours within which a snapshot is considered 'already done' for --resume (default 24).",
+        )
+        parser.add_argument(
+            "--start-from",
+            type=str,
+            default=None,
+            dest="start_from",
+            help="Skip all schemes with amfi_code < this value (lexicographic). Useful for resuming from a specific point.",
+        )
 
     def handle(self, *args, **options):
         limit = options["limit"]
@@ -76,15 +97,37 @@ class Command(BaseCommand):
         skip_home_dashboard = options["skip_home_dashboard"]
         force_nav = options["force_nav"]
         force_metadata = options["force_metadata"]
+        do_resume = options["resume"]
+        resume_hours = options["resume_hours"]
+        start_from = options.get("start_from")
 
-        # Build queryset
-        qs = Scheme.objects.filter(is_active=True)
+        # Build queryset — always ordered by amfi_code for deterministic resume
+        qs = Scheme.objects.filter(is_active=True).order_by("amfi_code")
         if direct_growth_only:
-            qs = qs.filter(is_direct=True, plan="GROWTH")
+            qs = qs.filter(Q(is_direct=True, plan="GROWTH") | Q(is_etf=True))
         if amfi_code:
             qs = qs.filter(amfi_code=amfi_code)
+        if start_from:
+            qs = qs.filter(amfi_code__gte=start_from)
         if limit:
-            qs = qs[: limit]
+            qs = qs[:limit]
+
+        # Build resume set: amfi_codes already done within the past resume_hours
+        already_done: set[str] = set()
+        if do_resume:
+            from datetime import datetime as dt
+            from django.utils import timezone as tz
+            from apps.funds.models import FundScreenerSnapshot
+            cutoff_ts = tz.now() - timedelta(hours=resume_hours)
+            already_done = set(
+                FundScreenerSnapshot.objects
+                .filter(updated_at__gte=cutoff_ts)
+                .values_list("scheme__amfi_code", flat=True)
+            )
+            logger.info(
+                "Resume mode: %d schemes already done within last %dh — will skip them",
+                len(already_done), resume_hours,
+            )
 
         total = qs.count()
         self.stdout.write(self.style.MIGRATE_HEADING(
@@ -93,6 +136,8 @@ class Command(BaseCommand):
             f"meta={'SKIP' if skip_metadata else 'YES'} "
             f"analytics={'SKIP' if skip_analytics else 'YES'} "
             f"score={'SKIP' if skip_model_score else 'YES'}"
+            + (f" | RESUME ({len(already_done)} skip)" if do_resume else "")
+            + (f" | start-from={start_from}" if start_from else "")
         ))
 
         amfi_adapter = AMFIAdapter()
@@ -102,7 +147,17 @@ class Command(BaseCommand):
 
         nav_ok = nav_err = meta_ok = meta_err = meta_skip = analytics_ok = analytics_err = snap_ok = snap_err = score_ok = score_err = 0
 
+        failed_nav_amfis = set()
+        failed_meta_amfis = set()
+
+
         for index, scheme in enumerate(qs, 1):
+            # ── Resume: skip if already processed ────────────────────────────
+            if do_resume and scheme.amfi_code in already_done:
+                if index % 200 == 0:
+                    self.stdout.write(f"  [{index}/{total}] resuming — {len(already_done)} skipped so far")
+                continue
+
             # ── 1. NAV ingestion ──────────────────────────────────────────────
             if not skip_nav:
                 try:
@@ -141,10 +196,16 @@ class Command(BaseCommand):
                         # Save scheme_category from mfapi meta if currently blank
                         if meta_block:
                             _update_scheme_from_mfapi_meta(scheme, meta_block)
-                        nav_ok += 1
+                            
+                        if not history:
+                            failed_nav_amfis.add(scheme.amfi_code)
+                            nav_err += 1
+                        else:
+                            nav_ok += 1
                     else:
                         nav_ok += 1  # already up to date
                 except Exception as exc:
+                    failed_nav_amfis.add(scheme.amfi_code)
                     nav_err += 1
                     logger.error(f"[{scheme.amfi_code}] NAV ingest error: {exc}")
 
@@ -182,8 +243,10 @@ class Command(BaseCommand):
                             scheme.refresh_from_db()
                             meta_ok += 1
                         else:
+                            failed_meta_amfis.add(scheme.amfi_code)
                             meta_err += 1
                 except Exception as exc:
+                    failed_meta_amfis.add(scheme.amfi_code)
                     meta_err += 1
                     logger.error(f"[{scheme.amfi_code}] metadata ingest error: {exc}")
 
@@ -226,13 +289,91 @@ class Command(BaseCommand):
                     f"snap={snap_ok}({snap_err}err)"
                 )
 
+        # ── RETRY PHASE ────────────────────────────────────────────────────────
+        retry_amfis = failed_nav_amfis | failed_meta_amfis
+        final_failed = {}
+        if retry_amfis:
+            self.stdout.write(self.style.WARNING(f"\nRetrying {len(retry_amfis)} failed funds..."))
+            time.sleep(2)  # Pause before retry burst
+            
+            for amfi_code in retry_amfis:
+                scheme = Scheme.objects.get(amfi_code=amfi_code)
+                error_reasons = []
+                
+                # Retry NAV
+                if amfi_code in failed_nav_amfis:
+                    try:
+                        history, _ = _fetch_nav_and_meta(amfi_adapter, amfi_code)
+                        if history:
+                            # We just fetch. Since it failed completely before, we don't have to worry about partial cutoff matching as heavily here, 
+                            # but let's do a simple bulk create.
+                            new_rows = []
+                            for entry in history:
+                                entry_date = parse_amfi_date(entry.get("date", ""))
+                                if not entry_date: continue
+                                try:
+                                    nav_val = float(entry["nav"])
+                                    if nav_val > 0:
+                                        new_rows.append(NAVHistory(scheme=scheme, date=entry_date, nav=nav_val))
+                                except (ValueError, TypeError, KeyError):
+                                    continue
+                            if new_rows:
+                                NAVHistory.objects.bulk_create(new_rows, ignore_conflicts=True)
+                                latest_entry = sorted(new_rows, key=lambda r: r.date)[-1]
+                                Scheme.objects.filter(pk=scheme.pk).update(nav_latest=latest_entry.nav, nav_date=latest_entry.date)
+                            failed_nav_amfis.remove(amfi_code)
+                        else:
+                            error_reasons.append("NAV fetch returned empty")
+                    except Exception as exc:
+                        error_reasons.append(f"NAV exception: {exc}")
+                        
+                # Retry Metadata
+                if amfi_code in failed_meta_amfis:
+                    try:
+                        isin = scheme.isin_growth or scheme.isin_idcw
+                        fund_info = None
+                        if isin:
+                            fund_info = _fetch_captnemo_with_fallback(cap_adapter, isin, scheme.amfi_code)
+                        
+                        if fund_info:
+                            meta_fields = cap_adapter.extract_scheme_meta(fund_info)
+                            SchemeMeta.objects.update_or_create(scheme=scheme, defaults=meta_fields)
+                            update_fields = {}
+                            if meta_fields.get("expense_ratio") is not None: update_fields["expense_ratio"] = meta_fields["expense_ratio"]
+                            if meta_fields.get("aum") is not None: update_fields["aum_cr"] = meta_fields["aum"]
+                            if update_fields: Scheme.objects.filter(pk=scheme.pk).update(**update_fields)
+                            failed_meta_amfis.remove(amfi_code)
+                        else:
+                            error_reasons.append("Captnemo metadata empty after retry")
+                    except Exception as exc:
+                        error_reasons.append(f"Metadata exception: {exc}")
+                        
+                if error_reasons:
+                    final_failed[amfi_code] = {
+                        "name": getattr(scheme, 'scheme_name', ''),
+                        "reasons": error_reasons
+                    }
+                    
+            if final_failed:
+                import json
+                import os
+                from django.conf import settings
+                reports_dir = os.path.join(settings.MEDIA_ROOT, "reports")
+                os.makedirs(reports_dir, exist_ok=True)
+                report_path = os.path.join(reports_dir, "failed_funds_report.json")
+                with open(report_path, "w") as f:
+                    json.dump(final_failed, f, indent=2)
+                self.stdout.write(self.style.ERROR(f"Final failed funds: {len(final_failed)} -> Saved to {report_path}"))
+            else:
+                self.stdout.write(self.style.SUCCESS("All retries succeeded!"))
+
         self.stdout.write(self.style.SUCCESS(
-            f"\n=== populate_screener complete ===\n"
-            f"NAV:         ok={nav_ok}  err={nav_err}\n"
-            f"Metadata:    ok={meta_ok}  skip={meta_skip}  err={meta_err}\n"
-            f"Analytics:   ok={analytics_ok}  err={analytics_err}\n"
-            f"Snapshots:   ok={snap_ok}  err={snap_err}\n"
-            f"Model Score: ok={score_ok}  err={score_err}"
+            f"\nFinished populate_screener:\n"
+            f" NAV:   {nav_ok} OK, {nav_err} Error\n"
+            f" Meta:  {meta_ok} OK, {meta_skip} Skip, {meta_err} Error\n"
+            f" Anal:  {analytics_ok} OK, {analytics_err} Error\n"
+            f" Snap:  {snap_ok} OK, {snap_err} Error\n"
+            f" Score: {score_ok} OK, {score_err} Error\n"
         ))
 
         # ── Auto-call populate_home_dashboard ──────────────────────────────────

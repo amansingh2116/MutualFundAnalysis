@@ -1,3 +1,4 @@
+from django.db.models import Q
 """
 apps/funds/views.py — Core fund views
 """
@@ -43,7 +44,7 @@ class HomeView(TemplateView):
             latest_nav = NAVHistory.objects.order_by('-date').first()
             ctx['last_nav_date'] = latest_nav.date.strftime('%d %b %Y') if latest_nav else None
             ctx['categories'] = (
-                Scheme.objects.filter(is_active=True, is_direct=True, plan='GROWTH')
+                Scheme.objects.filter(Q(is_direct=True, plan='GROWTH') | Q(is_etf=True), is_active=True)
                 .values('scheme_category')
                 .annotate(count=Count('id'))
                 .order_by('-count')[:18]
@@ -119,7 +120,7 @@ class HomeView(TemplateView):
             from apps.funds.screener import SUB_CATEGORY_PATTERNS
             sub_cat_counts = dict(
                 FundScreenerSnapshot.objects
-                .filter(is_direct=True)
+                .filter(Q(is_direct=True) | Q(is_etf=True))
                 .values_list('scheme_sub_category')
                 .annotate(cnt=Count('id'))
             )
@@ -144,7 +145,7 @@ class HomeView(TemplateView):
         try:
             sub_cats = list(
                 FundScreenerSnapshot.objects
-                .filter(is_direct=True)
+                .filter(Q(is_direct=True) | Q(is_etf=True))
                 .exclude(scheme_sub_category='')
                 .values('scheme_sub_category')
                 .annotate(cnt=Count('id'))
@@ -157,7 +158,7 @@ class HomeView(TemplateView):
             # All distinct sub-categories for the dropdown
             ctx['all_sub_categories'] = list(
                 FundScreenerSnapshot.objects
-                .filter(is_direct=True)
+                .filter(Q(is_direct=True) | Q(is_etf=True))
                 .exclude(scheme_sub_category='')
                 .values('scheme_sub_category')
                 .annotate(cnt=Count('id'))
@@ -194,7 +195,7 @@ def home_category_funds(request):
     try:
         funds = list(
             FundScreenerSnapshot.objects
-            .filter(scheme_sub_category=sub_category, is_direct=True)
+            .filter(Q(is_direct=True) | Q(is_etf=True), scheme_sub_category=sub_category)
             .select_related('scheme')
             .order_by('rank_return_1y', 'fund_name')
             .only(
@@ -265,7 +266,7 @@ class CategoryListView(LoginRequiredMixin, TemplateView):
 
     def filtered_queryset(self):
         request = self.request
-        qs = FundScreenerSnapshot.objects.select_related('scheme').filter(is_direct=True)
+        qs = FundScreenerSnapshot.objects.select_related('scheme').filter(Q(is_direct=True) | Q(is_etf=True))
 
         q = request.GET.get('q', '').strip()
         if q:
@@ -327,7 +328,7 @@ class CategoryListView(LoginRequiredMixin, TemplateView):
         )
 
     def filter_options(self):
-        base = FundScreenerSnapshot.objects.filter(is_direct=True)
+        base = FundScreenerSnapshot.objects.filter(Q(is_direct=True) | Q(is_etf=True))
         return {
             'houses':          self.distinct_values(base, 'fund_house'),
             'categories':      self.distinct_values(base, 'category_group'),
@@ -563,7 +564,7 @@ class FundScreenerView(LoginRequiredMixin, TemplateView):
     def filtered_queryset(self):
         request = self.request
         # ── Base: Direct MFs and ETFs only ────────────────────────────────────
-        qs = FundScreenerSnapshot.objects.select_related('scheme').filter(is_direct=True)
+        qs = FundScreenerSnapshot.objects.select_related('scheme').filter(Q(is_direct=True) | Q(is_etf=True))
 
         q = request.GET.get('q', '').strip()
         if q:
@@ -689,7 +690,7 @@ class FundScreenerView(LoginRequiredMixin, TemplateView):
         return qs
 
     def filter_options(self):
-        base = FundScreenerSnapshot.objects.filter(is_direct=True)
+        base = FundScreenerSnapshot.objects.filter(Q(is_direct=True) | Q(is_etf=True))
         return {
             'houses':          self.distinct_values(base, 'fund_house'),
             'categories':      self.distinct_values(base, 'category_group'),
@@ -1190,7 +1191,7 @@ class ResearchCategoryDetailView(TemplateView):
         try:
             funds = list(
                 FundScreenerSnapshot.objects
-                .filter(scheme_sub_category=sub_category, is_direct=True)
+                .filter(Q(is_direct=True) | Q(is_etf=True), scheme_sub_category=sub_category)
                 .select_related('scheme')
                 .order_by('rank_return_1y', 'fund_name')
             )
@@ -1252,7 +1253,7 @@ def category_detail_funds_api(request, slug):
     try:
         funds = list(
             FundScreenerSnapshot.objects
-            .filter(scheme_sub_category=sub_category, is_direct=True)
+            .filter(Q(is_direct=True) | Q(is_etf=True), scheme_sub_category=sub_category)
             .select_related('scheme')
             .order_by('rank_return_1y', 'fund_name')
         )
@@ -1352,7 +1353,7 @@ class ResearchQuartilesView(TemplateView):
             # Category groups and sub-categories for filter dropdowns
             all_sub_cats = list(
                 FundScreenerSnapshot.objects
-                .filter(is_direct=True)
+                .filter(Q(is_direct=True) | Q(is_etf=True))
                 .exclude(scheme_sub_category='')
                 .values_list('scheme_sub_category', flat=True)
                 .distinct()
@@ -1362,7 +1363,7 @@ class ResearchQuartilesView(TemplateView):
             cat_group_map = {}
             for row in (
                 FundScreenerSnapshot.objects
-                .filter(is_direct=True)
+                .filter(Q(is_direct=True) | Q(is_etf=True))
                 .exclude(scheme_sub_category='')
                 .values('category_group', 'scheme_sub_category')
                 .distinct()
@@ -1488,7 +1489,7 @@ def quartile_rankings_api(request):
         # Always fetch ALL funds in sub-category for accurate quartile computation
         all_funds = list(
             FundScreenerSnapshot.objects
-            .filter(scheme_sub_category=sub_category, is_direct=True)
+            .filter(Q(is_direct=True) | Q(is_etf=True), scheme_sub_category=sub_category)
             .select_related('scheme')
             .order_by('fund_name')
         )

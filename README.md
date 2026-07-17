@@ -9,15 +9,18 @@
 ## Features
 
 ### Fund Research & Discovery
-- Browse and search across **14,000+ AMFI-registered schemes** with real-time AMFI cache fallback
+- Browse and search across **all Direct Growth mutual funds and all ETFs** (~2,000+ Direct Growth + ~300+ ETFs) with real-time AMFI cache fallback
 - Full **fund detail pages** with NAV history, metadata, and analytics
 - **Performance**: Calendar-year returns, trailing returns (1M, 3M, 6M, 1Y, 3Y, 5Y, Max)
 - **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Quarterly Performance Analysis
 - **Rolling return distributions** with win rates, medians, and min/max ranges
 - **Composition**: Holdings, sector allocation, and asset allocation from Morningstar
-- **Advanced Fund Screener** *(login required)*: Filter, sort, and export 2,500+ direct-growth funds across 30+ metrics — see [SCREENER.md](documentation/SCREENER.md) for a full feature guide
+- **Advanced Fund Screener** *(login required)*: Filter, sort, and export across the complete Direct Growth + ETF universe on 30+ metrics — see [SCREENER.md](documentation/SCREENER.md) for a full feature guide
   - **30+ filterable metrics** across Returns, Risk, and Relative Stats (Sharpe, Sortino, Alpha, Beta, Tracking Error, Capture Ratios, ROMAD, and more)
-  - **Add Filters panel**: optional metrics (Fund House, Benchmark, CRISIL Rating, etc.) added as interactive sidebar sections
+  - **Returns vs Sub-Category** (Excess Category Returns) filters for 1Y, 3Y, 5Y, and 7Y — compare how much a fund beats or lags its sub-category average
+  - **Median Rolling Returns** (1Y, 3Y, 5Y, 7Y) filter group with range sliders
+  - **Category Peer Metrics** filter group: Avg Alpha, Beta, Expense Ratio, and Portfolio Turnover range filters
+  - **Add Filters panel**: optional metrics added as interactive sidebar sections
   - **Active Filters popover**: click the filter badge to see, edit, or remove any active filter in-place — range metrics show editable inputs; categorical metrics show interactive multi-select dropdowns
   - **Saved Screens**: save any filter+view configuration by name; load, overwrite, or manage saved screens from the toolbar
   - **ⓘ Info tooltips** on every filter, every column header, and every metric in the Add Filters panel
@@ -30,6 +33,10 @@
   - ⓘ info tooltips on every metric column header explaining direction and interpretation
   - Ranks are always computed on the **full cohort** — searching/filtering only changes which rows are displayed, not the rank values
 - **Home Page Dashboard**: Category Return Meter, Category Analysis, Quartile Rankings preview, and a comprehensive **Benchmark Monitor** (inspired by [AdvisorKhoj](https://www.advisorkhoj.com/mutual-funds-research/mutual-fund-benchmark-monitor))
+  - **Category Return Meter**: Rolling Returns table now includes 1Y/3Y/5Y Median and 1Y/3Y/5Y Minimum rolling return columns with ⓘ tooltips
+  - **Category Analysis**: Avg and Median metric boxes for Alpha (3Y), Beta (3Y), Expense Ratio, and Portfolio Turnover — all wired to `CategorySnapshot` with ⓘ tooltips
+  - **Category Analysis** correctly excludes funds with less than 1 year of NAV history from all aggregate metrics — young funds still appear in category fund lists but do not skew category averages, medians, or risk measures
+  - **Benchmark Monitor**: Rolling Returns table includes 1Y/3Y/5Y Avg, Median, Min, and Max columns
 - **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
 - **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
 - **Peer Comparison**: Scored India-focused peer matching by fund fingerprint, plan type, category, sector/theme, and AUM ranking
@@ -330,8 +337,10 @@ python manage.py populate_benchmark_returns
 #    Use --limit=100 for a quick test run
 python manage.py populate_screener --limit=100
 
-# Full run (takes 30–60 min for ~2,500 direct-growth funds)
+# Full run (takes several hours for ~3,000 direct-growth funds + ETFs)
+# Use --resume to skip already-processed funds after an interruption
 python manage.py populate_screener
+python manage.py populate_screener --resume  # safe restart after Ctrl+C
 ```
 
 ### 8. Run Tests

@@ -58,16 +58,21 @@ def build_category_snapshot(sub_category: str) -> CategorySnapshot | None:
     Compute aggregates for one sub-category and upsert CategorySnapshot.
     Returns the saved object or None if no data.
     """
-    qs = FundScreenerSnapshot.objects.filter(
+    from django.db.models import Q
+    qs_all = FundScreenerSnapshot.objects.filter(
+        Q(is_direct=True) | Q(is_etf=True),
         scheme_sub_category=sub_category,
-        is_direct=True,
     )
-    count = qs.count()
+    count = qs_all.count()
     if count == 0:
         return None
 
     # First row for metadata
-    first = qs.values("category_group", "benchmark_name", "data_as_of").first()
+    first = qs_all.values("category_group", "benchmark_name", "data_as_of").first()
+
+    # EXCLUDE funds with < 1 year of NAV history from ALL mathematical aggregates
+    # so they do not skew the category median, average, rolling returns, or risk scores.
+    qs = qs_all.filter(fund_age_years__gte=1.0)
 
     # ── Aggregate returns ──────────────────────────────────────────────────
     agg = qs.aggregate(
@@ -167,22 +172,39 @@ def build_category_snapshot(sub_category: str) -> CategorySnapshot | None:
         if vals:
             trailing_data[label] = round(float(np.mean([float(v) for v in vals])), 2)
 
-    # ── Rolling Returns (from screener snapshot rolling_returns_json) ─────────────
+    # ── Rolling Returns (from screener snapshot rolling_returns_json) ───────────────────────
     rolling_data = {}
     all_rolling = list(qs.values_list("rolling_returns_json", flat=True))
     for period in ("1Y", "3Y", "5Y"):
-        avgs = [r.get(period, {}).get("avg") for r in all_rolling if r and r.get(period) and r[period].get("avg") is not None]
-        maxs = [r.get(period, {}).get("max") for r in all_rolling if r and r.get(period) and r[period].get("max") is not None]
-        mins = [r.get(period, {}).get("min") for r in all_rolling if r and r.get(period) and r[period].get("min") is not None]
-        pos = [r.get(period, {}).get("pos_pct") for r in all_rolling if r and r.get(period) and r[period].get("pos_pct") is not None]
-        
+        avgs    = [r.get(period, {}).get("avg")     for r in all_rolling if r and r.get(period) and r[period].get("avg")     is not None]
+        maxs    = [r.get(period, {}).get("max")     for r in all_rolling if r and r.get(period) and r[period].get("max")     is not None]
+        mins    = [r.get(period, {}).get("min")     for r in all_rolling if r and r.get(period) and r[period].get("min")     is not None]
+        medians = [r.get(period, {}).get("median")  for r in all_rolling if r and r.get(period) and r[period].get("median")  is not None]
+        pos     = [r.get(period, {}).get("pos_pct") for r in all_rolling if r and r.get(period) and r[period].get("pos_pct") is not None]
+
         if avgs:
             rolling_data[period] = {
-                "avg": round(float(np.mean(avgs)), 2),
-                "max": round(float(np.mean(maxs)), 2) if maxs else None,
-                "min": round(float(np.mean(mins)), 2) if mins else None,
-                "pos_pct": round(float(np.mean(pos)), 1) if pos else None,
+                "avg":     round(float(np.mean(avgs)),    2),
+                "max":     round(float(np.mean(maxs)),    2) if maxs    else None,
+                "min":     round(float(np.mean(mins)),    2) if mins    else None,
+                "median":  round(float(np.mean(medians)), 2) if medians else None,
+                "pos_pct": round(float(np.mean(pos)),     1) if pos     else None,
             }
+
+    # ── Alpha / Beta / Expense / Turnover aggregates ───────────────────────────────
+    alpha_vals   = [float(v) for v in qs.exclude(alpha_3y__isnull=True).values_list("alpha_3y",         flat=True)]
+    beta_vals    = [float(v) for v in qs.exclude(beta_3y__isnull=True).values_list("beta_3y",          flat=True)]
+    expense_vals = [float(v) for v in qs.exclude(expense_ratio__isnull=True).values_list("expense_ratio", flat=True)]
+    turnover_vals = [float(v) for v in qs.exclude(portfolio_turnover__isnull=True).values_list("portfolio_turnover", flat=True)]
+
+    avg_alpha    = float(np.mean(alpha_vals))    if alpha_vals    else None
+    med_alpha    = float(np.median(alpha_vals))  if alpha_vals    else None
+    avg_beta     = float(np.mean(beta_vals))     if beta_vals     else None
+    med_beta     = float(np.median(beta_vals))   if beta_vals     else None
+    avg_expense  = float(np.mean(expense_vals))  if expense_vals  else None
+    med_expense  = float(np.median(expense_vals))if expense_vals  else None
+    avg_turnover = float(np.mean(turnover_vals)) if turnover_vals else None
+    med_turnover = float(np.median(turnover_vals))if turnover_vals else None
 
     obj, _ = CategorySnapshot.objects.update_or_create(
         scheme_sub_category=sub_category,
@@ -210,6 +232,14 @@ def build_category_snapshot(sub_category: str) -> CategorySnapshot | None:
             "avg_sharpe_5y":         _d(agg["avg_sharpe_5y"]),
             "avg_sortino_5y":        _d(agg["avg_sortino_5y"]),
             "avg_max_drawdown_5y":   _d(agg["avg_drawdown_5y"]),
+            "avg_alpha_3y":          _d(avg_alpha),
+            "median_alpha_3y":       _d(med_alpha),
+            "avg_beta_3y":           _d(avg_beta),
+            "median_beta_3y":        _d(med_beta),
+            "avg_expense_ratio":     _d(avg_expense),
+            "median_expense_ratio":  _d(med_expense),
+            "avg_turnover":          _d(avg_turnover),
+            "median_turnover":       _d(med_turnover),
             "avg_model_score":       _d1(avg_score),
             "pct_strong":            _d1(pct_strong),
             "pct_good":              _d1(pct_good),
@@ -259,9 +289,10 @@ class Command(BaseCommand):
         # (especially SQLite without an ORDER BY), distinct() on flat values_list may
         # return duplicates, which causes the dashboard to process the same category
         # thousands of times unnecessarily.
+        from django.db.models import Q
         qs = (
             FundScreenerSnapshot.objects
-            .filter(is_direct=True)
+            .filter(Q(is_direct=True) | Q(is_etf=True))
             .exclude(scheme_sub_category="")
         )
         if category_filter:

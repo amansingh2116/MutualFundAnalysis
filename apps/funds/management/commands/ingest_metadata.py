@@ -55,8 +55,12 @@ class Command(BaseCommand):
         cap_adapter  = CaptnemoAdapter()
         ms_adapter   = MstarpyAdapter() if not skip_mstarpy else None
 
+        from django.db.models import Q
         # Build queryset
-        qs = Scheme.objects.filter(is_direct=True, plan='GROWTH', is_active=True)
+        qs = Scheme.objects.filter(
+            Q(is_direct=True, plan='GROWTH') | Q(is_etf=True),
+            is_active=True
+        )
         if amfi_code:
             qs = qs.filter(amfi_code=amfi_code)
         if limit:

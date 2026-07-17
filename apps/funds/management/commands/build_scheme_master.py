@@ -23,7 +23,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from adapters.amfi_adapter import AMFIAdapter
 from apps.funds.models import Scheme
-from apps.core.utils import parse_amfi_date, is_direct_scheme, is_growth_scheme
+from apps.core.utils import parse_amfi_date, is_direct_scheme, is_growth_scheme, is_etf_scheme
 
 logger = logging.getLogger('mfanalysis')
 
@@ -37,17 +37,12 @@ class Command(BaseCommand):
             help='Parse and count schemes without writing to DB',
         )
         parser.add_argument(
-            '--direct-only', action='store_true',
-            help='Only import Direct plan schemes',
-        )
-        parser.add_argument(
             '--limit', type=int, default=None,
             help='Limit import to first N schemes (for testing)',
         )
 
     def handle(self, *args, **options):
         dry_run     = options['dry_run']
-        direct_only = options['direct_only']
         limit       = options['limit']
 
         self.stdout.write(self.style.MIGRATE_HEADING(
@@ -63,10 +58,15 @@ class Command(BaseCommand):
 
         self.stdout.write(f"  Fetched {len(raw_schemes)} raw scheme rows from AMFI")
 
-        # Apply filters
-        if direct_only:
-            raw_schemes = [s for s in raw_schemes if is_direct_scheme(s['scheme_name'])]
-            self.stdout.write(f"  After direct-only filter: {len(raw_schemes)} schemes")
+        # Strictly filter for Direct Growth OR ETFs (User Request)
+        filtered_schemes = []
+        for s in raw_schemes:
+            name = s['scheme_name']
+            if is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name)):
+                filtered_schemes.append(s)
+        
+        raw_schemes = filtered_schemes
+        self.stdout.write(f"  After Direct Growth / ETF filter: {len(raw_schemes)} schemes")
 
         if limit:
             raw_schemes = raw_schemes[:limit]
@@ -99,6 +99,7 @@ class Command(BaseCommand):
                 except (ValueError, TypeError):
                     nav_val = None
 
+                etf = is_etf_scheme(scheme_name)
                 defaults = {
                     'isin_growth':   raw.get('isin_growth'),
                     'isin_idcw':     raw.get('isin_idcw'),
@@ -108,6 +109,7 @@ class Command(BaseCommand):
                     'scheme_category': '',   # will be filled by ingest_metadata
                     'plan':          plan,
                     'is_direct':     is_direct,
+                    'is_etf':        etf,
                     'is_active':     True,
                     'nav_latest':    nav_val,
                     'nav_date':      nav_date,

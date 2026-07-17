@@ -15,9 +15,10 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help="Count target schemes without writing snapshots")
 
     def handle(self, *args, **options):
+        from django.db.models import Q
         qs = Scheme.objects.filter(is_active=True).select_related("meta")
         if options["direct_growth_only"]:
-            qs = qs.filter(is_direct=True, plan="GROWTH")
+            qs = qs.filter(Q(is_direct=True, plan="GROWTH") | Q(is_etf=True))
         if options["amfi"]:
             qs = qs.filter(amfi_code=options["amfi"])
         if options["limit"]:

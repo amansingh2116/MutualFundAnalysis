@@ -121,6 +121,11 @@ def is_growth_scheme(scheme_name: str) -> bool:
     return 'growth' in name and 'idcw' not in name and 'dividend' not in name
 
 
+def is_etf_scheme(scheme_name: str) -> bool:
+    """Detect if a scheme is an ETF."""
+    return 'etf' in scheme_name.lower()
+
+
 def latest_month_date() -> date:
     """Return the first day of the current month — used for holdings queries."""
     today = date.today()

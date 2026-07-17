@@ -28,6 +28,23 @@ from django.conf import settings
 
 logger = logging.getLogger('mfanalysis.analytics')
 
+
+def _sn(value) -> "float | None":
+    """Safe-number: return None for NaN / Inf, otherwise return the float.
+    
+    Django DecimalFields raise decimal.InvalidOperation when given float('nan')
+    or float('inf'), so we sanitize every computed metric before the ORM save.
+    """
+    if value is None:
+        return None
+    try:
+        f = float(value)
+        if math.isfinite(f):
+            return f
+        return None
+    except (TypeError, ValueError):
+        return None
+
 # ── Constants ──────────────────────────────────────────────────────────────────
 TRADING_DAYS = 252
 RF_ANNUAL    = getattr(settings, 'RF_ANNUAL_RATE', 0.065)
@@ -80,8 +97,7 @@ def compute_all_metrics(scheme) -> None:
         return
 
     if len(nav) < TRADING_DAYS:
-        logger.info(f"[{scheme.amfi_code}] Insufficient NAV history ({len(nav)} days) — skipping")
-        return
+        logger.info(f"[{scheme.amfi_code}] Fund has short history ({len(nav)} days) — computing partial analytics")
 
     try:
         bm = _load_benchmark_series(scheme, nav)
@@ -184,7 +200,11 @@ def _compute_trailing_returns(scheme, nav: pd.Series, bm: Optional[pd.Series]) -
 
     for label, days in TRAILING_PERIODS.items():
         cutoff = today - pd.Timedelta(days=days)
-        sub    = nav[nav.index >= cutoff]
+        # Skip this period if fund hasn't been active this long
+        if nav.index[0] > cutoff:
+            continue
+            
+        sub = nav[nav.index >= cutoff]
         if len(sub) < 5:
             continue
         years     = days / 365.25
@@ -321,6 +341,10 @@ def _compute_risk_metrics(scheme, nav: pd.Series, bm: Optional[pd.Series]) -> No
 
     for label, cal_days in RISK_PERIODS.items():
         cutoff  = nav.index[-1] - pd.Timedelta(days=cal_days)
+        # Skip if the fund hasn't been active for this full period
+        if nav.index[0] > cutoff:
+            continue
+            
         nav_sub = nav[nav.index >= cutoff]
         if len(nav_sub) < 126:   # need minimum 6 months
             continue
@@ -396,17 +420,17 @@ def _save_risk_period(scheme, label, cal_days, nav_sub, bm, today, rf_d, rf, cut
         scheme=scheme, period=label, as_of=today,
         defaults=dict(
             period_days     = cal_days,
-            std_dev_ann     = std_ann,
-            sharpe_ratio    = sharpe,
-            sortino_ratio   = sortino,
-            max_drawdown    = max_dd,
-            beta            = beta,
-            alpha_ann       = alpha,
-            r_squared       = r_sq,
-            upside_capture  = up_cap,
-            downside_capture= dn_cap,
-            tracking_error  = track_err,
-            info_ratio      = info_ratio,
+            std_dev_ann     = _sn(std_ann),
+            sharpe_ratio    = _sn(sharpe),
+            sortino_ratio   = _sn(sortino),
+            max_drawdown    = _sn(max_dd),
+            beta            = _sn(beta),
+            alpha_ann       = _sn(alpha),
+            r_squared       = _sn(r_sq),
+            upside_capture  = _sn(up_cap),
+            downside_capture= _sn(dn_cap),
+            tracking_error  = _sn(track_err),
+            info_ratio      = _sn(info_ratio),
             rf_rate_used    = rf,
         )
     )

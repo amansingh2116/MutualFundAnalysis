@@ -7,6 +7,7 @@ import logging
 import math
 import re
 
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.benchmarks.registry import BENCHMARK_DEFINITIONS, benchmark_for, infer_category
@@ -136,6 +137,13 @@ def refresh_snapshot_for_scheme(scheme):
                 "pos_pct": float(row.win_rate_0) if row.win_rate_0 is not None else None,
             }
 
+    # Flatten rolling medians into scalar DB columns for screener range filtering
+    def _rolling_median(period_key):
+        entry = rolling_returns_json.get(period_key)
+        if entry and entry.get("median") is not None:
+            return _decimal(entry["median"])
+        return None
+
     risk_1y = latest_risk.get("1Y")
     risk_3y = latest_risk.get("3Y")
     risk_5y = latest_risk.get("5Y")
@@ -244,10 +252,26 @@ def refresh_snapshot_for_scheme(scheme):
             port_cash_pct = _decimal(cash_w)
             port_other_pct = _decimal(other_w)
     
-    # ── Category Standard Deviation ───────────────────────────────────────────
+    # ── Category Standard Deviation & Excess vs Category ─────────────────────
     from apps.funds.models import CategorySnapshot
     cat_snap = CategorySnapshot.objects.filter(scheme_sub_category=sub_category).first()
     category_st_dev = _decimal(cat_snap.avg_volatility if cat_snap else None)
+
+    # Excess returns vs sub-category average (fund CAGR - category avg CAGR)
+    fund_1y = _decimal(getattr(trailing_1y, 'cagr_pct', None) or getattr(meta, 'returns_1y', None))
+    fund_3y = _decimal(getattr(trailing_3y, 'cagr_pct', None) or getattr(meta, 'returns_3y', None))
+    fund_5y = _decimal(getattr(trailing_5y, 'cagr_pct', None) or getattr(meta, 'returns_5y', None))
+    fund_7y = _decimal(getattr(trailing_7y, 'cagr_pct', None))
+
+    def _excess_vs_cat(fund_val, cat_avg_val):
+        if fund_val is not None and cat_avg_val is not None:
+            return _decimal(float(fund_val) - float(cat_avg_val))
+        return None
+
+    excess_cat_1y = _excess_vs_cat(fund_1y, _decimal(cat_snap.avg_return_1y if cat_snap else None))
+    excess_cat_3y = _excess_vs_cat(fund_3y, _decimal(cat_snap.avg_return_3y if cat_snap else None))
+    excess_cat_5y = _excess_vs_cat(fund_5y, _decimal(cat_snap.avg_return_5y if cat_snap else None))
+    excess_cat_7y = _excess_vs_cat(fund_7y, _decimal(cat_snap.avg_return_7y if cat_snap and hasattr(cat_snap, 'avg_return_7y') else None))
 
     # ── SchemeMeta fields ─────────────────────────────────────────────────────
     fund_manager_str   = getattr(meta, "fund_manager",       "") or ""
@@ -346,10 +370,10 @@ def refresh_snapshot_for_scheme(scheme):
             # ── Excess returns ────────────────────────────────────────────────
             "excess_return_1y":    excess_1y,
             "excess_return_3y":    excess_3y,
-            "excess_cat_1y":       None,
-            "excess_cat_3y":       None,
-            "excess_cat_5y":       None,
-            "excess_cat_7y":       None,
+            "excess_cat_1y":       excess_cat_1y,
+            "excess_cat_3y":       excess_cat_3y,
+            "excess_cat_5y":       excess_cat_5y,
+            "excess_cat_7y":       excess_cat_7y,
             # ── Portfolio Concentration ───────────────────────────────────────
             "port_equity_pct":         port_equity_pct,
             "port_debt_pct":           port_debt_pct,
@@ -377,9 +401,13 @@ def refresh_snapshot_for_scheme(scheme):
             # ── Model score ───────────────────────────────────────────────────
             "model_score":         model_score_val,
             "model_score_badge":   model_badge_val,
-            # ── Rolling returns JSON (now includes 7Y) ────────────────────────
-            "rolling_returns_json":  rolling_returns_json,
-            "calendar_returns_json": calendar_returns_json,
+            # ── Rolling returns JSON + flattened medians for filtering ─────────
+            "rolling_returns_json":   rolling_returns_json,
+            "rolling_median_1y_pct":  _rolling_median("1Y"),
+            "rolling_median_3y_pct":  _rolling_median("3Y"),
+            "rolling_median_5y_pct":  _rolling_median("5Y"),
+            "rolling_median_7y_pct":  _rolling_median("7Y"),
+            "calendar_returns_json":  calendar_returns_json,
             # ── Provenance ────────────────────────────────────────────────────
             "data_as_of":        data_as_of,
             "nav_as_of":         latest_nav_date,
@@ -667,11 +695,13 @@ def compute_quartile_ranks_for_category(sub_category: str) -> int:
     snapshots = list(
         FundScreenerSnapshot.objects.filter(
             scheme_sub_category=sub_category,
-            is_direct=True,
+        ).filter(
+            Q(is_direct=True) | Q(is_etf=True)
         ).select_related('scheme').only(
             'id', 'scheme_id',
             'returns_1y_pct', 'returns_3y_pct', 'returns_5y_pct',
             'volatility_3y_pct', 'sharpe_ratio', 'sortino_ratio',
+            'alpha_3y', 'beta_3y', 'expense_ratio', 'portfolio_turnover',
         )
     )
     if not snapshots:
@@ -685,6 +715,25 @@ def compute_quartile_ranks_for_category(sub_category: str) -> int:
         FundModelScore.objects.filter(scheme_id__in=scheme_ids)
         .values_list('scheme_id', 'final_score')
     )
+
+    # Compute category-level averages for category_* fields
+    def _safe_mean(vals):
+        clean = [v for v in vals if v is not None]
+        return float(np.mean(clean)) if clean else None
+
+    def _safe_decimal(v):
+        if v is None:
+            return None
+        try:
+            from decimal import Decimal
+            return Decimal(f"{float(v):.4f}")
+        except Exception:
+            return None
+
+    cat_alpha   = _safe_mean([getattr(s, 'alpha_3y',          None) for s in snapshots])
+    cat_beta    = _safe_mean([getattr(s, 'beta_3y',           None) for s in snapshots])
+    cat_expense = _safe_mean([getattr(s, 'expense_ratio',     None) for s in snapshots])
+    cat_turn    = _safe_mean([getattr(s, 'portfolio_turnover', None) for s in snapshots])
 
     def _float_or_nan(val):
         if val is None:
@@ -757,6 +806,11 @@ def compute_quartile_ranks_for_category(sub_category: str) -> int:
         snap.rank_return_3y       = ranks_3y[i]
         snap.rank_return_5y       = ranks_5y[i]
         snap.rank_count_in_cat    = n
+        # Category peer metrics stamped on each fund
+        snap.category_alpha_3y      = _safe_decimal(cat_alpha)
+        snap.category_beta_3y       = _safe_decimal(cat_beta)
+        snap.category_expense_ratio = _safe_decimal(cat_expense)
+        snap.category_turnover      = _safe_decimal(cat_turn)
         to_update.append(snap)
 
     FundScreenerSnapshot.objects.bulk_update(
@@ -767,6 +821,8 @@ def compute_quartile_ranks_for_category(sub_category: str) -> int:
             'quartile_model_score',
             'rank_return_1y', 'rank_return_3y', 'rank_return_5y',
             'rank_count_in_cat',
+            'category_alpha_3y', 'category_beta_3y',
+            'category_expense_ratio', 'category_turnover',
         ],
         batch_size=200,
     )

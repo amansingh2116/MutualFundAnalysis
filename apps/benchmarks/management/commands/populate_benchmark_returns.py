@@ -182,11 +182,13 @@ def compute_returns_for_index(index: BenchmarkIndex) -> dict | None:
             return None
         
         avg_ret = float(rolls.mean())
+        med_ret = float(rolls.median())
         max_ret = float(rolls.max())
         min_ret = float(rolls.min())
         pos_pct = float((rolls > 0).sum() / len(rolls) * 100)
         return {
             "avg": float(f"{avg_ret:.2f}"),
+            "median": float(f"{med_ret:.2f}"),
             "max": float(f"{max_ret:.2f}"),
             "min": float(f"{min_ret:.2f}"),
             "pos_pct": float(f"{pos_pct:.1f}"),
