@@ -1221,6 +1221,18 @@ class ResearchCategoryDetailView(TemplateView):
                     .order_by('scheme_sub_category')
                     .values('scheme_sub_category', 'fund_count')
                 )
+            
+            # All categories with pre-computed slugs for the dropdown menu
+            all_snaps = CategorySnapshot.objects.order_by('category_group', 'scheme_sub_category').values('scheme_sub_category', 'fund_count', 'category_group')
+            all_categories = []
+            for snap_dict in all_snaps:
+                all_categories.append({
+                    'scheme_sub_category': snap_dict['scheme_sub_category'],
+                    'fund_count': snap_dict['fund_count'],
+                    'category_group': snap_dict['category_group'],
+                    'slug': _make_slug(snap_dict['scheme_sub_category'])
+                })
+            ctx['all_categories'] = all_categories
         except Exception as exc:
             logger.warning('ResearchCategoryDetailView error: %s', exc)
             ctx['funds'] = []

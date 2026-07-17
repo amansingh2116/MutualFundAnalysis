@@ -2,6 +2,54 @@
 {% block title %}{{ sub_category }} — Category Deep Dive{% endblock %}
 {% block meta_description %}Full fund analysis for {{ sub_category }} mutual funds — returns, risk, fees, and rankings.{% endblock %}
 
+{% block extra_head %}
+<style>
+/* Sticky tables */
+#table-container {
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.data-table {
+  border-collapse: separate; /* Fixes sticky background bleeding bug */
+  border-spacing: 0;
+}
+.data-table tbody td {
+  border-bottom: 1px solid var(--border);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Sticky headers and first column for tables */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-card);
+  z-index: 20;
+  box-shadow: 0 1px 0 var(--border);
+  border-bottom: none;
+}
+.data-table tbody td:first-child,
+.data-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  background-color: var(--bg-card);
+  background-clip: padding-box;
+  z-index: 21;
+  box-shadow: 1px 0 0 var(--border);
+}
+.data-table thead th:first-child {
+  z-index: 22;
+  box-shadow: 1px 1px 0 var(--border);
+}
+.data-table tbody tr:hover td:first-child {
+  background-color: var(--bg-elevated);
+}
+</style>
+{% endblock %}
+
 {% block content %}
 {% if error %}
 <div class="empty-state" style="padding:60px 24px;text-align:center">
@@ -26,13 +74,20 @@
       {% if category_snap %} · {{ category_snap.category_group }}{% endif %}
     </p>
   </div>
-  {% if peer_categories %}
+  {% if all_categories %}
   <div>
     <select onchange="if(this.value) window.location='/research/categories/'+this.value+'/';"
             style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px">
       <option value="">Switch category…</option>
-      {% for pc in peer_categories %}
-      <option value="{{ pc.scheme_sub_category|lower|slugify }}">{{ pc.scheme_sub_category }} ({{ pc.fund_count }})</option>
+      {% regroup all_categories by category_group as grouped_categories %}
+      {% for group in grouped_categories %}
+      <optgroup label="{{ group.grouper }}">
+        {% for cat in group.list %}
+        <option value="{{ cat.slug }}" {% if cat.scheme_sub_category == sub_category %}selected{% endif %}>
+          {{ cat.scheme_sub_category }} ({{ cat.fund_count }})
+        </option>
+        {% endfor %}
+      </optgroup>
       {% endfor %}
     </select>
   </div>
@@ -68,15 +123,61 @@ const metrics = [
   ['Avg Max Drawdown', CAT_SNAP.avg_drawdown, '%', 'var(--danger)'],
   ['Avg Model Score', CAT_SNAP.avg_score, '/100', 'var(--indigo-400)'],
 ];
+const STRIP_TOOLTIPS = {
+  'Avg 1Y Return': {
+    title: 'Average 1Y Return',
+    what: 'The average 1-year trailing absolute return of all funds in this category.',
+    interp: 'Shows the average short-term performance of the category.'
+  },
+  'Avg 3Y CAGR': {
+    title: 'Average 3Y CAGR',
+    what: 'The average 3-year Compound Annual Growth Rate of all funds in this category.',
+    interp: 'Indicates the average medium-term compound performance of the category.'
+  },
+  'Avg 5Y CAGR': {
+    title: 'Average 5Y CAGR',
+    what: 'The average 5-year Compound Annual Growth Rate of all funds in this category.',
+    interp: 'Indicates the average long-term compound performance of the category.'
+  },
+  'Avg Volatility': {
+    title: 'Average Volatility',
+    what: 'The average annualised standard deviation of returns of all funds in this category.',
+    interp: 'Measures the general risk level of the category. Higher values mean larger price fluctuations.'
+  },
+  'Avg Sharpe': {
+    title: 'Average Sharpe',
+    what: 'The average Sharpe Ratio of all funds in this category over the last 3 years.',
+    interp: 'Represents risk-adjusted return. Higher is better, showing more return generated per unit of risk.'
+  },
+  'Avg Max Drawdown': {
+    title: 'Average Max Drawdown',
+    what: 'The average maximum peak-to-trough drop of all funds in this category.',
+    interp: 'Indicates the historical worst-case average loss of the category during downturns.'
+  },
+  'Avg Model Score': {
+    title: 'Average Model Score',
+    what: 'The average Antigravity score (0-100) of funds in this category.',
+    interp: 'A higher category average score indicates better overall quality of funds within this category.'
+  }
+};
+
 const strip = document.getElementById('cat-summary-strip');
 metrics.forEach(([label, val, suffix, color]) => {
   if (val === null) return;
+  const tooltipInfo = STRIP_TOOLTIPS[label];
+  const btnHtml = tooltipInfo ? ` <button type="button" class="info-btn" aria-label="Info" data-t-title="${tooltipInfo.title}" data-t-what="${tooltipInfo.what}" data-t-interp="${tooltipInfo.interp}">ⓘ</button>` : '';
   strip.innerHTML += `
     <div style="background:var(--surface-2);border-radius:10px;padding:14px;border:1px solid var(--border)">
-      <div style="font-size:11px;color:var(--text-muted)">${label}</div>
-      <div style="font-size:22px;font-weight:800;color:${color}">${val.toFixed(2)}${suffix}</div>
+      <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;justify-content:space-between">
+        <span>${label}</span>
+        ${btnHtml}
+      </div>
+      <div style="font-size:22px;font-weight:800;color:${color};margin-top:6px">${val.toFixed(2)}${suffix}</div>
     </div>`;
 });
+if (window.initInfoTooltips) {
+  window.initInfoTooltips(strip);
+}
 </script>
 {% endif %}
 
@@ -136,13 +237,57 @@ let currentReturnsSubTab = 'trailing';
 let currentData = [];
 
 const HEADERS = {
-  snapshot: ['Fund Name', 'Fund House', 'Score <button type="button" class="info-btn" aria-label="Info" data-t-title="Score" data-t-what="Antigravity Proprietary Fund Score (0-100)">&#9432;</button>', 'Rating', '1Y Rank', 'Risk', 'AUM (Cr)', 'Expense%'],
-  returns_trailing: ['Fund Name', '1W%', '1M%', '3M%', '6M%', '1Y%', '3Y% CAGR', '5Y% CAGR', '1Y Rank'],
+  snapshot: [
+    'Fund Name',
+    'Fund House',
+    'Score <button type="button" class="info-btn" aria-label="Info" data-t-title="Score" data-t-what="Antigravity Proprietary Fund Score (0-100)" data-t-interp="A higher score indicates a historically superior performer relative to risk and fees.">ⓘ</button>',
+    'Rating <button type="button" class="info-btn" aria-label="Info" data-t-title="Rating" data-t-what="CRISIL Mutual Fund Rating (1-5 Stars)" data-t-interp="A higher rating indicates a better performing fund in its category.">ⓘ</button>',
+    '1Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Rank" data-t-what="Percentile rank of the fund based on 1-year performance relative to peers." data-t-interp="A lower rank/total (e.g. 1/15) is better.">ⓘ</button>',
+    'Risk <button type="button" class="info-btn" aria-label="Info" data-t-title="Risk" data-t-what="Riskometer level defined by AMFI guidelines (Low to Very High)." data-t-interp="Shows the risk tier of the underlying assets.">ⓘ</button>',
+    'AUM (Cr) <button type="button" class="info-btn" aria-label="Info" data-t-title="AUM" data-t-what="Assets Under Management (in Crores) representing the total size of the fund." data-t-interp="Higher AUM implies larger scale and liquidity.">ⓘ</button>',
+    'Expense% <button type="button" class="info-btn" aria-label="Info" data-t-title="Expense%" data-t-what="Annual fee charged by the scheme to manage your investment." data-t-interp="Lower expense ratio is better as it leaves more return for you.">ⓘ</button>'
+  ],
+  returns_trailing: [
+    'Fund Name',
+    '1W% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Week Return" data-t-what="Trailing 1-week absolute return of this fund." data-t-interp="Represents very short-term momentum.">ⓘ</button>',
+    '1M% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Month Return" data-t-what="Trailing 1-month absolute return." data-t-interp="Represents short-term momentum.">ⓘ</button>',
+    '3M% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Month Return" data-t-what="Trailing 3-month absolute return." data-t-interp="Represents short-term momentum.">ⓘ</button>',
+    '6M% <button type="button" class="info-btn" aria-label="Info" data-t-title="6-Month Return" data-t-what="Trailing 6-month absolute return." data-t-interp="Represents medium-term momentum.">ⓘ</button>',
+    '1Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Return" data-t-what="Trailing 1-year CAGR (Compound Annual Growth Rate)." data-t-interp="Represents 1-year performance.">ⓘ</button>',
+    '3Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Year CAGR" data-t-what="Trailing 3-year Compound Annual Growth Rate." data-t-interp="Higher CAGR indicates stronger long-term compound growth.">ⓘ</button>',
+    '5Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="5-Year CAGR" data-t-what="Trailing 5-year Compound Annual Growth Rate." data-t-interp="Higher CAGR indicates stronger long-term compound growth.">ⓘ</button>',
+    '1Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Performance Rank" data-t-what="The percentile rank of this fund\'s 1-year performance relative to its peers." data-t-interp="A lower rank/total (e.g., 1/15) is better.">ⓘ</button>'
+  ],
   returns_calendar: ['Fund Name'], // Appended dynamically
-  returns_rolling:  ['Fund Name', '1Y Avg', '3Y Avg', '5Y Avg', '1Y Min', '3Y Min', '5Y Min', '1Y Rank'],
+  returns_rolling: [
+    'Fund Name',
+    '1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Avg Rolling Return" data-t-what="Average 1-year rolling return of this fund over its lifetime." data-t-interp="Typical 1-year return experience.">ⓘ</button>',
+    '3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Avg Rolling Return" data-t-what="Average 3-year rolling return of this fund over its lifetime." data-t-interp="Typical 3-year return experience.">ⓘ</button>',
+    '5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Avg Rolling Return" data-t-what="Average 5-year rolling return of this fund over its lifetime." data-t-interp="Typical 5-year return experience.">ⓘ</button>',
+    '1Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Min Rolling Return" data-t-what="Worst-case 1-year rolling return of this fund." data-t-interp="Shows the worst 1-year performance history.">ⓘ</button>',
+    '3Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Min Rolling Return" data-t-what="Worst-case 3-year rolling return of this fund." data-t-interp="Shows the worst 3-year performance history.">ⓘ</button>',
+    '5Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Min Rolling Return" data-t-what="Worst-case 5-year rolling return of this fund." data-t-interp="Shows the worst 5-year performance history.">ⓘ</button>',
+    '1Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Performance Rank" data-t-what="The percentile rank of this fund\'s 1-year performance relative to its peers." data-t-interp="A lower rank/total (e.g., 1/15) is better.">ⓘ</button>'
+  ],
   portfolio: ['Fund Name'], // Appended dynamically
-  risk:     ['Fund Name', 'Volatility% <button type="button" class="info-btn" aria-label="Info" data-t-title="Volatility" data-t-what="Annualised Standard Deviation (Risk)">&#9432;</button>', 'Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Sharpe" data-t-what="Sharpe Ratio: Risk-adjusted return">&#9432;</button>', 'Sortino <button type="button" class="info-btn" aria-label="Info" data-t-title="Sortino" data-t-what="Sortino Ratio: Downside risk-adjusted return">&#9432;</button>', 'Max DD% <button type="button" class="info-btn" aria-label="Info" data-t-title="Max Drawdown" data-t-what="Maximum Drawdown: Largest peak-to-trough drop">&#9432;</button>', 'Alpha% <button type="button" class="info-btn" aria-label="Info" data-t-title="Alpha" data-t-what="Excess return over benchmark">&#9432;', 'Q Vol', 'Q Sharpe'],
-  fees:     ['Fund Name', 'Expense%', 'AUM (Cr)', 'Age (Yrs)', 'Benchmark', 'Risk'],
+  risk: [
+    'Fund Name',
+    'Volatility% <button type="button" class="info-btn" aria-label="Info" data-t-title="Volatility" data-t-what="Annualised Volatility (Standard Deviation) of the fund\'s returns." data-t-interp="Lower volatility is preferred as it indicates smaller price swings.">ⓘ</button>',
+    'Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Sharpe Ratio" data-t-what="Risk-adjusted return measure. Shows return earned per unit of volatility." data-t-interp="Higher Sharpe ratio indicates better risk-adjusted returns.">ⓘ</button>',
+    'Sortino <button type="button" class="info-btn" aria-label="Info" data-t-title="Sortino Ratio" data-t-what="Risk-adjusted return measure focusing only on downside volatility." data-t-interp="Higher Sortino ratio indicates better protection against downside risk.">ⓘ</button>',
+    'Max DD% <button type="button" class="info-btn" aria-label="Info" data-t-title="Max Drawdown" data-t-what="Maximum peak-to-trough loss observed over a specified period." data-t-interp="Lower max drawdown (closer to 0%) indicates better downside management.">ⓘ</button>',
+    'Alpha% <button type="button" class="info-btn" aria-label="Info" data-t-title="Alpha" data-t-what="Excess return generated by the fund relative to the benchmark index return." data-t-interp="Positive Alpha indicates outperformance of the benchmark.">ⓘ</button>',
+    'Q Vol <button type="button" class="info-btn" aria-label="Info" data-t-title="Quartile Volatility" data-t-what="The volatility quartile rank of this fund (Q1 is lowest risk, Q4 is highest risk)." data-t-interp="Q1 is best for conservative/risk-averse investors.">ⓘ</button>',
+    'Q Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Quartile Sharpe" data-t-what="The Sharpe Ratio quartile rank of this fund (Q1 is best, Q4 is worst)." data-t-interp="Q1 is preferred as it indicates the best risk-adjusted performance group.">ⓘ</button>'
+  ],
+  fees: [
+    'Fund Name',
+    'Expense% <button type="button" class="info-btn" aria-label="Info" data-t-title="Expense%" data-t-what="Annual fee charged by the scheme to manage your investment." data-t-interp="Lower expense ratio is better as it leaves more return for you.">ⓘ</button>',
+    'AUM (Cr) <button type="button" class="info-btn" aria-label="Info" data-t-title="AUM" data-t-what="Assets Under Management (in Crores) representing the total size of the fund." data-t-interp="Higher AUM implies larger scale and liquidity.">ⓘ</button>',
+    'Age (Yrs) <button type="button" class="info-btn" aria-label="Info" data-t-title="Fund Age" data-t-what="Number of years since the scheme\'s inception." data-t-interp="Older funds have a longer track record to evaluate.">ⓘ</button>',
+    'Benchmark <button type="button" class="info-btn" aria-label="Info" data-t-title="Benchmark Index" data-t-what="The reference index against which the fund\'s performance is measured." data-t-interp="Used to evaluate if active managers add value over a passive index.">ⓘ</button>',
+    'Risk <button type="button" class="info-btn" aria-label="Info" data-t-title="Risk" data-t-what="Riskometer level defined by AMFI guidelines (Low to Very High)." data-t-interp="Shows the risk tier of the underlying assets.">ⓘ</button>'
+  ],
 };
 
 function qBadge(q) {

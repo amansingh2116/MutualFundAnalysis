@@ -2,6 +2,54 @@
 {% block title %}Category Returns{% endblock %}
 {% block meta_description %}Heat-map table of mutual fund category returns — trailing, annual, and quarterly.{% endblock %}
 
+{% block extra_head %}
+<style>
+/* Sticky tables */
+.bench-table-card {
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.data-table {
+  border-collapse: separate; /* Fixes sticky background bleeding bug */
+  border-spacing: 0;
+}
+.data-table tbody td {
+  border-bottom: 1px solid var(--border);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Sticky headers and first column for tables */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-card);
+  z-index: 20;
+  box-shadow: 0 1px 0 var(--border);
+  border-bottom: none;
+}
+.data-table tbody td:first-child,
+.data-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  background-color: var(--bg-card);
+  background-clip: padding-box;
+  z-index: 21;
+  box-shadow: 1px 0 0 var(--border);
+}
+.data-table thead th:first-child {
+  z-index: 22;
+  box-shadow: 1px 1px 0 var(--border);
+}
+.data-table tbody tr:hover td:first-child {
+  background-color: var(--bg-elevated);
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header" style="margin-bottom:20px">
   <div>
@@ -27,22 +75,22 @@
 
 {# ── Trailing Returns Table ── #}
 <div id="panel-trailing">
-  <div class="card" style="overflow-x:auto">
+  <div class="card bench-table-card">
     <table class="data-table" id="trailing-table">
       <thead>
         <tr>
           <th style="min-width:200px">Category</th>
-          <th class="num">Funds</th>
-          <th class="num">1W%</th>
-          <th class="num">1M%</th>
-          <th class="num">3M%</th>
-          <th class="num">6M%</th>
-          <th class="num">1Y%</th>
-          <th class="num">3Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y% CAGR" data-t-what="Compound Annual Growth Rate over the last 3 years">&#9432;</button></th>
-          <th class="num">5Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y% CAGR" data-t-what="Compound Annual Growth Rate over the last 5 years">&#9432;</button></th>
-          <th class="num">Avg Vol <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Volatility" data-t-what="Average Annualised Volatility (Standard Deviation) of funds in the category">&#9432;</button></th>
-          <th class="num">Avg Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Sharpe" data-t-what="Average Sharpe Ratio (Risk-Adjusted Return) of funds in the category">&#9432;</button></th>
-          <th class="num">Avg Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Max Drawdown" data-t-what="Average Maximum Drawdown (peak-to-trough drop) of funds in the category">&#9432;</button></th>
+          <th class="num">Funds <button type="button" class="info-btn" aria-label="Info" data-t-title="Funds" data-t-what="Number of active direct mutual fund schemes in this category." data-t-interp="Larger counts indicate a more crowded category with more choices.">ⓘ</button></th>
+          <th class="num">1W% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Week Return" data-t-what="Average 1-week trailing absolute return of funds in this category." data-t-interp="Represents very short-term momentum.">ⓘ</button></th>
+          <th class="num">1M% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Month Return" data-t-what="Average 1-month trailing absolute return of funds in this category." data-t-interp="Represents short-term momentum.">ⓘ</button></th>
+          <th class="num">3M% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Month Return" data-t-what="Average 3-month trailing absolute return of funds in this category." data-t-interp="Represents short-term momentum.">ⓘ</button></th>
+          <th class="num">6M% <button type="button" class="info-btn" aria-label="Info" data-t-title="6-Month Return" data-t-what="Average 6-month trailing absolute return of funds in this category." data-t-interp="Represents medium-term momentum.">ⓘ</button></th>
+          <th class="num">1Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Return" data-t-what="Average 1-year trailing CAGR of funds in this category." data-t-interp="Represents 1-year performance.">ⓘ</button></th>
+          <th class="num">3Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y% CAGR" data-t-what="Compound Annual Growth Rate over the last 3 years" data-t-interp="Higher CAGR indicates stronger long-term compound growth.">ⓘ</button></th>
+          <th class="num">5Y% CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y% CAGR" data-t-what="Compound Annual Growth Rate over the last 5 years" data-t-interp="Higher CAGR indicates stronger long-term compound growth.">ⓘ</button></th>
+          <th class="num">Avg Vol <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Volatility" data-t-what="Average Annualised Volatility (Standard Deviation) of funds in the category" data-t-interp="Lower volatility is preferred as it indicates a smoother ride and less price fluctuations.">ⓘ</button></th>
+          <th class="num">Avg Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Sharpe" data-t-what="Average Sharpe Ratio (Risk-Adjusted Return) of funds in the category" data-t-interp="Higher Sharpe ratio is better as it means the category generates more return per unit of risk.">ⓘ</button></th>
+          <th class="num">Avg Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="Average Max Drawdown" data-t-what="Average Maximum Drawdown (peak-to-trough drop) of funds in the category" data-t-interp="A lower maximum drawdown (closer to 0%) is preferred, indicating smaller peak-to-trough losses during market downturns.">ⓘ</button></th>
         </tr>
       </thead>
       <tbody id="trailing-body"></tbody>
@@ -52,7 +100,7 @@
 
 {# ── Annual Returns Table ── #}
 <div id="panel-annual" style="display:none">
-  <div class="card" style="overflow-x:auto">
+  <div class="card bench-table-card">
     <table class="data-table" id="annual-table">
       <thead id="annual-head">
         <tr><th style="min-width:200px">Category</th></tr>
@@ -64,19 +112,19 @@
 
 {# ── Rolling Returns Table ── #}
 <div id="panel-rolling" style="display:none">
-  <div class="card" style="overflow-x:auto">
+  <div class="card bench-table-card">
     <table class="data-table" id="rolling-table">
       <thead>
         <tr>
           <th style="min-width:200px">Category</th>
-          <th class="num">Funds</th>
-          <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Average" data-t-what="Average 1-Year Rolling Return over the fund's history">&#9432;</button></th>
-          <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Average" data-t-what="Average 3-Year Rolling Return">&#9432;</button></th>
-          <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Average" data-t-what="Average 5-Year Rolling Return">&#9432;</button></th>
-          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Maximum 1-Year Rolling Return observed">&#9432;</button></th>
-          <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max" data-t-what="Maximum 3-Year Rolling Return observed">&#9432;</button></th>
-          <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max" data-t-what="Maximum 5-Year Rolling Return observed">&#9432;</button></th>
-          <th class="num">1Y Positive% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Positive%" data-t-what="Percentage of 1-Year rolling periods with positive returns">&#9432;</th>
+          <th class="num">Funds <button type="button" class="info-btn" aria-label="Info" data-t-title="Funds" data-t-what="Number of active direct mutual fund schemes in this category." data-t-interp="Larger counts indicate a more crowded category with more choices.">ⓘ</button></th>
+          <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Average" data-t-what="Average 1-Year Rolling Return over the fund's history" data-t-interp="Indicates the typical 1-year return experience when investing at any random point in time.">ⓘ</button></th>
+          <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Average" data-t-what="Average 3-Year Rolling Return" data-t-interp="Indicates the typical 3-year return experience when investing at any random point in time.">ⓘ</button></th>
+          <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Average" data-t-what="Average 5-Year Rolling Return" data-t-interp="Indicates the typical 5-year return experience when investing at any random point in time.">ⓘ</button></th>
+          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Maximum 1-Year Rolling Return observed" data-t-interp="Shows the best-case 1-year return window.">ⓘ</button></th>
+          <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max" data-t-what="Maximum 3-Year Rolling Return observed" data-t-interp="Shows the best-case 3-year return window.">ⓘ</button></th>
+          <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max" data-t-what="Maximum 5-Year Rolling Return observed" data-t-interp="Shows the best-case 5-year return window.">ⓘ</button></th>
+          <th class="num">1Y Positive% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Positive%" data-t-what="Percentage of 1-Year rolling periods with positive returns" data-t-interp="Higher percentages indicate a lower historical probability of facing losses over any 1-year period.">ⓘ</button></th>
         </tr>
       </thead>
       <tbody id="rolling-body"></tbody>
@@ -241,5 +289,8 @@ function filterGroup(group, btn) {
 
 // Initial render
 renderTrailing();
+if (window.initInfoTooltips) {
+  window.initInfoTooltips(document);
+}
 </script>
 {% endblock %}
