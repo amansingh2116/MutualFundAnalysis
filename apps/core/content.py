@@ -278,8 +278,45 @@ def render_blog_markdown(markdown_text, markdown_path):
         if line.startswith('>'):
             flush_paragraph()
             flush_list()
-            quote = line.lstrip('>').strip()
-            html.append(f'<blockquote>{format_inline(quote)}</blockquote>')
+            blockquote_lines = []
+            while index < len(lines) and lines[index].strip().startswith('>'):
+                blockquote_lines.append(lines[index].strip().lstrip('>').strip())
+                index += 1
+            
+            if blockquote_lines and blockquote_lines[0].startswith('[!'):
+                alert_match = re.match(r'^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](.*)', blockquote_lines[0], re.IGNORECASE)
+                if alert_match:
+                    alert_type = alert_match.group(1).lower()
+                    first_line_rest = alert_match.group(2).strip()
+                    content_html = []
+                    if first_line_rest:
+                        content_html.append(format_inline(first_line_rest))
+                    for b_line in blockquote_lines[1:]:
+                        content_html.append(format_inline(b_line))
+                    alert_body = '<br>'.join(content_html)
+                    html.append(f'<div class="github-alert github-alert-{alert_type}"><p class="github-alert-title">{alert_type.title()}</p><p>{alert_body}</p></div>')
+                    continue
+            
+            quote_html = ' '.join(format_inline(l) for l in blockquote_lines)
+            html.append(f'<blockquote>{quote_html}</blockquote>')
+            continue
+
+        if line.startswith('```'):
+            flush_paragraph()
+            flush_list()
+            lang = line[3:].strip()
+            code_lines = []
+            index += 1
+            while index < len(lines) and not lines[index].strip().startswith('```'):
+                code_lines.append(lines[index])
+                index += 1
+            
+            code_content = escape('\n'.join(code_lines))
+            if lang.lower() == 'mermaid':
+                html.append(f'<div class="mermaid">\n{code_content}\n</div>')
+            else:
+                lang_class = f' class="language-{lang}"' if lang else ''
+                html.append(f'<pre><code{lang_class}>\n{code_content}\n</code></pre>')
             index += 1
             continue
 

@@ -78,6 +78,21 @@
 .article-table tr:last-child td { border-bottom:0; }
 .article-tags { display:flex;flex-wrap:wrap;gap:5px;margin-top:10px; }
 .article-tag { display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid rgba(129,140,248,.28);color:var(--indigo-400);background:rgba(99,102,241,.08);font-size:11px;font-weight:650; }
+.article-body pre { background:rgba(10,14,26,.6); border:1px solid var(--border); border-radius:8px; padding:16px; overflow-x:auto; margin:18px 0; }
+.article-body pre code { color:var(--text-secondary); font-family:monospace; font-size:13px; }
+.github-alert { margin:16px 0; padding:12px 16px; border-left:4px solid; border-radius:4px; background:rgba(255,255,255,.03); }
+.github-alert-note { border-left-color: #3b82f6; }
+.github-alert-tip { border-left-color: #10b981; }
+.github-alert-important { border-left-color: #8b5cf6; }
+.github-alert-warning { border-left-color: #f59e0b; }
+.github-alert-caution { border-left-color: #ef4444; }
+.github-alert-title { font-weight:700; margin-bottom:4px !important; margin-top:0 !important; font-size:13px; }
+.github-alert-note .github-alert-title { color: #3b82f6; }
+.github-alert-tip .github-alert-title { color: #10b981; }
+.github-alert-important .github-alert-title { color: #8b5cf6; }
+.github-alert-warning .github-alert-title { color: #f59e0b; }
+.github-alert-caution .github-alert-title { color: #ef4444; }
+.github-alert p { margin: 0; }
 
 /* ── Cover image hero ── */
 .article-cover-hero {
@@ -156,6 +171,10 @@
 {% endblock %}
 
 {% block extra_js %}
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+</script>
 <style>
 /* ════════════════════════════════════════
    Mobile / tablet floating ToC drawer

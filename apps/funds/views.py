@@ -545,21 +545,12 @@ class FundScreenerView(LoginRequiredMixin, TemplateView):
         paginator = Paginator(qs, self.paginate_by)
         page_obj = paginator.get_page(self.request.GET.get('page'))
 
-        try:
-            from apps.core.content import Blog
-            blog_slug = 'growth-vs-idcw'
-            blog = Blog.objects.filter(slug=blog_slug, published=True).first()
-            blog_url = f"/learn/resources/blog/{blog_slug}/" if blog else "/learn/resources/blog/growth-vs-idcw/"
-        except Exception:
-            blog_url = "/learn/resources/blog/growth-vs-idcw/"
-
         ctx.update({
             'page_obj':      page_obj,
             'snapshots':     page_obj.object_list,
             'total_count':   paginator.count,
             'filter_options': self.filter_options(),
             'selected':      self.selected_filters(),
-            'blog_url':      blog_url,
             'last_updated':  (
                 FundScreenerSnapshot.objects.order_by('-updated_at')
                 .values_list('updated_at', flat=True)

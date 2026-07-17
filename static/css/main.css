@@ -293,9 +293,14 @@ body.sidebar-scroll-lock { overflow: hidden; }
   transition: margin-left var(--transition);
   flex: 1;
   min-width: 0;
+  width: calc(100% - var(--sidebar-width));
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+.app-layout.sidebar-closed .main-content {
+  margin-left: 0;
+  width: 100%;
 }
 
 /* ── Topbar ─────────────────────────────────────────────────── */
@@ -343,18 +348,24 @@ body.sidebar-scroll-lock { overflow: hidden; }
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  gap: 16px;
+  padding: 0 16px 0 12px;
+  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 50;
   backdrop-filter: blur(12px);
 }
+.sidebar-toggle-btn {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
 .topbar-search {
   flex: 1 1 auto;
   min-width: 0;
-  max-width: 480px;
+  max-width: 520px;
   position: relative;
+  z-index: 2;
 }
 .topbar-search input {
   width: 100%;
@@ -367,8 +378,10 @@ body.sidebar-scroll-lock { overflow: hidden; }
   outline: none;
   transition: border var(--transition);
   font-family: inherit;
+  cursor: text;
+  pointer-events: auto;
 }
-.topbar-search input:focus { border-color: var(--border-accent); }
+.topbar-search input:focus { border-color: var(--border-accent); outline: none; }
 .topbar-search input::placeholder { color: var(--text-muted); }
 .topbar-search .search-icon {
   position: absolute;
@@ -377,6 +390,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
   color: var(--text-muted);
   font-size: 14px;
   pointer-events: none;
+  z-index: 3;
 }
 .search-results-dropdown {
   position: absolute;
@@ -1203,26 +1217,35 @@ input[type="range"]::-webkit-slider-thumb {
 @media (max-width: 640px) {
   .topbar {
     height: 52px;
-    padding: 0 10px;
+    padding: 0 8px;
     gap: 8px;
     overflow: visible;
   }
   .sidebar-toggle-btn {
     display: inline-flex !important;
-    width: 40px;
-    min-width: 40px;
+    width: 36px;
+    min-width: 36px;
     height: 36px;
+    flex-shrink: 0;
     order: 0;
+    position: relative;
+    z-index: 1;
   }
   .topbar-search {
     order: 1;
     flex: 1 1 0;
     min-width: 0;
     max-width: none;
+    z-index: 2;
   }
   .topbar-actions { display: none; }
   .topbar-btn { padding: 6px 8px; }
   .page-body { padding: 16px; }
+  /* Fix: prevent content from being shifted on small screens */
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
   .screener-page-header,
   .results-toolbar,
   .results-meta {
@@ -1250,6 +1273,10 @@ input[type="range"]::-webkit-slider-thumb {
 }
 @media (max-width: 420px) {
   .topbar-actions { display: none; }
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────── */
