@@ -33,10 +33,12 @@
   - ⓘ info tooltips on every metric column header explaining direction and interpretation
   - Ranks are always computed on the **full cohort** — searching/filtering only changes which rows are displayed, not the rank values
 - **Home Page Dashboard**: Category Return Meter, Category Analysis, Quartile Rankings preview, and a comprehensive **Benchmark Monitor** (inspired by [AdvisorKhoj](https://www.advisorkhoj.com/mutual-funds-research/mutual-fund-benchmark-monitor))
+  - **Customizable Top Bar** *(login required)*: Investors can manage and select which benchmarks and metrics are displayed in the ticker strip at the top of the homepage (saved per user). Default metrics are shown for guests.
+  - **Educational Philosophy Cards**: Clear messaging that the platform focuses exclusively on Direct and Growth mutual funds and ETFs, with links to our blogs explaining why.
   - **Category Return Meter**: Rolling Returns table now includes 1Y/3Y/5Y Median and 1Y/3Y/5Y Minimum rolling return columns with ⓘ tooltips
   - **Category Analysis**: Avg and Median metric boxes for Alpha (3Y), Beta (3Y), Expense Ratio, and Portfolio Turnover — all wired to `CategorySnapshot` with ⓘ tooltips
   - **Category Analysis** correctly excludes funds with less than 1 year of NAV history from all aggregate metrics — young funds still appear in category fund lists but do not skew category averages, medians, or risk measures
-  - **Benchmark Monitor**: Rolling Returns table includes 1Y/3Y/5Y Avg, Median, Min, and Max columns
+  - **Benchmark Monitor**: Rolling Returns table includes 1Y/3Y/5Y Avg, Median, Min, and Max columns. The homepage dashboard displays cards for benchmarks saved in the user's Watchlist (with defaults for unauthenticated users).
 - **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
 - **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
 - **Peer Comparison**: Scored India-focused peer matching by fund fingerprint, plan type, category, sector/theme, and AUM ranking
@@ -79,6 +81,12 @@
 - Risk-profiling questionnaire → optimal Equity/Debt/Gold allocation
 - Top fund selection using the 100-point Scoring Model
 - One-click backtest integration for suggested portfolios
+
+### User Dashboard & Admin Panel
+- **User Dashboard** (`/user/dashboard/`) *(login required)*: Centralized hub for logged-in users to view and jump into their saved data across the application.
+  - View counts and quick links to Portfolios, Saved Strategies, and Watchlist Benchmarks.
+  - Quick links to update Risk Profiling recommendation questions.
+- **Admin Panel**: Simplified user account management for changing passwords, viewing username, and logging out directly from the sidebar.
 
 ### Financial Calculators
 - **Calculator Hub** (`/calculators/`) — all 12 calculators accessible from a single dashboard

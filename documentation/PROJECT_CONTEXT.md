@@ -205,6 +205,8 @@ Each circle's displayed percentage is count-based (i.e. `exclusive_count / total
 /learn/resources/blog/<slug>/ ← Rendered markdown blog detail page
 /learn/community/           ← Placeholder community discussion page
 
+/user/dashboard/            ← Centralized User Dashboard (My Account hub)
+
 /portfolio/                 ← Portfolio list
 /portfolio/upload/          ← CAS file upload
 /portfolio/manual/          ← Manual entry form
@@ -277,6 +279,7 @@ All five planned phases are substantially implemented, plus several enhancements
 - Custom weighted benchmark inside backtester (separate from portfolio dashboard benchmark)
 
 **Recently completed:**
+- ✅ **User Dashboard & Admin Panel**: Added `/user/dashboard/` to serve as a centralized hub for logged-in users to manage their portfolios, strategies, risk profiles, and watchlists. Integrated with customizable homepage metrics.
 - ✅ **Advanced Tax Calculator** (FY 2025-26): 5-tab design covering Portfolio Tax, Tax Loss Harvesting (3 sub-tabs), SIP FIFO, Compare & Plan, and ITR Guide. Supports 12 fund types with correct STCG/LTCG rates, loss set-off priority, ₹1.25L equity LTCG exemption, carry-forward STCL/LTCL, and smart tax-saving alerts.
 - ✅ **Fund Comparison Calculator** (`/calculators/compare/`): Side-by-side comparison of up to 5 funds across Overview, Returns, Risk, and Portfolio tabs. Best badge logic audited and corrected — now correctly applies "lower is better" for expense ratio, volatility, beta, drawdown, turnover, and top-10 concentration.
 - ✅ **Calculator Suite Audit (July 2025)**: All 12 calculators audited end-to-end for input logic, calculation accuracy, and output presentation. One bug fixed: Tax Calculator Year-End Planner savings was always showing ₹0 (now calculates correctly). All calculation formulas verified.
