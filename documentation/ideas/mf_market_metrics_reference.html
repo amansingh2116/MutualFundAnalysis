@@ -1,0 +1,310 @@
+<h2 class="sr-only">Market Metrics Reference for Mutual Fund Investment Decisions</h2>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-bottom: 14px;
+  }
+
+  .nb {
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: all 0.15s;
+  }
+
+  .nb:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+
+  .nb.active {
+    background: var(--text-primary);
+    color: var(--surface-2);
+    border-color: var(--text-primary);
+  }
+
+  .panel {
+    display: none;
+  }
+
+  .panel.active {
+    display: block;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  @media (max-width: 520px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px;
+    background: var(--surface-1);
+  }
+
+  .mn {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0 0 3px;
+  }
+
+  .md {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 0 0 9px;
+    line-height: 1.5;
+  }
+
+  .signals {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .sp {
+    font-size: 11px;
+    padding: 3px 7px;
+    border-radius: 20px;
+    flex: 1;
+    line-height: 1.4;
+  }
+
+  .sb {
+    background: var(--bg-success);
+    color: var(--text-success);
+    border: 1px solid var(--border-success);
+  }
+
+  .se {
+    background: var(--bg-danger);
+    color: var(--text-danger);
+    border: 1px solid var(--border-danger);
+  }
+
+  .thr {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-style: italic;
+  }
+
+  .cb {
+    background: var(--surface-0);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 9px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .lb {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: var(--bg-accent);
+    color: var(--text-accent);
+    border: 1px solid var(--border-accent);
+    margin-bottom: 4px;
+  }
+
+  .av {
+    font-size: 11px;
+    color: var(--text-danger);
+    background: var(--bg-danger);
+    border: 1px solid var(--border-danger);
+    border-radius: var(--radius);
+    padding: 5px 8px;
+    line-height: 1.4;
+    margin-top: 8px;
+  }
+
+  .cl {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 8px;
+  }
+
+  .cl li {
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 2px 0 2px 16px;
+    position: relative;
+    line-height: 1.5;
+  }
+
+  .cl li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--text-success);
+    font-size: 11px;
+    top: 3px;
+  }
+
+  .dh {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+
+  .de {
+    font-size: 16px;
+  }
+
+  .dt {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+</style>
+<div class="nav" id="nav"></div>
+<div id="panels"></div>
+<script>
+  const CATS = [
+    {
+      id: 'sentiment', label: '🌡 Sentiment', metrics: [
+        { name: 'India VIX', desc: 'Fear gauge of Indian markets — implied volatility of Nifty options.', bull: 'VIX < 12: Complacent positioning; stretched sentiment', bear: 'VIX > 20: Fear elevated — historically a buying zone', thr: '< 12 complacent | 12–20 normal | > 20 fearful | > 30 panic', lib: 'yfinance', code: "yf.download('^INDIAVIX', period='1y')" },
+        { name: 'Put/Call Ratio (PCR)', desc: 'Ratio of put OI to call OI on Nifty options. Contrarian indicator.', bull: 'PCR > 1.2: Excessive bearishness, often precedes rallies', bear: 'PCR < 0.8: Excessive bullishness, warns of near-term correction', thr: '< 0.8 overbought | 0.8–1.2 neutral | > 1.2 oversold', lib: 'requests (NSE API)', code: "requests.get('https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY')" },
+        { name: 'FII Net Activity', desc: 'Net equity buy/sell by Foreign Institutional Investors (₹ Cr daily).', bull: 'Sustained FII buying: Capital inflows, positive momentum', bear: 'Sustained FII selling: Outflows, downward price pressure', thr: '30-day rolling net flow > 0 = positive signal', lib: 'requests (NSE API)', code: "requests.get('https://www.nseindia.com/api/fiidiiTradeReact')" },
+        { name: 'DII Net Activity', desc: 'Net equity buy/sell by Domestic Institutional Investors (₹ Cr daily).', bull: 'DII buying during FII sell-off: Provides market floor support', bear: 'DII + FII both selling simultaneously: Double pressure', thr: 'FII+DII combined net flow direction matters most', lib: 'requests (NSE API)', code: "requests.get('https://www.nseindia.com/api/fiidiiTradeReact')" },
+        { name: 'Advance/Decline Ratio', desc: 'Ratio of advancing to declining stocks — breadth of market participation.', bull: 'A/D > 1.5: Broad participation, internally healthy rally', bear: 'A/D < 0.7: Narrow market driven by index heavyweights only', thr: '< 0.7 weak | 0.7–1.5 neutral | > 1.5 broad participation', lib: 'requests (NSE API)', code: "requests.get('https://www.nseindia.com/api/live-analysis-advance-decline')" },
+        { name: 'SIP Inflow Trend', desc: 'Monthly SIP contribution from AMFI — retail investor sentiment proxy.', bull: 'Rising SIP inflows YoY: Retail participation increasing; long-term positive', bear: 'Falling SIP inflows: Retail exiting; sentiment deteriorating', thr: 'YoY growth rate vs trailing 12M average', lib: 'requests (AMFI)', code: "requests.get('https://www.amfiindia.com/modules/SIPDataList')" },
+      ]
+    },
+    {
+      id: 'technicals', label: '📈 Technicals', metrics: [
+        { name: 'Nifty RSI (14-day)', desc: 'Relative Strength Index on Nifty 50 price series.', bull: 'RSI 30–45: Approaching oversold — mean-reversion zone for lump sum', bear: 'RSI > 70: Overbought — avoid new lump sum deployment', thr: '< 30 oversold | 30–70 neutral | > 70 overbought', lib: 'yfinance + pandas_ta', code: "df=yf.download('^NSEI'); df.ta.rsi(length=14, append=True)" },
+        { name: 'MACD (12, 26, 9)', desc: 'Moving Average Convergence Divergence on Nifty 50.', bull: 'MACD crosses above signal line: Momentum turning positive', bear: 'MACD crosses below signal line: Momentum weakening — be cautious', thr: 'Histogram direction + crossover matters most', lib: 'yfinance + pandas_ta', code: "df.ta.macd(fast=12, slow=26, signal=9, append=True)" },
+        { name: 'Bollinger Bands (%B)', desc: 'Price position relative to 2σ bands. %B = (Price − Lower) / (Upper − Lower).', bull: '%B < 0.2 (near lower band): Mean-reversion opportunity zone', bear: '%B > 0.8 (near upper band): Extended rally; possible pullback', thr: '%B > 0.8 extended | 0.2–0.8 neutral | < 0.2 oversold', lib: 'yfinance + pandas_ta', code: "df.ta.bbands(length=20, std=2, append=True)" },
+        { name: '50/200 DMA Crossover', desc: 'Golden Cross (bullish) / Death Cross (bearish) on Nifty 50.', bull: 'Golden Cross: 50 DMA above 200 DMA — structural uptrend confirmed', bear: 'Death Cross: 50 DMA below 200 DMA — structural downtrend signal', thr: 'Binary signal; use with RSI to avoid false positives', lib: 'yfinance + pandas', code: "df['SMA50']=df['Close'].rolling(50).mean()\ndf['SMA200']=df['Close'].rolling(200).mean()" },
+        { name: 'Distance from 52W High', desc: 'Drawdown depth from 52-week peak for Nifty / midcap / smallcap.', bull: '> 20% below 52W high: Meaningful correction; SIP step-up zone', bear: 'Near 52W high + high PE: Market may be over-extended', thr: '> 10% = mild dip | > 20% = correction | > 30% = bear market', lib: 'yfinance', code: "df['52WH']=df['Close'].rolling(252).max()\ndf['DD%']=(df['Close']-df['52WH'])/df['52WH']*100" },
+        { name: 'Mid/Small vs Large Cap RS', desc: 'Relative strength of Nifty Midcap 150 and Smallcap 250 vs Nifty 50.', bull: 'Mid/Small outperforming: Risk-on; economic expansion phase', bear: 'Large cap outperforming: Risk-off; quality flight under way', thr: 'Rolling 6M return spread direction', lib: 'yfinance', code: "mid=yf.download('^NSMIDCP')\nlc=yf.download('^NSEI')" },
+        { name: 'Sector Relative Strength', desc: 'RS of sector indices (Bank, IT, Pharma, Auto, FMCG) vs Nifty 50.', bull: 'Cyclicals (Bank, Auto) leading: Economic optimism rising; go overweight', bear: 'Defensives (Pharma, FMCG) leading: Risk aversion rising; be cautious', thr: 'RS > 1 outperforming | < 1 underperforming', lib: 'yfinance', code: "tickers=['^CNXPHARMA','^CNXFMCG','^CNXIT','^NSEBANK','^CNXAUTO']" },
+      ]
+    },
+    {
+      id: 'valuation', label: '📊 Valuation', metrics: [
+        { name: 'Nifty 50 PE Ratio', desc: 'Price-to-earnings of Nifty 50 — published daily by NSE. Long-term avg ~22×.', bull: 'PE < 20: Cheap vs history — strong case for lump sum', bear: 'PE > 28: Expensive — stick to SIP; avoid large lump sum', thr: '< 18 cheap | 18–24 fair | 24–28 rich | > 28 expensive', lib: 'requests (NSE historical data)', code: "# Download from NSE:\n# nseindia.com/products/content/equities/indices/historical_pepb.htm" },
+        { name: 'Nifty 50 PB Ratio', desc: 'Price-to-book value of the Nifty 50 index — structural floor indicator.', bull: 'PB < 3: Below historical average; potential value zone', bear: 'PB > 5: Stretched book value premium; elevated risk', thr: 'Historical avg ~3.5× | > 5 extended', lib: 'requests (NSE)', code: "# Same NSE PE/PB endpoint — published\n# alongside PE and dividend yield" },
+        { name: 'Dividend Yield (Nifty)', desc: "Aggregate dividend yield of Nifty 50 — inverse of PE multiple.", bull: 'DY > 1.5%: Markets cheap; income attractive vs deposits', bear: 'DY < 0.8%: Market priced for high growth expectations', thr: 'Inverse PE signal — low DY = high PE environment', lib: 'requests (NSE)', code: "# Available at same NSE historical PE/PB endpoint" },
+        { name: 'Buffett Indicator', desc: 'Total NSE market cap / India GDP × 100. > 100% = market ahead of economy.', bull: '< 75%: Historically attractive zone for long-term lump sum', bear: '> 115%: Market significantly above GDP — elevated bubble risk', thr: '< 75% cheap | 75–100% fair | 100–115% stretched | > 115% extreme', lib: 'NSE market cap data + wbgapi', code: "import wbgapi\ngdp=wbgapi.data.get('NY.GDP.MKTP.CN','IND')" },
+        { name: 'Earnings Yield vs G-Sec Gap', desc: '(1/Nifty PE × 100) minus 10Y G-Sec yield — equity risk premium measure.', bull: 'Positive spread: Equities offer excess return over bonds', bear: 'Negative spread: Bonds more attractive; shift to debt funds', thr: 'EY > G-Sec = equity | EY < G-Sec = tilt to debt', lib: 'NSE PE + yfinance/RBI', code: "ey = 100/nifty_pe\nspread = ey - gsec_yield_10y" },
+      ]
+    },
+    {
+      id: 'macro', label: '🏦 Macro India', metrics: [
+        { name: 'RBI Repo Rate', desc: "RBI's key policy rate — benchmark for all borrowing costs in India.", bull: 'Rate cut cycle: Equity-positive; duration debt funds benefit', bear: 'Rate hike cycle: Equity headwind; short-duration debt preferred', thr: 'Absolute level + direction of change matters', lib: 'FRED API / RBI website', code: "fred.get_series('INDIRLTLT01STM')\n# or scrape RBI MPC press releases" },
+        { name: '10-Year G-Sec Yield', desc: "India's benchmark government bond yield — risk-free rate and duration signal.", bull: 'Falling yields: NAVs of long-duration funds rise; equity P/E can expand', bear: 'Rising yields: Debt fund NAVs fall; equity discount rate tightens', thr: 'Direction + spread vs repo rate matters for debt funds', lib: 'yfinance / RBI DBIE', code: "yf.download('IN10Y=RR', period='2y')\n# Alt: RBI DBIE portal" },
+        { name: 'CPI Inflation', desc: "Consumer Price Index — RBI targets 4% ±2%. Drives rate decisions.", bull: 'CPI 2–5%: Comfort zone; RBI likely on hold or cutting', bear: 'CPI > 6%: Triggers rate hikes; real equity returns compress', thr: '< 4% favorable | 4–6% neutral | > 6% adverse', lib: 'FRED API', code: "fred.get_series('INDCPIALLMINMEI')" },
+        { name: 'IIP (Industrial Production)', desc: 'Index of Industrial Production — leading real-economy indicator.', bull: 'IIP > 5% YoY: Industrial growth; cyclicals and mid/small caps benefit', bear: 'IIP contracting: Economic slowdown; favor large cap / defensive funds', thr: 'YoY growth rate vs 12M trailing average', lib: 'FRED API / MOSPI', code: "fred.get_series('INDPROINDMISMEI')" },
+        { name: 'USD/INR Exchange Rate', desc: 'Rupee exchange rate — affects FII flows and international fund NAVs.', bull: 'Stable / appreciating INR: FII inflows supported; import inflation low', bear: 'Depreciating INR > 5% YoY: FII exit pressure; import costs rise', thr: 'YoY INR depreciation > 5% = meaningful headwind', lib: 'yfinance', code: "yf.download('USDINR=X', period='1y')" },
+        { name: 'GST Collections', desc: 'Monthly GST revenue — proxy for consumption strength and economic health.', bull: '> ₹1.7L Cr monthly: Strong consumption; economic momentum positive', bear: 'YoY decline in GST: Economic slowdown; caution on cyclicals', thr: 'YoY growth rate + absolute monthly level', lib: 'requests / GOI press releases', code: "# No official API — parse from:\n# pib.gov.in (Ministry of Finance releases)" },
+      ]
+    },
+    {
+      id: 'global', label: '🌐 Global', metrics: [
+        { name: 'US VIX (CBOE)', desc: 'Global fear gauge — primary driver of FII risk appetite and EM flows.', bull: 'VIX < 15: Global risk-on; FII inflows to India likely', bear: 'VIX > 25: Global risk-off; FII outflows; India likely under pressure', thr: '< 15 complacent | 15–25 normal | > 25 fear | > 35 panic', lib: 'yfinance', code: "yf.download('^VIX', period='1y')" },
+        { name: 'DXY (US Dollar Index)', desc: 'USD vs basket of 6 major currencies. Strong $ = EM capital outflows.', bull: 'DXY < 100: Dollar soft; EM inflows; INR stable', bear: 'DXY > 105: Dollar strong; EM outflows; INR weakens; FII exits', thr: '< 100 EM-friendly | 100–105 neutral | > 105 headwind', lib: 'yfinance', code: "yf.download('DX-Y.NYB', period='1y')" },
+        { name: 'US 10Y Treasury Yield', desc: 'Global risk-free benchmark — affects EM equity valuations and FII flows.', bull: 'Falling UST yield: Dollar softens; EM flows improve; risk-on', bear: 'Rising UST yield > 4.5%: Dollar rises; FII exits India', thr: 'Direction + India-US yield spread direction matters', lib: 'yfinance', code: "yf.download('^TNX', period='2y')" },
+        { name: 'Brent Crude Oil', desc: "India imports ~85% crude — key inflation and current account driver.", bull: 'Crude < $70/bbl: Inflation low; CAD improves; INR stable', bear: 'Crude > $90/bbl: Inflation risk; CAD widens; FII exits', thr: '< $70 favorable | $70–90 neutral | > $90 headwind', lib: 'yfinance', code: "yf.download('BZ=F', period='1y')" },
+        { name: 'Gold Price', desc: 'Inverse risk barometer — rising gold signals global flight to safety.', bull: 'Gold flat / falling: Risk-on; equity preference globally', bear: 'Gold sharply rising: Flight to safety; equity caution signal', thr: 'Gold vs Nifty relative momentum over 3M rolling period', lib: 'yfinance', code: "yf.download('GC=F', period='1y')" },
+        { name: 'S&P 500 / NASDAQ', desc: "US equity market health — India correlates ~0.5 with S&P over time.", bull: 'US above 200 DMA in uptrend: Global risk appetite high', bear: 'US bear market / below 200 DMA: India sell-off highly likely', thr: 'S&P 500 200 DMA position + YTD return direction', lib: 'yfinance', code: "yf.download(['^GSPC','^IXIC'], period='1y')" },
+        { name: 'US Fed Funds Rate', desc: 'US monetary policy — drives global capital allocation decisions.', bull: 'Fed cutting cycle: Dollar weakens; EM inflows; equities re-rate higher', bear: 'Fed hiking cycle: Dollar strengthens; EM outflows; equity P/E compresses', thr: 'Fed pivot expectations from CME FedWatch futures', lib: 'FRED API', code: "from fredapi import Fred\nfred=Fred(api_key='KEY')\nfred.get_series('FEDFUNDS')" },
+      ]
+    },
+    {
+      id: 'fund', label: '🏛 Fund Metrics', metrics: [
+        { name: 'Rolling Returns vs Benchmark', desc: '1/3/5-year rolling returns of fund vs its declared benchmark index.', bull: 'Consistent alpha across rolling periods: High-quality active fund', bear: 'Alpha shrinking or negative for 2+ years: Switch candidate', thr: 'Positive 3Y and 5Y rolling alpha = strong conviction to hold', lib: 'mftool / AMFI API', code: "from mftool import Mftool; mf=Mftool()\nnav=mf.get_scheme_historical_nav(scheme_code)" },
+        { name: 'Sharpe Ratio', desc: 'Risk-adjusted return: (Annualised return − Risk-free rate) / Annualised std dev.', bull: 'Sharpe > 1: Good risk-adjusted return vs peers in category', bear: 'Sharpe < 0.5: Poor risk compensation; consider alternatives', thr: '< 0.5 poor | 0.5–1 acceptable | > 1 good | > 2 excellent', lib: 'Computed from NAV data', code: "sharpe=(ann_ret - risk_free)/ann_std\n# risk_free = current repo rate" },
+        { name: 'Sortino Ratio', desc: 'Like Sharpe but penalises only downside volatility — better for equity funds.', bull: 'Higher Sortino than category peers: Better downside protection', bear: 'Sortino declining vs peers: Fund taking excess downside risk', thr: '> 1 good | > 2 excellent', lib: 'Computed from NAV', code: "ds=nav_rets[nav_rets<0].std()*252**0.5\nsortino=(ann_ret - rf)/ds" },
+        { name: 'Maximum Drawdown', desc: "Largest peak-to-trough NAV decline — tail risk and recovery time measure.", bull: 'Lower max drawdown than category: Capital protection in downturns', bear: 'High max drawdown: Fund volatile; needs long recovery; check category avg', thr: 'Compare to category median drawdown', lib: 'Computed from NAV', code: "rm=nav.expanding().max()\ndd=(nav-rm)/rm; max_dd=dd.min()" },
+        { name: 'Beta vs Benchmark', desc: 'Sensitivity of fund NAV to benchmark movement.', bull: 'Beta < 1: Fund more defensive; useful near-term in volatile markets', bear: 'Beta > 1.3: Fund amplifies market swings — higher risk than benchmark', thr: '< 0.8 defensive | 0.8–1.2 market-like | > 1.2 aggressive', lib: 'Computed from NAV + benchmark', code: "beta=np.cov(f_rets,b_rets)[0,1]/np.var(b_rets)" },
+        { name: 'Tracking Error (Index Funds)', desc: 'Std dev of daily return difference vs index. Lower = tighter replication.', bull: 'TE < 0.5% annualised: Fund closely tracks index; minimal slippage', bear: 'TE > 1.5%: Significant slippage — prefer lower TE fund for same index', thr: '< 0.5% excellent | 0.5–1% good | > 1.5% poor', lib: 'Computed from NAV + index', code: "te=(f_rets-idx_rets).std()*252**0.5" },
+        { name: 'AUM & Net Fund Flows', desc: 'Fund AUM trajectory and net inflows/outflows at category level.', bull: 'Rising AUM with sustained alpha: Fund gaining institutional trust', bear: 'Falling AUM despite good history: Redemption pressure; check category', thr: 'Category-level flow direction > single fund flow', lib: 'AMFI monthly data (CSV)', code: "# AMFI publishes monthly fund-wise\n# AUM data at amfiindia.com" },
+        { name: 'Expense Ratio (TER)', desc: 'Annual fee as % of AUM — direct, compounding drag on returns.', bull: 'Lower TER: 0.5% saved over 20Y on ₹10L = ~₹3.5L extra corpus', bear: 'Active equity TER > 1.5%: Very hard to justify without sustained alpha', thr: 'Index < 0.2% | Passive ETF < 0.1% | Active equity < 1% ideal', lib: 'mftool', code: "mf.get_scheme_details(scheme_code)\n# includes expense_ratio field" },
+      ]
+    },
+  ];
+
+  const DECISIONS = [
+    { action: 'Lump Sum Invest', emoji: '💰', conditions: ['Nifty PE < 20 (cheap zone)', 'India VIX > 20 (fear = opportunity)', 'Nifty RSI < 40 (oversold)', 'Market 15–30% below 52W high', 'Buffett Indicator < 85%', 'FII selling for 3M+ (capitulation signal)'], avoid: 'Avoid when PE > 28, VIX < 12, RSI > 70 simultaneously' },
+    { action: 'Step Up SIP', emoji: '⬆', conditions: ['Market in 10–20% correction', 'Nifty PE below 24 (below long-term avg)', 'India VIX rising into 15–25 zone', 'Nifty RSI 35–50 (neutral-weak zone)', 'Macro stable: CPI < 6%, rates on hold'], avoid: "Don't step up into euphoric market (PE > 28, VIX < 12, RSI > 70)" },
+    { action: 'Step Down / Pause SIP', emoji: '⏸', conditions: ['Nifty PE > 30 (stretched)', 'Buffett Indicator > 115%', 'Nifty RSI > 75 (overbought)', 'FII sustained buying at new highs', 'Within 1–2 years of financial goal'], avoid: "Don't pause SIP on short-term volatility — only on structural overvaluation" },
+    { action: 'Book Profits / Sell', emoji: '💸', conditions: ['Goal approaching within 1–2 years', 'PE > 30 + RSI > 70 simultaneously', 'Buffett Indicator > 120%', 'VIX compressed < 12 for several months', 'Fund underperforming category for 3+ years'], avoid: "Don't sell on dips — sell when goal met or valuation clearly extreme" },
+    { action: 'Switch: Equity → Debt', emoji: '🔄', conditions: ['Nifty PE > 28 (market overvalued)', 'Earnings yield < G-Sec yield (negative ERP)', 'Rate cut cycle ending / hikes starting', '10Y G-Sec yield in sustained rising trend', 'Capital protection needed (near goal)'], avoid: "Don't switch for short-term timing — only on sustained valuation + rate signals" },
+    { action: 'Switch: Large → Mid/Small Cap', emoji: '🔃', conditions: ['Mid/Small PE below historical average', 'Mid/Small RS 30%+ below large cap', 'IIP picking up (economic expansion)', 'Credit growth rising', 'Early-to-mid phase of confirmed bull market'], avoid: 'Avoid during global risk-off or sustained FII selling periods' },
+    { action: 'Switch: Active → Index Fund', emoji: '📋', conditions: ['Active fund alpha declining for 2+ years', 'Fund manager change in key fund', 'AUM > ₹50,000 Cr (capacity constraints)', 'TER gap > 0.8% with no alpha to justify'], avoid: "Don't switch on 1-year underperformance — check 5Y rolling returns first" },
+  ];
+
+  function renderMetrics(cat) {
+    return `<div class="grid">${cat.metrics.map(m => `
+    <div class="card">
+      <div class="mn">${m.name}</div>
+      <div class="md">${m.desc}</div>
+      <div class="signals">
+        <span class="sp sb">${m.bull}</span>
+        <span class="sp se">${m.bear}</span>
+      </div>
+      <div class="thr">${m.thr}</div>
+      <span class="lb">${m.lib}</span>
+      <div class="cb">${m.code}</div>
+    </div>`).join('')}</div>`;
+  }
+
+  function renderDecisions() {
+    return `<div class="grid">${DECISIONS.map(d => `
+    <div class="card">
+      <div class="dh"><span class="de">${d.emoji}</span><span class="dt">${d.action}</span></div>
+      <ul class="cl">${d.conditions.map(c => `<li>${c}</li>`).join('')}</ul>
+      <div class="av">⚠ ${d.avoid}</div>
+    </div>`).join('')}</div>`;
+  }
+
+  const nav = document.getElementById('nav');
+  const panels = document.getElementById('panels');
+  const tabs = [...CATS.map(c => ({ id: c.id, label: c.label })), { id: 'decisions', label: '🎯 Decision Map' }];
+
+  tabs.forEach((t, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'nb' + (i === 0 ? ' active' : '');
+    btn.textContent = t.label;
+    btn.onclick = () => {
+      document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('p-' + t.id).classList.add('active');
+    };
+    nav.appendChild(btn);
+    const panel = document.createElement('div');
+    panel.className = 'panel' + (i === 0 ? ' active' : '');
+    panel.id = 'p-' + t.id;
+    if (t.id === 'decisions') panel.innerHTML = renderDecisions();
+    else panel.innerHTML = renderMetrics(CATS.find(c => c.id === t.id));
+    panels.appendChild(panel);
+  });
+</script>
