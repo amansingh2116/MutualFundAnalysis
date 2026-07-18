@@ -153,3 +153,27 @@ class UserBenchmarkProfile(BaseModel):
 
     def __str__(self):
         return f"BenchmarkProfile: {self.user.username} ({len(self.watchlist)} indices)"
+
+
+class UserMarketStripProfile(BaseModel):
+    """
+    Stores a logged-in user's preferred metrics to display in the scrolling
+    market strip at the top of every page.
+
+    ``metrics`` is an ordered list of metric *keys* matching MARKET_INDICES
+    in apps.benchmarks.registry (e.g. ["nifty50", "sensex", "midcap"]).
+    An empty list means "show the site defaults".
+    """
+    user    = models.OneToOneField(
+        'auth.User', on_delete=models.CASCADE, related_name='market_strip_profile',
+    )
+    metrics = models.JSONField(
+        default=list, blank=True,
+        help_text="Ordered list of market-strip metric keys the user has chosen.",
+    )
+
+    class Meta:
+        verbose_name = 'User Market Strip Profile'
+
+    def __str__(self):
+        return f"MarketStripProfile: {self.user.username} ({len(self.metrics)} metrics)"

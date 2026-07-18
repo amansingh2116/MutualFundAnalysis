@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Terms of Service — MF Analysis{% endblock %}
+{% block meta_description %}Terms of Service for MF Analysis — understand your rights and responsibilities when using the platform.{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;margin:0 auto;padding:8px 0 48px">
+
+  <div style="margin-bottom:28px">
+    <h1 style="font-size:24px;font-weight:800;margin-bottom:6px;color:var(--text-primary)">Terms of Service</h1>
+    <p style="color:var(--text-muted);font-size:12px">Last updated: July 2026</p>
+  </div>
+
+  {% for section in sections %}{% endfor %}
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">1. Acceptance</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      By accessing or using MF Analysis ("the Platform"), you agree to be bound by these Terms of
+      Service. If you do not agree, you must not use the Platform.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">2. Use of the Platform</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      The Platform is provided for personal, non-commercial research and educational purposes only.
+      You may not scrape, reproduce, redistribute, or commercialise any data or content from the
+      Platform without prior written consent. Automated bots, crawlers, or mass download tools are
+      prohibited.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">3. Not Investment Advice</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      All content on MF Analysis — including scores, rankings, quartile badges, returns, and
+      recommendations — is for <strong>informational purposes only</strong>. It does not constitute
+      investment advice, financial planning, or a solicitation to buy or sell any security. Past
+      performance is not a guarantee of future results. Always consult a SEBI-registered advisor.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">4. Accuracy of Data</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      We strive for data accuracy but cannot guarantee that all NAV figures, returns, or metrics are
+      error-free or up-to-date at all times. Data is sourced from publicly available repositories
+      (AMFI, NSE, mfapi.in). You should verify critical data independently before making any decision.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">5. Intellectual Property</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      The Platform, including its code, design, models, scoring algorithms, and analytics pipelines,
+      is proprietary. MF Analysis is <strong>not open-source</strong>. Reverse engineering, copying,
+      or derivative works are strictly prohibited.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">6. Accounts & Security</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      You are responsible for maintaining the confidentiality of your login credentials. You must
+      notify us immediately of any unauthorised use of your account. We reserve the right to suspend
+      accounts that violate these terms.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">7. Limitation of Liability</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      To the maximum extent permitted by law, MF Analysis and its operators shall not be liable for
+      any direct, indirect, incidental, or consequential losses arising from your use of or reliance
+      on the Platform.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">8. Changes to Terms</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      We may update these terms at any time. Continued use of the Platform after changes constitutes
+      your acceptance of the revised terms.
+    </p>
+  </div>
+
+  <p style="font-size:12px;color:var(--text-muted);margin-top:20px">
+    Questions? <a href="{% url 'core:contact' %}" style="color:var(--indigo-400);text-decoration:none">Contact us →</a>
+  </p>
+
+</div>
+{% endblock %}

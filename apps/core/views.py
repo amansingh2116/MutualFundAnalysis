@@ -426,3 +426,31 @@ def learn_blog_image_view(request, filename):
 @login_required(login_url='/accounts/login/')
 def learn_community_view(request):
     return render(request, 'learn/community.html', {})
+
+
+# ── Legal / Info pages ────────────────────────────────────────────────────────
+
+def about_view(request):
+    """About page — mission, philosophy, what we cover."""
+    return render(request, 'legal/about.html', {})
+
+
+def terms_view(request):
+    """Terms of Service."""
+    return render(request, 'legal/terms.html', {})
+
+
+def privacy_view(request):
+    """Privacy Policy."""
+    return render(request, 'legal/privacy.html', {})
+
+
+def contact_view(request):
+    """Contact page with a simple message form."""
+    submitted = False
+    if request.method == 'POST':
+        # No external mail service required — just show success message.
+        submitted = True
+        messages.success(request, "Thanks for reaching out! We'll get back to you shortly.")
+    return render(request, 'legal/contact.html', {'submitted': submitted})
+

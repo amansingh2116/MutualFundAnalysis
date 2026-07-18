@@ -20,4 +20,11 @@ urlpatterns = [
     path('learn/resources/blog/<slug:slug>/', views.learn_blog_detail_view, name='learn_blog_detail'),
     path('learn/resources/blog/ipo-analysis/images/<path:filename>/', views.learn_blog_image_view, name='learn_blog_image'),
     path('learn/community/', views.learn_community_view, name='learn_community'),
+
+    # ── Legal / Info pages ─────────────────────────────────────────────────────
+    path('about/',   views.about_view,   name='about'),
+    path('terms/',   views.terms_view,   name='terms'),
+    path('privacy/', views.privacy_view, name='privacy'),
+    path('contact/', views.contact_view, name='contact'),
 ]
+

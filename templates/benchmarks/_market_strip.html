@@ -15,3 +15,8 @@
   {% endif %}
 </div>
 {% endfor %}
+{% if is_authenticated %}
+<button type="button" class="market-manage-btn" id="market-manage-btn"
+        onclick="openMarketManageModal()"
+        title="Manage which metrics appear here">⚙</button>
+{% endif %}

@@ -56,17 +56,39 @@ class HomeView(TemplateView):
             ctx['categories'] = []
 
         # ── Section 1: Benchmark Returns Monitor ──────────────────────────────
+        # Hardcoded curated defaults shown to anonymous users (no DB IDs, resolved by name)
+        _DEFAULT_BENCH_NAMES = [
+            'NIFTY 50', 'SENSEX', 'NIFTY MIDCAP 150',
+            'NIFTY SMALLCAP 250', 'NIFTY 500', 'NASDAQ 100',
+        ]
         try:
-            from apps.benchmarks.models import BenchmarkReturns
-            bench_qs = (
+            from apps.benchmarks.models import BenchmarkReturns, UserBenchmarkProfile
+            all_bench = list(
                 BenchmarkReturns.objects
                 .select_related('index')
                 .filter(index__is_active=True)
                 .order_by('index__name')
             )
-            ctx['benchmark_returns'] = list(bench_qs)
-        except Exception:
+            ctx['all_benchmark_index_json'] = json.dumps([
+                {'id': r.index_id, 'name': r.index.name} for r in all_bench
+            ])
+            if self.request.user.is_authenticated:
+                profile = UserBenchmarkProfile.objects.filter(user=self.request.user).first()
+                watchlist_ids = profile.watchlist if (profile and profile.watchlist) else []
+                if watchlist_ids:
+                    ctx['benchmark_returns'] = [r for r in all_bench if r.index_id in watchlist_ids]
+                else:
+                    ctx['benchmark_returns'] = all_bench  # show all if watchlist empty
+                ctx['home_bench_watchlist_ids'] = json.dumps(watchlist_ids)
+            else:
+                default_set = [r for r in all_bench if r.index.name in _DEFAULT_BENCH_NAMES]
+                ctx['benchmark_returns'] = default_set or all_bench[:6]
+                ctx['home_bench_watchlist_ids'] = '[]'
+        except Exception as exc:
+            logger.error("HomeView benchmark returns failed: %s", exc)
             ctx['benchmark_returns'] = []
+            ctx['all_benchmark_index_json'] = '[]'
+            ctx['home_bench_watchlist_ids'] = '[]'
 
         # ── Section 2 + 4: Category Snapshots ────────────────────────────────
         try:

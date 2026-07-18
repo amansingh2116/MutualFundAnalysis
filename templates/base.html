@@ -135,9 +135,6 @@
         <span class="nav-icon">⚙️</span> Admin Panel
       </a>
       {% endif %}
-      <a href="https://github.com/amansingh2116/MutualFundAnalysis" class="nav-item" target="_blank">
-        <span class="nav-icon">📖</span> GitHub
-      </a>
         </div>
       </div>
     </nav>
@@ -218,9 +215,19 @@
     </main>
 
     <!-- Footer -->
-    <footer style="padding: 16px 24px; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 11px;">
-      MF Analysis Platform — Data from AMFI, mfapi.in, captnemo.in, Morningstar. Not financial advice. 
-      <a href="https://github.com/amansingh2116/MutualFundAnalysis" style="color:var(--indigo-400);text-decoration:none">Open Source on GitHub ↗</a>
+    <footer style="padding:20px 24px;border-top:1px solid var(--border);background:var(--bg-card)">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;max-width:1200px;margin:0 auto">
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.6">
+          MF Analysis — Data from AMFI, mfapi.in, NSE. Not financial advice.
+          <br>Free to use &middot; Not open source &middot; All rights reserved.
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <a href="{% url 'core:about' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">About</a>
+          <a href="{% url 'core:terms' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Terms</a>
+          <a href="{% url 'core:privacy' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Privacy</a>
+          <a href="{% url 'core:contact' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Contact</a>
+        </div>
+      </div>
     </footer>
   </div>
 </div>

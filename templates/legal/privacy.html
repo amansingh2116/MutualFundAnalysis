@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Privacy Policy — MF Analysis{% endblock %}
+{% block meta_description %}Privacy Policy for MF Analysis — how we collect, use, and protect your data.{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;margin:0 auto;padding:8px 0 48px">
+
+  <div style="margin-bottom:28px">
+    <h1 style="font-size:24px;font-weight:800;margin-bottom:6px;color:var(--text-primary)">Privacy Policy</h1>
+    <p style="color:var(--text-muted);font-size:12px">Last updated: July 2026</p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">1. What We Collect</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">When you create an account, we collect your username and password (hashed). We do not require an email address. We store your in-app preferences (benchmark watchlist, market strip metrics) in our database so you can access them from any device when logged in.</p>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8;margin-top:10px">Portfolio data you upload (CAS statements) is stored only for your active session and used solely to compute analytics you request.</p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">2. What We Don't Collect</h2>
+    <ul style="color:var(--text-secondary);font-size:13px;line-height:1.8;padding-left:20px">
+      <li>Email addresses or phone numbers</li>
+      <li>Payment information (the Platform is free)</li>
+      <li>Personal financial data beyond what you explicitly upload</li>
+      <li>Third-party tracking or advertising cookies</li>
+    </ul>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">3. How We Use Your Data</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      Data we collect is used exclusively to provide and improve the Platform. We do not sell, rent,
+      or share your personal information with third parties for marketing purposes.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">4. Cookies & Sessions</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      We use session cookies to keep you logged in. No third-party analytics or advertising cookies
+      are set. You can clear cookies at any time through your browser settings.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">5. Data Retention</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      Account data is retained as long as your account is active. You may request account deletion
+      at any time by contacting us via the <a href="{% url 'core:contact' %}" style="color:var(--indigo-400);text-decoration:none">contact page</a>.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">6. Security</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      Passwords are stored using industry-standard bcrypt hashing. We use HTTPS. We take reasonable
+      technical measures to protect your data but cannot guarantee absolute security.
+    </p>
+  </div>
+
+  <div class="card" style="padding:28px;margin-bottom:16px">
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text-primary)">7. Changes</h2>
+    <p style="color:var(--text-secondary);font-size:13px;line-height:1.8">
+      We may update this policy periodically. The "last updated" date at the top of this page reflects
+      the most recent revision.
+    </p>
+  </div>
+
+</div>
+{% endblock %}
