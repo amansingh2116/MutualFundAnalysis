@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Account Settings — My Account{% endblock %}
+{% block meta_description %}Manage your account details, change password, logout, and access administration settings.{% endblock %}
+
+{% block extra_head %}
+<style>
+.settings-wrap {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.settings-header {
+  margin-bottom: 30px;
+}
+.settings-header h1 {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.settings-header p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 768px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.settings-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+  font-size: 13px;
+}
+.info-row:last-child {
+  border-bottom: none;
+}
+.info-lbl {
+  color: var(--text-secondary);
+}
+.info-val {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.form-group {
+  margin-bottom: 16px;
+}
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.form-group input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-group input:focus {
+  border-color: var(--indigo-500);
+}
+.form-error {
+  color: #f87171;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.helptext {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-wrap">
+  <div class="settings-header">
+    <h1>Account Administration</h1>
+    <p>View your user profile credentials, reset your security credentials, or sign out of your account.</p>
+  </div>
+
+  <div class="settings-grid">
+    
+    {# ── COLUMN 1: PROFILE INFO & SIGN OUT ── #}
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <div class="settings-card">
+        <div class="settings-card-title">👤 User Credentials</div>
+        <div style="margin-bottom: 16px">
+          <div class="info-row">
+            <span class="info-lbl">Username</span>
+            <span class="info-val">{{ user.username }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-lbl">Role</span>
+            <span class="info-val">{% if user.is_staff %}Admin / Staff{% else %}User / Investor{% endif %}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-lbl">Date Joined</span>
+            <span class="info-val">{{ user.date_joined|date:"M d, Y" }}</span>
+          </div>
+        </div>
+
+        {% if user.is_staff %}
+        <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">You have administrative staff access.</div>
+          <a href="{% url 'admin:index' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center" target="_blank">
+            ⚙️ Open Django Admin Panel
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="settings-card" style="border-color:rgba(248, 113, 113, 0.25)">
+        <div class="settings-card-title" style="color:#f87171">⚠️ Danger Zone</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">End your current session. You will need to enter credentials to log back in.</p>
+        <form action="{% url 'logout' %}" method="post" style="margin:0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary btn-sm" style="color:#f87171;border-color:rgba(248,113,113,0.25);width:100%;justify-content:center">Sign Out of Account</button>
+        </form>
+      </div>
+    </div>
+
+    {# ── COLUMN 2: SECURITY / PASSWORD RESET ── #}
+    <div class="settings-card">
+      <div class="settings-card-title">🔒 Change Password</div>
+      
+      <form method="post" action="{% url 'core:user_settings' %}" style="margin:0">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+          <div style="margin-bottom:16px">
+            {% for err in form.non_field_errors %}
+              <div class="form-error">{{ err }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% for field in form %}
+          <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            <input type="{{ field.field.widget.input_type|default:'password' }}" 
+                   name="{{ field.html_name }}" 
+                   id="{{ field.id_for_label }}"
+                   required>
+            {% if field.errors %}
+              {% for error in field.errors %}
+                <div class="form-error">{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+            {% if field.help_text %}
+              <span class="helptext">{{ field.help_text|safe }}</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;margin-top:8px">Update Password</button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

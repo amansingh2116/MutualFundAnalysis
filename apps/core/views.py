@@ -454,3 +454,62 @@ def contact_view(request):
         messages.success(request, "Thanks for reaching out! We'll get back to you shortly.")
     return render(request, 'legal/contact.html', {'submitted': submitted})
 
+
+@login_required
+def user_dashboard_view(request):
+    """User account dashboard panel."""
+    from apps.portfolio.models import Portfolio, SavedStrategy
+    from apps.recommendations.models import RecommendationProfile
+    from apps.benchmarks.models import UserBenchmarkProfile, UserMarketStripProfile, BenchmarkIndex
+    from apps.benchmarks.registry import MARKET_INDICES
+    from apps.benchmarks.api_views import DEFAULT_METRIC_KEYS, ALL_METRICS
+
+    # 1. Portfolios
+    portfolios = Portfolio.objects.filter(user=request.user).order_by('-created_at')
+
+    # 2. Saved Backtester Strategies
+    strategies = SavedStrategy.objects.filter(user=request.user).order_by('-updated_at')
+
+    # 3. Recommendation Profile
+    rec_profile = RecommendationProfile.objects.filter(user=request.user).first()
+    
+    # 4. Benchmark Watchlist
+    bench_profile = UserBenchmarkProfile.objects.filter(user=request.user).first()
+    watchlist_ids = bench_profile.watchlist if bench_profile else []
+    watchlist_indices = list(BenchmarkIndex.objects.filter(id__in=watchlist_ids, is_active=True).values_list('name', flat=True))
+
+    # 5. Market Strip Watchlist
+    market_profile = UserMarketStripProfile.objects.filter(user=request.user).first()
+    chosen_metrics = market_profile.metrics if (market_profile and market_profile.metrics) else DEFAULT_METRIC_KEYS
+    chosen_metric_labels = [ALL_METRICS[k] for k in chosen_metrics if k in ALL_METRICS]
+
+    return render(request, 'core/user_dashboard.html', {
+        'portfolios': portfolios,
+        'strategies': strategies,
+        'rec_profile': rec_profile,
+        'watchlist_indices': watchlist_indices,
+        'chosen_metric_labels': chosen_metric_labels,
+    })
+
+
+@login_required
+def user_settings_view(request):
+    """User account settings page for password changes, logout, and general account info."""
+    from django.contrib.auth.forms import PasswordChangeForm
+    from django.contrib.auth import update_session_auth_hash
+
+    form = PasswordChangeForm(user=request.user)
+    if request.method == 'POST':
+        form = PasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # Keep the user session active
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('core:user_settings')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+
+    return render(request, 'core/user_settings.html', {
+        'form': form,
+    })
+

@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% block title %}User Dashboard — My Account{% endblock %}
+{% block meta_description %}Manage and analyze your saved mutual fund portfolios, backtester strategies, recommendation profile questionnaires, and watchlists all in one place.{% endblock %}
+
+{% block extra_head %}
+<style>
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+@media (max-width: 992px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.dash-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.dash-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-card-body {
+  flex: 1;
+}
+.dash-card-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dashboard-title-area {
+  margin-bottom: 30px;
+}
+.dashboard-title-area h1 {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.dashboard-title-area p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.item-row:hover {
+  border-color: var(--indigo-500);
+}
+.item-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.item-row-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.item-row-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.empty-placeholder {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+.badge-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--indigo-400);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  margin-bottom: 12px;
+}
+.question-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+  font-size: 12.5px;
+}
+.question-item:last-child {
+  border-bottom: none;
+}
+.question-lbl {
+  color: var(--text-secondary);
+}
+.question-val {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.pref-chip {
+  display: inline-block;
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  margin: 3px;
+  color: var(--text-secondary);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-title-area">
+  <h1>My Account</h1>
+  <p>Analyze and manage all your saved portfolios, strategies, risk questionnaires, and watchlist preferences in one place.</p>
+</div>
+
+<div class="dashboard-grid">
+  
+  {# ── SECTION 1: MY PORTFOLIOS ── #}
+  <div class="dash-card">
+    <div class="dash-card-title">📊 Saved Portfolios ({{ portfolios.count }})</div>
+    <div class="dash-card-body">
+      {% if portfolios %}
+        {% for p in portfolios|slice:":4" %}
+          <div class="item-row">
+            <div class="item-row-info">
+              <a href="{% url 'portfolio:dashboard' pk=p.pk %}" class="item-row-title" style="text-decoration:none">
+                📁 {{ p.name }}
+              </a>
+              <div class="item-row-meta">Uploaded {{ p.created_at|date:"M d, Y" }} · {{ p.transactions.count }} txs</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <a href="{% url 'portfolio:dashboard' pk=p.pk %}" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size:11px">Analyze</a>
+              <form action="{% url 'portfolio:delete' pk=p.pk %}" method="post" style="margin:0" onsubmit="return confirm('Are you sure you want to delete portfolio &quot;{{ p.name }}&quot;? This cannot be undone.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size:11px; color:#f87171; border-color:rgba(248,113,113,0.25)">Delete</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+        {% if portfolios.count > 4 %}
+          <p style="font-size:11.5px;color:var(--text-muted);margin-top:8px">Showing 4 of {{ portfolios.count }} saved portfolios.</p>
+        {% endif %}
+      {% else %}
+        <div class="empty-placeholder">
+          <p>No portfolios uploaded yet.</p>
+        </div>
+      {% endif %}
+    </div>
+    <div class="dash-card-footer">
+      <span class="item-row-meta">Import broker statements (CAS) or excel sheets</span>
+      <div style="display:flex;gap:8px">
+        <a href="{% url 'portfolio:upload' %}" class="btn btn-primary btn-sm">Upload Portfolio</a>
+        <a href="{% url 'portfolio:list' %}" class="btn btn-secondary btn-sm">View All</a>
+      </div>
+    </div>
+  </div>
+
+  {# ── SECTION 2: RECOMMENDATIONS QUESTIONNAIRE ── #}
+  <div class="dash-card">
+    <div class="dash-card-title">🎯 Risk Questionnaire &amp; Strategy</div>
+    <div class="dash-card-body">
+      {% if rec_profile %}
+        <div class="badge-tag">{{ rec_profile.investor_archetype }} Archetype</div>
+        
+        <div style="margin-bottom:16px">
+          <div class="question-item">
+            <span class="question-lbl">Recommended Strategy:</span>
+            <span class="question-val">{{ rec_profile.recommended_strategy|default:"-"|upper }}</span>
+          </div>
+          <div class="question-item">
+            <span class="question-lbl">Asset Allocation:</span>
+            <span class="question-val" style="color:var(--indigo-400)">
+              {{ rec_profile.core_equity_pct }}% Eq / {{ rec_profile.core_debt_pct }}% Debt / {{ rec_profile.satellite_pct }}% Sat
+            </span>
+          </div>
+          <div class="question-item">
+            <span class="question-lbl">Age:</span>
+            <span class="question-val">{{ rec_profile.age|default:"-" }}</span>
+          </div>
+          <div class="question-item">
+            <span class="question-lbl">Goal &amp; Horizon:</span>
+            <span class="question-val">{{ rec_profile.get_goal_type_display }} ({{ rec_profile.get_goal_horizon_display }})</span>
+          </div>
+          <div class="question-item">
+            <span class="question-lbl">Risk Style (Reaction to loss):</span>
+            <span class="question-val">{{ rec_profile.get_loss_reaction_display }}</span>
+          </div>
+          <div class="question-item">
+            <span class="question-lbl">Payout Option Choice:</span>
+            <span class="question-val">{{ rec_profile.get_payout_preference_display }}</span>
+          </div>
+        </div>
+      {% else %}
+        <div class="empty-placeholder">
+          <p>You haven't completed the risk and goals questionnaire yet.</p>
+        </div>
+      {% endif %}
+    </div>
+    <div class="dash-card-footer">
+      <span class="item-row-meta">Drives SEBI-aligned category weights</span>
+      <div style="display:flex;gap:8px">
+        {% if rec_profile %}
+          <a href="{% url 'recommendations:engine' %}?edit=1" class="btn btn-secondary btn-sm">Edit Questionnaire</a>
+          <a href="{% url 'recommendations:result' %}" class="btn btn-primary btn-sm">View Recommendations</a>
+        {% else %}
+          <a href="{% url 'recommendations:engine' %}" class="btn btn-primary btn-sm">Take Questionnaire</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── SECTION 3: BACKTESTER STRATEGIES ── #}
+  <div class="dash-card">
+    <div class="dash-card-title">🧪 Saved Backtest Strategies ({{ strategies.count }})</div>
+    <div class="dash-card-body">
+      {% if strategies %}
+        {% for s in strategies|slice:":4" %}
+          <div class="item-row" id="strategy-row-{{ s.id }}">
+            <div class="item-row-info">
+              <a href="{% url 'portfolio:backtester_build' %}?strategy={{ s.id }}" class="item-row-title" style="text-decoration:none">
+                🧪 {{ s.name }}
+              </a>
+              <div class="item-row-meta">Saved {{ s.updated_at|date:"M d, Y" }} {% if s.last_result_json %}· has cached results{% endif %}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <a href="{% url 'portfolio:backtester_build' %}?strategy={{ s.id }}" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size:11px">Open</a>
+              <button onclick="deleteStrategy('{{ s.id }}', '{{ s.name|escapejs }}')" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size:11px; color:#f87171; border-color:rgba(248,113,113,0.25)">Delete</button>
+            </div>
+          </div>
+        {% endfor %}
+        {% if strategies.count > 4 %}
+          <p style="font-size:11.5px;color:var(--text-muted);margin-top:8px">Showing 4 of {{ strategies.count }} saved strategies.</p>
+        {% endif %}
+      {% else %}
+        <div class="empty-placeholder">
+          <p>No saved strategies yet.</p>
+        </div>
+      {% endif %}
+    </div>
+    <div class="dash-card-footer">
+      <span class="item-row-meta">Test historical asset allocation plans</span>
+      <div style="display:flex;gap:8px">
+        <a href="{% url 'portfolio:backtester_build' %}" class="btn btn-primary btn-sm">Build Strategy</a>
+        <a href="{% url 'portfolio:strategies' %}" class="btn btn-secondary btn-sm">Library</a>
+      </div>
+    </div>
+  </div>
+
+  {# ── SECTION 4: PREFERENCES & WATCHLISTS ── #}
+  <div class="dash-card">
+    <div class="dash-card-title">⚙️ Preferences &amp; Watchlists</div>
+    <div class="dash-card-body">
+      
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px">📡 Benchmark Monitor Watchlist</div>
+        {% if watchlist_indices %}
+          <div style="margin-bottom:12px">
+            {% for name in watchlist_indices %}
+              <span class="pref-chip">{{ name }}</span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Using default major indices (NIFTY 50, SENSEX, NIFTY MIDCAP 150, etc.).</p>
+        {% endif %}
+        <p style="font-size:11px;color:var(--text-muted)">Manage saved benchmarks via the ⚙ Manage button in the Benchmark section of the <a href="{% url 'funds:home' %}" style="color:var(--indigo-400)">Homepage</a>.</p>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px">⚙️ Market strip columns</div>
+        {% if chosen_metric_labels %}
+          <div>
+            {% for name in chosen_metric_labels %}
+              <span class="pref-chip">{{ name }}</span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="font-size:12px;color:var(--text-muted)">Using default live index tickers.</p>
+        {% endif %}
+        <p style="font-size:11px;color:var(--text-muted);margin-top:10px">Manage live index columns via the ⚙ button in the scrolling top bar.</p>
+      </div>
+
+    </div>
+    <div class="dash-card-footer">
+      <span class="item-row-meta">Preferences are saved to your account</span>
+      <a href="{% url 'funds:home' %}" class="btn btn-secondary btn-sm">Homepage Settings</a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteStrategy(id, name) {
+  if (!confirm(`Are you sure you want to delete strategy "${name}"?`)) return;
+
+  fetch(`/portfolio/strategies/api/${id}/`, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRFToken': '{{ csrf_token }}',
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => {
+    if (response.ok) {
+      const el = document.getElementById(`strategy-row-${id}`);
+      if (el) el.remove();
+      // Reload page if all deleted to show empty state
+      window.location.reload();
+    } else {
+      alert('Failed to delete strategy.');
+    }
+  })
+  .catch(err => {
+    console.error('Delete failed:', err);
+    alert('Error occurred while deleting.');
+  });
+}
+</script>
+{% endblock %}

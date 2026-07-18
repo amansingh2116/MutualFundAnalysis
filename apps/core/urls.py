@@ -26,5 +26,9 @@ urlpatterns = [
     path('terms/',   views.terms_view,   name='terms'),
     path('privacy/', views.privacy_view, name='privacy'),
     path('contact/', views.contact_view, name='contact'),
+
+    # ── User Account / Dashboard ───────────────────────────────────────────────
+    path('user/dashboard/', views.user_dashboard_view, name='user_dashboard'),
+    path('user/settings/',  views.user_settings_view,  name='user_settings'),
 ]
 

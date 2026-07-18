@@ -75,6 +75,7 @@ class ScreenerDerivationTests(TestCase):
             category_group="Equity",
             scheme_sub_category="Small Cap Fund",
             plan_type="Direct",
+            is_direct=True,
             cagr_3y_pct=14,
             rolling_return_3y_pct=12,
             volatility_3y_pct=18,
@@ -86,6 +87,7 @@ class ScreenerDerivationTests(TestCase):
             category_group="Debt",
             scheme_sub_category="Liquid Fund",
             plan_type="Direct",
+            is_direct=True,
             cagr_3y_pct=6,
             rolling_return_3y_pct=5,
             volatility_3y_pct=2,
@@ -112,6 +114,7 @@ class ScreenerDerivationTests(TestCase):
             category_group="Equity",
             scheme_sub_category="Small Cap Fund",
             plan_type="Direct",
+            is_direct=True,
             benchmark_name="NIFTY 50",
             cagr_3y_pct=14,
             rolling_return_3y_pct=12,
@@ -130,21 +133,8 @@ class ScreenerDerivationTests(TestCase):
         self.assertIn("Performance Summary", html)
         self.assertIn("Axis Small Cap Fund", html)
 
-    def test_screener_report_route_returns_html(self):
+    def test_fund_detail_route_returns_html(self):
         scheme = self.make_scheme()
-        FundScreenerSnapshot.objects.create(
-            scheme=scheme,
-            fund_name=scheme.scheme_name,
-            fund_house="Axis",
-            category_group="Equity",
-            scheme_sub_category="Small Cap Fund",
-            plan_type="Direct",
-            cagr_3y_pct=14,
-            data_as_of=date(2026, 6, 14),
-        )
-
-        response = self.client.get(reverse("funds:screener_report", args=[scheme.amfi_code]))
-
+        response = self.client.get(reverse("funds:detail", args=[scheme.amfi_code]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Performance Summary")
         self.assertContains(response, scheme.scheme_name)

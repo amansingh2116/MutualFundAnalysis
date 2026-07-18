@@ -71,7 +71,7 @@
       </a>
       {% if user.is_authenticated %}
       <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name in 'backtester backtester_build strategies strategy_compare' %}active{% endif %}">
-        <span class="nav-icon">BT</span> Backtester
+        <span class="nav-icon">🧪</span> Backtester
       </a>
       {% endif %}
 
@@ -124,31 +124,30 @@
         </div>
       </div>
 
-      <div class="nav-section" data-nav-section="admin">
-        <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-admin">
-          <span>Admin</span>
+      {% if user.is_authenticated %}
+      <div class="nav-section" data-nav-section="account">
+        <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-account">
+          <span>Account</span>
           <span class="nav-section-caret" aria-hidden="true"></span>
         </button>
-        <div class="nav-section-items" id="nav-section-admin">
-      {% if user.is_staff %}
-      <a href="{% url 'admin:index' %}" class="nav-item" target="_blank">
-        <span class="nav-icon">⚙️</span> Admin Panel
-      </a>
-      {% endif %}
+        <div class="nav-section-items" id="nav-section-account">
+          <a href="{% url 'core:user_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'user_dashboard' %}active{% endif %}">
+            <span class="nav-icon">👤</span> Dashboard
+          </a>
         </div>
       </div>
+      {% endif %}
     </nav>
 
     <div class="sidebar-footer">
       {% if user.is_authenticated %}
-      <div class="sidebar-user">
+      <a href="{% url 'core:user_settings' %}" class="sidebar-user" style="text-decoration:none" title="Account settings & logout">
         <div class="user-avatar">{{ user.username|first|upper }}</div>
         <div class="user-info">
           <div class="user-name">{{ user.username }}</div>
           <div class="user-role">{% if user.is_staff %}Admin{% else %}User{% endif %}</div>
         </div>
-      </div>
-      <a href="{% url 'logout' %}" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:8px">Sign Out</a>
+      </a>
       {% else %}
       <a href="{% url 'login' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center">Sign In</a>
       {% endif %}
