@@ -46,7 +46,7 @@
       <a href="{% url 'funds:home' %}" class="nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
         <span class="nav-icon">🏠</span> Home
       </a>
-      <a href="{% url 'funds:category_list' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+      <a href="{% url 'funds:category_list' %}" class="nav-item {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}">
         <span class="nav-icon">📂</span> Browse Funds
       </a>
       <a href="{% url 'funds:screener' %}" class="nav-item {% if request.resolver_match.url_name == 'screener' %}active{% endif %}">
@@ -63,7 +63,7 @@
       <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' %}active{% endif %}">
         <span class="nav-icon">🧮</span> Calculators
       </a>
-      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and request.resolver_match.url_name not in 'backtester backtester_build backtester_v2_run backtester_fund_search backtester_pe_data strategies strategy_compare strategy_list_api strategy_detail_api' %}active{% endif %}">
+      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and 'backtester' not in request.resolver_match.url_name and 'strateg' not in request.resolver_match.url_name %}active{% endif %}">
         <span class="nav-icon">📊</span> My Portfolio
       </a>
       <a href="{% url 'recommendations:engine' %}" class="nav-item {% if request.resolver_match.namespace == 'recommendations' %}active{% endif %}">
@@ -238,7 +238,7 @@
 <div id="toast-container"></div>
 
 <!-- Scripts -->
-<script src="{% static 'js/main.js' %}?v=1.3"></script>
+<script src="{% static 'js/main.js' %}?v=1.5"></script>
 {% block extra_js %}{% endblock %}
 
 <!-- ── Info Button Styles (tooltip engine lives in main.js) ── -->

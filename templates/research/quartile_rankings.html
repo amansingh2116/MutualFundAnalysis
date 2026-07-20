@@ -526,6 +526,23 @@ async function fetchData() {
   }
 }
 
+function getLinkKey(key) {
+  if (!key) return '';
+  const k = key.toLowerCase();
+  if (k.includes('cagr') || k.includes('return') || k.startsWith('ret')) return 'cagr';
+  if (k.includes('sharpe')) return 'sharpe';
+  if (k.includes('sortino')) return 'sortino';
+  if (k.includes('alpha')) return 'alpha';
+  if (k.includes('beta')) return 'beta';
+  if (k.includes('vol')) return 'volatility';
+  if (k.includes('drawdown') || k.includes('dd')) return 'max_drawdown';
+  if (k.includes('expense')) return 'expense_ratio';
+  if (k.includes('aum')) return 'aum';
+  if (k.includes('tracking') || k === 'te_3y') return 'tracking_error';
+  if (k.includes('info') || k === 'ir_3y') return 'info_ratio';
+  return '';
+}
+
 function renderData(data) {
   currentMetrics = data.metrics;
   document.getElementById('qr-loading').style.display = 'none';
@@ -548,7 +565,7 @@ function renderData(data) {
   data.metrics.forEach(m => {
     const hib = m.higher_is_better === true ? '↑ better' : m.higher_is_better === false ? '↓ better' : '—';
     hRow += `<th style="text-align:right">${makeSortHeader(m.key, m.label)}
-      <button class="info-btn" data-t-title="${m.label}" data-t-what="${m.tooltip}" data-t-interp="${hib}">ⓘ</button>
+      <button class="info-btn" data-t-title="${m.label}" data-t-what="${m.tooltip}" data-t-interp="${hib}" data-t-link-key="${getLinkKey(m.key)}">ⓘ</button>
     </th>`;
   });
   hRow += '</tr>';

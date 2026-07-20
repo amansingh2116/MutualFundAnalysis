@@ -6,7 +6,9 @@
   <a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Net Worth Calculator</span>
 </div>
 <div class="page-header">
-  <div class="page-title">🏛️ Net Worth Calculator</div>
+  <div class="page-title">🏗️ Net Worth Calculator
+    <button class="info-btn" data-t-title="Net Worth Calculator" data-t-what="Net Worth = Total Assets − Total Liabilities. It is the single most important measure of your overall financial health — a snapshot of what you truly own after paying off all debts." data-t-interp="A positive and growing net worth is the goal of all personal finance. Ideally, your net worth should grow every year faster than inflation. Track it every 6–12 months to monitor progress.">ⓘ</button>
+  </div>
   <div class="page-subtitle">Tally your assets, subtract your debts — what remains is your Net Worth. All calculations run locally on your device.</div>
 </div>
 
@@ -126,8 +128,8 @@
 
         <!-- Cash & Liquid -->
         <div class="nw-section-title assets">Cash & Liquid Assets</div>
-        <div class="nw-row"><span class="nw-label">Cash</span><div class="nw-input-wrap"><span>₹</span><input id="a_cash" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
-        <div class="nw-row"><span class="nw-label">Bank Deposits (FD/RD/Savings)</span><div class="nw-input-wrap"><span>₹</span><input id="a_deposits" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Cash <button class="info-btn" data-t-title="Cash" data-t-what="Physical cash or balances in zero-interest accounts.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="a_cash" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Bank Deposits (FD/RD/Savings) <button class="info-btn" data-t-title="Bank Deposits" data-t-what="Money in savings accounts, fixed deposits, and recurring deposits.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="a_deposits" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Other debt investments</span><div class="nw-input-wrap"><span>₹</span><input id="a_debt_inv" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Bonds / Debentures</span><div class="nw-input-wrap"><span>₹</span><input id="a_bonds" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
 
@@ -138,23 +140,23 @@
 
         <!-- Investments -->
         <div class="nw-section-title investments" style="display:flex;align-items:center;">Market Investments <button class="info-btn" data-t-title="Market Investments" data-t-what="Equity, mutual funds, bonds, and real estate holdings. These are growth assets that carry market risk but typically deliver inflation-beating returns over long periods.">i</button></div>
-        <div class="nw-row"><span class="nw-label">Stock Market / Equities</span><div class="nw-input-wrap"><span>₹</span><input id="a_stocks" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
-        <div class="nw-row"><span class="nw-label">Mutual Funds</span><div class="nw-input-wrap"><span>₹</span><input id="a_mf" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Stock Market / Equities <button class="info-btn" data-t-title="Equities" data-t-what="Direct stock holdings (shares of publicly traded companies).">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="a_stocks" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Mutual Funds <button class="info-btn" data-t-title="Mutual Funds" data-t-what="Value of all mutual fund units owned across all categories.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="a_mf" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Stocks / Bonds held personally</span><div class="nw-input-wrap"><span>₹</span><input id="a_bonds_personal" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Real Estate (Investment property)</span><div class="nw-input-wrap"><span>₹</span><input id="a_re_inv" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Digital Gold & other commodities</span><div class="nw-input-wrap"><span>₹</span><input id="a_gold" class="nw-input nw-asset nw-inv" type="number" min="0" value="0"></div></div>
 
         <!-- Retirement -->
         <div class="nw-section-title retirement" style="display:flex;align-items:center;">Retirement Accounts <button class="info-btn" data-t-title="Retirement Accounts" data-t-what="Long-term, tax-advantaged savings: EPF, PPF, NPS, pensions. Typically illiquid before retirement age." data-t-note="Do not count these in your liquidity ratio — they should be treated as untouchable until retirement.">i</button></div>
-        <div class="nw-row"><span class="nw-label">EPF (Employee Provident Fund)</span><div class="nw-input-wrap"><span>₹</span><input id="a_epf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
-        <div class="nw-row"><span class="nw-label">PPF (Public Provident Fund)</span><div class="nw-input-wrap"><span>₹</span><input id="a_ppf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">EPF (Employee Provident Fund) <button class="info-btn" data-t-title="EPF" data-t-what="Total accumulated Employee Provident Fund balance.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="a_epf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">PPF (Public Provident Fund) <button class="info-btn" data-t-title="PPF" data-t-what="Total Public Provident Fund balance.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="a_ppf" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">NPS Balance</span><div class="nw-input-wrap"><span>₹</span><input id="a_nps" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Pension Plan Balance</span><div class="nw-input-wrap"><span>₹</span><input id="a_pension" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Other Retirement Savings</span><div class="nw-input-wrap"><span>₹</span><input id="a_ret_other" class="nw-input nw-asset nw-ret" type="number" min="0" value="0"></div></div>
 
         <!-- Miscellaneous -->
         <div class="nw-section-title misc">Miscellaneous Assets</div>
-        <div class="nw-row"><span class="nw-label">Primary Home Market Value</span><div class="nw-input-wrap"><span>₹</span><input id="a_home" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Primary Home Market Value <button class="info-btn" data-t-title="Primary Home" data-t-what="Current estimated market value of the house you live in.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="a_home" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Collectibles</span><div class="nw-input-wrap"><span>₹</span><input id="a_collectibles" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Furnishings / Art</span><div class="nw-input-wrap"><span>₹</span><input id="a_furnishings" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Other Assets</span><div class="nw-input-wrap"><span>₹</span><input id="a_other" class="nw-input nw-asset" type="number" min="0" value="0"></div></div>
@@ -169,13 +171,13 @@
       </div>
       <div class="card-body" style="padding: 16px 20px;">
         <div class="nw-section-title liabilities">Secured Loans</div>
-        <div class="nw-row"><span class="nw-label">Home Loan (residual)</span><div class="nw-input-wrap"><span>₹</span><input id="l_home" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Home Loan (residual) <button class="info-btn" data-t-title="Home Loan" data-t-what="Remaining principal amount to be paid on your home loan.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="l_home" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Auto Loan (residual)</span><div class="nw-input-wrap"><span>₹</span><input id="l_auto" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Business Loan / Line of Credit</span><div class="nw-input-wrap"><span>₹</span><input id="l_business" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Investment debt / Margin</span><div class="nw-input-wrap"><span>₹</span><input id="l_margin" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
 
         <div class="nw-section-title liabilities">Unsecured Loans & Payables</div>
-        <div class="nw-row"><span class="nw-label">Credit Card Balance(s)</span><div class="nw-input-wrap"><span>₹</span><input id="l_cc" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
+        <div class="nw-row"><span class="nw-label">Credit Card Balance(s) <button class="info-btn" data-t-title="Credit Cards" data-t-what="Total outstanding dues on all your credit cards.">ⓘ</button></span><div class="nw-input-wrap"><span>₹</span><input id="l_cc" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Student Loan (residual)</span><div class="nw-input-wrap"><span>₹</span><input id="l_student" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Personal Loans</span><div class="nw-input-wrap"><span>₹</span><input id="l_personal" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>
         <div class="nw-row"><span class="nw-label">Back-taxes / taxes payable outstanding</span><div class="nw-input-wrap"><span>₹</span><input id="l_taxes" class="nw-input nw-liability" type="number" min="0" value="0"></div></div>

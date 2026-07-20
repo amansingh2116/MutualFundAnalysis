@@ -291,7 +291,7 @@ select.form-ctrl { cursor:pointer; }
             <div>
               <div class="form-label-sm" style="margin-bottom:7px;">
                 Income Tax Slab
-                <button class="info-btn" data-t-title="Income Tax Slab" data-t-what="Your annual income tax bracket under the old or new regime. This affects the tax on debt fund gains (post-Apr 2023) and IDCW (dividend) income — both are taxed at your slab rate." data-t-interp="Choose 0% if you are below the basic exemption limit (₹7L under new regime). Gains from equity funds are taxed at fixed rates (20% / 12.5%) regardless of your slab.">ⓘ</button>
+                <button class="info-btn" data-t-title="Income Tax Slab" data-t-what="Your annual income tax bracket under the old or new regime. This affects the tax on debt fund gains (post-Apr 2023) and IDCW (dividend) income — both are taxed at your slab rate." data-t-interp="Choose 0% if you are below the basic exemption limit (₹7L under new regime). Gains from equity funds are taxed at fixed rates (20% / 12.5%) regardless of your slab." data-t-link-key="tax">ⓘ</button>
               </div>
               <div class="slab-pills">
                 <button class="slab-pill active" data-slab="0">0% (No Tax)</button>
@@ -305,7 +305,7 @@ select.form-ctrl { cursor:pointer; }
             <div>
               <div class="form-label-sm" style="margin-bottom:5px;">
                 Equity LTCG already used from stocks/ETFs (₹)
-                <button class="info-btn" data-t-title="Stock LTCG already used" data-t-what="If you've sold stocks, equity ETFs, or other equity instruments this year with long-term gains, enter that amount. It shares the same ₹1.25 lakh annual exemption with your mutual fund LTCG." data-t-interp="Example: If you booked ₹80,000 in LTCG from stocks, only ₹45,000 of the ₹1.25L exemption remains for mutual funds.">ⓘ</button>
+                <button class="info-btn" data-t-title="Stock LTCG already used" data-t-what="If you've sold stocks, equity ETFs, or other equity instruments this year with long-term gains, enter that amount. It shares the same ₹1.25 lakh annual exemption with your mutual fund LTCG." data-t-interp="Example: If you booked ₹80,000 in LTCG from stocks, only ₹45,000 of the ₹1.25L exemption remains for mutual funds." data-t-link-key="tax">ⓘ</button>
               </div>
               <input class="form-ctrl form-ctrl-sm" type="number" id="stock-ltcg-used" placeholder="₹ 0" min="0" value="0">
             </div>
@@ -313,14 +313,14 @@ select.form-ctrl { cursor:pointer; }
               <div class="form-group-sm">
                 <div class="form-label-sm">
                   Carry-Forward STCL (₹)
-                  <button class="info-btn" data-t-title="Carry-Forward STCL" data-t-what="Short-Term Capital Losses from previous ITR filings that are still within the 8-year carry-forward window. These are entered in Schedule BFLA of ITR-2." data-t-interp="STCL can offset STCG first (saving 20%), then any remaining STCL can offset LTCG (saving 12.5%). Enter the total from your previous ITR filing." data-t-note="Requires on-time ITR filing every year to preserve carry-forward rights.">ⓘ</button>
+                  <button class="info-btn" data-t-title="Carry-Forward STCL" data-t-what="Short-Term Capital Losses from previous ITR filings that are still within the 8-year carry-forward window. These are entered in Schedule BFLA of ITR-2." data-t-interp="STCL can offset STCG first (saving 20%), then any remaining STCL can offset LTCG (saving 12.5%). Enter the total from your previous ITR filing." data-t-note="Requires on-time ITR filing every year to preserve carry-forward rights." data-t-link-key="tax">ⓘ</button>
                 </div>
                 <input class="form-ctrl form-ctrl-sm" type="number" id="carry-stcl" placeholder="₹ 0" min="0" value="0">
               </div>
               <div class="form-group-sm">
                 <div class="form-label-sm">
                   Carry-Forward LTCL (₹)
-                  <button class="info-btn" data-t-title="Carry-Forward LTCL" data-t-what="Long-Term Capital Losses from previous filings. These can ONLY be offset against Long-Term Capital Gains — they cannot reduce Short-Term gains." data-t-interp="LTCL offsets LTCG at 12.5% rate — useful when you have large equity or non-equity long-term gains." data-t-note="LTCL cannot offset STCG under any scenario. This is a strict rule under the Income Tax Act.">ⓘ</button>
+                  <button class="info-btn" data-t-title="Carry-Forward LTCL" data-t-what="Long-Term Capital Losses from previous filings. These can ONLY be offset against Long-Term Capital Gains — they cannot reduce Short-Term gains." data-t-interp="LTCL offsets LTCG at 12.5% rate — useful when you have large equity or non-equity long-term gains." data-t-note="LTCL cannot offset STCG under any scenario. This is a strict rule under the Income Tax Act." data-t-link-key="tax">ⓘ</button>
                 </div>
                 <input class="form-ctrl form-ctrl-sm" type="number" id="carry-ltcl" placeholder="₹ 0" min="0" value="0">
               </div>
@@ -347,21 +347,21 @@ select.form-ctrl { cursor:pointer; }
         <!-- Tax Summary Card -->
         <div class="tax-card" id="summary-card">
           <div class="tax-summary-total">
-            <div class="tax-total-label">Total Tax Payable (incl. 4% cess)</div>
+            <div class="tax-total-label">Total Tax Payable (incl. 4% cess) <button class="info-btn" data-t-title="Total Tax Payable" data-t-what="The combined capital gains tax across all your funds, including a 4% Health &amp; Education Cess on top of the base tax. This is the amount you owe to the Income Tax Department." data-t-interp="This is calculated using STCG (20%) + LTCG (12.5% above ₹1.25L) + Debt tax at slab rate, after any set-offs and losses. 4% cess is added on the total tax amount.">ⓘ</button></div>
             <div class="tax-total-amount" id="total-tax-display">₹0</div>
             <div class="tax-total-posttax" id="post-tax-display">Post-Tax Value: — | Add funds to calculate</div>
           </div>
           <div class="tax-stats-row">
             <div class="tax-stat">
-              <div class="lbl">Total Invested</div>
+              <div class="lbl">Total Invested <button class="info-btn" data-t-title="Total Amount Invested" data-t-what="The total purchase cost (cost of acquisition) of all the mutual fund units you redeemed this year." data-t-interp="This is your capital invested — gains are calculated on top of this. Not to be confused with the current market value.">ⓘ</button></div>
               <div class="val val-blue" id="stat-invested">₹0</div>
             </div>
             <div class="tax-stat">
-              <div class="lbl">Total Gains</div>
+              <div class="lbl">Total Gains <button class="info-btn" data-t-title="Total Capital Gains" data-t-what="The total profit from all redemptions = Sale Value minus Purchase Cost across all funds. Includes both STCG and LTCG." data-t-interp="This is the gross gain before applying any exemptions, set-offs, or tax. Your taxable gain may be lower if you have losses or qualify for the ₹1.25L LTCG exemption.">ⓘ</button></div>
               <div class="val val-green" id="stat-gains">₹0</div>
             </div>
             <div class="tax-stat">
-              <div class="lbl">Effective Tax %</div>
+              <div class="lbl">Effective Tax % <button class="info-btn" data-t-title="Effective Tax Rate" data-t-what="Your actual tax burden as a percentage of total gains = (Total Tax ÷ Total Gains) × 100." data-t-interp="Always lower than the headline rate because of exemptions and set-offs. A lower effective tax rate means better tax efficiency. Target: keep below 5% through strategic planning.">ⓘ</button></div>
               <div class="val val-amber" id="stat-tax-pct">0.0%</div>
             </div>
           </div>
@@ -372,7 +372,7 @@ select.form-ctrl { cursor:pointer; }
           <div class="tax-card-hdr">
             <span class="tax-card-title">
               ⚖️ Set-Off Applied
-              <button class="info-btn" data-t-title="Capital Loss Set-Off" data-t-what="Indian tax law lets you use capital losses to reduce capital gains before computing tax. STCL (short-term loss) can offset both STCG and LTCG. LTCL can only offset LTCG." data-t-interp="Priority: STCL → STCG first (saves 20%), then STCL → LTCG (saves 12.5%). LTCL → LTCG only (saves 12.5%). Any unused loss carries forward up to 8 years." data-t-note="Requires timely ITR filing to preserve unused carry-forward losses.">ⓘ</button>
+              <button class="info-btn" data-t-title="Capital Loss Set-Off" data-t-what="Indian tax law lets you use capital losses to reduce capital gains before computing tax. STCL (short-term loss) can offset both STCG and LTCG. LTCL can only offset LTCG." data-t-interp="Priority: STCL → STCG first (saves 20%), then STCL → LTCG (saves 12.5%). LTCL → LTCG only (saves 12.5%). Any unused loss carries forward up to 8 years." data-t-note="Requires timely ITR filing to preserve unused carry-forward losses." data-t-link-key="tax">ⓘ</button>
             </span>
           </div>
           <div class="tax-card-body">
@@ -754,7 +754,7 @@ select.form-ctrl { cursor:pointer; }
           <div class="tax-card-hdr">
             <span class="tax-card-title">
               SIP Installments
-              <button class="info-btn" data-t-title="FIFO Method" data-t-what="India's tax law requires First-In-First-Out (FIFO) for mutual fund redemptions — the oldest units you bought are assumed to be sold first, even in a partial redemption." data-t-interp="This means your oldest SIP installments (which are most likely to be long-term) are redeemed first. Calculator applies this automatically." data-t-note="Each SIP installment has its own purchase date and holding period.">ⓘ</button>
+              <button class="info-btn" data-t-title="FIFO Method" data-t-what="India's tax law requires First-In-First-Out (FIFO) for mutual fund redemptions — the oldest units you bought are assumed to be sold first, even in a partial redemption." data-t-interp="This means your oldest SIP installments (which are most likely to be long-term) are redeemed first. Calculator applies this automatically." data-t-note="Each SIP installment has its own purchase date and holding period." data-t-link-key="tax">ⓘ</button>
             </span>
             <button class="btn-primary-sm" id="add-sip-row">+ Month</button>
           </div>
@@ -906,7 +906,7 @@ select.form-ctrl { cursor:pointer; }
             <div class="tax-card-hdr">
               <span class="tax-card-title">
                 Fund Switch Tax Calculator
-                <button class="info-btn" data-t-title="Switch Tax" data-t-what="Switching from one fund to another — even within the same AMC — is a fully taxable event under Indian income tax law. It is treated as a full redemption of the source fund and a fresh purchase of the target fund." data-t-interp="Even switching between two plans (e.g., Regular → Direct) within the same scheme triggers capital gains tax." data-t-note="Many investors miss this. Always calculate the tax cost before switching.">ⓘ</button>
+                <button class="info-btn" data-t-title="Switch Tax" data-t-what="Switching from one fund to another — even within the same AMC — is a fully taxable event under Indian income tax law. It is treated as a full redemption of the source fund and a fresh purchase of the target fund." data-t-interp="Even switching between two plans (e.g., Regular → Direct) within the same scheme triggers capital gains tax." data-t-note="Many investors miss this. Always calculate the tax cost before switching." data-t-link-key="tax">ⓘ</button>
               </span>
             </div>
             <div class="tax-card-body" style="display:flex;flex-direction:column;gap:10px;">
@@ -1475,14 +1475,14 @@ function createFundCard(id) {
         <div class="form-group-sm">
           <div class="form-label-sm">
             IDCW Received (₹)
-            <button class="info-btn" data-t-title="IDCW (Dividend)" data-t-what="Income Distribution cum Capital Withdrawal — the new name for mutual fund dividends. Taxed at your full income tax slab rate. TDS of 10% applies if IDCW exceeds ₹5,000 per year from a single AMC." data-t-interp="IDCW is always worse than Growth option for anyone in the 20%+ tax bracket. Growth plan defers all tax to the point of redemption.">ⓘ</button>
+            <button class="info-btn" data-t-title="IDCW (Dividend)" data-t-what="Income Distribution cum Capital Withdrawal — the new name for mutual fund dividends. Taxed at your full income tax slab rate. TDS of 10% applies if IDCW exceeds ₹5,000 per year from a single AMC." data-t-interp="IDCW is always worse than Growth option for anyone in the 20%+ tax bracket. Growth plan defers all tax to the point of redemption." data-t-link-key="tax">ⓘ</button>
           </div>
           <input class="form-ctrl form-ctrl-sm" type="number" id="fund-idcw-${id}" placeholder="₹ 0" min="0" value="0" oninput="onFundChange(${id})">
         </div>
         <div class="form-group-sm">
           <div class="form-label-sm">
             Exit Load (₹)
-            <button class="info-btn" data-t-title="Exit Load" data-t-what="A fee charged by the AMC when you redeem before a specified holding period (typically 1 year for equity funds at 1%). It is a deductible cost when computing your capital gain." data-t-interp="Exit load reduces your capital gain and therefore your tax. But if you're harvesting a loss to save tax, make sure the tax saved exceeds the exit load cost.">ⓘ</button>
+            <button class="info-btn" data-t-title="Exit Load" data-t-what="A fee charged by the AMC when you redeem before a specified holding period (typically 1 year for equity funds at 1%). It is a deductible cost when computing your capital gain." data-t-interp="Exit load reduces your capital gain and therefore your tax. But if you're harvesting a loss to save tax, make sure the tax saved exceeds the exit load cost." data-t-link-key="exit_load">ⓘ</button>
           </div>
           <input class="form-ctrl form-ctrl-sm" type="number" id="fund-exitload-${id}" placeholder="₹ 0" min="0" value="0" oninput="onFundChange(${id})">
         </div>

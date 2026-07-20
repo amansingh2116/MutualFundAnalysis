@@ -84,12 +84,12 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="aum">AUM (Cr) <button type="button"
                 class="info-btn" data-t-title="Assets Under Management (AUM)"
                 data-t-what="Total market value of the investments managed by the fund."
-                data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance.">ⓘ</button>
+                data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance." data-t-link-key="aum">ⓘ</button>
             </div>
             <div class="fp-item" role="button" tabindex="0" data-filter="expense">Expense Ratio % <button type="button"
                 class="info-btn" data-t-title="Expense Ratio"
                 data-t-what="The annual fee charged by the mutual fund house."
-                data-t-interp="Lower is better as it directly impacts your final returns.">ⓘ</button></div>
+                data-t-interp="Lower is better as it directly impacts your final returns." data-t-link-key="expense_ratio">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="age">Fund Age (Yrs) <button type="button"
                 class="info-btn" data-t-title="Fund Age" data-t-what="Number of years since the fund was launched."
                 data-t-interp="Older is generally preferred as it indicates a longer track record across multiple market cycles.">ⓘ</button>
@@ -119,22 +119,22 @@
                 data-t-interp="Higher is better. 80+ is typically excellent.">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sip_available">SIP Available <button
                 type="button" class="info-btn" data-t-title="SIP Available"
-                data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund.">ⓘ</button>
+                data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund." data-t-link-key="sip">ⓘ</button>
             </div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sip_min">Min SIP (₹) <button type="button"
                 class="info-btn" data-t-title="Min SIP (₹)"
-                data-t-what="The minimum amount required to start a SIP investment.">ⓘ</button></div>
+                data-t-what="The minimum amount required to start a SIP investment." data-t-link-key="sip">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="lump_min">Min Lumpsum (₹) <button type="button"
                 class="info-btn" data-t-title="Min Lumpsum (₹)"
-                data-t-what="The minimum amount required to start a lumpsum investment.">ⓘ</button></div>
+                data-t-what="The minimum amount required to start a lumpsum investment." data-t-link-key="lumpsum">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="lock_in">Lock-in (Days) <button type="button"
                 class="info-btn" data-t-title="Lock-in (Days)"
-                data-t-what="The mandatory period during which you cannot redeem your investment (e.g. 3 years for ELSS funds).">ⓘ</button>
+                data-t-what="The mandatory period during which you cannot redeem your investment (e.g. 3 years for ELSS funds)." data-t-link-key="lock_in">ⓘ</button>
             </div>
             <div class="fp-item" role="button" tabindex="0" data-filter="pturnover">Portfolio Turnover <button
                 type="button" class="info-btn" data-t-title="Portfolio Turnover"
                 data-t-what="Measures how frequently the fund manager buys and sells securities within a year."
-                data-t-interp="Lower is preferred (lower trading costs). However, high turnover is acceptable if returns justify it.">ⓘ</button>
+                data-t-interp="Lower is preferred (lower trading costs). However, high turnover is acceptable if returns justify it." data-t-link-key="turnover">ⓘ</button>
             </div>
           </div>
         </div>
@@ -161,11 +161,11 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="cagr_7y">7Y CAGR % <button type="button"
                 class="info-btn" data-t-title="7Y CAGR"
                 data-t-what="The annualized percentage growth rate of the fund over the past 7 years."
-                data-t-interp="Higher is better.">ⓘ</button></div>
+                data-t-interp="Higher is better." data-t-link-key="cagr">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="cagr_10y">10Y CAGR % <button type="button"
                 class="info-btn" data-t-title="10Y CAGR"
                 data-t-what="The annualized percentage growth rate of the fund over the past 10 years."
-                data-t-interp="Higher is better. Focus on 10Y for long-term equity assessment.">ⓘ</button></div>
+                data-t-interp="Higher is better. Focus on 10Y for long-term equity assessment." data-t-link-key="cagr">ⓘ</button></div>
           </div>
         </div>
 
@@ -219,19 +219,19 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_1y">1Y Alpha vs Category % <button
                 type="button" class="info-btn" data-t-title="1Y Alpha vs Sub-Category"
                 data-t-what="The fund's 1-year return minus the average 1-year return of all funds in the same sub-category."
-                data-t-interp="Positive means this fund beat its category peers over 1 year. Higher is better.">ⓘ</button></div>
+                data-t-interp="Positive means this fund beat its category peers over 1 year. Higher is better." data-t-link-key="alpha">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_3y">3Y Alpha vs Category % <button
                 type="button" class="info-btn" data-t-title="3Y Alpha vs Sub-Category"
                 data-t-what="The fund's 3-year CAGR minus the average 3-year CAGR of all funds in the same sub-category."
-                data-t-interp="Positive means this fund outperformed peers over a 3-year horizon. Higher is better.">ⓘ</button></div>
+                data-t-interp="Positive means this fund outperformed peers over a 3-year horizon. Higher is better." data-t-link-key="alpha">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_5y">5Y Alpha vs Category % <button
                 type="button" class="info-btn" data-t-title="5Y Alpha vs Sub-Category"
                 data-t-what="The fund's 5-year CAGR minus the average 5-year CAGR of all funds in the same sub-category."
-                data-t-interp="Positive means this fund has delivered above-average long-term returns for its category.">ⓘ</button></div>
+                data-t-interp="Positive means this fund has delivered above-average long-term returns for its category." data-t-link-key="alpha">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="excess_cat_7y">7Y Alpha vs Category % <button
                 type="button" class="info-btn" data-t-title="7Y Alpha vs Sub-Category"
                 data-t-what="The fund's 7-year CAGR minus the average 7-year CAGR of all funds in the same sub-category."
-                data-t-interp="Positive means this fund has sustained outperformance over a full market cycle.">ⓘ</button></div>
+                data-t-interp="Positive means this fund has sustained outperformance over a full market cycle." data-t-link-key="alpha">ⓘ</button></div>
           </div>
         </div>
 
@@ -257,16 +257,16 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="sharpe_5y">5Y Sharpe <button type="button"
                 class="info-btn" data-t-title="5Y Sharpe Ratio"
                 data-t-what="Measures risk-adjusted return over 5 years."
-                data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></div>
+                data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good." data-t-link-key="sharpe">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sortino">3Y Sortino <button type="button"
                 class="info-btn" data-t-title="3Y Sortino Ratio"
                 data-t-what="Measures risk-adjusted return but only penalizes downside volatility (losses)."
-                data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button>
+                data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good." data-t-link-key="sortino">ⓘ</button>
             </div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sortino_5y">5Y Sortino <button type="button"
                 class="info-btn" data-t-title="5Y Sortino Ratio"
                 data-t-what="Measures risk-adjusted return over 5 years."
-                data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button>
+                data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good." data-t-link-key="sortino">ⓘ</button>
             </div>
             <div class="fp-item" role="button" tabindex="0" data-filter="drawdown_1y">1Y Max Drawdown % <button
                 type="button" class="info-btn" data-t-title="1Y Max Drawdown"
@@ -292,7 +292,7 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="tracking_3y">3Y Tracking Error % <button
                 type="button" class="info-btn" data-t-title="3Y Tracking Error"
                 data-t-what="Measures the deviation of the fund's returns from its benchmark."
-                data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible.">ⓘ</button>
+                data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible." data-t-link-key="tracking_error">ⓘ</button>
             </div>
           </div>
         </div>
@@ -303,20 +303,20 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="alpha_3y">3Y Jensen's Alpha % <button
                 type="button" class="info-btn" data-t-title="3Y Jensen's Alpha"
                 data-t-what="The excess return of a fund relative to the return of the benchmark, adjusted for risk (Beta)."
-                data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></div>
+                data-t-interp="Alpha > 0 means the manager added value. Higher is better." data-t-link-key="alpha">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="alpha_5y">5Y Jensen's Alpha % <button
                 type="button" class="info-btn" data-t-title="5Y Jensen's Alpha"
                 data-t-what="The excess return of a fund relative to the benchmark over 5 years, adjusted for risk."
-                data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></div>
+                data-t-interp="Alpha > 0 means the manager added value. Higher is better." data-t-link-key="alpha">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="beta_3y">3Y Beta < <button type="button"
                 class="info-btn" data-t-title="3Y Beta"
                 data-t-what="Measures the fund's volatility relative to its benchmark."
-                data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile.">ⓘ</button>
+                data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile." data-t-link-key="beta">ⓘ</button>
             </div>
             <div class="fp-item" role="button" tabindex="0" data-filter="info_ratio_3y">3Y Info Ratio <button
                 type="button" class="info-btn" data-t-title="3Y Information Ratio"
                 data-t-what="Measures a portfolio manager's ability to generate excess returns relative to a benchmark, divided by the tracking error."
-                data-t-interp="Higher is better. >0.5 is good.">ⓘ</button></div>
+                data-t-interp="Higher is better. Info Ratio > 0.5 is good." data-t-link-key="info_ratio">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="romad_3y">3Y ROMAD <button type="button"
                 class="info-btn" data-t-title="3Y ROMAD"
                 data-t-what="Risk-adjusted metric dividing the annualized return by the maximum drawdown."
@@ -338,17 +338,17 @@
                 data-t-interp="100% means perfectly correlated. Active funds typically have lower R-squared (70-90%).">ⓘ</button>
             </div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sharpe_si">SI Sharpe <button type="button"
-                class="info-btn" data-t-title="SI Sharpe" data-t-what="Since Inception Sharpe">ⓘ</button></div>
+                class="info-btn" data-t-title="SI Sharpe" data-t-what="Since Inception Sharpe" data-t-link-key="sharpe">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="sortino_si">SI Sortino <button type="button"
-                class="info-btn" data-t-title="SI Sortino" data-t-what="Since Inception Sortino">ⓘ</button></div>
+                class="info-btn" data-t-title="SI Sortino" data-t-what="Since Inception Sortino" data-t-link-key="sortino">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="romad_si">SI ROMAD <button type="button"
                 class="info-btn" data-t-title="SI ROMAD" data-t-what="Since Inception ROMAD">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="rsq_si">SI R-Squared % <button type="button"
                 class="info-btn" data-t-title="SI R-Squared" data-t-what="Since Inception R-Squared">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="alpha_si">SI Alpha % <button type="button"
-                class="info-btn" data-t-title="SI Alpha" data-t-what="Since Inception Alpha">ⓘ</button></div>
+                class="info-btn" data-t-title="SI Alpha" data-t-what="Since Inception Alpha" data-t-link-key="alpha">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="beta_si">SI Beta <button type="button"
-                class="info-btn" data-t-title="SI Beta" data-t-what="Since Inception Beta">ⓘ</button></div>
+                class="info-btn" data-t-title="SI Beta" data-t-what="Since Inception Beta" data-t-link-key="beta">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="upside_si">SI Upside Capture % <button
                 type="button" class="info-btn" data-t-title="SI Upside Capture"
                 data-t-what="Since Inception Upside Capture">ⓘ</button></div>
@@ -391,19 +391,19 @@
             <div class="fp-item" role="button" tabindex="0" data-filter="cat_alpha">Category Avg Alpha (3Y) <button
                 type="button" class="info-btn" data-t-title="Category Avg Alpha (3Y)"
                 data-t-what="Average 3-year Jensen's Alpha of all funds in the same sub-category."
-                data-t-interp="Filter by how good/bad the category as a whole is at beating benchmarks.">ⓘ</button></div>
+                data-t-interp="Filter by how good/bad the category as a whole is at beating benchmarks." data-t-link-key="alpha">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="cat_beta">Category Avg Beta (3Y) <button
                 type="button" class="info-btn" data-t-title="Category Avg Beta (3Y)"
                 data-t-what="Average 3-year Beta of all funds in the same sub-category."
-                data-t-interp="Filter by how sensitive this category typically is to market movements.">ⓘ</button></div>
+                data-t-interp="Filter by how sensitive this category typically is to market movements." data-t-link-key="beta">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="cat_expense">Category Avg Expense % <button
                 type="button" class="info-btn" data-t-title="Category Avg Expense Ratio"
                 data-t-what="Average expense ratio of all funds in the same sub-category."
-                data-t-interp="Lower is better. Compare to find lower-cost category alternatives.">ⓘ</button></div>
+                data-t-interp="Lower is better. Compare to find lower-cost category alternatives." data-t-link-key="expense_ratio">ⓘ</button></div>
             <div class="fp-item" role="button" tabindex="0" data-filter="cat_turnover">Category Avg Turnover <button
                 type="button" class="info-btn" data-t-title="Category Avg Portfolio Turnover"
                 data-t-what="Average portfolio turnover ratio of all funds in the same sub-category."
-                data-t-interp="Higher turnover categories tend to have higher hidden transaction costs.">ⓘ</button></div>
+                data-t-interp="Higher turnover categories tend to have higher hidden transaction costs." data-t-link-key="turnover">ⓘ</button></div>
           </div>
         </div>
 
@@ -486,7 +486,7 @@
         <details class="filter-block" open>
           <summary>AUM (in Cr.) <button type="button" class="info-btn" data-t-title="Assets Under Management (AUM)"
               data-t-what="Total market value of the investments managed by the fund."
-              data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance.">ⓘ</button>
+              data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance." data-t-link-key="aum">ⓘ</button>
           </summary>
           <div class="range-control" data-range data-param-min="aum_min" data-param-max="aum_max">
             <div class="range-values"><span data-min-label>0</span><span data-max-label>200,000+</span></div>
@@ -509,7 +509,7 @@
         <details class="filter-block" open>
           <summary>3-Yr CAGR (%) <button type="button" class="info-btn" data-t-title="3Y CAGR"
               data-t-what="The annualized percentage growth rate of the fund over the past 3 years."
-              data-t-interp="Higher is better.">ⓘ</button></summary>
+              data-t-interp="Higher is better." data-t-link-key="cagr">ⓘ</button></summary>
           <div class="range-control" data-range data-suffix="%" data-decimals="1" data-param-min="cagr_3y_min"
             data-param-max="cagr_3y_max">
             <div class="range-values"><span data-min-label>-10%</span><span data-max-label>50%</span></div>
@@ -625,7 +625,7 @@
           <details class="filter-block dynamic-filter-block" open data-key="sip_available">
             <summary>SIP Available
               <button type="button" class="info-btn" data-t-title="SIP Available"
-                data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund.">&#9432;</button>
+                data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund." data-t-link-key="sip">&#9432;</button>
               <button type="button" class="dyn-remove-btn" data-key="sip_available"
                 title="Remove this filter">&times;</button>
             </summary>
@@ -776,12 +776,12 @@
                     <span>↕</span></button> <button type="button" class="info-btn"
                     data-t-title="Assets Under Management (AUM)"
                     data-t-what="Total market value of the investments managed by the fund."
-                    data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance.">ⓘ</button>
+                    data-t-interp="Larger indicates popularity; for Small Caps, very large AUM can hinder performance." data-t-link-key="aum">ⓘ</button>
                 </th>
                 <th data-column="expense"><button type="button" class="table-sort" data-sort="expense">Exp%
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Expense Ratio"
                     data-t-what="The annual fee charged by the mutual fund house."
-                    data-t-interp="Lower is better as it directly impacts your final returns.">ⓘ</button></th>
+                    data-t-interp="Lower is better as it directly impacts your final returns." data-t-link-key="expense_ratio">ⓘ</button></th>
                 <th data-column="age"><button type="button" class="table-sort" data-sort="age">Age
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Fund Age"
                     data-t-what="Number of years since the fund was launched."
@@ -794,7 +794,7 @@
                     data-t-what="Overall rating assigned by CRISIL based on performance and risk."
                     data-t-interp="5-star is highest. 1-star is lowest.">ⓘ</button></th>
                 <th data-column="sip_avail">SIP <button type="button" class="info-btn" data-t-title="SIP Available"
-                    data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund.">ⓘ</button>
+                    data-t-what="Indicates whether Systematic Investment Plan (SIP) is available for this fund." data-t-link-key="sip">ⓘ</button>
                 </th>
                 <th data-column="model_score"><button type="button" class="table-sort" data-sort="model_score">Score
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Model Score"
@@ -830,23 +830,23 @@
                 <th data-column="cagr3y"><button type="button" class="table-sort" data-sort="cagr_3y">3Y%
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y CAGR"
                     data-t-what="The annualized percentage growth rate of the fund over the past 3 years."
-                    data-t-interp="Higher is better.">ⓘ</button></th>
+                    data-t-interp="Higher is better." data-t-link-key="cagr">ⓘ</button></th>
                 <th data-column="return5y"><button type="button" class="table-sort" data-sort="return_5y">5Y%
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y CAGR"
                     data-t-what="The annualized percentage growth rate of the fund over the past 5 years."
-                    data-t-interp="Higher is better. A good timeframe for assessing equity funds.">ⓘ</button></th>
+                    data-t-interp="Higher is better. A good timeframe for assessing equity funds." data-t-link-key="cagr">ⓘ</button></th>
                 <th data-column="cagr7y"><button type="button" class="table-sort" data-sort="cagr_7y">7Y%
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="7Y CAGR"
                     data-t-what="The annualized percentage growth rate of the fund over the past 7 years."
-                    data-t-interp="Higher is better.">ⓘ</button></th>
+                    data-t-interp="Higher is better." data-t-link-key="cagr">ⓘ</button></th>
                 <th data-column="cagr10y"><button type="button" class="table-sort" data-sort="cagr_10y">10Y%
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="10Y CAGR"
                     data-t-what="The annualized percentage growth rate of the fund over the past 10 years."
-                    data-t-interp="Higher is better. Focus on 10Y for long-term equity assessment.">ⓘ</button></th>
+                    data-t-interp="Higher is better. Focus on 10Y for long-term equity assessment." data-t-link-key="cagr">ⓘ</button></th>
                 <th data-column="cagrsi"><button type="button" class="table-sort" data-sort="cagr_si">SI%
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="Since-Inception CAGR"
                     data-t-what="The annualized percentage growth rate since the fund was launched."
-                    data-t-interp="Higher is better.">ⓘ</button></th>
+                    data-t-interp="Higher is better." data-t-link-key="cagr">ⓘ</button></th>
                 <th data-column="rolling3y"><button type="button" class="table-sort" data-sort="rolling_3y">Roll 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Avg Rolling Return"
                     data-t-what="The average of all 3-year returns calculated over the period."
@@ -879,15 +879,15 @@
                 <th data-column="sharpe"><button type="button" class="table-sort" data-sort="sharpe">Sharpe 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Sharpe Ratio"
                     data-t-what="Measures risk-adjusted return—how much excess return you get for the total risk taken."
-                    data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></th>
+                    data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good." data-t-link-key="sharpe">ⓘ</button></th>
                 <th data-column="sharpe5y"><button type="button" class="table-sort" data-sort="sharpe_5y">Sharpe 5Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Sharpe Ratio"
                     data-t-what="Measures risk-adjusted return over 5 years."
-                    data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good.">ⓘ</button></th>
+                    data-t-interp="Higher is better. A Sharpe ratio > 1 is generally considered good." data-t-link-key="sharpe">ⓘ</button></th>
                 <th data-column="sortino"><button type="button" class="table-sort" data-sort="sortino">Sortino 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Sortino Ratio"
                     data-t-what="Measures risk-adjusted return but only penalizes downside volatility (losses)."
-                    data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good.">ⓘ</button>
+                    data-t-interp="Higher is better. Often preferred over Sharpe for equity as upside volatility is good." data-t-link-key="sortino">ⓘ</button>
                 </th>
                 <th data-column="drawdown1y"><button type="button" class="table-sort" data-sort="drawdown_1y">MaxDD 1Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="1Y Max Drawdown"
@@ -932,25 +932,25 @@
                 <th data-column="alpha3y"><button type="button" class="table-sort" data-sort="alpha_3y">Alpha 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Jensen's Alpha"
                     data-t-what="The excess return of a fund relative to the return of the benchmark, adjusted for risk (Beta)."
-                    data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></th>
+                    data-t-interp="Alpha > 0 means the manager added value. Higher is better." data-t-link-key="alpha">ⓘ</button></th>
                 <th data-column="alpha5y"><button type="button" class="table-sort" data-sort="alpha_5y">Alpha 5Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="5Y Jensen's Alpha"
                     data-t-what="The excess return of a fund relative to the benchmark over 5 years, adjusted for risk."
-                    data-t-interp=">0 means the manager added value. Higher is better.">ⓘ</button></th>
+                    data-t-interp="Alpha > 0 means the manager added value. Higher is better." data-t-link-key="alpha">ⓘ</button></th>
                 <th data-column="beta3y"><button type="button" class="table-sort" data-sort="beta_3y">Beta 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Beta"
                     data-t-what="Measures the fund's volatility relative to its benchmark."
-                    data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile.">ⓘ</button>
+                    data-t-interp="Beta > 1 means more volatile than benchmark. Beta < 1 means less volatile." data-t-link-key="beta">ⓘ</button>
                 </th>
                 <th data-column="tracking3y"><button type="button" class="table-sort" data-sort="tracking_3y">TE 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Tracking Error"
                     data-t-what="Measures the deviation of the fund's returns from its benchmark."
-                    data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible.">ⓘ</button>
+                    data-t-interp="For active funds, a higher tracking error means the manager is taking active bets. For index funds, it should be as close to 0 as possible." data-t-link-key="tracking_error">ⓘ</button>
                 </th>
                 <th data-column="info3y"><button type="button" class="table-sort" data-sort="info_ratio_3y">IR 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y Information Ratio"
                     data-t-what="Measures a portfolio manager's ability to generate excess returns relative to a benchmark, divided by the tracking error."
-                    data-t-interp="Higher is better. >0.5 is good.">ⓘ</button></th>
+                    data-t-interp="Higher is better. Info Ratio > 0.5 is good." data-t-link-key="info_ratio">ⓘ</button></th>
                 <th data-column="romad3y"><button type="button" class="table-sort" data-sort="romad_3y">ROMAD 3Y
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="3Y ROMAD"
                     data-t-what="Risk-adjusted metric dividing the annualized return by the maximum drawdown."
@@ -968,10 +968,10 @@
                 </th>
                 <th data-column="sharpesi"><button type="button" class="table-sort" data-sort="sharpe_si">Sharpe SI
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Sharpe"
-                    data-t-what="Since Inception Sharpe Ratio">ⓘ</button></th>
+                    data-t-what="Since Inception Sharpe Ratio" data-t-link-key="sharpe">ⓘ</button></th>
                 <th data-column="sortinosi"><button type="button" class="table-sort" data-sort="sortino_si">Sortino SI
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Sortino"
-                    data-t-what="Since Inception Sortino Ratio">ⓘ</button></th>
+                    data-t-what="Since Inception Sortino Ratio" data-t-link-key="sortino">ⓘ</button></th>
                 <th data-column="romadsi"><button type="button" class="table-sort" data-sort="romad_si">ROMAD SI
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI ROMAD"
                     data-t-what="Since Inception ROMAD">ⓘ</button></th>
@@ -980,10 +980,10 @@
                     data-t-what="Since Inception R-Squared">ⓘ</button></th>
                 <th data-column="alphasi"><button type="button" class="table-sort" data-sort="alpha_si">Alpha SI
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Alpha"
-                    data-t-what="Since Inception Alpha">ⓘ</button></th>
+                    data-t-what="Since Inception Alpha" data-t-link-key="alpha">ⓘ</button></th>
                 <th data-column="betasi"><button type="button" class="table-sort" data-sort="beta_si">Beta SI
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Beta"
-                    data-t-what="Since Inception Beta">ⓘ</button></th>
+                    data-t-what="Since Inception Beta" data-t-link-key="beta">ⓘ</button></th>
                 <th data-column="upsidesi"><button type="button" class="table-sort" data-sort="upside_si">Up Cap SI
                     <span>↕</span></button> <button type="button" class="info-btn" data-t-title="SI Upside Capture"
                     data-t-what="Since Inception Upside Capture">ⓘ</button></th>

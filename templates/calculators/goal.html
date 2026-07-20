@@ -2,14 +2,19 @@
 {% block title %}Goal Planner{% endblock %}
 {% block content %}
 <div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">›</span><span>Goal Planner</span></div>
-<div class="page-header"><div class="page-title">🎯 Goal Planner</div><div class="page-subtitle">Enter your financial goal and get the required monthly SIP amount.</div></div>
+<div class="page-header">
+  <div class="page-title">🎯 Goal Planner
+    <button class="info-btn" data-t-title="Goal Planner Calculator" data-t-what="Enter your financial goal (e.g. retirement corpus, child's education, home down payment) and the calculator tells you how much SIP you need to invest every month to achieve it." data-t-interp="It accounts for inflation — so if your goal costs ₹50L today, in 15 years at 6% inflation it will cost ~₹1.2 Cr. The SIP is calculated based on the inflation-adjusted future cost, not the today's value.">ⓘ</button>
+  </div>
+  <div class="page-subtitle">Enter your financial goal and get the required monthly SIP amount.</div>
+</div>
 <div class="calc-layout">
   <div class="calc-inputs">
     <form id="goal-form">{% csrf_token %}
-      <div class="form-group"><label class="form-label">Target Amount (₹)</label><input class="form-control" type="number" name="target_amount" value="5000000" min="10000" step="10000"></div>
-      <div class="form-group"><label class="form-label">Time Horizon (Years)</label><div class="range-wrapper"><input type="range" name="years" id="years" min="1" max="40" value="15"><span class="range-value" id="years_display">15 yrs</span></div></div>
-      <div class="form-group"><label class="form-label">Expected Return Rate (%)</label><div class="range-wrapper"><input type="range" name="expected_rate" id="expected_rate" min="5" max="25" value="12" step="0.5"><span class="range-value" id="expected_rate_display">12%</span></div></div>
-      <div class="form-group"><label class="form-label">Inflation Rate (%)</label><div class="range-wrapper"><input type="range" name="inflation" id="inflation" min="3" max="12" value="6" step="0.5"><span class="range-value" id="inflation_display">6%</span></div></div>
+      <div class="form-group"><label class="form-label">Target Amount (₹) <button class="info-btn" data-t-title="Target Amount" data-t-what="The corpus (total money) you want to accumulate at the end of the investment period, in today's value." data-t-interp="This is adjusted for inflation automatically. For example, if you enter ₹50L for retirement in 20 years, the calculator will grow it to its future value using the inflation rate you enter.">ⓘ</button></label><input class="form-control" type="number" name="target_amount" value="5000000" min="10000" step="10000"></div>
+      <div class="form-group"><label class="form-label">Time Horizon (Years) <button class="info-btn" data-t-title="Time Horizon" data-t-what="The number of years you have to invest before you need the money." data-t-interp="Longer time horizons dramatically reduce the monthly SIP needed due to compounding. Starting 5 years earlier can halve your required SIP.">ⓘ</button></label><div class="range-wrapper"><input type="range" name="years" id="years" min="1" max="40" value="15"><span class="range-value" id="years_display">15 yrs</span></div></div>
+      <div class="form-group"><label class="form-label">Expected Return Rate (%) <button class="info-btn" data-t-title="Expected Annual Return Rate" data-t-what="The annual return you expect your mutual fund investments to generate on average." data-t-interp="Historical long-term average: Equity funds 10–15%, Hybrid funds 8–12%, Debt funds 6–8%. Use a conservative estimate (10–12% for equity) to avoid over-optimism.">ⓘ</button></label><div class="range-wrapper"><input type="range" name="expected_rate" id="expected_rate" min="5" max="25" value="12" step="0.5"><span class="range-value" id="expected_rate_display">12%</span></div></div>
+      <div class="form-group"><label class="form-label">Inflation Rate (%) <button class="info-btn" data-t-title="Inflation Rate" data-t-what="The annual rate at which the cost of your goal increases over time. E.g. education, healthcare, and lifestyle costs typically rise with inflation." data-t-interp="India's long-term average CPI inflation is 5–6%. Use 6% for general goals, 8–10% for education or healthcare. Higher inflation means you need a bigger corpus.">ⓘ</button></label><div class="range-wrapper"><input type="range" name="inflation" id="inflation" min="3" max="12" value="6" step="0.5"><span class="range-value" id="inflation_display">6%</span></div></div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate SIP Required
     </form>
   </div>
@@ -29,12 +34,13 @@ document.getElementById('goal-form').addEventListener('submit', async (e) => {
   const d = await r.json();
   if(d.error){document.getElementById('goal-results').innerHTML=`<div class="alert alert-danger">${d.error}</div>`;return;}
   document.getElementById('goal-results').innerHTML=`
-    <div class="calc-result-highlight"><div class="label">Monthly SIP Required</div><div class="value">₹${d.monthly_sip_required.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="sub">to reach ₹${(d.inflation_adjusted_target/100000).toFixed(1)}L in ${d.years} years</div></div>
+    <div class="calc-result-highlight"><div class="label">Monthly SIP Required <button class="info-btn" data-t-title="Monthly SIP Required" data-t-what="The fixed monthly investment amount you need to start immediately and continue for the full time horizon to reach your inflation-adjusted goal." data-t-interp="This assumes end-of-month SIP installments and constant returns. Actual returns will vary. Start a SWP or systematic withdrawal at the end of the horizon to meet your goal.">&#9432;</button></div><div class="value">₹${d.monthly_sip_required.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="sub">to reach ₹${(d.inflation_adjusted_target/100000).toFixed(1)}L in ${d.years} years</div></div>
     <div class="metrics-dl">
-      <div><div class="metric-key">Goal Amount</div><div class="metric-val" style="font-size:14px">₹${(d.target_amount/100000).toFixed(1)}L</div></div>
-      <div><div class="metric-key">Inflation-Adjusted</div><div class="metric-val" style="font-size:14px">₹${(d.inflation_adjusted_target/100000).toFixed(1)}L</div></div>
-      <div><div class="metric-key">One-time Lumpsum (now)</div><div class="metric-val" style="font-size:14px">₹${(d.lumpsum_now/100000).toFixed(1)}L</div></div>
+      <div><div class="metric-key">Goal Amount (Today's Value)</div><div class="metric-val" style="font-size:14px">₹${(d.target_amount/100000).toFixed(1)}L</div></div>
+      <div><div class="metric-key">Inflation-Adjusted Target <button class="info-btn" data-t-title="Inflation-Adjusted Target" data-t-what="The actual amount you will need at the end of the investment horizon, after accounting for inflation eroding the purchasing power of money." data-t-interp="This is the future value of your goal amount. Your SIP is calculated to reach this number, not the today's value. Inflation makes goals significantly more expensive over time.">&#9432;</button></div><div class="metric-val" style="font-size:14px">₹${(d.inflation_adjusted_target/100000).toFixed(1)}L</div></div>
+      <div><div class="metric-key">One-time Lumpsum (now) <button class="info-btn" data-t-title="Lumpsum Alternative" data-t-what="The amount you would need to invest in a lump sum TODAY (instead of monthly SIPs) to reach the inflation-adjusted target at the expected return rate." data-t-interp="Compare this to the SIP total outgo. If you have a large amount saved up and can invest it now, this alternative can be considered. But SIPs reduce timing risk.">&#9432;</button></div><div class="metric-val" style="font-size:14px">₹${(d.lumpsum_now/100000).toFixed(1)}L</div></div>
       <div><div class="metric-key">Instalments</div><div class="metric-val" style="font-size:14px">${d.n_instalments}</div></div>
     </div>`;
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('goal-results'));
 });
 </script>{% endblock %}

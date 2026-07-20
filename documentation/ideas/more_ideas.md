@@ -105,3 +105,15 @@ The individual fund analysis pages will be significantly upgraded with specializ
 - **Deep Learning (Premium):** LSTM, Bidirectional LSTM, GRU, and Attention-based Transformers for capturing non-linear NAV dynamics and long-range dependencies.
 - **Ensemble & Stacking:** A weighted ensemble model averaging predictions to minimize error.
 - **TruthLens:** A prediction accuracy tracker that creates a tamper-evident ledger of past ML predictions and compares them against actual NAV realizations for radical transparency.
+
+## 6. Advanced Platform Capabilities
+
+### 6.1 Market & Category Intelligence
+- **Enhanced Category Analysis:** Deep-dive metrics and trends for mutual fund categories, visualizing intra-category performance, asset flows, and historical risk profiles.
+- **Category Comparison Tool:** Head-to-head evaluation of different categories (e.g., Large Cap vs Flexi Cap) across multiple market cycles, helping users understand macro asset allocation strategies.
+- **AMC Explorer:** A comprehensive dashboard to evaluate entire fund houses. Features include historical launch analysis, style drift consistency, scheme range overlap, and overall AMC-level AUM growth.
+
+### 6.2 Portfolio Analytics & Recommendations
+- **Historical Score Tracking:** Save and track the historical evolution of a fund's internal holdings and quantitative model score over time to detect early signs of degradation or improvement.
+- **Explainable Recommendations:** Provide short, transparent, natural-language explanations (e.g., "Why this fund?") instead of a black-box ranking, tailored directly to the user's risk and time horizon questionnaire responses.
+- **Macro Stress Testing:** Simulate portfolio and fund performance under historical and hypothetical extreme scenarios (e.g., 2008 Financial Crisis, COVID-19 crash, interest rate shocks, inflation spikes, and sector concentration shocks).

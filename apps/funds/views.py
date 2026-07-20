@@ -39,7 +39,7 @@ class HomeView(TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         try:
-            ctx['total_funds'] = Scheme.objects.count() or None
+            ctx['total_funds'] = Scheme.objects.filter(Q(is_direct=True, plan='GROWTH') | Q(is_etf=True), is_active=True).count() or None
             ctx['fund_houses'] = Scheme.objects.values('fund_house').distinct().count() or None
             latest_nav = NAVHistory.objects.order_by('-date').first()
             ctx['last_nav_date'] = latest_nav.date.strftime('%d %b %Y') if latest_nav else None

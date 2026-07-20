@@ -108,25 +108,27 @@
       <form id="form-generic" style="display:none">
         {% csrf_token %}
         <div class="form-group">
-          <label class="form-label">Starting Monthly SIP (₹)</label>
+          <label class="form-label">Starting Monthly SIP (₹) <button class="info-btn" data-t-title="Starting SIP" data-t-what="The fixed amount you invest regularly (usually monthly) in the first year.">ⓘ</button></label>
           <input class="form-control" type="number" name="start_amount" id="start_amount" value="5000" min="500" step="500">
         </div>
         <div class="form-group">
-          <label class="form-label">Annual Step-Up (%)</label>
+          <label class="form-label">Annual Step-Up (%)
+            <button class="info-btn" data-t-title="Annual Step-Up" data-t-what="The percentage by which you increase your SIP amount every year to match your income growth.">ⓘ</button>
+          </label>
           <div class="range-wrapper">
             <input type="range" name="step_up_pct" id="step_up_pct" min="5" max="50" value="10" step="5">
             <span class="range-value" id="step_up_display">10%</span>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Investment Period (Years)</label>
+          <label class="form-label">Investment Period (Years) <button class="info-btn" data-t-title="Time Horizon" data-t-what="How long you plan to stay invested. Longer time horizons allow compounding to work its magic.">ⓘ</button></label>
           <div class="range-wrapper">
             <input type="range" name="years" id="years" min="1" max="30" value="10">
             <span class="range-value" id="years_display">10 yrs</span>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Expected Return (% p.a.)</label>
+          <label class="form-label">Expected Return (% p.a.) <button class="info-btn" data-t-title="Expected Return" data-t-what="The assumed annual return of the fund while it remains invested. For debt funds typically 6–8%, for equity funds 10–14%.">ⓘ</button></label>
           <div class="range-wrapper">
             <input type="range" name="expected_rate" id="expected_rate" min="5" max="25" value="12" step="0.5">
             <span class="range-value" id="expected_rate_display">12%</span>
@@ -173,7 +175,9 @@
         </div>
 
         <div class="form-group" style="margin-top:4px">
-          <label class="form-label">Annual Step-Up (%)</label>
+          <label class="form-label">Annual Step-Up (%)
+            <button class="info-btn" data-t-title="Annual Step-Up" data-t-what="The percentage by which you increase your SIP amount every year to match your income growth.">ⓘ</button>
+          </label>
           <div class="range-wrapper">
             <input type="range" id="hist-step-up" min="0" max="50" value="10" step="5">
             <span class="range-value" id="hist-step-up-display">10%</span>
@@ -181,23 +185,27 @@
         </div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group">
-            <label class="form-label">Start Date</label>
+            <label class="form-label">Start Date <button class="info-btn" data-t-title="Start Date" data-t-what="The date of the first instalment/transfer/withdrawal.">ⓘ</button></label>
             <input type="date" class="form-control" id="hist-start">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: latest inception</div>
           </div>
           <div class="form-group">
-            <label class="form-label">End Date</label>
+            <label class="form-label">End Date <button class="info-btn" data-t-title="End Date" data-t-what="The date of the final instalment/transfer/withdrawal.">ⓘ</button></label>
             <input type="date" class="form-control" id="hist-end">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: latest NAV</div>
           </div>
         </div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group">
-            <label class="form-label">Starting SIP (₹)</label>
+            <label class="form-label">Starting SIP (₹)
+            <button class="info-btn" data-t-title="Starting SIP" data-t-what="The fixed amount you invest regularly (usually monthly) in the first year.">ⓘ</button>
+          </label>
             <input class="form-control" type="number" id="hist-amount" value="5000" min="100" step="100">
           </div>
           <div class="form-group">
-            <label class="form-label">Frequency</label>
+            <label class="form-label">Frequency
+            <button class="info-btn" data-t-title="Frequency" data-t-what="How often the transaction occurs (e.g. Monthly or Quarterly).">ⓘ</button>
+          </label>
             <select class="form-control" id="hist-freq">
               <option value="monthly">Monthly</option>
               <option value="quarterly">Quarterly</option>
@@ -226,11 +234,13 @@ function selectMode(mode) {
   document.getElementById('form-generic').style.display    = mode === 'generic'    ? 'block' : 'none';
   document.getElementById('form-historical').style.display = mode === 'historical' ? 'block' : 'none';
   setPlaceholder('Enter values and click Calculate.');
+  if (window.location.hash !== '#' + mode) { history.pushState(null, '', '#' + mode); }
 }
 function goBack() {
   document.getElementById('mode-picker').style.display = 'block';
   document.getElementById('calc-area').style.display   = 'none';
   setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
 }
 function setPlaceholder(msg) {
   document.getElementById('results-area').innerHTML = `<div class="calc-placeholder"><div class="calc-placeholder-icon">📊</div><div class="calc-placeholder-text">${msg}</div></div>`;
@@ -453,5 +463,38 @@ document.getElementById('years').addEventListener('input',e=>document.getElement
 document.getElementById('expected_rate').addEventListener('input',e=>document.getElementById('expected_rate_display').textContent=e.target.value+'%');
 document.getElementById('step_up_pct').addEventListener('input',e=>document.getElementById('step_up_display').textContent=e.target.value+'%');
 document.getElementById('hist-step-up').addEventListener('input',e=>document.getElementById('hist-step-up-display').textContent=e.target.value+'%');
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
 </script>
 {% endblock %}

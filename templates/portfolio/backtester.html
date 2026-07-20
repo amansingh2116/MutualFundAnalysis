@@ -2556,17 +2556,36 @@ function renderResults(data) {
   if (mcTab) mcTab.style.display = data.mc_enabled ? '' : 'none';
   if (data.mc_enabled) renderMCTab(data);
   queuePlotlyResize();
+  if (window.initInfoTooltips) window.initInfoTooltips(document);
+}
+
+function getLinkKeyForLabel(label) {
+  if (!label) return '';
+  const l = label.toLowerCase().trim();
+  if (l.includes('xirr') || l.includes('cagr') || l.includes('return')) return 'cagr';
+  if (l.includes('sharpe')) return 'sharpe';
+  if (l.includes('sortino')) return 'sortino';
+  if (l.includes('alpha')) return 'alpha';
+  if (l.includes('beta')) return 'beta';
+  if (l.includes('volatility') || l.includes('std dev')) return 'volatility';
+  if (l.includes('drawdown') || l.includes('dd')) return 'max_drawdown';
+  if (l.includes('expense')) return 'expense_ratio';
+  if (l.includes('aum')) return 'aum';
+  if (l.includes('tracking') || l === 'te') return 'tracking_error';
+  if (l.includes('info ratio') || l === 'ir') return 'info_ratio';
+  return '';
 }
 
 function metricCard(label, value, cls, tooltip) {
+  const linkKey = getLinkKeyForLabel(label);
+  const infoBtn = linkKey ? ` <button type="button" class="info-btn" data-t-title="${label}" data-t-what="${tooltip}" data-t-link-key="${linkKey}" style="margin-left:4px; font-size:11px; padding:0; background:none; border:none; color:var(--accent); cursor:pointer;">ⓘ</button>` : '';
   return `<div class="metric-card">
-    <div class="metric-label">${label}</div>
+    <div class="metric-label" style="display:flex; align-items:center;">${label}${infoBtn}</div>
     <div class="metric-value ${cls||''}">${value}</div>
     <div class="metric-sub">${tooltip}</div>
   </div>`;
 }
 
-// ── Phase 4: Adjusted Returns tab renderer ───────────────────────────────────
 function renderAdjustedTab(data) {
   const taxSection = document.getElementById('adjTaxSection');
   const inflSection = document.getElementById('adjInflationSection');

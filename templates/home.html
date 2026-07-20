@@ -295,9 +295,9 @@
 {# ── Stats strip ──────────────────────────────────────────────────────── #}
 <div class="stats-strip">
   <div class="stat-pill">
-    <div class="stat-pill-val">{{ total_funds|default:"14,000+" }}</div>
-    <div class="stat-pill-lbl">Total Schemes</div>
-    <div class="stat-pill-tag">AMFI registered</div>
+    <div class="stat-pill-val">{{ total_funds|default:"3,000+" }}</div>
+    <div class="stat-pill-lbl">Funds That Matter <button type="button" class="info-btn" data-t-key="funds_that_matter">ⓘ</button></div>
+    <div class="stat-pill-tag">Direct Growth & ETFs only</div>
   </div>
   <div class="stat-pill">
     <div class="stat-pill-val">{{ fund_houses|default:"44+" }}</div>
@@ -368,7 +368,7 @@
 {# ─────────────────────────────────────────────────────────────────────────── #}
 <div class="dash-section">
   <div class="dash-section-header">
-    <div class="dash-section-title">📡 Benchmark Monitor</div>
+    <div class="dash-section-title">📡 Benchmark Monitor <button type="button" class="info-btn" data-t-key="benchmark_monitor">ⓘ</button></div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       {% if benchmark_returns and benchmark_returns.0.data_as_of %}
       <span class="dash-section-badge">Updated: {{ benchmark_returns.0.data_as_of|date:"M d, Y" }}</span>
@@ -456,7 +456,7 @@
 {# ─────────────────────────────────────────────────────────────────────────── #}
 <div class="dash-section">
   <div class="dash-section-header">
-    <div class="dash-section-title">📊 Category Return Meter</div>
+    <div class="dash-section-title">📊 Category Return Meter <button type="button" class="info-btn" data-t-key="category_return_meter">ⓘ</button></div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <select class="cat-select" id="meter-group-select" onchange="renderMeterTable()">
         <option value="all">All Groups</option>
@@ -482,11 +482,11 @@
         <thead>
           <tr>
             <th style="min-width:180px">Category</th>
-            <th class="num">Funds</th>
-            <th class="num">Min</th>
-            <th class="num">Avg</th>
-            <th class="num">Median</th>
-            <th class="num">Max</th>
+            <th class="num">Funds <button type="button" class="info-btn" data-t-key="funds">ⓘ</button></th>
+            <th class="num">Min <button type="button" class="info-btn" data-t-key="category_min">ⓘ</button></th>
+            <th class="num">Avg <button type="button" class="info-btn" data-t-key="category_avg">ⓘ</button></th>
+            <th class="num">Median <button type="button" class="info-btn" data-t-key="category_median">ⓘ</button></th>
+            <th class="num">Max <button type="button" class="info-btn" data-t-key="category_max">ⓘ</button></th>
           </tr>
         </thead>
         <tbody id="meter-tbody">
@@ -503,7 +503,7 @@
 {# ─────────────────────────────────────────────────────────────────────────── #}
 <div class="dash-section">
   <div class="dash-section-header">
-    <div class="dash-section-title">🔬 Category Analysis</div>
+    <div class="dash-section-title">🔬 Category Analysis <button type="button" class="info-btn" data-t-key="category_analysis">ⓘ</button></div>
     <div style="display:flex;align-items:center;gap:8px">
       <span class="dash-section-badge">Score distribution · Risk · Returns</span>
       <a href="{% url 'funds:research_categories' %}" class="btn btn-secondary btn-sm">Deep Dive →</a>

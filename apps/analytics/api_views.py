@@ -323,9 +323,56 @@ def rolling_timeseries_api(request, amfi_code):
     snapshot = get_runtime_snapshot(scheme)
     nav = snapshot.nav_series
 
-    # Check for benchmark override via ?benchmark= query param
+    # Check for benchmark override via ?benchmark= or ?custom_weights= query param
     bm_override = request.GET.get('benchmark', '').strip()
-    if bm_override:
+    custom_weights_str = request.GET.get('custom_weights', '').strip()
+
+    if custom_weights_str:
+        try:
+            custom_weights = json.loads(custom_weights_str)
+            total_w = sum(custom_weights.values())
+            if total_w > 0:
+                normalized_weights = {k: v / total_w for k, v in custom_weights.items()}
+                
+                from apps.funds.runtime import fetch_db_benchmark_series
+                series_dict = {}
+                for idx_name, w in normalized_weights.items():
+                    s = fetch_db_benchmark_series(idx_name, None)
+                    if s is not None and not s.empty:
+                        series_dict[idx_name] = s
+                
+                if series_dict:
+                    df_bm = pd.DataFrame(series_dict)
+                    df_bm.ffill(inplace=True)
+                    df_bm.dropna(inplace=True)
+                    
+                    if not df_bm.empty:
+                        df_returns = df_bm.pct_change().fillna(0)
+                        weighted_returns = pd.Series(0.0, index=df_returns.index)
+                        for idx_name, w in normalized_weights.items():
+                            if idx_name in df_returns:
+                                weighted_returns += df_returns[idx_name] * w
+                        
+                        synthetic_nav = 100 * (1 + weighted_returns).cumprod()
+                        bm = synthetic_nav
+                        bm_name = "Custom Blended Benchmark"
+                        
+                        note_parts = [f"{k} ({v*100:.1f}%)" for k, v in normalized_weights.items() if k in series_dict]
+                        bm_note = "Weights: " + ", ".join(note_parts)
+                        bm_fallback = False
+                    else:
+                        raise ValueError("No overlapping data for custom benchmark constituents.")
+                else:
+                    raise ValueError("Could not fetch data for any custom benchmark constituents.")
+            else:
+                raise ValueError("Total weight must be greater than 0.")
+        except Exception as exc:
+            logger.info("Custom blended benchmark failed: %s", exc)
+            bm = snapshot.benchmark_series
+            bm_name = snapshot.benchmark_display_name
+            bm_note = f"Custom blended benchmark failed; using fund's default. ({exc})"
+            bm_fallback = True
+    elif bm_override:
         try:
             bm_result = fetch_benchmark_result(bm_override, nav if not nav.empty else pd.Series(dtype=float))
             if bm_result.series is not None and not bm_result.series.empty:
@@ -355,7 +402,7 @@ def rolling_timeseries_api(request, amfi_code):
     # try fetching NIFTY 50 from DB without a start-date filter to get all
     # available data (our DB has 2020–2026). We always show whatever we have.
     NIFTY50_FALLBACK = 'NIFTY 50'
-    if not bm_override:
+    if not bm_override and not custom_weights_str:
         _need_bm_fallback = (bm is None or bm.empty)
         if _need_bm_fallback:
             try:

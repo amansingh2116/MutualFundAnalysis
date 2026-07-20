@@ -104,13 +104,13 @@
       <span class="stat-val">₹{{ port_current|floatformat:2 }}</span>
     </div>
     <div class="stat-row">
-      <span>XIRR</span>
+      <span>XIRR <button class="info-btn" data-t-link-key="xirr" data-t-title="Portfolio XIRR">ⓘ</button></span>
       <span class="stat-val" style="color: {% if port_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
         {{ port_xirr|floatformat:2 }}%
       </span>
     </div>
     <div class="stat-row">
-      <span>Volatility (Ann.)</span>
+      <span>Volatility (Ann.) <button class="info-btn" data-t-link-key="volatility" data-t-title="Annualised Volatility">ⓘ</button></span>
       <span class="stat-val">{% if def_metrics.volatility %}{{ def_metrics.volatility }}%{% else %}-{% endif %}</span>
     </div>
   </div>
@@ -119,32 +119,32 @@
   <div class="stat-card" style="border-left: 4px solid #3b82f6;">
     <div class="stat-card-title" style="display:flex; justify-content:space-between; align-items:center;">
       <span>Default Blended Benchmark</span>
-      <span class="info-btn" data-t-title="Default Weights" data-t-what="{% for k,v in default_weights.items %}&lt;div&gt;&lt;strong&gt;{{ k }}&lt;/strong&gt;: {{ v }}%&lt;/div&gt;{% endfor %}" style="font-size: 12px; cursor: help;">ⓘ</span>
+      <span class="info-btn" data-t-title="Default Weights" data-t-what="{% for k,v in default_weights.items %}&lt;div&gt;&lt;strong&gt;{{ k }}&lt;/strong&gt;: {{ v }}%&lt;/div&gt;{% endfor %}" data-t-interp="This blended benchmark is automatically constructed using the weighted average of your portfolio's fund benchmarks. It represents the theoretical index-tracking performance of your portfolio mix." style="font-size: 12px; cursor: help;">ⓘ</span>
     </div>
     <div class="stat-row">
-      <span>Simulated Value</span>
+      <span>Simulated Value <button class="info-btn" data-t-title="Simulated Benchmark Value" data-t-what="The hypothetical portfolio value if you had invested the same amount in this blended benchmark index instead of the mutual funds." data-t-interp="Comparing this to your actual Current Value shows whether your fund selections added value over simply buying index funds.">ⓘ</button></span>
       <span class="stat-val">₹{{ def_current|floatformat:2 }}</span>
     </div>
     <div class="stat-row">
-      <span>XIRR</span>
+      <span>XIRR <button class="info-btn" data-t-link-key="xirr" data-t-title="Benchmark XIRR">ⓘ</button></span>
       <span class="stat-val" style="color: {% if def_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
         {{ def_xirr|floatformat:2 }}%
       </span>
     </div>
     <div class="stat-row">
-      <span>Alpha</span>
+      <span>Alpha <button class="info-btn" data-t-link-key="alpha" data-t-title="Portfolio Alpha vs Benchmark">ⓘ</button></span>
       <span class="stat-val">{{ def_metrics.alpha|default:"-" }}%</span>
     </div>
     <div class="stat-row">
-      <span>Beta</span>
+      <span>Beta <button class="info-btn" data-t-link-key="beta" data-t-title="Portfolio Beta vs Benchmark">ⓘ</button></span>
       <span class="stat-val">{{ def_metrics.beta|default:"-" }}</span>
     </div>
     <div class="stat-row">
-      <span>Sharpe / Sortino</span>
+      <span>Sharpe / Sortino <button class="info-btn" data-t-link-key="sharpe" data-t-title="Sharpe & Sortino Ratios" data-t-interp="Sharpe measures risk-adjusted return using total volatility. Sortino focuses only on downside volatility. Both are shown as Portfolio vs Benchmark.">ⓘ</button></span>
       <span class="stat-val">{{ def_metrics.sharpe|default:"-" }} / {{ def_metrics.sortino|default:"-" }}</span>
     </div>
     <div class="stat-row">
-      <span>Capture (Up/Down)</span>
+      <span>Capture (Up/Down) <button class="info-btn" data-t-title="Upside & Downside Capture" data-t-what="Upside Capture: How much of the benchmark's gains your portfolio captured during rising markets. Downside Capture: How much of the benchmark's losses your portfolio suffered during falling markets." data-t-interp="Ideal portfolio: Upside Capture > 100% (gains more than index in bull markets) and Downside Capture < 100% (loses less than index in bear markets).">ⓘ</button></span>
       <span class="stat-val">{{ def_metrics.up_capture|default:"-" }}% / {{ def_metrics.down_capture|default:"-" }}%</span>
     </div>
   </div>
@@ -154,32 +154,32 @@
   <div class="stat-card" style="border-left: 4px solid #f59e0b;">
     <div class="stat-card-title" style="display:flex; justify-content:space-between; align-items:center;">
       <span>Custom Benchmark</span>
-      <span class="info-btn" data-t-title="Custom Weights" data-t-what="{% for k,v in custom_weights.items %}&lt;div&gt;&lt;strong&gt;{{ k }}&lt;/strong&gt;: {{ v }}%&lt;/div&gt;{% endfor %}" style="font-size: 12px; cursor: help;">ⓘ</span>
+      <span class="info-btn" data-t-title="Custom Weights" data-t-what="{% for k,v in custom_weights.items %}&lt;div&gt;&lt;strong&gt;{{ k }}&lt;/strong&gt;: {{ v }}%&lt;/div&gt;{% endfor %}" data-t-interp="This is your manually configured blended benchmark. You can adjust the index weights below and click Update Comparison to recalculate." style="font-size: 12px; cursor: help;">ⓘ</span>
     </div>
     <div class="stat-row">
-      <span>Simulated Value</span>
+      <span>Simulated Value <button class="info-btn" data-t-title="Simulated Custom Benchmark Value" data-t-what="The hypothetical portfolio value if you had invested the same amount in your custom blended benchmark instead of the mutual funds." data-t-interp="Use this to test whether a different asset allocation would have outperformed your current fund selection.">ⓘ</button></span>
       <span class="stat-val">₹{{ custom_current|floatformat:2 }}</span>
     </div>
     <div class="stat-row">
-      <span>XIRR</span>
+      <span>XIRR <button class="info-btn" data-t-link-key="xirr" data-t-title="Custom Benchmark XIRR">ⓘ</button></span>
       <span class="stat-val" style="color: {% if custom_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
         {{ custom_xirr|floatformat:2 }}%
       </span>
     </div>
     <div class="stat-row">
-      <span>Alpha</span>
+      <span>Alpha <button class="info-btn" data-t-link-key="alpha" data-t-title="Alpha vs Custom Benchmark">ⓘ</button></span>
       <span class="stat-val">{{ custom_metrics.alpha|default:"-" }}%</span>
     </div>
     <div class="stat-row">
-      <span>Beta</span>
+      <span>Beta <button class="info-btn" data-t-link-key="beta" data-t-title="Beta vs Custom Benchmark">ⓘ</button></span>
       <span class="stat-val">{{ custom_metrics.beta|default:"-" }}</span>
     </div>
     <div class="stat-row">
-      <span>Sharpe / Sortino</span>
+      <span>Sharpe / Sortino <button class="info-btn" data-t-link-key="sharpe" data-t-title="Sharpe & Sortino vs Custom Benchmark">ⓘ</button></span>
       <span class="stat-val">{{ custom_metrics.sharpe|default:"-" }} / {{ custom_metrics.sortino|default:"-" }}</span>
     </div>
     <div class="stat-row">
-      <span>Capture (Up/Down)</span>
+      <span>Capture (Up/Down) <button class="info-btn" data-t-title="Upside & Downside Capture" data-t-what="Upside Capture: How much of the custom benchmark's gains your portfolio captured. Downside Capture: How much of the losses your portfolio suffered during custom benchmark downturns." data-t-interp="Compare against the default blended benchmark to see if your custom index mix is a better comparator for your portfolio style.">ⓘ</button></span>
       <span class="stat-val">{{ custom_metrics.up_capture|default:"-" }}% / {{ custom_metrics.down_capture|default:"-" }}%</span>
     </div>
   </div>
@@ -187,31 +187,31 @@
 
   <!-- Nifty 50 Card -->
   <div class="stat-card" style="border-left: 4px solid #10b981;">
-    <div class="stat-card-title">NIFTY 50</div>
+    <div class="stat-card-title">NIFTY 50 <button class="info-btn" data-t-title="NIFTY 50 Index" data-t-what="India's premier stock market index representing the top 50 large-cap companies across key sectors, weighted by free-float market capitalisation." data-t-interp="Used as the universal benchmark for most Indian equity funds. Your portfolio should ideally outperform NIFTY 50 over the long term to justify active fund selection." data-t-link-key="benchmark_monitor">ⓘ</button></div>
     <div class="stat-row">
-      <span>Simulated Value</span>
+      <span>Simulated Value <button class="info-btn" data-t-title="Simulated NIFTY 50 Value" data-t-what="The hypothetical portfolio value if you had invested the same amount directly in the NIFTY 50 index." data-t-interp="This is the simplest benchmark — if your active mutual funds cannot beat NIFTY 50 over 5+ years, you should consider switching to low-cost index ETFs.">ⓘ</button></span>
       <span class="stat-val">₹{{ nifty_current|floatformat:2 }}</span>
     </div>
     <div class="stat-row">
-      <span>XIRR</span>
+      <span>XIRR <button class="info-btn" data-t-link-key="xirr" data-t-title="NIFTY 50 XIRR">ⓘ</button></span>
       <span class="stat-val" style="color: {% if nifty_xirr > 0 %}var(--success){% else %}var(--danger){% endif %}">
         {{ nifty_xirr|floatformat:2 }}%
       </span>
     </div>
     <div class="stat-row">
-      <span>Alpha</span>
+      <span>Alpha <button class="info-btn" data-t-link-key="alpha" data-t-title="Alpha vs NIFTY 50">ⓘ</button></span>
       <span class="stat-val">{{ nifty_metrics.alpha|default:"-" }}%</span>
     </div>
     <div class="stat-row">
-      <span>Beta</span>
+      <span>Beta <button class="info-btn" data-t-link-key="beta" data-t-title="Beta vs NIFTY 50">ⓘ</button></span>
       <span class="stat-val">{{ nifty_metrics.beta|default:"-" }}</span>
     </div>
     <div class="stat-row">
-      <span>Sharpe / Sortino</span>
+      <span>Sharpe / Sortino <button class="info-btn" data-t-link-key="sharpe" data-t-title="Sharpe & Sortino vs NIFTY 50">ⓘ</button></span>
       <span class="stat-val">{{ nifty_metrics.sharpe|default:"-" }} / {{ nifty_metrics.sortino|default:"-" }}</span>
     </div>
     <div class="stat-row">
-      <span>Capture (Up/Down)</span>
+      <span>Capture (Up/Down) <button class="info-btn" data-t-title="Upside & Downside Capture vs NIFTY 50" data-t-what="Upside Capture: How much of NIFTY 50's gains your portfolio captured. Downside Capture: How much of NIFTY 50's losses your portfolio suffered." data-t-interp="The best portfolios have Upside Capture > 100% (beat the index on up days) and Downside Capture < 100% (protect better on down days).">ⓘ</button></span>
       <span class="stat-val">{{ nifty_metrics.up_capture|default:"-" }}% / {{ nifty_metrics.down_capture|default:"-" }}%</span>
     </div>
   </div>

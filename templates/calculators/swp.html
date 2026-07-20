@@ -93,7 +93,9 @@
           <input class="form-control" type="number" name="corpus" id="g-corpus" value="1000000" min="10000" step="1">
         </div>
         <div class="form-group">
-          <label class="form-label">Monthly Withdrawal (₹)</label>
+          <label class="form-label">Monthly Withdrawal (₹)
+            <button class="info-btn" data-t-title="Monthly Withdrawal" data-t-what="The fixed amount you redeem from your mutual fund every month.">ⓘ</button>
+          </label>
           <input class="form-control" type="number" name="monthly_withdrawal" id="g-withdrawal" value="10000" min="500" step="1">
         </div>
         <div class="form-group">
@@ -131,22 +133,30 @@
         </div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group">
-            <label class="form-label">Lumpsum Amount (₹)</label>
+            <label class="form-label">Lumpsum Amount (₹)
+            <button class="info-btn" data-t-title="Lumpsum Amount" data-t-what="The single, upfront investment amount made at the beginning of the period.">ⓘ</button>
+          </label>
             <input class="form-control" type="number" id="hist-lumpsum" value="1000000" min="1000" step="1000">
           </div>
           <div class="form-group">
-            <label class="form-label">Investment Date</label>
+            <label class="form-label">Investment Date
+            <button class="info-btn" data-t-title="Investment Date" data-t-what="The exact date when the initial lumpsum was invested. Historical NAV for this date will be used.">ⓘ</button>
+          </label>
             <input type="date" class="form-control" id="hist-lumpsum-date">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: fund inception</div>
           </div>
         </div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group">
-            <label class="form-label">Withdrawal Amount (₹)</label>
+            <label class="form-label">Withdrawal Amount (₹)
+            <button class="info-btn" data-t-title="Withdrawal Amount" data-t-what="The fixed amount you redeem from your mutual fund on each date.">ⓘ</button>
+          </label>
             <input class="form-control" type="number" id="hist-withdrawal" value="10000" min="100" step="100">
           </div>
           <div class="form-group">
-            <label class="form-label">Frequency</label>
+            <label class="form-label">Frequency
+            <button class="info-btn" data-t-title="Frequency" data-t-what="How often the transaction occurs (e.g. Monthly or Quarterly).">ⓘ</button>
+          </label>
             <select class="form-control" id="hist-freq">
               <option value="monthly">Monthly</option>
               <option value="quarterly">Quarterly</option>
@@ -155,12 +165,16 @@
         </div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group">
-            <label class="form-label">SWP Start Date</label>
+            <label class="form-label">SWP Start Date
+            <button class="info-btn" data-t-title="Start Date" data-t-what="The date of the first instalment/transfer/withdrawal.">ⓘ</button>
+          </label>
             <input type="date" class="form-control" id="hist-start">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: 1 month after investment</div>
           </div>
           <div class="form-group">
-            <label class="form-label">SWP End Date</label>
+            <label class="form-label">SWP End Date
+            <button class="info-btn" data-t-title="End Date" data-t-what="The date of the final instalment/transfer/withdrawal.">ⓘ</button>
+          </label>
             <input type="date" class="form-control" id="hist-end">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: latest NAV date</div>
           </div>
@@ -187,11 +201,13 @@ function selectMode(mode) {
   document.getElementById('form-generic').style.display    = mode==='generic'    ? 'block' : 'none';
   document.getElementById('form-historical').style.display = mode==='historical' ? 'block' : 'none';
   setPlaceholder('Enter values and click Calculate.');
+  if (window.location.hash !== '#' + mode) { history.pushState(null, '', '#' + mode); }
 }
 function goBack() {
   document.getElementById('mode-picker').style.display = 'block';
   document.getElementById('calc-area').style.display   = 'none';
   setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
 }
 function setPlaceholder(msg) {
   document.getElementById('results-area').innerHTML=`<div class="calc-placeholder"><div class="calc-placeholder-icon">💸</div><div class="calc-placeholder-text">${msg}</div></div>`;
@@ -417,5 +433,21 @@ function renderHistorical(d) {
 
 document.getElementById('expected_rate').addEventListener('input',e=>document.getElementById('expected_rate_display').textContent=e.target.value+'%');
 document.getElementById('g-years').addEventListener('input',e=>document.getElementById('g-years-display').textContent=e.target.value+' yrs');
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
 </script>
 {% endblock %}

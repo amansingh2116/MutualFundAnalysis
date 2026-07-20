@@ -64,7 +64,9 @@
 {% block content %}
 <div class="breadcrumb"><a href="{% url 'calculators:hub' %}">Calculators</a><span class="breadcrumb-sep">&rsaquo;</span><span>Rolling Return Calculator</span></div>
 <div class="page-header">
-  <div class="page-title">📈 Rolling Return Calculator</div>
+  <div class="page-title">📈 Rolling Return Calculator
+    <button class="info-btn" data-t-title="Rolling Return Calculator" data-t-what="Rolling returns show what your CAGR would have been if you had invested for a fixed period (e.g. 3 years) starting on any given day in history. The chart plots this return for every possible start date." data-t-interp="Unlike trailing returns (which use one fixed start date), rolling returns remove start-date bias. A fund with consistently high rolling returns is genuinely reliable — not just lucky with timing." data-t-link-key="rolling_returns">ⓘ</button>
+  </div>
   <div class="page-subtitle">Compare rolling returns of up to 5 mutual funds vs their benchmarks. Uses actual NAV history.</div>
 </div>
 
@@ -83,9 +85,10 @@
       <!-- Fund Tray -->
       <div id="rrc-tray" style="margin-bottom:10px"></div>
 
-      <!-- Rolling Window -->
       <div class="form-group">
-        <label class="form-label">Rolling Window</label>
+        <label class="form-label">Rolling Window
+          <button class="info-btn" data-t-title="Rolling Window" data-t-what="The fixed holding period used to calculate each rolling return. e.g. '3Y' means: at every start date, calculate the 3-year CAGR from that date. The chart shows how this 3Y CAGR changed across all possible start dates." data-t-interp="Longer windows (5Y, 7Y, 10Y) smooth out volatility and show long-term reliability. Shorter windows (1Y, 2Y) capture more frequent ups and downs. Use 3Y–5Y for most meaningful fund comparisons.">ⓘ</button>
+        </label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button type="button" class="btn rrc-w-btn rrc-active" data-days="252" data-label="1Y">1Y</button>
           <button type="button" class="btn rrc-w-btn" data-days="504" data-label="2Y">2Y</button>
@@ -98,20 +101,32 @@
 
       <!-- Date range -->
       <div class="form-group">
-        <label class="form-label">Start Date <span id="rrc-inception-hint" style="font-size:11px;color:var(--text-muted)"></span></label>
+        <label class="form-label">Start Date <button class="info-btn" data-t-title="Start Date" data-t-what="The date from which to start computing the rolling windows.">ⓘ</button> <span id="rrc-inception-hint" style="font-size:11px;color:var(--text-muted)"></span></label>
         <input type="date" id="rrc-start" class="form-control">
       </div>
       <div class="form-group">
-        <label class="form-label">End Date</label>
+        <label class="form-label">End Date <button class="info-btn" data-t-title="End Date" data-t-what="The end date of the period over which rolling returns are evaluated.">ⓘ</button></label>
         <input type="date" id="rrc-end" class="form-control">
       </div>
 
-      <!-- Custom Benchmark -->
-      <div class="form-group" style="position:relative">
-        <label class="form-label">Custom Benchmark <span style="font-size:10px;color:var(--text-muted)">(optional override)</span></label>
-        <input class="form-control" id="bm-input" type="text" placeholder="Default: each fund's own benchmark" autocomplete="off" readonly
-               style="cursor:pointer">
-        <div id="bm-dropdown"></div>
+      <!-- Custom Blended Benchmark -->
+      <div class="form-group" style="position:relative; background: var(--bg-hover); padding: 12px; border-radius: 6px; border: 1px solid var(--border);">
+        <label class="form-label" style="margin-bottom: 8px;">
+          Custom Blended Benchmark 
+          <button class="info-btn" data-t-title="Custom Blended Benchmark" data-t-what="Create a synthetic index by blending multiple benchmarks together with custom weights. The system will calculate daily returns for this composite index and use it as the benchmark." data-t-interp="Use this if your portfolio is a mix of different asset classes and no single index represents it accurately." data-t-note="The synthetic benchmark will only cover dates where ALL selected indices have data available. Leave empty to use each fund's default benchmark.">ⓘ</button>
+        </label>
+        
+        <div id="rrc-bm-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
+        
+        <div style="display: flex; gap: 8px; align-items: center; position: relative;">
+          <input class="form-control" id="rrc-bm-search" type="text" placeholder="Search to add an index (e.g. NIFTY 50)" autocomplete="off">
+          <div class="search-results-dropdown" id="rrc-bm-dropdown"></div>
+        </div>
+        
+        <div style="margin-top: 12px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color:var(--text-muted)">Total Weight: <strong id="rrc-bm-total">0</strong>%</span>
+          <span id="rrc-bm-err" style="color:var(--danger); display:none;">Weights must sum to exactly 100% to calculate.</span>
+        </div>
       </div>
 
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Calculate</button>
@@ -165,45 +180,101 @@ const BENCHMARK_OPTIONS = [
   'SENSEX','S&P 500','NASDAQ 100',
 ];
 
-let bmOverride = ''; // '' = use each fund's own benchmark
 
-// ─── Custom Benchmark Dropdown ────────────────────────────────────────────────
-const bmInput = document.getElementById('bm-input');
-const bmDropdown = document.getElementById('bm-dropdown');
 
-function buildBmDropdown(filter = '') {
-  const fl = filter.toLowerCase();
-  const opts = ["— Use each fund's own benchmark —", ...BENCHMARK_OPTIONS].filter(
-    (o,i) => i === 0 || o.toLowerCase().includes(fl)
-  );
-  bmDropdown.innerHTML = opts.map((o, i) => {
-    const isActive = (i === 0 && !bmOverride) || o === bmOverride;
-    return `<div class="bm-opt${isActive?' active':''}" data-val="${i===0?'':o}">${escHtml(o)}</div>`;
+// ─── Custom Blended Benchmark ────────────────────────────────────────────────
+const rrcBmSearch = document.getElementById('rrc-bm-search');
+const rrcBmDropdown = document.getElementById('rrc-bm-dropdown');
+const rrcBmList = document.getElementById('rrc-bm-list');
+const rrcBmTotal = document.getElementById('rrc-bm-total');
+const rrcBmErr = document.getElementById('rrc-bm-err');
+
+let customBmWeights = {}; // { "NIFTY 50": 60, "NIFTY NEXT 50": 40 }
+
+function renderBmList() {
+  const entries = Object.entries(customBmWeights);
+  let total = 0;
+  
+  if (entries.length === 0) {
+    rrcBmList.innerHTML = '<div style="font-size:12px; color:var(--text-muted); font-style:italic;">No custom benchmarks added. Default benchmarks will be used.</div>';
+    rrcBmTotal.textContent = '0';
+    rrcBmErr.style.display = 'none';
+    return;
+  }
+  
+  rrcBmList.innerHTML = entries.map(([name, weight]) => {
+    total += weight;
+    return `
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div style="flex:1; font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(name)}</div>
+        <input type="number" class="form-control" style="width:70px; padding:4px 8px; text-align:right;" min="0" max="100" value="${weight}" onchange="updateBmWeight('${name.replace(/'/g, "\'")}', this.value)">
+        <span style="font-size:12px; color:var(--text-muted)">%</span>
+        <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="removeBm('${name.replace(/'/g, "\'")}')">✕</button>
+      </div>
+    `;
   }).join('');
+  
+  rrcBmTotal.textContent = total;
+  rrcBmErr.style.display = (total !== 100 && total !== 0) ? 'block' : 'none';
 }
 
-bmInput.addEventListener('click', () => {
-  buildBmDropdown('');
-  bmDropdown.classList.add('open');
-  bmInput.removeAttribute('readonly');
-  bmInput.select();
+window.updateBmWeight = function(name, val) {
+  const weight = parseFloat(val) || 0;
+  customBmWeights[name] = weight;
+  renderBmList();
+};
+
+window.removeBm = function(name) {
+  delete customBmWeights[name];
+  renderBmList();
+};
+
+function buildBmSearchDropdown(filter = '') {
+  const fl = filter.toLowerCase();
+  const availableOpts = BENCHMARK_OPTIONS.filter(o => !customBmWeights.hasOwnProperty(o));
+  const opts = availableOpts.filter(o => o.toLowerCase().includes(fl));
+  
+  if (opts.length === 0) {
+    rrcBmDropdown.innerHTML = '<div style="padding:8px; font-size:12px; color:var(--text-muted)">No matches found</div>';
+  } else {
+    rrcBmDropdown.innerHTML = opts.map(o => `<div class="search-result-item bm-search-opt" data-val="${o}"><div class="sri-name">${escHtml(o)}</div></div>`).join('');
+  }
+}
+
+rrcBmSearch.addEventListener('focus', () => {
+  buildBmSearchDropdown(rrcBmSearch.value);
+  rrcBmDropdown.classList.add('open');
 });
-bmInput.addEventListener('input', () => buildBmDropdown(bmInput.value));
-bmDropdown.addEventListener('click', e => {
-  const opt = e.target.closest('.bm-opt');
+rrcBmSearch.addEventListener('input', () => {
+  buildBmSearchDropdown(rrcBmSearch.value);
+  rrcBmDropdown.classList.add('open');
+});
+
+rrcBmDropdown.addEventListener('click', e => {
+  const opt = e.target.closest('.bm-search-opt');
   if (!opt) return;
-  bmOverride = opt.dataset.val;
-  bmInput.value = bmOverride || '';
-  bmInput.placeholder = bmOverride ? '' : 'Default: each fund\'s own benchmark';
-  bmInput.setAttribute('readonly','');
-  bmDropdown.classList.remove('open');
+  const name = opt.dataset.val;
+  
+  // Assign default weight if possible, else 0
+  let currentTotal = Object.values(customBmWeights).reduce((a,b) => a+b, 0);
+  let newWeight = Math.max(0, 100 - currentTotal);
+  if (Object.keys(customBmWeights).length === 0) newWeight = 100;
+  
+  customBmWeights[name] = newWeight;
+  
+  rrcBmSearch.value = '';
+  rrcBmDropdown.classList.remove('open');
+  renderBmList();
 });
+
 document.addEventListener('click', e => {
-  if (!bmInput.contains(e.target) && !bmDropdown.contains(e.target)) {
-    bmDropdown.classList.remove('open');
-    bmInput.setAttribute('readonly','');
+  if (!rrcBmSearch.contains(e.target) && !rrcBmDropdown.contains(e.target)) {
+    rrcBmDropdown.classList.remove('open');
   }
 });
+
+// Initial render
+renderBmList();
 
 // ─── Fund Search ──────────────────────────────────────────────────────────────
 const rrcSearchInput = document.getElementById('rrc-search');
@@ -360,6 +431,13 @@ document.getElementById('rrc-form').addEventListener('submit', async e => {
     return;
   }
 
+  const currentTotal = Object.values(customBmWeights).reduce((a,b) => a+b, 0);
+  if (Object.keys(customBmWeights).length > 0 && currentTotal !== 100) {
+    document.getElementById('rrc-results').innerHTML =
+      `<div class="alert alert-warning">⚠️ Custom Blended Benchmark weights must sum to exactly 100%.</div>`;
+    return;
+  }
+
   const resultsEl = document.getElementById('rrc-results');
   resultsEl.innerHTML = `<div class="chart-placeholder" style="min-height:300px"><div class="spinner"></div><br><span style="font-size:12px;color:var(--text-muted)">Fetching NAV data for ${rrcFunds.length} fund(s)…</span></div>`;
 
@@ -368,7 +446,12 @@ document.getElementById('rrc-form').addEventListener('submit', async e => {
     let url = `/api/funds/${f.amfi_code}/rolling-timeseries/?window=${rrcWindowDays}`;
     if (start) url += `&start=${start}`;
     if (end)   url += `&end=${end}`;
-    if (bmOverride) url += `&benchmark=${encodeURIComponent(bmOverride)}`;
+    
+    // Check if custom weights are active and sum to 100
+    const currentTotal = Object.values(customBmWeights).reduce((a,b) => a+b, 0);
+    if (Object.keys(customBmWeights).length > 0 && currentTotal === 100) {
+      url += `&custom_weights=${encodeURIComponent(JSON.stringify(customBmWeights))}`;
+    }
     const catFetch = fetch(`/api/funds/${f.amfi_code}/category-avg/`)
       .then(r => r.ok ? r.json() : null)
       .catch(() => null);
@@ -485,6 +568,7 @@ function renderMultiResults(container, results, start, end) {
         <div id="rrc-stats"></div>
       </div>
     </div>`;
+  if (window.initInfoTooltips) window.initInfoTooltips(container);
 
   // Build category average reference lines
   const shapes = [];
@@ -603,12 +687,12 @@ function buildStatsTable(successes) {
       </tr>
       <tr>
         <th style="font-size:11px">Entity</th>
-        <th style="font-size:11px">Avg</th>
-        <th style="font-size:11px">Median</th>
-        <th style="font-size:11px">Min</th>
-        <th style="font-size:11px">Max</th>
-        <th style="font-size:11px">Volatility</th>
-        <th style="font-size:11px">Neg%</th>
+        <th style="font-size:11px">Avg <button class="info-btn" data-t-title="Average Rolling Return" data-t-what="The arithmetic mean of all rolling CAGR values across all start dates in the selected period." data-t-interp="Higher is better. A high average means the fund consistently delivered strong returns regardless of when you invested.">ⓘ</button></th>
+        <th style="font-size:11px">Median <button class="info-btn" data-t-title="Median Rolling Return" data-t-what="The middle value (50th percentile) of all rolling CAGR values. Half of all investment periods gave better, half gave worse returns." data-t-interp="More robust than the average — not skewed by a few extreme years. Compare median to average: if avg is much higher, there are a few exceptional periods pulling it up.">ⓘ</button></th>
+        <th style="font-size:11px">Min <button class="info-btn" data-t-title="Minimum Rolling Return" data-t-what="The worst CAGR across all rolling periods — the absolute worst-case outcome for any investor who held for this window." data-t-interp="Negative minimum means the fund has historically lost money over this holding period. A deeper negative means higher risk.">ⓘ</button></th>
+        <th style="font-size:11px">Max <button class="info-btn" data-t-title="Maximum Rolling Return" data-t-what="The best CAGR across all rolling periods — the best-case outcome for any investor who held for this window." data-t-interp="Shows the fund's upside potential in the best of times. Combine with Avg and Min for a full picture.">ⓘ</button></th>
+        <th style="font-size:11px">Volatility <button class="info-btn" data-t-title="Rolling Return Volatility" data-t-what="The standard deviation of all rolling CAGR values — how consistently or inconsistently the fund delivered returns across different time periods." data-t-interp="Lower volatility means more predictable returns across different entry points. A fund with low rolling return volatility is more reliable for SIP investors.">ⓘ</button></th>
+        <th style="font-size:11px">Neg% <button class="info-btn" data-t-title="Negative Return Periods %" data-t-what="The percentage of all rolling periods that ended with a negative return (i.e., you would have lost money after the full holding period)." data-t-interp="Lower is better. Ideal: 0% negative periods means the fund never lost money over this window historically. Anything above 10% is a red flag for long-term investors.">ⓘ</button></th>
       </tr>
       <tr>
         <td style="font-weight:600;font-size:11px">Fund</td>
@@ -668,7 +752,7 @@ function buildStatsTable(successes) {
         <div style="font-size:12px;font-weight:600;margin-bottom:8px">Return Statistics</div>
         <div class="table-wrapper">
           <table style="width:100%;font-size:12px">
-            <thead><tr><th></th><th>Avg</th><th>Median</th><th>Min</th><th>Max</th><th>Volatility</th><th>Neg%</th></tr></thead>
+            <thead><tr><th></th><th>Avg <button class="info-btn" data-t-title="Average Rolling Return" data-t-what="Mean of all rolling CAGR values." data-t-interp="Higher is more consistent.">&#9432;</button></th><th>Median <button class="info-btn" data-t-title="Median Rolling Return" data-t-what="50th percentile of all rolling CAGRs. More robust than average." data-t-interp="Lower than avg = a few exceptional periods pulling avg up.">&#9432;</button></th><th>Min <button class="info-btn" data-t-title="Worst Rolling Return" data-t-what="Worst-case CAGR across all start dates." data-t-interp="Negative = fund has lost money over this period historically.">&#9432;</button></th><th>Max <button class="info-btn" data-t-title="Best Rolling Return" data-t-what="Best-case CAGR across all start dates." data-t-interp="Shows maximum upside potential.">&#9432;</button></th><th>Volatility <button class="info-btn" data-t-title="Rolling Return Volatility" data-t-what="Std deviation of rolling CAGRs — consistency of returns." data-t-interp="Lower = more predictable for SIP investors.">&#9432;</button></th><th>Neg% <button class="info-btn" data-t-title="% Negative Periods" data-t-what="% of rolling windows that ended with a loss." data-t-interp="Lower is better. 0% = never lost money over this holding period.">&#9432;</button></th></tr></thead>
             <tbody>${statsRows}</tbody>
           </table>
         </div>
@@ -686,6 +770,7 @@ function buildStatsTable(successes) {
         </div>
       </div>
     </div>`;
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('rrc-stats'));
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

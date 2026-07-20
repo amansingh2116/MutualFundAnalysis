@@ -116,7 +116,9 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Expected Return Rate (% p.a.)</label>
+          <label class="form-label">Expected Return Rate (% p.a.)
+            <button class="info-btn" data-t-title="Expected Return" data-t-what="The assumed annual return of the fund while it remains invested. For debt funds typically 6–8%, for equity funds 10–14%.">ⓘ</button>
+          </label>
           <div class="range-wrapper">
             <input type="range" name="expected_rate" id="expected_rate" min="4" max="30" value="12" step="0.5">
             <span class="range-value" id="expected_rate_display">12%</span>
@@ -200,11 +202,13 @@ function selectMode(mode) {
   document.getElementById('form-generic').style.display    = mode==='generic'    ? 'block' : 'none';
   document.getElementById('form-historical').style.display = mode==='historical' ? 'block' : 'none';
   setPlaceholder('Enter values and click Calculate.');
+  if (window.location.hash !== '#' + mode) { history.pushState(null, '', '#' + mode); }
 }
 function goBack() {
   document.getElementById('mode-picker').style.display = 'block';
   document.getElementById('calc-area').style.display   = 'none';
   setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
 }
 function setPlaceholder(msg) {
   document.getElementById('results-area').innerHTML=`<div class="calc-placeholder"><div class="calc-placeholder-icon">💰</div><div class="calc-placeholder-text">${msg}</div></div>`;
@@ -250,15 +254,16 @@ document.getElementById('form-generic').addEventListener('submit',async e=>{
 function renderGeneric(d,principal){
   document.getElementById('results-area').innerHTML=`
     <div class="res-stat-row">
-      <div class="res-stat"><div class="lbl">Future Value</div><div class="val">${fmtINR(d.future_value)}</div><div class="sub">after ${d.years} years</div></div>
-      <div class="res-stat"><div class="lbl">Gain</div><div class="val" style="color:var(--emerald-400)">${fmtINR(d.gain)}</div><div class="sub">${pct(d.return_pct)} absolute</div></div>
+      <div class="res-stat"><div class="lbl">Future Value <button class="info-btn" data-t-title="Future Value" data-t-what="The total corpus your lumpsum grows to at the expected CAGR after the investment horizon." data-t-interp="Compare to your principal to see how much wealth was created. Real returns vary year to year.">&#9432;</button></div><div class="val">${fmtINR(d.future_value)}</div><div class="sub">after ${d.years} years</div></div>
+      <div class="res-stat"><div class="lbl">Gain <button class="info-btn" data-t-title="Absolute Gain" data-t-what="Profit = Future Value minus the Principal invested." data-t-interp="Also shown as absolute % return. The CAGR annualises this into a yearly growth rate.">&#9432;</button></div><div class="val" style="color:var(--emerald-400)">${fmtINR(d.gain)}</div><div class="sub">${pct(d.return_pct)} absolute</div></div>
     </div>
     <div class="res-metrics">
       <div class="res-metric"><div class="key">Principal</div><div class="val">${fmtINR(d.principal)}</div></div>
-      <div class="res-metric"><div class="key">CAGR</div><div class="val" style="color:var(--emerald-400)">${pct(d.cagr)}</div></div>
+      <div class="res-metric"><div class="key">CAGR <button class="info-btn" data-t-title="CAGR" data-t-what="Compounded Annual Growth Rate — the annualised rate your lumpsum grew at." data-t-interp="Higher is better. The Indian equity market has historically delivered 12–15% CAGR long-term. Use realistic rates for planning.">&#9432;</button></div><div class="val" style="color:var(--emerald-400)">${pct(d.cagr)}</div></div>
     </div>
     <div class="res-chart" id="chart-main" style="height:320px"></div>
     <div class="res-donut-row"><div id="donut-0" style="height:200px"></div></div>`;
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('results-area'));
   Plotly.newPlot('chart-main',[
     {x:d.history.map(h=>'Year '+h.year),y:d.history.map(h=>h.value),name:'Value',type:'scatter',mode:'lines',line:{color:'#34d399',width:2.5},fill:'tozeroy',fillcolor:'rgba(52,211,153,.1)'},
     {x:d.history.map(h=>'Year '+h.year),y:d.history.map(h=>h.invested),name:'Principal',type:'scatter',mode:'lines',line:{color:'#6366f1',width:1.5,dash:'dot'}},
@@ -356,5 +361,38 @@ function renderHistorical(d){
 
 document.getElementById('years').addEventListener('input',e=>document.getElementById('years_display').textContent=e.target.value+' yrs');
 document.getElementById('expected_rate').addEventListener('input',e=>document.getElementById('expected_rate_display').textContent=e.target.value+'%');
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
 </script>
 {% endblock %}

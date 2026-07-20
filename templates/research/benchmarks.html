@@ -103,16 +103,16 @@
       <thead>
         <tr>
           <th class="sortable" onclick="sortTable('bench-returns-table',0)">Index ↕</th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',1)">1W% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Week Return" data-t-what="Trailing 1-week absolute return">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',2)">1M% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Month Return" data-t-what="Trailing 1-month absolute return">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',3)">3M% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Month Return" data-t-what="Trailing 3-month absolute return">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',4)">6M% <button type="button" class="info-btn" aria-label="Info" data-t-title="6-Month Return" data-t-what="Trailing 6-month absolute return">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',5)">YTD% <button type="button" class="info-btn" aria-label="Info" data-t-title="Year To Date" data-t-what="Absolute return since January 1st of the current year">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',6)">1Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Return" data-t-what="Trailing 1-year Compound Annual Growth Rate">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',7)">3Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Year Return" data-t-what="Trailing 3-year CAGR">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',8)">5Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="5-Year Return" data-t-what="Trailing 5-year CAGR">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',9)">10Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="10-Year Return" data-t-what="Trailing 10-year CAGR">&#9432;</button></th>
-          <th class="sortable num" onclick="sortTable('bench-returns-table',10)">Since Launch% <button type="button" class="info-btn" aria-label="Info" data-t-title="Since Launch" data-t-what="CAGR since the index inception date">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',1)">1W% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Week Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',2)">1M% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Month Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',3)">3M% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Month Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',4)">6M% <button type="button" class="info-btn" aria-label="Info" data-t-title="6-Month Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',5)">YTD% <button type="button" class="info-btn" aria-label="Info" data-t-title="Year To Date" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',6)">1Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="1-Year Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',7)">3Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="3-Year Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',8)">5Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="5-Year Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',9)">10Y% <button type="button" class="info-btn" aria-label="Info" data-t-title="10-Year Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="sortable num" onclick="sortTable('bench-returns-table',10)">Since Launch% <button type="button" class="info-btn" aria-label="Info" data-t-title="Since Launch" data-t-link-key="cagr">&#9432;</button></th>
           <th class="num">As Of <button type="button" class="info-btn" aria-label="Info" data-t-title="As Of Date" data-t-what="The latest NAV date used for these calculations">&#9432;</button></th>
         </tr>
       </thead>
@@ -154,19 +154,19 @@
       <thead>
         <tr>
           <th>Index</th>
-          <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Average" data-t-what="Average 1-Year Rolling Return">&#9432;</button></th>
-          <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Average" data-t-what="Average 3-Year Rolling Return">&#9432;</button></th>
-          <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Average" data-t-what="Average 5-Year Rolling Return">&#9432;</button></th>
-          <th class="num">1Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Median" data-t-what="Median 1-Year Rolling Return">&#9432;</button></th>
-          <th class="num">3Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Median" data-t-what="Median 3-Year Rolling Return">&#9432;</button></th>
-          <th class="num">5Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Median" data-t-what="Median 5-Year Rolling Return">&#9432;</button></th>
-          <th class="num">1Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Min" data-t-what="Minimum 1-Year Rolling Return">&#9432;</button></th>
-          <th class="num">3Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Min" data-t-what="Minimum 3-Year Rolling Return">&#9432;</button></th>
-          <th class="num">5Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Min" data-t-what="Minimum 5-Year Rolling Return">&#9432;</button></th>
-          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max" data-t-what="Maximum 1-Year Rolling Return">&#9432;</button></th>
-          <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max" data-t-what="Maximum 3-Year Rolling Return">&#9432;</button></th>
-          <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max" data-t-what="Maximum 5-Year Rolling Return">&#9432;</button></th>
-          <th class="num">1Y Positive% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Positive%" data-t-what="Percentage of 1-Year rolling periods with positive returns">&#9432;</button></th>
+          <th class="num">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Avg Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">3Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Avg Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">5Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Avg Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">1Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Median Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">3Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Median Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">5Y Med <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Median Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">1Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Min Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">3Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Min Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">5Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Min Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">1Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">3Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">5Y Max <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max Rolling Return" data-t-link-key="rolling_returns">&#9432;</button></th>
+          <th class="num">1Y Positive% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Positive %" data-t-link-key="rolling_returns">&#9432;</button></th>
         </tr>
       </thead>
       <tbody id="rolling-body">
@@ -182,15 +182,15 @@
       <thead>
         <tr>
           <th>Index</th>
-          <th class="num">1Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y CAGR" data-t-what="Trailing 1-year Compound Annual Growth Rate">&#9432;</button></th>
-          <th class="num">1Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Volatility" data-t-what="Annualised Volatility (Standard Deviation) over 1 year">&#9432;</button></th>
-          <th class="num">1Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Sharpe Ratio" data-t-what="Sharpe Ratio (Risk-Adjusted Return) over 1 year">&#9432;</button></th>
-          <th class="num">3Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y CAGR" data-t-what="Trailing 3-year Compound Annual Growth Rate">&#9432;</button></th>
-          <th class="num">3Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Volatility" data-t-what="Annualised Volatility (Standard Deviation) over 3 years">&#9432;</button></th>
-          <th class="num">3Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Sharpe Ratio" data-t-what="Sharpe Ratio (Risk-Adjusted Return) over 3 years">&#9432;</button></th>
-          <th class="num">5Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y CAGR" data-t-what="Trailing 5-year Compound Annual Growth Rate">&#9432;</button></th>
-          <th class="num">5Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Volatility" data-t-what="Annualised Volatility (Standard Deviation) over 5 years">&#9432;</button></th>
-          <th class="num">5Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Sharpe Ratio" data-t-what="Sharpe Ratio (Risk-Adjusted Return) over 5 years">&#9432;</button></th>
+          <th class="num">1Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y CAGR" data-t-what="Trailing 1-year Compound Annual Growth Rate" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="num">1Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Volatility" data-t-link-key="volatility">&#9432;</button></th>
+          <th class="num">1Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Sharpe Ratio" data-t-link-key="sharpe">&#9432;</button></th>
+          <th class="num">3Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y CAGR" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="num">3Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Volatility" data-t-link-key="volatility">&#9432;</button></th>
+          <th class="num">3Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Sharpe Ratio" data-t-link-key="sharpe">&#9432;</button></th>
+          <th class="num">5Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y CAGR" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="num">5Y Vol% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Volatility" data-t-link-key="volatility">&#9432;</button></th>
+          <th class="num">5Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Sharpe Ratio" data-t-link-key="sharpe">&#9432;</button></th>
         </tr>
       </thead>
       <tbody>
@@ -222,13 +222,13 @@
       <thead>
         <tr>
           <th>Index</th>
-          <th class="num">1Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 1 year">&#9432;</button></th>
-          <th class="num">3Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 3 years">&#9432;</button></th>
-          <th class="num">5Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max Drawdown" data-t-what="Maximum peak-to-trough drop over 5 years">&#9432;</button></th>
-          <th class="num">1Y Return% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Return" data-t-what="Trailing 1-year return for context against drawdown">&#9432;</button></th>
-          <th class="num">3Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y CAGR" data-t-what="Trailing 3-year CAGR for context against drawdown">&#9432;</button></th>
-          <th class="num">5Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y CAGR" data-t-what="Trailing 5-year CAGR for context against drawdown">&#9432;</button></th>
-          <th class="num">3Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Sharpe Ratio" data-t-what="Sharpe Ratio over 3 years">&#9432;</button></th>
+          <th class="num">1Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Max Drawdown" data-t-link-key="max_drawdown">&#9432;</button></th>
+          <th class="num">3Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Max Drawdown" data-t-link-key="max_drawdown">&#9432;</button></th>
+          <th class="num">5Y Max Drawdown <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Max Drawdown" data-t-link-key="max_drawdown">&#9432;</button></th>
+          <th class="num">1Y Return% <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Return" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="num">3Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y CAGR" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="num">5Y CAGR% <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y CAGR" data-t-link-key="cagr">&#9432;</button></th>
+          <th class="num">3Y Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Sharpe Ratio" data-t-what="Sharpe Ratio over 3 years" data-t-link-key="sharpe">&#9432;</button></th>
         </tr>
       </thead>
       <tbody>

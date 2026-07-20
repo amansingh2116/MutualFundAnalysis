@@ -175,22 +175,30 @@
 
         <div class="grid-2" style="gap:12px;margin-top:4px">
           <div class="form-group">
-            <label class="form-label">Lumpsum Amount (₹)</label>
+            <label class="form-label">Lumpsum Amount (₹)
+            <button class="info-btn" data-t-title="Lumpsum Amount" data-t-what="The single, upfront investment amount made at the beginning of the period.">ⓘ</button>
+          </label>
             <input class="form-control" type="number" id="hist-lumpsum" value="1000000" min="1000" step="1000">
           </div>
           <div class="form-group">
-            <label class="form-label">Investment Date</label>
+            <label class="form-label">Investment Date
+            <button class="info-btn" data-t-title="Investment Date" data-t-what="The exact date when the initial lumpsum was invested. Historical NAV for this date will be used.">ⓘ</button>
+          </label>
             <input type="date" class="form-control" id="hist-lumpsum-date">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: source inception date</div>
           </div>
         </div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group">
-            <label class="form-label">Transfer Amount (₹)</label>
+            <label class="form-label">Transfer Amount (₹)
+            <button class="info-btn" data-t-title="Transfer Amount" data-t-what="The fixed amount transferred on each date from the Source fund to the Target fund.">ⓘ</button>
+          </label>
             <input class="form-control" type="number" id="hist-transfer" value="10000" min="100" step="100">
           </div>
           <div class="form-group">
-            <label class="form-label">Frequency</label>
+            <label class="form-label">Frequency
+            <button class="info-btn" data-t-title="Frequency" data-t-what="How often the transaction occurs (e.g. Monthly or Quarterly).">ⓘ</button>
+          </label>
             <select class="form-control" id="hist-freq">
               <option value="monthly">Monthly</option>
               <option value="quarterly">Quarterly</option>
@@ -199,12 +207,16 @@
         </div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group">
-            <label class="form-label">STP Start Date</label>
+            <label class="form-label">STP Start Date
+            <button class="info-btn" data-t-title="Start Date" data-t-what="The date of the first instalment/transfer/withdrawal.">ⓘ</button>
+          </label>
             <input type="date" class="form-control" id="hist-start">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: 1 month after investment</div>
           </div>
           <div class="form-group">
-            <label class="form-label">STP End Date</label>
+            <label class="form-label">STP End Date
+            <button class="info-btn" data-t-title="End Date" data-t-what="The date of the final instalment/transfer/withdrawal.">ⓘ</button>
+          </label>
             <input type="date" class="form-control" id="hist-end">
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Auto: latest NAV of both funds</div>
           </div>
@@ -231,8 +243,10 @@ function selectMode(mode){
   document.getElementById('form-generic').style.display    = mode==='generic'    ? 'block' : 'none';
   document.getElementById('form-historical').style.display = mode==='historical' ? 'block' : 'none';
   setPlaceholder('Enter values and click Calculate.');
+  if (window.location.hash !== '#' + mode) { history.pushState(null, '', '#' + mode); }
 }
-function goBack(){document.getElementById('mode-picker').style.display='block';document.getElementById('calc-area').style.display='none';setPlaceholder('Select a calculator type above to get started.');}
+function goBack(){document.getElementById('mode-picker').style.display='block';document.getElementById('calc-area').style.display='none';setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }}
 function setPlaceholder(msg){document.getElementById('results-area').innerHTML=`<div class="calc-placeholder"><div class="calc-placeholder-icon">🔄</div><div class="calc-placeholder-text">${msg}</div></div>`;}
 
 // Fund autocompletes
@@ -495,5 +509,38 @@ function renderHistorical(d){
 document.getElementById('g-rate-src').addEventListener('input',e=>document.getElementById('g-rate-src-display').textContent=e.target.value+'%');
 document.getElementById('g-rate-tgt').addEventListener('input',e=>document.getElementById('g-rate-tgt-display').textContent=e.target.value+'%');
 document.getElementById('g-years').addEventListener('input',e=>document.getElementById('g-years-display').textContent=e.target.value+' yrs');
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
 </script>
 {% endblock %}

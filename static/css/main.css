@@ -1446,6 +1446,30 @@ input[type="range"]::-webkit-slider-thumb {
   margin: 2px 0;
 }
 
+/* Read more button inside tooltip */
+.tooltip-readmore-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--indigo-400) !important;
+  text-decoration: none;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 6px;
+  padding: 5px 12px;
+  background: rgba(99, 102, 241, 0.05);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.tooltip-readmore-btn:hover {
+  background: var(--indigo-500);
+  color: #ffffff !important;
+  border-color: var(--indigo-500);
+  text-decoration: none;
+}
+
+
 /* Mobile responsiveness for tooltips */
 @media (max-width: 640px) {
   .info-tooltip {

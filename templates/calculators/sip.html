@@ -209,7 +209,9 @@
             <input class="form-control" type="number" id="hist-amount" value="5000" min="100" step="100">
           </div>
           <div class="form-group">
-            <label class="form-label">Frequency</label>
+            <label class="form-label">Frequency
+            <button class="info-btn" data-t-title="Frequency" data-t-what="How often the transaction occurs (e.g. Monthly or Quarterly).">ⓘ</button>
+          </label>
             <select class="form-control" id="hist-freq">
               <option value="monthly">Monthly</option>
               <option value="quarterly">Quarterly</option>
@@ -240,11 +242,13 @@ function selectMode(mode) {
   document.getElementById('form-generic').style.display    = mode === 'generic'    ? 'block' : 'none';
   document.getElementById('form-historical').style.display = mode === 'historical' ? 'block' : 'none';
   setPlaceholder('Enter values and click Calculate.');
+  if (window.location.hash !== '#' + mode) { history.pushState(null, '', '#' + mode); }
 }
 function goBack() {
   document.getElementById('mode-picker').style.display = 'block';
   document.getElementById('calc-area').style.display   = 'none';
   setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
 }
 function setPlaceholder(msg) {
   document.getElementById('results-area').innerHTML = `
@@ -637,5 +641,38 @@ window.switchCfTab = function(idx) {
 // ─── Range sliders ───────────────────────────────────────────────────────────
 document.getElementById('years').addEventListener('input',         e => document.getElementById('years_display').textContent         = e.target.value + ' yrs');
 document.getElementById('expected_rate').addEventListener('input', e => document.getElementById('expected_rate_display').textContent = e.target.value + '%');
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  if (window.location.hash) { history.pushState(null, '', window.location.pathname); }
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
+
+window.addEventListener('popstate', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') {
+    selectMode(h);
+  } else {
+    document.getElementById('mode-picker').style.display = 'block';
+    document.getElementById('calc-area').style.display   = 'none';
+    setPlaceholder('Select a calculator type above to get started.');
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const h = window.location.hash.replace('#', '');
+  if (h === 'generic' || h === 'historical') selectMode(h);
+});
+
 </script>
 {% endblock %}
