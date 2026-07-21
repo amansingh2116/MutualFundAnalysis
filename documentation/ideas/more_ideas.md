@@ -44,6 +44,18 @@ A major planned feature is a dedicated AI analysis module for user portfolios th
 - **Missed Gains Identification**: XIRR analysis comparing the user's portfolio against category averages and benchmarks to identify missed gains (alpha generated vs category average).
 - **Actionable Rebalancing Suggestions**: AI-driven suggestions (what to buy/sell, how much, and when) based on macro-economic conditions, personal risk profile, and tax-loss harvesting opportunities.
 
+### 2.4 Advanced Portfolio Management & Tracking
+- **Seamless Portfolio Import:** Support for CAS, broker statements, PDF uploads, email parsing, or manual entry.
+- **Unified Household Tracking:** Consolidate portfolios across multiple family members into a single household view.
+- **Goal Mapping & Asset Allocation:** Assign specific funds to goals and visualize asset allocation across equity, debt, hybrid, gold, cash, and international.
+- **Diagnostic Health Check:** Generate a detailed report assessing concentration risk, portfolio overlap, style drift, sector biases, debt quality risk, inconsistent categories, and an excess number of funds.
+- **Consolidated Performance & Transparency:** Track XIRR, absolute return, time-weighted return, cash flows, and realized vs. unrealized gains. Deep-dive into aggregated top holdings, sector weights, market-cap splits, and duration/credit quality.
+
+### 2.5 Smart Alerts & Custom Watchlists
+- **Drift & Underperformance Alerts:** Notify users when their portfolio drifts away from the target allocation or when funds persistently lag behind their category (ignoring temporary dips).
+- **Fund Change Alerts:** Trigger warnings for critical events such as manager changes, mandate updates, AUM shocks, expense ratio hikes, large un-invested cash positions, or style drift.
+- **Rule-Based Watchlists:** Allow users to set customized rules (e.g., "alert me if tracking error worsens" or "alert me if expense ratio rises").
+
 ---
 
 ## 3. Platform & Architectural Enhancements
@@ -117,3 +129,4 @@ The individual fund analysis pages will be significantly upgraded with specializ
 - **Historical Score Tracking:** Save and track the historical evolution of a fund's internal holdings and quantitative model score over time to detect early signs of degradation or improvement.
 - **Explainable Recommendations:** Provide short, transparent, natural-language explanations (e.g., "Why this fund?") instead of a black-box ranking, tailored directly to the user's risk and time horizon questionnaire responses.
 - **Macro Stress Testing:** Simulate portfolio and fund performance under historical and hypothetical extreme scenarios (e.g., 2008 Financial Crisis, COVID-19 crash, interest rate shocks, inflation spikes, and sector concentration shocks).
+- **Market-Regime Analysis:** Evaluate portfolio and fund performance across different economic cycles, including bull markets, bear markets, sideways markets, high-inflation periods, and rate-cut cycles.
