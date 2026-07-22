@@ -9,7 +9,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models import Count, Q
+from django.db.models import Avg, Count, Q, Sum
 from django.core.paginator import Paginator
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -1586,4 +1586,568 @@ def quartile_rankings_api(request):
         })
     except Exception as exc:
         logger.error('quartile_rankings_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+# ── AMC Analysis ─────────────────────────────────────────────────────────────
+
+def _flt(v, decimals=2):
+    """Return a rounded float or None, safe for JSON serialization."""
+    if v is None:
+        return None
+    try:
+        return round(float(v), decimals)
+    except (TypeError, ValueError):
+        return None
+
+
+def _make_amc_slug(fund_house: str) -> str:
+    """Convert fund_house name to a URL-safe slug."""
+    return (
+        fund_house.lower()
+        .replace("'", '')
+        .replace(' ', '-')
+        .replace('/', '-')
+        .replace('&', 'and')
+        .replace('--', '-')
+        .strip('-')
+    )
+
+
+def _slug_to_fund_house(slug: str) -> str:
+    """Resolve a slug back to the exact fund_house string in the DB."""
+    all_houses = list(
+        FundScreenerSnapshot.objects
+        .values_list('fund_house', flat=True)
+        .distinct()
+    )
+    for house in all_houses:
+        if _make_amc_slug(house) == slug:
+            return house
+    # Fallback: partial match
+    normalized = slug.replace('-', ' ')
+    for house in all_houses:
+        if house.lower() == normalized:
+            return house
+    return ''
+
+
+def _compute_amc_metrics(fund_house: str) -> dict:
+    """
+    Compute all available metrics for one AMC from FundScreenerSnapshot,
+    SchemeMeta, Holding, and SectorAllocation tables.
+    Returns a dict of metrics; None values where data is unavailable.
+    """
+    direct_q = Q(fund_house=fund_house) & (Q(is_direct=True) | Q(is_etf=True))
+
+    # ── Base aggregates ────────────────────────────────────────────────────
+    agg = FundScreenerSnapshot.objects.filter(direct_q).aggregate(
+        total_aum=Sum('aum_cr'),
+        fund_count=Count('id'),
+        active_count=Count('id', filter=Q(is_etf=False, fund_house=fund_house)),
+        etf_count=Count('id', filter=Q(is_etf=True, fund_house=fund_house)),
+        avg_return_1y=Avg('returns_1y_pct'),
+        avg_return_3y=Avg('cagr_3y_pct'),
+        avg_return_5y=Avg('returns_5y_pct'),
+        avg_return_7y=Avg('cagr_7y_pct'),
+        avg_expense_ratio=Avg('expense_ratio'),
+        avg_model_score=Avg('model_score'),
+        avg_alpha_3y=Avg('alpha_3y'),
+        avg_sharpe=Avg('sharpe_ratio'),
+        avg_sortino=Avg('sortino_ratio'),
+        avg_max_drawdown=Avg('max_drawdown'),
+        avg_turnover=Avg('portfolio_turnover'),
+        cat_count=Count('scheme_sub_category', distinct=True),
+    )
+
+    # ── Score distribution ─────────────────────────────────────────────────
+    score_rows = list(
+        FundScreenerSnapshot.objects.filter(direct_q, model_score__isnull=False)
+        .values_list('model_score', flat=True)
+    )
+    total_scored = len(score_rows)
+    pct_strong = pct_good = pct_fair = pct_weak = None
+    if total_scored:
+        pct_strong = round(sum(1 for s in score_rows if s >= 75) / total_scored * 100, 1)
+        pct_good   = round(sum(1 for s in score_rows if 55 <= s < 75) / total_scored * 100, 1)
+        pct_fair   = round(sum(1 for s in score_rows if 40 <= s < 55) / total_scored * 100, 1)
+        pct_weak   = round(sum(1 for s in score_rows if s < 40) / total_scored * 100, 1)
+
+    # ── Category breadth ──────────────────────────────────────────────────
+    categories = list(
+        FundScreenerSnapshot.objects.filter(direct_q)
+        .values_list('scheme_sub_category', flat=True)
+        .distinct()
+        .order_by('scheme_sub_category')
+    )
+
+    # ── Fund managers ──────────────────────────────────────────────────────
+    manager_text_list = list(
+        SchemeMeta.objects.filter(scheme__fund_house=fund_house, scheme__is_active=True)
+        .values_list('fund_manager', flat=True)
+    )
+    all_managers: set[str] = set()
+    for text in manager_text_list:
+        if text:
+            for m in text.split(';'):
+                m = m.strip()
+                if m:
+                    all_managers.add(m)
+    unique_manager_count = len(all_managers)
+
+    # ── Portfolio Intelligence from Holding table ──────────────────────────
+    scheme_ids = list(
+        Scheme.objects.filter(fund_house=fund_house, is_active=True).values_list('id', flat=True)
+    )
+    has_holdings = False
+    high_conviction_stocks = []
+    sector_data = []
+    unique_stock_count = 0
+
+    try:
+        from apps.holdings.models import Holding, SectorAllocation
+
+        # Latest month for this AMC
+        latest_month = (
+            Holding.objects.filter(scheme_id__in=scheme_ids)
+            .order_by('-as_of_month')
+            .values_list('as_of_month', flat=True)
+            .first()
+        )
+        if latest_month:
+            has_holdings = True
+            # High-conviction: equity stocks held across 3+ funds
+            hc = list(
+                Holding.objects.filter(
+                    scheme_id__in=scheme_ids,
+                    as_of_month=latest_month,
+                    holding_type='equity',
+                ).values('security_name', 'isin').annotate(
+                    fund_count=Count('scheme_id', distinct=True),
+                    total_value=Sum('market_value'),
+                    avg_weight=Avg('weight_pct'),
+                ).filter(fund_count__gte=3).order_by('-fund_count', '-total_value')[:20]
+            )
+            high_conviction_stocks = [
+                {
+                    'name': h['security_name'],
+                    'isin': h['isin'],
+                    'fund_count': h['fund_count'],
+                    'total_value': float(h['total_value']) if h['total_value'] else None,
+                    'avg_weight': float(h['avg_weight']) if h['avg_weight'] else None,
+                }
+                for h in hc
+            ]
+
+            # Sector exposure across all funds (avg weight per sector, fund count)
+            sec = list(
+                SectorAllocation.objects.filter(
+                    scheme_id__in=scheme_ids,
+                    as_of_month=latest_month,
+                ).values('sector').annotate(
+                    avg_weight=Avg('weight_pct'),
+                    fund_count=Count('scheme_id', distinct=True),
+                ).order_by('-avg_weight')[:12]
+            )
+            sector_data = [
+                {
+                    'sector': s['sector'],
+                    'avg_weight': float(s['avg_weight']) if s['avg_weight'] else 0,
+                    'fund_count': s['fund_count'],
+                }
+                for s in sec
+            ]
+
+            # Unique stock count
+            unique_stock_count = (
+                Holding.objects.filter(
+                    scheme_id__in=scheme_ids,
+                    as_of_month=latest_month,
+                    holding_type='equity',
+                ).values('security_name').distinct().count()
+            )
+    except Exception as e:
+        logger.info('AMC holdings query failed for %s: %s', fund_house, e)
+
+    return {
+        'fund_house': fund_house,
+        'slug': _make_amc_slug(fund_house),
+        'total_aum': float(agg['total_aum']) if agg['total_aum'] else None,
+        'fund_count': agg['fund_count'] or 0,
+        'active_count': agg['active_count'] or 0,
+        'etf_count': agg['etf_count'] or 0,
+        'avg_return_1y': _flt(agg['avg_return_1y']),
+        'avg_return_3y': _flt(agg['avg_return_3y']),
+        'avg_return_5y': _flt(agg['avg_return_5y']),
+        'avg_return_7y': _flt(agg['avg_return_7y']),
+        'avg_expense_ratio': _flt(agg['avg_expense_ratio']),
+        'avg_model_score': _flt(agg['avg_model_score']),
+        'avg_alpha_3y': _flt(agg['avg_alpha_3y']),
+        'avg_sharpe': _flt(agg['avg_sharpe']),
+        'avg_sortino': _flt(agg['avg_sortino']),
+        'avg_max_drawdown': _flt(agg['avg_max_drawdown']),
+        'avg_turnover': _flt(agg['avg_turnover']),
+        'cat_count': agg['cat_count'] or 0,
+        'categories': categories,
+        'pct_strong': pct_strong,
+        'pct_good': pct_good,
+        'pct_fair': pct_fair,
+        'pct_weak': pct_weak,
+        'total_scored': total_scored,
+        'unique_manager_count': unique_manager_count,
+        'managers': sorted(all_managers),
+        'has_holdings': has_holdings,
+        'high_conviction_stocks': high_conviction_stocks,
+        'sector_data': sector_data,
+        'unique_stock_count': unique_stock_count,
+    }
+
+
+class ResearchAMCListView(TemplateView):
+    """
+    Research > AMC Analysis: Browse all fund houses with key metrics.
+    Supports multi-select comparison (2-4 AMCs).
+    """
+    template_name = 'research/amcs.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        try:
+            # Get distinct fund houses with basic aggregate for quick page load
+            houses = list(
+                FundScreenerSnapshot.objects
+                .filter(Q(is_direct=True) | Q(is_etf=True))
+                .values('fund_house')
+                .annotate(
+                    total_aum=Sum('aum_cr'),
+                    fund_count=Count('id'),
+                    avg_return_3y=Avg('cagr_3y_pct'),
+                    avg_expense_ratio=Avg('expense_ratio'),
+                    avg_model_score=Avg('model_score'),
+                    cat_count=Count('scheme_sub_category', distinct=True),
+                    etf_count=Count('id', filter=Q(is_etf=True)),
+                )
+                .order_by('-total_aum')
+            )
+            amc_list = []
+            for h in houses:
+                name = h['fund_house']
+                amc_list.append({
+                    'name': name,
+                    'slug': _make_amc_slug(name),
+                    'total_aum': round(float(h['total_aum']), 0) if h['total_aum'] else None,
+                    'fund_count': h['fund_count'],
+                    'etf_count': h['etf_count'] or 0,
+                    'active_count': (h['fund_count'] or 0) - (h['etf_count'] or 0),
+                    'avg_return_3y': _flt(h['avg_return_3y']),
+                    'avg_expense_ratio': _flt(h['avg_expense_ratio']),
+                    'avg_model_score': _flt(h['avg_model_score']),
+                    'cat_count': h['cat_count'] or 0,
+                })
+            ctx['amc_list_json'] = json.dumps(amc_list)
+            ctx['amc_count'] = len(amc_list)
+        except Exception as exc:
+            logger.warning('ResearchAMCListView error: %s', exc)
+            ctx['amc_list_json'] = '[]'
+            ctx['amc_count'] = 0
+        return ctx
+
+
+def amc_list_api(request):
+    """
+    AJAX endpoint: GET /research/amcs/api/list/
+    Returns all AMCs with computed metrics.
+    Params: ?q= (search)
+    """
+    q = request.GET.get('q', '').strip().lower()
+    try:
+        houses = list(
+            FundScreenerSnapshot.objects
+            .filter(Q(is_direct=True) | Q(is_etf=True))
+            .values('fund_house')
+            .annotate(
+                total_aum=Sum('aum_cr'),
+                fund_count=Count('id'),
+                avg_return_1y=Avg('returns_1y_pct'),
+                avg_return_3y=Avg('cagr_3y_pct'),
+                avg_return_5y=Avg('returns_5y_pct'),
+                avg_expense_ratio=Avg('expense_ratio'),
+                avg_model_score=Avg('model_score'),
+                avg_alpha_3y=Avg('alpha_3y'),
+                cat_count=Count('scheme_sub_category', distinct=True),
+                etf_count=Count('id', filter=Q(is_etf=True)),
+            )
+            .order_by('-total_aum')
+        )
+        if q:
+            houses = [h for h in houses if q in h['fund_house'].lower()]
+        result = []
+        for h in houses:
+            name = h['fund_house']
+            result.append({
+                'name': name,
+                'slug': _make_amc_slug(name),
+                'total_aum': round(float(h['total_aum']), 0) if h['total_aum'] else None,
+                'fund_count': h['fund_count'],
+                'etf_count': h['etf_count'] or 0,
+                'avg_return_1y': _flt(h['avg_return_1y']),
+                'avg_return_3y': _flt(h['avg_return_3y']),
+                'avg_return_5y': _flt(h['avg_return_5y']),
+                'avg_expense_ratio': _flt(h['avg_expense_ratio']),
+                'avg_model_score': _flt(h['avg_model_score']),
+                'avg_alpha_3y': _flt(h['avg_alpha_3y']),
+                'cat_count': h['cat_count'] or 0,
+            })
+        return JsonResponse({'amcs': result})
+    except Exception as exc:
+        logger.error('amc_list_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+class ResearchAMCDetailView(TemplateView):
+    """
+    Research > AMC Detail: Full analysis of a single fund house.
+    """
+    template_name = 'research/amc_detail.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        slug = kwargs.get('slug', '')
+        fund_house = _slug_to_fund_house(slug)
+        if not fund_house:
+            ctx['error'] = f'AMC "{slug}" not found.'
+            return ctx
+
+        try:
+            metrics = _compute_amc_metrics(fund_house)
+
+            # Build manager-to-funds map
+            manager_funds: dict[str, list] = {}
+            meta_qs = list(
+                SchemeMeta.objects.filter(
+                    scheme__fund_house=fund_house, scheme__is_active=True
+                ).select_related('scheme').values(
+                    'fund_manager', 'scheme__scheme_name', 'scheme__amfi_code',
+                    'scheme__scheme_category',
+                )
+            )
+            for row in meta_qs:
+                if not row['fund_manager']:
+                    continue
+                for mgr in row['fund_manager'].split(';'):
+                    mgr = mgr.strip()
+                    if not mgr:
+                        continue
+                    manager_funds.setdefault(mgr, []).append({
+                        'name': row['scheme__scheme_name'],
+                        'amfi': row['scheme__amfi_code'],
+                        'category': row['scheme__scheme_category'],
+                    })
+
+            # Category group breakdown
+            cat_groups = {}
+            group_rows = (
+                FundScreenerSnapshot.objects
+                .filter(Q(is_direct=True) | Q(is_etf=True), fund_house=fund_house)
+                .values('category_group', 'scheme_sub_category')
+                .annotate(fund_count=Count('id'))
+                .order_by('category_group', 'scheme_sub_category')
+            )
+            for r in group_rows:
+                cat_groups.setdefault(r['category_group'], []).append({
+                    'name': r['scheme_sub_category'],
+                    'fund_count': r['fund_count'],
+                })
+
+            all_amcs_list = sorted(list(set(
+                FundScreenerSnapshot.objects
+                .filter(Q(is_direct=True) | Q(is_etf=True))
+                .values_list('fund_house', flat=True)
+            )))
+
+            ctx.update({
+                'fund_house': fund_house,
+                'slug': slug,
+                'metrics': metrics,
+                'metrics_json': json.dumps(metrics),
+                'manager_funds_json': json.dumps(manager_funds),
+                'cat_groups': cat_groups,
+                'cat_groups_json': json.dumps(cat_groups),
+                'all_amcs': all_amcs_list,
+                'all_amcs_json': json.dumps(all_amcs_list),
+                'fund_house_json': json.dumps(fund_house),
+            })
+        except Exception as exc:
+            logger.error('ResearchAMCDetailView error: %s', exc)
+            ctx['error'] = 'Failed to load AMC data.'
+        return ctx
+
+
+def amc_detail_funds_api(request, slug: str):
+    """
+    AJAX: GET /research/amcs/<slug>/funds/?tab=returns|risk|portfolio|fees
+    Returns fund-level table data for the AMC detail page.
+    """
+    fund_house = _slug_to_fund_house(slug)
+    if not fund_house:
+        return JsonResponse({'error': 'AMC not found'}, status=404)
+
+    tab = request.GET.get('tab', 'returns')
+    q = request.GET.get('q', '').strip().lower()
+    sort_by = request.GET.get('sort', '')
+    direction = request.GET.get('direction', 'desc')
+
+    try:
+        qs = (
+            FundScreenerSnapshot.objects
+            .filter(fund_house=fund_house)
+            .filter(Q(is_direct=True) | Q(is_etf=True))
+            .select_related('scheme')
+        )
+        if q:
+            qs = qs.filter(fund_name__icontains=q)
+
+        # Sort
+        sort_field_map = {
+            'returns': {
+                'name': 'fund_name', 'aum': '-aum_cr', 'r1y': '-returns_1y_pct',
+                'r3y': '-cagr_3y_pct', 'r5y': '-returns_5y_pct', 'r7y': '-cagr_7y_pct',
+            },
+            'risk': {
+                'name': 'fund_name', 'sharpe': '-sharpe_ratio', 'sortino': '-sortino_ratio',
+                'dd': '-max_drawdown', 'alpha': '-alpha_3y', 'beta': 'beta_3y',
+            },
+            'portfolio': {
+                'name': 'fund_name', 'turnover': '-portfolio_turnover', 'aum': '-aum_cr',
+            },
+            'fees': {
+                'name': 'fund_name', 'er': 'expense_ratio', 'aum': '-aum_cr',
+            },
+        }
+        field_map = sort_field_map.get(tab, {})
+        sort_expr = field_map.get(sort_by, '-aum_cr')
+        if direction == 'asc' and sort_expr.startswith('-'):
+            sort_expr = sort_expr[1:]
+        elif direction == 'desc' and not sort_expr.startswith('-'):
+            sort_expr = '-' + sort_expr
+        qs = qs.order_by(sort_expr)
+
+        funds = []
+        for f in qs[:200]:
+            base = {
+                'name': f.fund_name,
+                'amfi': f.scheme.amfi_code,
+                'category': f.scheme_sub_category,
+                'aum': _flt(f.aum_cr),
+                'is_etf': f.is_etf,
+            }
+            if tab == 'returns':
+                base.update({
+                    'r1y': _flt(f.returns_1y_pct),
+                    'r3y': _flt(f.cagr_3y_pct),
+                    'r5y': _flt(f.returns_5y_pct),
+                    'r7y': _flt(f.cagr_7y_pct),
+                    'r10y': _flt(f.cagr_10y_pct),
+                    'roll3y': _flt(f.rolling_return_3y_pct),
+                    'roll5y': _flt(f.rolling_return_5y_pct),
+                    'alpha_1y': _flt(f.excess_return_1y),
+                    'alpha_3y': _flt(f.excess_return_3y),
+                    'model_score': _flt(f.model_score),
+                    'score_badge': f.model_score_badge or '',
+                })
+            elif tab == 'risk':
+                base.update({
+                    'sharpe': _flt(f.sharpe_ratio),
+                    'sortino': _flt(f.sortino_ratio),
+                    'alpha': _flt(f.alpha_3y),
+                    'beta': _flt(f.beta_3y),
+                    'max_dd': _flt(f.max_drawdown),
+                    'max_dd_5y': _flt(f.max_drawdown_5y),
+                    'vol_1y': _flt(f.volatility_1y_pct),
+                    'vol_3y': _flt(f.volatility_3y_pct),
+                    'upside': _flt(f.upside_capture_3y),
+                    'downside': _flt(f.downside_capture_3y),
+                })
+            elif tab == 'portfolio':
+                base.update({
+                    'turnover': _flt(f.portfolio_turnover),
+                    'equity_pct': _flt(f.port_equity_pct),
+                    'debt_pct': _flt(f.port_debt_pct),
+                    'cash_pct': _flt(f.port_cash_pct),
+                    'top10_conc': _flt(f.port_top10_concentration),
+                    'manager': f.fund_manager or '',
+                })
+            elif tab == 'fees':
+                base.update({
+                    'expense_ratio': _flt(f.expense_ratio),
+                    'cat_avg_er': _flt(f.category_expense_ratio),
+                    'age_years': _flt(f.fund_age_years),
+                    'sip_min': _flt(f.sip_min),
+                    'lump_min': _flt(f.lump_min),
+                    'lock_in': f.lock_in_days or 0,
+                })
+            funds.append(base)
+
+        return JsonResponse({'funds': funds, 'fund_house': fund_house, 'tab': tab})
+    except Exception as exc:
+        logger.error('amc_detail_funds_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+class ResearchAMCCompareView(TemplateView):
+    """
+    Research > AMC Compare: Side-by-side comparison of 2-4 AMCs.
+    """
+    template_name = 'research/amc_compare.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        slugs_param = self.request.GET.get('amcs', '')
+        slugs = [s.strip() for s in slugs_param.split(',') if s.strip()][:4]
+        ctx['slugs'] = slugs
+        ctx['slugs_param'] = slugs_param
+
+        # Resolve AMC names for display
+        names = []
+        for slug in slugs:
+            house = _slug_to_fund_house(slug)
+            names.append(house or slug)
+        ctx['amc_names'] = names
+        ctx['amc_names_json'] = json.dumps(names)
+
+        # All available AMCs for the "add/change" selector
+        ctx['all_amcs'] = sorted(list(set(
+            FundScreenerSnapshot.objects
+            .filter(Q(is_direct=True) | Q(is_etf=True))
+            .values_list('fund_house', flat=True)
+        )))
+
+        ctx['all_amcs_json'] = json.dumps([
+            {'name': h, 'slug': _make_amc_slug(h)}
+            for h in ctx['all_amcs']
+        ])
+        return ctx
+
+
+def amc_compare_api(request):
+    """
+    AJAX: GET /research/amcs/api/compare/?amcs=slug1,slug2,...
+    Returns comparison metrics for 2-4 AMCs.
+    """
+    slugs_param = request.GET.get('amcs', '')
+    slugs = [s.strip() for s in slugs_param.split(',') if s.strip()][:4]
+    if len(slugs) < 2:
+        return JsonResponse({'error': 'Need at least 2 AMC slugs'}, status=400)
+
+    try:
+        result = []
+        for slug in slugs:
+            fund_house = _slug_to_fund_house(slug)
+            if not fund_house:
+                result.append({'slug': slug, 'fund_house': None, 'error': 'Not found'})
+                continue
+            m = _compute_amc_metrics(fund_house)
+            result.append(m)
+        return JsonResponse({'amcs': result})
+    except Exception as exc:
+        logger.error('amc_compare_api error: %s', exc)
         return JsonResponse({'error': 'server error'}, status=500)

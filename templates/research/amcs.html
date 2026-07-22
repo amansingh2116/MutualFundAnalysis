@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% block title %}AMC Analysis{% endblock %}
+{% block meta_description %}Analyse and compare Indian mutual fund AMCs — AUM, returns, expense ratio, fund quality and portfolio intelligence.{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── AMC Card ── */
+.amc-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  position: relative;
+  cursor: pointer;
+}
+.amc-card:hover {
+  border-color: var(--indigo-400);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(99,102,241,0.12);
+}
+.amc-card.selected {
+  border-color: var(--indigo-400);
+  background: rgba(99,102,241,0.06);
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+}
+.amc-select-box {
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--border);
+  background: var(--surface-3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  transition: all 0.15s;
+  cursor: pointer;
+  z-index: 2;
+  flex-shrink: 0;
+}
+.amc-card.selected .amc-select-box {
+  background: var(--indigo-400);
+  border-color: var(--indigo-400);
+  color: white;
+}
+.amc-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.amc-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.amc-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.amc-metric {
+  text-align: center;
+}
+.amc-metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.amc-metric-val {
+  font-weight: 700;
+  font-size: 13px;
+}
+.amc-score-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+  display: flex;
+  gap: 1px;
+}
+/* Compare float bar */
+#compare-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  z-index: 100;
+  background: var(--surface-2);
+  border: 1px solid var(--indigo-400);
+  border-radius: 16px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+  white-space: nowrap;
+}
+#compare-bar.visible {
+  transform: translateX(-50%) translateY(0);
+}
+.sort-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sort-btn.active {
+  background: var(--indigo-400);
+  border-color: var(--indigo-400);
+  color: white;
+}
+.amc-rank-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--indigo-400);
+  background: rgba(99, 102, 241, 0.12);
+  padding: 2px 8px;
+  border-radius: 20px;
+  display: inline-block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px">
+  <div>
+    <h1 style="font-size:24px;font-weight:700;margin:0">🏦 AMC Analysis</h1>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">
+      {{ amc_count }} fund houses · Select 2–4 to compare side-by-side
+    </p>
+  </div>
+</div>
+
+{# ── Controls ── #}
+<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;align-items:center">
+  <input type="text" id="amc-search" placeholder="🔍 Search AMC…"
+         oninput="filterAMCs(this.value)"
+         style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;width:260px">
+
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span style="font-size:12px;color:var(--text-muted);align-self:center">Sort:</span>
+    <button class="sort-btn active" id="sort-aum" onclick="sortAMCs('aum')">By AUM</button>
+    <button class="sort-btn" id="sort-r3y" onclick="sortAMCs('r3y')">3Y Return</button>
+    <button class="sort-btn" id="sort-score" onclick="sortAMCs('score')">Score</button>
+    <button class="sort-btn" id="sort-er" onclick="sortAMCs('er')">Expense Ratio</button>
+    <button class="sort-btn" id="sort-funds" onclick="sortAMCs('funds')">Fund Count</button>
+  </div>
+</div>
+
+{# ── Grid ── #}
+<div id="amc-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+  {# filled by JS #}
+</div>
+
+<div id="amc-empty" style="display:none;padding:60px 24px;text-align:center">
+  <div style="font-size:48px;margin-bottom:12px">🏦</div>
+  <h3 style="margin:0 0 8px">No AMCs found</h3>
+  <p style="color:var(--text-muted)">Try a different search term.</p>
+</div>
+
+{# ── Compare Float Bar ── #}
+<div id="compare-bar">
+  <span id="compare-label" style="font-weight:600;color:var(--text-primary);font-size:14px">Compare AMCs</span>
+  <span id="compare-names" style="font-size:12px;color:var(--text-muted)"></span>
+  <button onclick="clearSelection()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer">Clear</button>
+  <button id="go-compare-btn" onclick="goCompare()"
+          style="padding:8px 20px;border-radius:10px;border:none;background:var(--indigo-400);color:white;font-weight:600;font-size:13px;cursor:pointer">
+    Compare →
+  </button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const RAW_AMCS = {{ amc_list_json|safe }};
+let allAmcs = [...RAW_AMCS];
+let selectedSlugs = new Set();
+let currentSort = 'aum';
+
+function fmtAum(v) {
+  if (v == null) return '—';
+  if (v >= 100000) return '₹' + (v/100000).toFixed(1) + 'L Cr';
+  if (v >= 1000) return '₹' + (v/1000).toFixed(1) + 'K Cr';
+  return '₹' + v.toFixed(0) + ' Cr';
+}
+function fmtPct(v) { return v == null ? '—' : v.toFixed(1) + '%'; }
+function fmtScore(v) { return v == null ? '—' : v.toFixed(0); }
+function scoreColor(s) {
+  if (s == null) return 'var(--text-muted)';
+  if (s >= 75) return 'var(--success)';
+  if (s >= 55) return '#3b82f6';
+  if (s >= 40) return 'var(--warning)';
+  return 'var(--danger)';
+}
+function returnColor(v) {
+  if (v == null) return 'var(--text-muted)';
+  return v >= 0 ? 'var(--success)' : 'var(--danger)';
+}
+
+function buildCard(a, rank) {
+  const sel = selectedSlugs.has(a.slug);
+  const shortName = a.name.replace('Mutual Fund', '').trim();
+  const activeStr = a.active_count + ' active' + (a.etf_count > 0 ? ' · ' + a.etf_count + ' ETF' : '');
+  return `
+  <div class="amc-card ${sel ? 'selected' : ''}" id="card-${a.slug}"
+       onclick="toggleSelect('${a.slug}', event)"
+       data-name="${a.name.toLowerCase()}" data-slug="${a.slug}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:-4px">
+      <div class="amc-rank-badge">#${rank}</div>
+      <div class="amc-select-box" id="cb-${a.slug}">${sel ? '✓' : ''}</div>
+    </div>
+    <div>
+      <div class="amc-name">${shortName}</div>
+      <div class="amc-sub">${a.fund_count} funds · ${activeStr} · ${a.cat_count} categories</div>
+    </div>
+    <div style="font-size:18px;font-weight:800;color:var(--text-primary)">
+      ${fmtAum(a.total_aum)}
+      <span style="font-size:11px;font-weight:500;color:var(--text-muted)"> total AUM</span>
+      <button type="button" class="info-btn" aria-label="Info" data-t-key="aum">ⓘ</button>
+    </div>
+    <div class="amc-metrics">
+      <div class="amc-metric">
+        <div class="amc-metric-label">1Y Avg <button type="button" class="info-btn" aria-label="Info" data-t-key="cagr">ⓘ</button></div>
+        <div class="amc-metric-val" style="color:${returnColor(a.avg_return_3y)}">${fmtPct(a.avg_return_3y)}</div>
+      </div>
+      <div class="amc-metric">
+        <div class="amc-metric-label">Avg TER <button type="button" class="info-btn" aria-label="Info" data-t-key="expense_ratio">ⓘ</button></div>
+        <div class="amc-metric-val">${fmtPct(a.avg_expense_ratio)}</div>
+      </div>
+      <div class="amc-metric">
+        <div class="amc-metric-label">Avg Score <button type="button" class="info-btn" aria-label="Info" data-t-key="model_score">ⓘ</button></div>
+        <div class="amc-metric-val" style="color:${scoreColor(a.avg_model_score)}">${fmtScore(a.avg_model_score)}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--indigo-400);font-weight:600;margin-top:2px">View Analysis →</div>
+  </div>`;
+}
+
+function renderGrid(list) {
+  const grid = document.getElementById('amc-grid');
+  const empty = document.getElementById('amc-empty');
+  if (!list.length) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = list.map((a, i) => buildCard(a, i + 1)).join('');
+
+  // Add direct link on card body (not the checkbox)
+  grid.querySelectorAll('.amc-card').forEach(card => {
+    card.addEventListener('dblclick', () => {
+      window.location.href = `/research/amcs/${card.dataset.slug}/`;
+    });
+  });
+  if (window.initInfoTooltips) window.initInfoTooltips(grid);
+}
+
+function toggleSelect(slug, e) {
+  // If click is on the card itself (not a button), navigate on single click only if not in selection mode
+  if (e.target.tagName === 'BUTTON') return;
+
+  if (selectedSlugs.size === 0) {
+    // No selection mode: navigate directly
+    if (!e.target.classList.contains('amc-select-box')) {
+      window.location.href = `/research/amcs/${slug}/`;
+      return;
+    }
+  }
+  // Selection mode or click on checkbox
+  if (selectedSlugs.has(slug)) {
+    selectedSlugs.delete(slug);
+  } else {
+    if (selectedSlugs.size >= 4) {
+      showToast('You can compare up to 4 AMCs at a time.', 'warning');
+      return;
+    }
+    selectedSlugs.add(slug);
+  }
+  updateCard(slug);
+  updateCompareBar();
+}
+
+function updateCard(slug) {
+  const card = document.getElementById('card-' + slug);
+  const cb = document.getElementById('cb-' + slug);
+  if (!card) return;
+  if (selectedSlugs.has(slug)) {
+    card.classList.add('selected');
+    cb.textContent = '✓';
+  } else {
+    card.classList.remove('selected');
+    cb.textContent = '';
+  }
+}
+
+function updateCompareBar() {
+  const bar = document.getElementById('compare-bar');
+  const label = document.getElementById('compare-label');
+  const names = document.getElementById('compare-names');
+  const btn = document.getElementById('go-compare-btn');
+  const n = selectedSlugs.size;
+  if (n >= 1) {
+    bar.classList.add('visible');
+    const nameList = [...selectedSlugs].map(s => {
+      const a = RAW_AMCS.find(x => x.slug === s);
+      return a ? a.name.replace('Mutual Fund','').trim() : s;
+    });
+    names.textContent = nameList.join(' vs ');
+
+    if (n === 1) {
+      label.textContent = `1 AMC Selected — Select 1 to 3 more AMCs to compare`;
+      if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+        btn.textContent = 'Select 1+ more';
+      }
+    } else {
+      label.textContent = `Compare ${n} AMCs`;
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.textContent = 'Compare →';
+      }
+    }
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function clearSelection() {
+  selectedSlugs.forEach(s => {
+    const card = document.getElementById('card-' + s);
+    const cb = document.getElementById('cb-' + s);
+    if (card) card.classList.remove('selected');
+    if (cb) cb.textContent = '';
+  });
+  selectedSlugs.clear();
+  updateCompareBar();
+}
+
+function goCompare() {
+  if (selectedSlugs.size < 2) return;
+  const slugStr = [...selectedSlugs].join(',');
+  window.location.href = `/research/amcs/compare/?amcs=${slugStr}`;
+}
+
+function filterAMCs(q) {
+  q = q.toLowerCase().trim();
+  const filtered = q
+    ? allAmcs.filter(a => a.name.toLowerCase().includes(q))
+    : allAmcs;
+  renderGrid(filtered);
+  // Re-apply selected state
+  selectedSlugs.forEach(s => {
+    const card = document.getElementById('card-' + s);
+    const cb = document.getElementById('cb-' + s);
+    if (card) { card.classList.add('selected'); if(cb) cb.textContent = '✓'; }
+  });
+}
+
+function sortAMCs(key) {
+  currentSort = key;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-' + key)?.classList.add('active');
+
+  const sorted = [...allAmcs].sort((a, b) => {
+    if (key === 'aum') return (b.total_aum || 0) - (a.total_aum || 0);
+    if (key === 'r3y') {
+      const va = a.avg_return_3y ?? -999, vb = b.avg_return_3y ?? -999;
+      return vb - va;
+    }
+    if (key === 'score') {
+      const va = a.avg_model_score ?? -999, vb = b.avg_model_score ?? -999;
+      return vb - va;
+    }
+    if (key === 'er') {
+      const va = a.avg_expense_ratio ?? 9999, vb = b.avg_expense_ratio ?? 9999;
+      return va - vb;  // lower is better
+    }
+    if (key === 'funds') return (b.fund_count || 0) - (a.fund_count || 0);
+    return 0;
+  });
+  allAmcs = sorted;
+  const q = document.getElementById('amc-search').value.toLowerCase().trim();
+  filterAMCs(q);
+}
+
+// Initial render
+renderGrid(allAmcs);
+
+// Check presel from sessionStorage or URL query params
+(function initPresel() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const preselSlug = urlParams.get('compare') || urlParams.get('select') || sessionStorage.getItem('amc_compare_presel');
+  if (preselSlug) {
+    sessionStorage.removeItem('amc_compare_presel');
+    const target = RAW_AMCS.find(x => x.slug === preselSlug);
+    if (target) {
+      selectedSlugs.add(target.slug);
+      updateCard(target.slug);
+      updateCompareBar();
+      setTimeout(() => {
+        const cardEl = document.getElementById('card-' + target.slug);
+        if (cardEl) {
+          cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }
+})();
+
+</script>
+{% endblock %}

@@ -22,4 +22,12 @@ urlpatterns = [
     path('research/categories/<str:slug>/funds/', views.category_detail_funds_api, name='category_detail_funds_api'),
     path('research/quartiles/', views.ResearchQuartilesView.as_view(), name='research_quartiles'),
     path('research/quartiles/api/', views.quartile_rankings_api, name='quartile_rankings_api'),
+
+    # ── AMC Analysis ─────────────────────────────────────────────────────────
+    path('research/amcs/', views.ResearchAMCListView.as_view(), name='research_amcs'),
+    path('research/amcs/compare/', views.ResearchAMCCompareView.as_view(), name='research_amc_compare'),
+    path('research/amcs/api/list/', views.amc_list_api, name='amc_list_api'),
+    path('research/amcs/api/compare/', views.amc_compare_api, name='amc_compare_api'),
+    path('research/amcs/<str:slug>/', views.ResearchAMCDetailView.as_view(), name='research_amc_detail'),
+    path('research/amcs/<str:slug>/funds/', views.amc_detail_funds_api, name='amc_detail_funds_api'),
 ]

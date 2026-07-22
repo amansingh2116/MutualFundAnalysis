@@ -1,0 +1,719 @@
+{% extends "base.html" %}
+{% block title %}{{ fund_house }} — AMC Analysis{% endblock %}
+{% block meta_description %}Deep-dive analysis of {{ fund_house }}: AUM, fund performance, portfolio intelligence, fund managers and more.{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Tabs ── */
+.amc-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:24px; }
+.amc-tab {
+  padding:10px 18px; border:none; background:transparent; color:var(--text-muted);
+  font-size:13px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent;
+  margin-bottom:-1px; transition:color 0.15s, border-color 0.15s; border-radius:6px 6px 0 0;
+}
+.amc-tab.active { color:var(--indigo-400); border-bottom-color:var(--indigo-400); }
+.amc-tab:hover:not(.active) { color:var(--text-secondary); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* ── Metric Cards ── */
+.metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:24px; }
+.metric-card {
+  background:var(--surface-2); border:1px solid var(--border); border-radius:12px;
+  padding:14px 16px; display:flex; flex-direction:column; gap:4px;
+}
+.metric-card-label { font-size:11px; color:var(--text-muted); }
+.metric-card-val { font-size:20px; font-weight:800; color:var(--text-primary); }
+.metric-card-sub { font-size:11px; color:var(--text-muted); }
+
+/* ── Fund table ── */
+#funds-container { max-height:70vh; overflow-y:auto; overflow-x:auto; }
+.data-table { border-collapse:separate; border-spacing:0; width:100%; }
+.data-table thead th {
+  position:sticky; top:0; background:var(--bg-card); z-index:20;
+  box-shadow:0 1px 0 var(--border); border-bottom:none;
+  padding:10px 12px; font-size:12px; font-weight:600; color:var(--text-muted);
+  text-align:right; white-space:nowrap; cursor:pointer;
+}
+.data-table thead th:first-child { text-align:left; position:sticky; left:0; z-index:22; box-shadow:1px 1px 0 var(--border); }
+.data-table tbody td { padding:9px 12px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.data-table tbody td:first-child { position:sticky; left:0; background:var(--bg-card); background-clip:padding-box; z-index:10; box-shadow:1px 0 0 var(--border); }
+.data-table tbody tr:hover td { background:var(--bg-elevated); }
+.data-table tbody tr:hover td:first-child { background:var(--bg-elevated); }
+.data-table tbody tr:last-child td { border-bottom:none; }
+
+/* ── Conviction Section ── */
+.conviction-card {
+  background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; display:flex; align-items:center; gap:14px;
+}
+.conviction-rank { font-size:22px; font-weight:900; color:var(--text-muted); width:28px; text-align:center; flex-shrink:0; }
+.conviction-name { font-weight:600; color:var(--text-primary); font-size:14px; }
+.conviction-meta { font-size:11px; color:var(--text-muted); }
+
+/* ── Sector bar ── */
+.sector-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.sector-label { font-size:12px; color:var(--text-secondary); width:160px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sector-bar-wrap { flex:1; background:var(--border); border-radius:4px; height:8px; overflow:hidden; }
+.sector-bar-fill { height:8px; border-radius:4px; background:var(--indigo-400); transition:width 0.6s ease; }
+.sector-pct { font-size:11px; color:var(--text-muted); width:40px; text-align:right; flex-shrink:0; }
+
+/* ── Manager card ── */
+.manager-card {
+  background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; display:flex; gap:12px; align-items:flex-start;
+}
+.manager-avatar {
+  width:36px; height:36px; border-radius:50%; background:rgba(99,102,241,0.15);
+  border:1px solid rgba(99,102,241,0.3); display:flex; align-items:center;
+  justify-content:center; font-weight:700; color:var(--indigo-400); font-size:14px; flex-shrink:0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="empty-state" style="padding:60px 24px;text-align:center">
+  <h3>{{ error }}</h3>
+  <a href="{% url 'funds:research_amcs' %}" class="btn btn-primary" style="margin-top:16px">← Back to AMC Analysis</a>
+</div>
+{% else %}
+
+{# Breadcrumb #}
+<nav style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+  <a href="{% url 'funds:home' %}" style="color:var(--text-muted);text-decoration:none">Home</a> →
+  <a href="{% url 'funds:research_amcs' %}" style="color:var(--text-muted);text-decoration:none">AMC Analysis</a> →
+  <span style="color:var(--text-primary)">{{ fund_house }}</span>
+</nav>
+
+{# Header #}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;margin:0">{{ fund_house }}</h1>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">
+      {{ metrics.fund_count }} funds · {{ metrics.cat_count }} categories
+    </p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <select id="amc-switcher"
+            style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px">
+      <option value="">Switch AMC…</option>
+    </select>
+    <button onclick="startCompare()"
+       style="padding:8px 16px;border-radius:10px;border:1px solid var(--indigo-400);background:transparent;color:var(--indigo-400);font-size:13px;font-weight:600;cursor:pointer">
+      ⚖️ Compare
+    </button>
+  </div>
+</div>
+
+{# ── Overview KPIs ── #}
+<div class="metrics-grid">
+  <div class="metric-card">
+    <div class="metric-card-label">Total AUM <button type="button" class="info-btn" aria-label="Info" data-t-key="aum">ⓘ</button></div>
+    <div class="metric-card-val" id="kpi-aum">—</div>
+    <div class="metric-card-sub">Assets Under Management</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card-label">Fund Count <button type="button" class="info-btn" aria-label="Info" data-t-title="Fund Count & Split" data-t-what="Total number of active schemes and passive ETF/Index funds managed by this AMC." data-t-interp="Shows scale and product diversity across asset classes." data-t-link="mutual fund house scheme count">ⓘ</button></div>
+    <div class="metric-card-val">{{ metrics.fund_count }}</div>
+    <div class="metric-card-sub">{{ metrics.active_count }} active · {{ metrics.etf_count }} ETF/Index</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card-label">Avg 3Y Return <button type="button" class="info-btn" aria-label="Info" data-t-key="cagr">ⓘ</button></div>
+    <div class="metric-card-val" id="kpi-r3y" style="color:{% if metrics.avg_return_3y and metrics.avg_return_3y > 0 %}var(--success){% elif metrics.avg_return_3y %}var(--danger){% else %}var(--text-primary){% endif %}">
+      {% if metrics.avg_return_3y %}{{ metrics.avg_return_3y|floatformat:1 }}%{% else %}—{% endif %}
+    </div>
+    <div class="metric-card-sub">Across active equity funds</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card-label">Avg Alpha (3Y) <button type="button" class="info-btn" aria-label="Info" data-t-key="alpha">ⓘ</button></div>
+    <div class="metric-card-val" style="color:{% if metrics.avg_alpha_3y and metrics.avg_alpha_3y > 0 %}var(--success){% elif metrics.avg_alpha_3y %}var(--danger){% else %}var(--text-primary){% endif %}">
+      {% if metrics.avg_alpha_3y %}{{ metrics.avg_alpha_3y|floatformat:2 }}%{% else %}—{% endif %}
+    </div>
+    <div class="metric-card-sub">Jensen's alpha vs benchmark</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card-label">Avg Expense Ratio <button type="button" class="info-btn" aria-label="Info" data-t-key="expense_ratio">ⓘ</button></div>
+    <div class="metric-card-val">{% if metrics.avg_expense_ratio %}{{ metrics.avg_expense_ratio|floatformat:2 }}%{% else %}—{% endif %}</div>
+    <div class="metric-card-sub">Direct plans average TER</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card-label">Avg Model Score <button type="button" class="info-btn" aria-label="Info" data-t-key="model_score">ⓘ</button></div>
+    <div class="metric-card-val" style="color:{% if metrics.avg_model_score %}{% if metrics.avg_model_score >= 75 %}var(--success){% elif metrics.avg_model_score >= 55 %}#3b82f6{% elif metrics.avg_model_score >= 40 %}var(--warning){% else %}var(--danger){% endif %}{% endif %}">
+      {% if metrics.avg_model_score %}{{ metrics.avg_model_score|floatformat:0 }}/100{% else %}—{% endif %}
+    </div>
+    <div class="metric-card-sub">Composite quality score</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card-label">Avg Sharpe (3Y) <button type="button" class="info-btn" aria-label="Info" data-t-key="sharpe">ⓘ</button></div>
+    <div class="metric-card-val">{% if metrics.avg_sharpe %}{{ metrics.avg_sharpe|floatformat:2 }}{% else %}—{% endif %}</div>
+    <div class="metric-card-sub">Risk-adjusted return ratio</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card-label">Fund Managers <button type="button" class="info-btn" aria-label="Info" data-t-title="Fund Managers" data-t-what="Count of unique fund managers currently managing schemes at this AMC." data-t-interp="A balanced team size indicates adequate research bandwidth per manager." data-t-link="mutual fund manager research bandwidth">ⓘ</button></div>
+    <div class="metric-card-val">{{ metrics.unique_manager_count }}</div>
+    <div class="metric-card-sub">Unique managers on record</div>
+  </div>
+</div>
+
+{# ── Score Distribution Bar ── #}
+{% if metrics.pct_strong is not None %}
+<div class="metric-card" style="margin-bottom:24px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="font-weight:700;font-size:13px">Fund Quality Distribution <button type="button" class="info-btn" aria-label="Info" data-t-title="Fund Quality Distribution" data-t-what="Percentage of AMC schemes categorized into Strong (≥75), Good (55–75), Fair (40–55), and Weak (<40) quality buckets." data-t-interp="Fund houses with high % of Strong and Good schemes demonstrate disciplined investment processes across categories." data-t-link="mutual fund rating distribution">ⓘ</button></span>
+    <span style="font-size:11px;color:var(--text-muted)">{{ metrics.total_scored }} funds scored</span>
+  </div>
+  <div style="height:10px;border-radius:5px;background:var(--border);overflow:hidden;display:flex;margin-bottom:8px">
+    {% if metrics.pct_strong %}<div style="width:{{ metrics.pct_strong }}%;background:var(--success)"></div>{% endif %}
+    {% if metrics.pct_good %}<div style="width:{{ metrics.pct_good }}%;background:#3b82f6"></div>{% endif %}
+    {% if metrics.pct_fair %}<div style="width:{{ metrics.pct_fair }}%;background:var(--warning)"></div>{% endif %}
+    {% if metrics.pct_weak %}<div style="width:{{ metrics.pct_weak }}%;background:var(--danger)"></div>{% endif %}
+  </div>
+  <div style="display:flex;gap:16px;font-size:11px;flex-wrap:wrap">
+    <span style="color:var(--success)">■ {{ metrics.pct_strong|floatformat:0 }}% Strong (≥75)</span>
+    <span style="color:#3b82f6">■ {{ metrics.pct_good|floatformat:0 }}% Good (55–75)</span>
+    <span style="color:var(--warning)">■ {{ metrics.pct_fair|floatformat:0 }}% Fair (40–55)</span>
+    <span style="color:var(--danger)">■ {{ metrics.pct_weak|floatformat:0 }}% Weak (&lt;40)</span>
+  </div>
+</div>
+{% endif %}
+
+{# ── Tabs ── #}
+<div class="amc-tabs" id="amc-tabs">
+  <button class="amc-tab active" onclick="switchTab('funds')">📋 All Funds</button>
+  <button class="amc-tab" onclick="switchTab('intel')">🧠 Portfolio Intelligence</button>
+  <button class="amc-tab" onclick="switchTab('philosophy')">📐 Philosophy</button>
+  <button class="amc-tab" onclick="switchTab('managers')">👤 Fund Managers</button>
+  <button class="amc-tab" onclick="switchTab('categories')">📂 Categories</button>
+</div>
+
+{# ── Funds Tab ── #}
+<div class="tab-panel active" id="panel-funds">
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;gap:4px;background:var(--surface-3);border-radius:10px;padding:3px">
+      <button class="fund-tab-btn active" id="ftab-returns" onclick="loadFundsTab('returns')">Returns</button>
+      <button class="fund-tab-btn" id="ftab-risk" onclick="loadFundsTab('risk')">Risk</button>
+      <button class="fund-tab-btn" id="ftab-portfolio" onclick="loadFundsTab('portfolio')">Portfolio</button>
+      <button class="fund-tab-btn" id="ftab-fees" onclick="loadFundsTab('fees')">Fees</button>
+    </div>
+    <input id="fund-search" type="text" placeholder="Search funds…" oninput="debouncedSearch()"
+           style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px;margin-left:auto">
+  </div>
+
+  <div id="funds-container">
+    <div id="funds-loading" style="padding:40px;text-align:center;color:var(--text-muted)">Loading funds…</div>
+    <table class="data-table" id="funds-table" style="display:none">
+      <thead id="funds-thead"><tr></tr></thead>
+      <tbody id="funds-tbody"></tbody>
+    </table>
+    <div id="funds-empty" style="display:none;padding:40px;text-align:center;color:var(--text-muted)">No funds found.</div>
+  </div>
+</div>
+
+{# ── Portfolio Intelligence Tab ── #}
+<div class="tab-panel" id="panel-intel">
+  {% if not metrics.has_holdings %}
+  <div style="padding:60px 24px;text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">📊</div>
+    <h3 style="margin:0 0 8px">Holdings data not yet loaded</h3>
+    <p style="color:var(--text-muted);font-size:13px">Portfolio intelligence requires holdings data ingestion for this AMC's funds.</p>
+  </div>
+  {% else %}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex-wrap:wrap">
+
+    {# High Conviction Stocks #}
+    <div>
+      <h3 style="font-size:15px;font-weight:700;margin:0 0 14px">🎯 High-Conviction Stocks <button type="button" class="info-btn" aria-label="Info" data-t-title="High-Conviction Stocks" data-t-what="Stocks held across 3 or more funds within this AMC simultaneously." data-t-interp="Shows cross-fund internal research consensus among managers at this fund house." data-t-link="mutual fund high conviction stocks">ⓘ</button></h3>
+      <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">Stocks held across 3+ funds of this AMC — signals cross-fund consensus</p>
+      <div style="display:flex;flex-direction:column;gap:8px" id="conviction-list">
+        <div style="color:var(--text-muted);font-size:13px">Loading…</div>
+      </div>
+    </div>
+
+    {# Sector Allocation #}
+    <div>
+      <h3 style="font-size:15px;font-weight:700;margin:0 0 14px">🏭 Dominant Sector Exposure <button type="button" class="info-btn" aria-label="Info" data-t-title="Dominant Sector Exposure" data-t-what="Average sector weighting across active equity schemes of this AMC." data-t-interp="Reveals the AMC's structural macro sector tilts and investment preferences." data-t-link="mutual fund sector exposure weighting">ⓘ</button></h3>
+      <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">Average allocation across active funds — the AMC's revealed preferences</p>
+      <div id="sector-bars">
+        <div style="color:var(--text-muted);font-size:13px">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:24px">
+    <div class="metric-card" style="display:inline-flex;gap:32px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted)">Unique Stocks <button type="button" class="info-btn" aria-label="Info" data-t-title="Unique Stocks" data-t-what="Total count of distinct equity holdings across all funds of the AMC." data-t-interp="Focused stock count = high conviction; large count = broad diversification." data-t-link="mutual fund portfolio stock universe">ⓘ</button></div>
+        <div style="font-size:20px;font-weight:800">{{ metrics.unique_stock_count }}</div>
+        <div style="font-size:11px;color:var(--text-muted)">across all active equity funds</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted)">High-conviction positions <button type="button" class="info-btn" aria-label="Info" data-t-title="High-Conviction Positions" data-t-what="Number of stocks present in 3+ funds of this AMC." data-t-interp="Higher count indicates stronger central research consensus." data-t-link="high conviction stock picks mutual fund">ⓘ</button></div>
+        <div style="font-size:20px;font-weight:800">{{ metrics.high_conviction_stocks|length }}</div>
+        <div style="font-size:11px;color:var(--text-muted)">held in 3+ funds simultaneously</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Philosophy Tab ── #}
+<div class="tab-panel" id="panel-philosophy">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px">
+    <div class="metric-card">
+      <div class="metric-card-label">Avg Portfolio Turnover <button type="button" class="info-btn" aria-label="Info" data-t-key="turnover">ⓘ</button></div>
+      <div class="metric-card-val">
+        {% if metrics.avg_turnover %}{{ metrics.avg_turnover|floatformat:0 }}%{% else %}—{% endif %}
+      </div>
+      <div class="metric-card-sub">
+        {% if metrics.avg_turnover %}
+          {% if metrics.avg_turnover > 100 %}High turnover — active trader style{% elif metrics.avg_turnover > 50 %}Moderate turnover{% else %}Low turnover — long-horizon{% endif %}
+        {% endif %}
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Active vs Passive <button type="button" class="info-btn" aria-label="Info" data-t-title="Active vs Passive Ratio" data-t-what="Ratio of actively managed equity/debt schemes to passive Index/ETF funds." data-t-interp="A high passive ratio indicates strong focus on low-cost passive products." data-t-link="active vs passive index funds ratio">ⓘ</button></div>
+      <div class="metric-card-val">{{ metrics.active_count }} / {{ metrics.etf_count }}</div>
+      <div class="metric-card-sub">Active funds vs ETF/Index funds</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Stock Universe <button type="button" class="info-btn" aria-label="Info" data-t-title="Stock Universe Size" data-t-what="Total distinct stocks held across all equity funds of this AMC." data-t-interp="Indicates width of research coverage and stock selection scope." data-t-link="mutual fund research universe">ⓘ</button></div>
+      <div class="metric-card-val">{{ metrics.unique_stock_count|default:"—" }}</div>
+      <div class="metric-card-sub">Unique equity holdings across funds</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Category Breadth <button type="button" class="info-btn" aria-label="Info" data-t-title="Category Breadth" data-t-what="Total number of distinct SEBI categories covered by AMC schemes." data-t-interp="Broader coverage indicates a full-service fund house." data-t-link="sebi mutual fund category breadth">ⓘ</button></div>
+      <div class="metric-card-val">{{ metrics.cat_count }}</div>
+      <div class="metric-card-sub">SEBI categories covered</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Avg Max Drawdown (3Y) <button type="button" class="info-btn" aria-label="Info" data-t-key="max_drawdown">ⓘ</button></div>
+      <div class="metric-card-val" style="color:var(--danger)">
+        {% if metrics.avg_max_drawdown %}{{ metrics.avg_max_drawdown|floatformat:1 }}%{% else %}—{% endif %}
+      </div>
+      <div class="metric-card-sub">Average worst-case decline</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Avg Sortino (3Y) <button type="button" class="info-btn" aria-label="Info" data-t-key="sortino">ⓘ</button></div>
+      <div class="metric-card-val">{% if metrics.avg_sortino %}{{ metrics.avg_sortino|floatformat:2 }}{% else %}—{% endif %}</div>
+      <div class="metric-card-sub">Downside risk-adjusted return</div>
+    </div>
+  </div>
+
+  {% if metrics.categories %}
+  <div class="metric-card">
+    <div style="font-weight:700;font-size:13px;margin-bottom:12px">Categories Covered</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      {% for cat in metrics.categories %}
+      <span style="padding:3px 10px;border-radius:20px;background:var(--surface-3);font-size:11px;color:var(--text-secondary)">{{ cat }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Fund Managers Tab ── #}
+<div class="tab-panel" id="panel-managers">
+  <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
+    <h3 style="font-size:15px;font-weight:700;margin:0">{{ metrics.unique_manager_count }} Fund Managers</h3>
+    <input id="mgr-search" type="text" placeholder="Search manager…" oninput="filterManagers(this.value)"
+           style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px;margin-left:auto">
+  </div>
+  <div id="manager-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
+    {# rendered by JS #}
+  </div>
+  <div id="mgr-empty" style="display:none;padding:40px;text-align:center;color:var(--text-muted)">No managers found.</div>
+</div>
+
+{# ── Categories Tab ── #}
+<div class="tab-panel" id="panel-categories">
+  <div id="cat-groups-container">
+    {% for grp, cats in cat_groups.items %}
+    <div style="margin-bottom:20px">
+      <h3 style="font-size:14px;font-weight:700;margin:0 0 10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em">{{ grp }}</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        {% for cat in cats %}
+        <a href="#" onclick="goCatDetail('{{ cat.name|escapejs }}');return false;"
+           style="padding:6px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);text-decoration:none;font-size:12px;color:var(--text-primary);transition:border-color 0.15s"
+           onmouseover="this.style.borderColor='var(--indigo-400)'" onmouseout="this.style.borderColor='var(--border)'">
+          {{ cat.name }}
+          <span style="color:var(--text-muted)"> · {{ cat.fund_count }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const METRICS = {{ metrics_json|safe }};
+const MANAGER_FUNDS = {{ manager_funds_json|safe }};
+const SLUG = "{{ slug }}";
+const ALL_AMCS_RAW = {{ all_amcs_json|safe }};
+const CURRENT_FUND_HOUSE = {{ fund_house_json|safe }};
+// Build slug map
+const AMC_SLUG_MAP = {};
+ALL_AMCS_RAW.forEach(function(name) {
+  const slug = name.toLowerCase().replace(/'/g,'').replace(/[\s\/]+/g,'-').replace(/&/g,'and').replace(/--+/g,'-').replace(/^-|-$/g,'');
+  AMC_SLUG_MAP[name] = slug;
+});
+
+// Populate switcher
+(function() {
+  const sel = document.getElementById('amc-switcher');
+  if (!sel) return;
+  ALL_AMCS_RAW.forEach(function(name) {
+    const opt = document.createElement('option');
+    opt.value = AMC_SLUG_MAP[name] || '';
+    opt.textContent = name;
+    if (name === CURRENT_FUND_HOUSE) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', function() {
+    if (this.value) window.location = '/research/amcs/' + this.value + '/';
+  });
+})();
+
+function startCompare() {
+  sessionStorage.setItem('amc_compare_presel', SLUG);
+  window.location = '{% url "funds:research_amcs" %}';
+}
+
+function goCatDetail(catName) {
+  const slug = catName.toLowerCase().replace(/'/g,'').replace(/[\s\/]+/g,'-').replace(/&/g,'and').replace(/--+/g,'-').replace(/^-|-$/g,'');
+  window.location = '/research/categories/' + slug + '/';
+}
+
+// ── AUM format ──
+function fmtAum(v) {
+  if (v == null) return '—';
+  if (v >= 100000) return '₹' + (v/100000).toFixed(2) + 'L Cr';
+  if (v >= 1000) return '₹' + (v/1000).toFixed(1) + 'K Cr';
+  return '₹' + v.toFixed(0) + ' Cr';
+}
+
+// KPI AUM
+document.getElementById('kpi-aum').textContent = fmtAum(METRICS.total_aum);
+
+// ── Tab switching ──
+let activeTab = 'funds';
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.amc-tab').forEach((btn, i) => {
+    const tabs = ['funds','intel','philosophy','managers','categories'];
+    btn.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+
+  if (tab === 'intel') renderPortfolioIntel();
+  if (tab === 'managers') renderManagers('');
+  if (tab === 'funds' && !fundsLoaded) loadFundsTab('returns');
+}
+
+// ── Fund tabs ──
+const FUND_TAB_STYLES = {
+  padding:'7px 14px', border:'none', background:'transparent', color:'var(--text-muted)',
+  fontSize:'13px', fontWeight:'600', cursor:'pointer', borderRadius:'8px', transition:'all 0.15s'
+};
+document.querySelectorAll('.fund-tab-btn').forEach(b => {
+  Object.assign(b.style, FUND_TAB_STYLES);
+});
+
+let currentFundTab = 'returns';
+let fundsLoaded = false;
+let sortKey = 'aum', sortDir = 'desc';
+let searchTimer;
+
+function debouncedSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadFundsTab(currentFundTab), 300);
+}
+
+function loadFundsTab(tab) {
+  currentFundTab = tab;
+  fundsLoaded = true;
+  document.querySelectorAll('.fund-tab-btn').forEach(b => {
+    b.classList.toggle('active', b.id === 'ftab-' + tab);
+    if (b.id === 'ftab-' + tab) {
+      b.style.background = 'var(--surface-2)';
+      b.style.color = 'var(--text-primary)';
+      b.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+    } else {
+      b.style.background = 'transparent';
+      b.style.color = 'var(--text-muted)';
+      b.style.boxShadow = '';
+    }
+  });
+
+  const q = document.getElementById('fund-search').value;
+  const url = `/research/amcs/${SLUG}/funds/?tab=${tab}&q=${encodeURIComponent(q)}&sort=${sortKey}&direction=${sortDir}`;
+
+  document.getElementById('funds-loading').style.display = '';
+  document.getElementById('funds-table').style.display = 'none';
+  document.getElementById('funds-empty').style.display = 'none';
+
+  fetch(url).then(r => r.json()).then(data => {
+    document.getElementById('funds-loading').style.display = 'none';
+    if (!data.funds || !data.funds.length) {
+      document.getElementById('funds-empty').style.display = '';
+      return;
+    }
+    renderFundsTable(data.funds, tab);
+    document.getElementById('funds-table').style.display = '';
+  }).catch(() => {
+    document.getElementById('funds-loading').style.display = 'none';
+    document.getElementById('funds-empty').innerHTML = '<span style="color:var(--danger)">Failed to load fund data.</span>';
+    document.getElementById('funds-empty').style.display = '';
+  });
+}
+
+function getColInfoBtn(key) {
+  const map = {
+    aum: { title: 'AUM', what: 'Total Assets Under Management of this scheme in ₹ Crore.', interp: 'Higher AUM indicates higher liquidity and market adoption.', link: 'assets under management mutual fund' },
+    r1y: { title: '1Y CAGR', what: '1-year annualized trailing return.', interp: 'Reflects 1-year performance.' },
+    r3y: { title: '3Y CAGR', what: '3-year compound annual growth rate.', interp: 'Higher is better. Measures medium-term compounding.' },
+    r5y: { title: '5Y CAGR', what: '5-year compound annual growth rate.', interp: 'Higher is better. Key long-term performance indicator.' },
+    r7y: { title: '7Y CAGR', what: '7-year compound annual growth rate.', interp: 'Higher is better.' },
+    r10y: { title: '10Y CAGR', what: '10-year compound annual growth rate.', interp: 'Higher is better. Shows decade-long wealth creation.' },
+    roll3y: { title: '3Y Rolling Return', what: 'Average 3-year rolling CAGR across scheme history.', interp: 'Eliminates entry-date bias.' },
+    alpha_3y: { title: 'Excess Return (3Y)', what: 'Fund 3Y return minus benchmark 3Y return.', interp: 'Positive value shows net outperformance vs benchmark.' },
+    model_score: { title: 'Quality Score', what: '100-point composite fund score across 6 pillars.', interp: '≥75 Strong, 55-75 Good, 40-55 Fair, <40 Weak.' },
+    sharpe: { title: 'Sharpe Ratio (3Y)', what: '3-year risk-adjusted return ratio.', interp: 'Higher is better. Measures return per unit of volatility.' },
+    sortino: { title: 'Sortino Ratio (3Y)', what: '3-year downside risk-adjusted return ratio.', interp: 'Higher is better. Only penalizes negative volatility.' },
+    alpha: { title: 'Alpha (3Y)', what: 'Annualized Jensen\'s Alpha vs benchmark index.', interp: 'Positive alpha shows manager skill.' },
+    beta: { title: 'Beta (3Y)', what: 'Sensitivity of fund NAV to benchmark movements.', interp: 'Beta=1 matches index, >1 is aggressive, <1 is defensive.' },
+    max_dd: { title: 'Max Drawdown (3Y)', what: 'Maximum peak-to-trough decline over 3 years.', interp: 'Closer to 0% is better; measures historical loss depth.' },
+    max_dd_5y: { title: 'Max Drawdown (5Y)', what: 'Maximum peak-to-trough decline over 5 years.', interp: 'Closer to 0% is better.' },
+    vol_3y: { title: 'Volatility (3Y)', what: 'Annualized standard deviation of daily returns.', interp: 'Lower means smoother, less volatile NAV movement.' },
+    upside: { title: 'Upside Capture (3Y)', what: 'Percentage of benchmark gains captured during rally months.', interp: '>100% means the fund outperformed in bull markets.' },
+    downside: { title: 'Downside Capture (3Y)', what: 'Percentage of benchmark losses captured during decline months.', interp: '<100% means the fund protected capital in bear markets.' },
+    turnover: { title: 'Portfolio Turnover', what: 'Annual percentage of fund portfolio bought/sold.', interp: 'High (>100%) indicates active trading; low (<50%) indicates buy-and-hold.' },
+    equity_pct: { title: 'Equity Allocation %', what: 'Percentage of net assets invested in equity shares.', interp: 'Measures stock market exposure.' },
+    debt_pct: { title: 'Debt Allocation %', what: 'Percentage of net assets invested in bonds/fixed income.', interp: 'Measures fixed income exposure.' },
+    cash_pct: { title: 'Cash & Equivalents %', what: 'Percentage of net assets in cash, TREPS, or liquid instruments.', interp: 'Higher cash provides downside cushion and deployment buffer.' },
+    top10_conc: { title: 'Top 10 Concentration', what: 'Combined weight of top 10 portfolio holdings.', interp: 'Higher concentration means higher stock-specific risk.' },
+    expense_ratio: { title: 'Expense Ratio (TER)', what: 'Total annual expense ratio for Direct plan.', interp: 'Lower is better. Directly impacts net compounding.' },
+    cat_avg_er: { title: 'Category Avg TER', what: 'Average expense ratio for this SEBI sub-category.', interp: 'Compare with scheme TER to see if fees are competitive.' },
+    age_years: { title: 'Fund Age', what: 'Number of years since scheme launch date.', interp: 'Older funds have longer track records across market cycles.' },
+    sip_min: { title: 'SIP Minimum', what: 'Minimum monthly SIP investment amount in ₹.', interp: 'Lower minimum improves accessibility.' },
+    lump_min: { title: 'Lumpsum Minimum', what: 'Minimum initial lumpsum investment amount in ₹.', interp: 'Minimum required for one-time entry.' }
+  };
+  const t = map[key];
+  if (!t) return '';
+  const linkAttr = t.link ? ` data-t-link="${t.link}"` : '';
+  return ` <button type="button" class="info-btn" aria-label="Info" data-t-title="${t.title}" data-t-what="${t.what}" data-t-interp="${t.interp}"${linkAttr}>ⓘ</button>`;
+}
+
+function renderFundsTable(funds, tab) {
+  const thead = document.getElementById('funds-thead');
+  const tbody = document.getElementById('funds-tbody');
+
+  const COLS = {
+    returns: [
+      {key:'name', label:'Fund', align:'left'},
+      {key:'aum', label:'AUM'},
+      {key:'r1y', label:'1Y CAGR', color:true},
+      {key:'r3y', label:'3Y CAGR', color:true},
+      {key:'r5y', label:'5Y CAGR', color:true},
+      {key:'r7y', label:'7Y CAGR', color:true},
+      {key:'r10y', label:'10Y CAGR', color:true},
+      {key:'roll3y', label:'Roll 3Y', color:true},
+      {key:'alpha_3y', label:'Excess 3Y', color:true},
+      {key:'model_score', label:'Score'},
+    ],
+    risk: [
+      {key:'name', label:'Fund', align:'left'},
+      {key:'aum', label:'AUM'},
+      {key:'sharpe', label:'Sharpe 3Y', color:true},
+      {key:'sortino', label:'Sortino 3Y', color:true},
+      {key:'alpha', label:'Alpha 3Y', color:true},
+      {key:'beta', label:'Beta 3Y'},
+      {key:'max_dd', label:'Max DD 3Y', pct:true},
+      {key:'max_dd_5y', label:'Max DD 5Y', pct:true},
+      {key:'vol_3y', label:'Vol 3Y', pct:true},
+      {key:'upside', label:'Up Capture', pct:true},
+      {key:'downside', label:'Dn Capture', pct:true},
+    ],
+    portfolio: [
+      {key:'name', label:'Fund', align:'left'},
+      {key:'aum', label:'AUM'},
+      {key:'turnover', label:'Turnover', pct:true},
+      {key:'equity_pct', label:'Equity %', pct:true},
+      {key:'debt_pct', label:'Debt %', pct:true},
+      {key:'cash_pct', label:'Cash %', pct:true},
+      {key:'top10_conc', label:'Top 10 Conc', pct:true},
+      {key:'manager', label:'Manager', align:'left'},
+    ],
+    fees: [
+      {key:'name', label:'Fund', align:'left'},
+      {key:'aum', label:'AUM'},
+      {key:'expense_ratio', label:'TER (Direct)', pct:true},
+      {key:'cat_avg_er', label:'Cat Avg TER', pct:true},
+      {key:'age_years', label:'Age (Yrs)'},
+      {key:'sip_min', label:'SIP Min'},
+      {key:'lump_min', label:'Lump Min'},
+    ],
+  };
+
+  const cols = COLS[tab] || COLS.returns;
+  thead.innerHTML = '<tr>' + cols.map(c =>
+    `<th style="text-align:${c.align||'right'}" onclick="sortFunds('${c.key}')" title="Sort by ${c.label}">${c.label}${sortKey===c.key?(' '+(sortDir==='asc'?'↑':'↓')):''}${getColInfoBtn(c.key)}</th>`
+  ).join('') + '</tr>';
+
+  tbody.innerHTML = funds.map(f => {
+    return '<tr>' + cols.map(c => {
+      if (c.key === 'name') {
+        const badge = f.is_etf ? '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(99,102,241,0.15);color:var(--indigo-400);margin-left:4px">ETF</span>' : '';
+        return `<td><a href="/funds/${f.amfi}/" style="text-decoration:none;color:var(--text-primary);font-weight:600;font-size:12px">${f.name.replace(/Mutual Fund|Direct|Growth/gi,'').trim()}${badge}</a><br><span style="font-size:10px;color:var(--text-muted)">${f.category}</span></td>`;
+      }
+      if (c.key === 'aum') {
+        return `<td style="text-align:right;font-size:12px;color:var(--text-muted)">${f.aum != null ? '₹'+f.aum.toFixed(0)+' Cr' : '—'}</td>`;
+      }
+      if (c.key === 'model_score') {
+        const s = f.model_score, b = f.score_badge;
+        const clr = s >= 75 ? 'var(--success)' : s >= 55 ? '#3b82f6' : s >= 40 ? 'var(--warning)' : 'var(--danger)';
+        return `<td style="text-align:right"><span style="color:${s!=null?clr:'var(--text-muted)'};font-weight:700">${s != null ? s.toFixed(0) : '—'}</span></td>`;
+      }
+      if (c.key === 'manager') {
+        const mgr = f.manager || '—';
+        return `<td style="font-size:11px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mgr.split(';')[0].trim()}</td>`;
+      }
+      const v = f[c.key];
+      if (v == null) return `<td style="text-align:right;color:var(--text-muted)">—</td>`;
+
+      let disp = c.pct ? v.toFixed(2) + '%' : v.toFixed ? v.toFixed(2) : v;
+      let clr = 'var(--text-primary)';
+      if (c.color) clr = v > 0 ? 'var(--success)' : 'var(--danger)';
+      return `<td style="text-align:right;color:${clr};font-weight:600">${disp}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('funds-table'));
+}
+
+function sortFunds(key) {
+  if (sortKey === key) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey = key;
+    sortDir = 'desc';
+  }
+  loadFundsTab(currentFundTab);
+}
+
+// ── Portfolio Intelligence ──
+function renderPortfolioIntel() {
+  if (!METRICS.has_holdings) return;
+
+  // High conviction
+  const list = document.getElementById('conviction-list');
+  if (METRICS.high_conviction_stocks && METRICS.high_conviction_stocks.length) {
+    list.innerHTML = METRICS.high_conviction_stocks.map((s, i) => `
+      <div class="conviction-card">
+        <div class="conviction-rank">${i+1}</div>
+        <div style="flex:1">
+          <div class="conviction-name">${s.name}</div>
+          <div class="conviction-meta">
+            In <strong>${s.fund_count}</strong> funds
+            ${s.total_value ? ' · ₹' + (s.total_value/100).toFixed(0) + ' Cr combined' : ''}
+            ${s.avg_weight ? ' · Avg weight: ' + s.avg_weight.toFixed(2) + '%' : ''}
+          </div>
+        </div>
+        <div style="font-size:18px;font-weight:800;color:var(--indigo-400)">${s.fund_count} <span style="font-size:11px;font-weight:500;color:var(--text-muted)">funds</span></div>
+      </div>
+    `).join('');
+  } else {
+    list.innerHTML = '<p style="color:var(--text-muted);font-size:13px">No stocks held across 3+ funds found.</p>';
+  }
+
+  // Sector bars
+  const bars = document.getElementById('sector-bars');
+  if (METRICS.sector_data && METRICS.sector_data.length) {
+    const maxW = Math.max(...METRICS.sector_data.map(s => s.avg_weight));
+    bars.innerHTML = METRICS.sector_data.map(s => `
+      <div class="sector-row">
+        <div class="sector-label" title="${s.sector}">${s.sector}</div>
+        <div class="sector-bar-wrap">
+          <div class="sector-bar-fill" style="width:${(s.avg_weight/maxW*100).toFixed(1)}%"></div>
+        </div>
+        <div class="sector-pct">${s.avg_weight.toFixed(1)}%</div>
+        <div style="font-size:10px;color:var(--text-muted);width:50px">${s.fund_count}f</div>
+      </div>
+    `).join('');
+  } else {
+    bars.innerHTML = '<p style="color:var(--text-muted);font-size:13px">No sector data available.</p>';
+  }
+}
+
+// ── Managers ──
+function renderManagers(q) {
+  const grid = document.getElementById('manager-grid');
+  const empty = document.getElementById('mgr-empty');
+  const managers = Object.keys(MANAGER_FUNDS).sort();
+  const filtered = q ? managers.filter(m => m.toLowerCase().includes(q.toLowerCase())) : managers;
+
+  if (!filtered.length) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = filtered.map(mgr => {
+    const funds = MANAGER_FUNDS[mgr] || [];
+    return `
+    <div class="manager-card">
+      <div class="manager-avatar">${mgr.charAt(0)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">${mgr}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${funds.length} fund${funds.length!==1?'s':''}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${funds.slice(0,5).map(f => `
+            <a href="/funds/${f.amfi}/" style="font-size:10px;padding:2px 8px;border-radius:12px;background:var(--surface-3);color:var(--text-secondary);text-decoration:none;border:1px solid var(--border)" title="${f.name}">${f.name.replace(/Mutual Fund|Direct|Growth|IDCW/gi,'').trim().slice(0,30)}</a>
+          `).join('')}
+          ${funds.length > 5 ? `<span style="font-size:10px;color:var(--text-muted);padding:2px 4px">+${funds.length-5} more</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterManagers(q) {
+  renderManagers(q);
+}
+
+// ── Initialise ──
+loadFundsTab('returns');
+if (window.initInfoTooltips) window.initInfoTooltips(document);
+
+// Pre-select for comparison from list page
+const presel = sessionStorage.getItem('amc_presel');
+if (presel) {
+  sessionStorage.removeItem('amc_presel');
+  // navigated from list page with compare intent
+}
+</script>
+
+<style>
+.fund-tab-btn {
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+.fund-tab-btn.active {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+</style>
+{% endblock %}

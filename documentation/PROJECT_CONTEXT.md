@@ -184,6 +184,13 @@ Each circle's displayed percentage is count-based (i.e. `exclusive_count / total
 /calculators/compare/       ← Unified side-by-side fund comparison (Grid layout, Best/Worst quarters overlap, Risk scatter, Sector donuts)
 /funds/<amfi_code>/pdf/     ← WeasyPrint PDF export
 
+/research/categories/       ← Category analysis index
+/research/categories/<slug>/← Category deep dive
+/research/quartiles/        ← Dynamic quartile rankings
+/research/amcs/             ← AMC Analysis directory & screener
+/research/amcs/<slug>/      ← AMC Detail deep dive (8 pillars across 5 tabs)
+/research/amcs/compare/     ← Side-by-side AMC comparison (2–4 AMCs, 26 metrics across 7 dimensions)
+
 /calculators/               ← Calculator hub
 /calculators/sip/           ← SIP calculator (prospective + historical back-test; multi-fund; fund-name cashflow rows; auto inception-date start alignment)
 /calculators/step-sip/      ← Step-Up SIP calculator (same as SIP with annual % step-up)
@@ -279,6 +286,7 @@ All five planned phases are substantially implemented, plus several enhancements
 - Custom weighted benchmark inside backtester (separate from portfolio dashboard benchmark)
 
 **Recently completed:**
+- ✅ **AMC Analysis Suite** (`/research/amcs/`): Comprehensive research hub for Indian Asset Management Companies built on a live-query architecture. Features an AMC Directory & Screener with multi-select floating compare bar, an 8-pillar AMC Detail page (`/research/amcs/<slug>/`) with 5 tabs (All Funds with 4 sub-tabs, Portfolio Intelligence with high-conviction holdings & sector exposure, Philosophy, Fund Managers, Categories), and a 26-metric side-by-side AMC Comparison page (`/research/amcs/compare/`) with winner badges (★ Best), sector allocation charts, and stock conviction overlap.
 - ✅ **User Dashboard & Admin Panel**: Added `/user/dashboard/` to serve as a centralized hub for logged-in users to manage their portfolios, strategies, risk profiles, and watchlists. Integrated with customizable homepage metrics.
 - ✅ **Advanced Tax Calculator** (FY 2025-26): 5-tab design covering Portfolio Tax, Tax Loss Harvesting (3 sub-tabs), SIP FIFO, Compare & Plan, and ITR Guide. Supports 12 fund types with correct STCG/LTCG rates, loss set-off priority, ₹1.25L equity LTCG exemption, carry-forward STCL/LTCL, and smart tax-saving alerts.
 - ✅ **Fund Comparison Calculator** (`/calculators/compare/`): Side-by-side comparison of up to 5 funds across Overview, Returns, Risk, and Portfolio tabs. Best badge logic audited and corrected — now correctly applies "lower is better" for expense ratio, volatility, beta, drawdown, turnover, and top-10 concentration.

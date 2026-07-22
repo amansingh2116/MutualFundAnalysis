@@ -32,6 +32,15 @@
   - Sticky column headers and sticky fund-name column while scrolling; sortable columns; pagination (50 per page)
   - ⓘ info tooltips on every metric column header explaining direction and interpretation
   - Ranks are always computed on the **full cohort** — searching/filtering only changes which rows are displayed, not the rank values
+- **AMC Analysis** *(Research → AMC Analysis)*: Comprehensive fund house research suite to evaluate, analyze, and compare Indian Asset Management Companies:
+  - **AMC Directory & Screener** (`/research/amcs/`): Interactive grid of all Indian AMCs with real-time aggregated total AUM, active/ETF fund counts, 1Y/3Y/5Y CAGR averages, average expense ratios, composite score distribution, search, and sorting (by AUM, Returns, Quality Score, TER, or Fund Count). Includes a multi-select float bar to pick 2–4 AMCs for side-by-side comparison.
+  - **AMC Detail Analysis Page** (`/research/amcs/<slug>/`): Deep-dive page covering 8 analytical pillars across 5 interactive tabs:
+    - *All Funds*: Tabbed scheme tables with Returns (1Y–10Y CAGR, rolling, alpha, model score), Risk (Sharpe, Sortino, Alpha, Beta, Max Drawdown 1Y/3Y/5Y, capture ratios), Portfolio (turnover, equity/debt/cash %, top 10 concentration, fund manager), and Fees (TER, category average TER, fund age, SIP/lumpsum minimums).
+    - *Portfolio Intelligence*: Uncovers high-conviction stocks held across 3+ funds in the AMC, dominant sector exposure bar charts, and total unique equity stock universe size.
+    - *Philosophy*: Evaluates active vs passive fund ratio, average portfolio turnover style (low/long-horizon vs high turnover), category breadth, downside risk (max drawdown), and Sortino ratio.
+    - *Fund Managers*: Complete roster of fund managers with their managed scheme lists and category distribution.
+    - *Categories*: Category coverage breakdown grouped by SEBI asset class.
+  - **Side-by-Side AMC Comparison** (`/research/amcs/compare/`): 11-dimension side-by-side evaluation matrix comparing 2–4 AMCs on 26+ metrics (Scale, Returns, Risk, Quality, Costs, Philosophy, People), complete with winner badges (★ Best) per metric, comparative sector allocation bar charts, and portfolio conviction overlaps.
 - **Home Page Dashboard**: Category Return Meter, Category Analysis, Quartile Rankings preview, and a comprehensive **Benchmark Monitor** (inspired by [AdvisorKhoj](https://www.advisorkhoj.com/mutual-funds-research/mutual-fund-benchmark-monitor))
   - **Customizable Top Bar** *(login required)*: Investors can manage and select which benchmarks and metrics are displayed in the ticker strip at the top of the homepage (saved per user). Default metrics are shown for guests.
   - **Educational Philosophy Cards**: Clear messaging that the platform focuses exclusively on Direct and Growth mutual funds and ETFs, with links to our blogs explaining why.
