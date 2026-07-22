@@ -174,18 +174,24 @@ function initTabs(containerSelector='.tabs') {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         const panel = document.getElementById(target);
         if (panel) panel.classList.add('active');
-        // Store in URL hash
+        // Store in URL hash without triggering scroll
         if (history.replaceState) history.replaceState(null, '', '#' + target);
       });
     });
-    // Restore from hash
+    // Restore from hash without scrolling to the panel
     const hash = location.hash.replace('#', '');
     if (hash) {
       const target = tabsEl.querySelector(`[data-tab="${hash}"]`);
-      if (target) target.click();
+      if (target) {
+        const savedY = window.scrollY;
+        target.click();
+        // Two rAFs to ensure browser anchor-scroll has fired before we restore
+        requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, savedY)));
+      }
     }
   });
 }
+
 
 // ── Toast ──────────────────────────────────────────────────────
 function showToast(msg, type='info') {

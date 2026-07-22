@@ -18,6 +18,7 @@ numpy>=1.26
 scipy>=1.12
 statsmodels>=0.14             # ARIMA forecasting (portfolio/services/forecasting.py)
 scikit-learn>=1.4             # Ridge / RandomForest ML forecasting
+arch>=5.0                     # GARCH volatility modelling (forecasting engine)
 rapidfuzz>=3.6                # fuzzy scheme name matching for CAS import
 
 # ── Charts ────────────────────────────────────────────────────────────────────

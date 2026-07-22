@@ -1136,3 +1136,75 @@ def fund_category_avg_api(request, amfi_code):
     except Exception as exc:
         logger.error('[fund_category_avg_api] %s: %s', amfi_code, exc)
         return JsonResponse({'error': str(exc)}, status=500)
+
+
+# ── Advanced Forecasting API ───────────────────────────────────────────────────
+
+@require_http_methods(["POST"])
+def forecast_return_api(request, amfi_code):
+    """
+    POST /api/funds/<amfi>/forecast/return/
+    Body: { nav_data: [{date, nav}, ...], params: {...} }
+    Stateless — no DB writes.
+    """
+    try:
+        from apps.analytics.forecasting import run_return_forecast
+        body = json.loads(request.body)
+        nav_data = body.get("nav_data", [])
+        params   = body.get("params", {})
+        if not nav_data:
+            # fall back to fetching from DB
+            scheme = get_scheme_or_404(amfi_code)
+            qs = NAVHistory.objects.filter(scheme=scheme).order_by("date").values("date", "nav")
+            nav_data = [{"date": str(r["date"]), "nav": float(r["nav"])} for r in qs]
+        result = run_return_forecast(nav_data, params)
+        return JsonResponse(result)
+    except Exception as exc:
+        logger.error("[forecast_return_api] %s: %s", amfi_code, exc)
+        return JsonResponse({"error": str(exc)}, status=500)
+
+
+@require_http_methods(["POST"])
+def forecast_direction_api(request, amfi_code):
+    """
+    POST /api/funds/<amfi>/forecast/direction/
+    Body: { nav_data: [{date, nav}, ...], params: {...} }
+    Stateless — no DB writes.
+    """
+    try:
+        from apps.analytics.forecasting import run_direction_forecast
+        body = json.loads(request.body)
+        nav_data = body.get("nav_data", [])
+        params   = body.get("params", {})
+        if not nav_data:
+            scheme = get_scheme_or_404(amfi_code)
+            qs = NAVHistory.objects.filter(scheme=scheme).order_by("date").values("date", "nav")
+            nav_data = [{"date": str(r["date"]), "nav": float(r["nav"])} for r in qs]
+        result = run_direction_forecast(nav_data, params)
+        return JsonResponse(result)
+    except Exception as exc:
+        logger.error("[forecast_direction_api] %s: %s", amfi_code, exc)
+        return JsonResponse({"error": str(exc)}, status=500)
+
+
+@require_http_methods(["POST"])
+def forecast_volatility_api(request, amfi_code):
+    """
+    POST /api/funds/<amfi>/forecast/volatility/
+    Body: { nav_data: [{date, nav}, ...], params: {...} }
+    Stateless — no DB writes.
+    """
+    try:
+        from apps.analytics.forecasting import run_volatility_forecast
+        body = json.loads(request.body)
+        nav_data = body.get("nav_data", [])
+        params   = body.get("params", {})
+        if not nav_data:
+            scheme = get_scheme_or_404(amfi_code)
+            qs = NAVHistory.objects.filter(scheme=scheme).order_by("date").values("date", "nav")
+            nav_data = [{"date": str(r["date"]), "nav": float(r["nav"])} for r in qs]
+        result = run_volatility_forecast(nav_data, params)
+        return JsonResponse(result)
+    except Exception as exc:
+        logger.error("[forecast_volatility_api] %s: %s", amfi_code, exc)
+        return JsonResponse({"error": str(exc)}, status=500)

@@ -21,5 +21,10 @@ urlpatterns = [
     path('funds/<str:amfi_code>/peers/', api_views.peer_comparison_api, name='peers'),
     path('funds/<str:amfi_code>/compare-summary/', api_views.compare_summary_api, name='compare_summary'),
     path('funds/<str:amfi_code>/category-avg/', api_views.fund_category_avg_api, name='fund_category_avg'),
+
+    # ── Forecasting API (stateless, no DB writes) ────────────────────────────
+    path('funds/<str:amfi_code>/forecast/return/', api_views.forecast_return_api, name='forecast_return'),
+    path('funds/<str:amfi_code>/forecast/direction/', api_views.forecast_direction_api, name='forecast_direction'),
+    path('funds/<str:amfi_code>/forecast/volatility/', api_views.forecast_volatility_api, name='forecast_volatility'),
 ]
 

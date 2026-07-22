@@ -42,6 +42,17 @@
 - **Scorecard System (v2)**: 100-point, 6-pillar dynamic scoring (Performance, Risk/Stability, Cost, Composition & Liquidity, Debt Quality, Manager Quality)
 - **Compare Selected**: Multi-fund side-by-side comparison with overlapping Best/Worst Quarters, Sector Allocation, Risk vs Return scatter, and benchmark fallback
 - **Peer Comparison**: Scored India-focused peer matching by fund fingerprint, plan type, category, sector/theme, and AUM ranking
+- **Advanced Quantitative Analysis Suite** *(Fund Detail → Advanced Quant Suite)*: Institutional-grade quantitative research suite — see [ADVANCED_ANALYSIS.md](documentation/ADVANCED_ANALYSIS.md) for full guide
+  - **Technical Indicators**: Tri-gauge signal consensus meter (-100 to +100), Oscillators (RSI, Stochastic, MACD, CCI, Williams %R, Ultimate), Moving Averages (10D–200D SMA & EMA, Golden/Death Cross recognition), and 5 Pivot Systems (Classic, Fibonacci, Camarilla, Woodie, DeMark)
+  - **Interactive NAV Chart & Overlays**: Multi-period toggle (1Y/3Y/5Y/All), SMA/EMA/Bollinger Bands/Support-Resistance overlays, MACD and RSI sub-panels
+  - **Interactive Chart Tools**: 📏 **Measure Tool** (click & drag to measure % return, ₹ gain, and duration) and ✏️ **Draw S/R Tool** (freehand trendline drawing with Plotly modebar controls)
+  - **Risk & Monte Carlo Simulation**: Quantitative risk grid (Sharpe, Sortino, Treynor, Calmar, Beta, Alpha, VaR 95%, Max Drawdown), Underwater Drawdown Chart, and 1,000-path stochastic Monte Carlo simulation with 95th/75th/50th/25th/5th percentile fans over 1Y, 3Y, 5Y horizons
+  - **Multi-Mode Statistical Forecasting**: 
+    - *Return Level Forecasting*: Log-returns modeling, Augmented Dickey-Fuller (ADF) stationarity test, ARIMA, Holt, ETS, **XGBoost / Random Forest**, **LSTM Sequence Net**, **ARIMAX**, and Walk-Forward out-of-sample MAPE backtesting
+    - *Directional Classifiers*: Logistic Regression, XGBoost, SVM, and Random Forest classifier ensemble with ROC-AUC, Precision, F1-Score, and Directional Hit Rate %
+    - *Volatility Modeling*: Rolling Volatility, EWMA (λ=0.94), GARCH(1,1), EGARCH (Asymmetric leverage), and Gradient Boost Volatility ML with QLIKE loss metrics
+  - **Composite Signal Score**: 5-pillar quantitative aggregation score (0–100) combining Trend, Momentum, Volatility, Mean Reversion, and Consistency
+  - **ⓘ Info Button System**: Contextual educational tooltips across every metric, chart tool, and forecast model setting
 
 ### Portfolio Analysis
 - Upload CAS (Consolidated Account Statement) files or enter transactions manually
