@@ -89,7 +89,7 @@
       <a href="{% url 'funds:research_category_meter' %}" class="nav-item {% if request.resolver_match.url_name == 'research_category_meter' %}active{% endif %}">
         <span class="nav-icon">📊</span> Category Returns
       </a>
-      <a href="{% url 'funds:research_categories' %}" class="nav-item {% if request.resolver_match.url_name == 'research_categories' or request.resolver_match.url_name == 'research_category_detail' %}active{% endif %}">
+      <a href="{% url 'funds:research_categories' %}" class="nav-item {% if request.resolver_match.url_name == 'research_categories' or request.resolver_match.url_name == 'research_category_detail' or request.resolver_match.url_name == 'research_category_compare' %}active{% endif %}">
         <span class="nav-icon">🔬</span> Category Analysis
       </a>
       <a href="{% url 'funds:research_amcs' %}" class="nav-item {% if request.resolver_match.url_name in 'research_amcs research_amc_detail research_amc_compare' %}active{% endif %}">

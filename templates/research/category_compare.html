@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Category Comparison — Mutual Fund Research{% endblock %}
+{% block meta_description %}Side-by-side comparison of 2–4 mutual fund categories across returns, risk, costs, alpha, and fund quality metrics.{% endblock %}
+
+{% block extra_head %}
+<style>
+.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.compare-table th, .compare-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.compare-table thead th { background: var(--surface-2); position: sticky; top: 0; z-index: 10; font-weight: 700; }
+.compare-table .section-header td {
+  background: var(--bg-elevated); color: var(--indigo-400);
+  font-weight: 700; font-size: 12px; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 8px 14px;
+}
+.metric-label { color: var(--text-secondary); font-size: 12px; min-width: 180px; max-width: 220px; }
+.cat-header { text-align: center; min-width: 140px; }
+.cat-header-name { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.cat-header-sub  { font-size: 11px; color: var(--text-muted); }
+.winner-badge { display: inline-block; background: rgba(34,197,94,0.15); color: var(--success); border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700; margin-top: 2px; }
+.mini-bar-wrap { margin-top: 4px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.mini-bar-fill { height: 100%; border-radius: 2px; }
+
+/* Selector */
+.cat-selector-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-sel-chip { padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-muted); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+.cat-sel-chip:hover { border-color: var(--indigo-400); color: var(--indigo-400); }
+.cat-sel-chip.selected { background: var(--indigo-400); border-color: var(--indigo-400); color: #fff; }
+
+/* Loading */
+.loading-pulse { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+  <a href="{% url 'funds:home' %}" style="color:var(--text-muted);text-decoration:none">Home</a> →
+  <a href="{% url 'funds:research_categories' %}" style="color:var(--text-muted);text-decoration:none">Category Analysis</a> →
+  <span style="color:var(--text-primary)">Compare</span>
+</nav>
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+  <div>
+    <h1 style="font-size:24px;font-weight:800;margin:0">⚖️ Category Comparison</h1>
+    <p id="compare-subtitle" style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Select 2–4 categories to compare</p>
+  </div>
+  <a href="{% url 'funds:research_categories' %}" style="font-size:13px;color:var(--indigo-400);text-decoration:none">← Back to Category Analysis</a>
+</div>
+
+{# ── Category Selector ── #}
+<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px">
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600">SELECT CATEGORIES TO COMPARE (2–4)</div>
+  <input type="text" id="cat-filter-input" placeholder="🔍 Filter categories…" oninput="filterChips(this.value)"
+    style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-size:13px;width:280px;margin-bottom:10px">
+  <div id="cat-chips" class="cat-selector-grid"></div>
+  <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+    <button onclick="loadComparison()" id="load-btn"
+            style="padding:8px 20px;border-radius:10px;border:none;background:var(--indigo-400);color:white;font-weight:600;font-size:13px;cursor:pointer">
+      Compare Selected →
+    </button>
+    <span id="sel-count" style="font-size:12px;color:var(--text-muted)">0 selected</span>
+  </div>
+</div>
+
+{# ── Comparison Table ── #}
+<div id="compare-section" style="display:none">
+  <div style="overflow-x:auto">
+    <table class="compare-table" id="compare-table">
+      <thead id="compare-thead"></thead>
+      <tbody id="compare-tbody">
+        <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)" class="loading-pulse">Loading comparison data…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ALL_CATS = {{ all_categories_json|safe }};
+const INITIAL_SLUGS = '{{ slugs_param }}'.split(',').filter(Boolean);
+const CAT_COMPARE_API = '{% url "funds:category_compare_api" %}';
+
+const CAT_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444'];
+
+let selected = new Set(INITIAL_SLUGS);
+
+// Build chips
+function renderChips(filter='') {
+  const q = filter.toLowerCase();
+  const container = document.getElementById('cat-chips');
+  const filtered = q ? ALL_CATS.filter(c => c.name.toLowerCase().includes(q)) : ALL_CATS;
+  container.innerHTML = filtered.map(c => {
+    const isSel = selected.has(c.slug);
+    return `<button class="cat-sel-chip ${isSel?'selected':''}" onclick="toggleChip('${c.slug}','${c.name.replace(/'/g,"\\'")}')" title="${c.group} · ${c.fund_count} funds">
+      ${c.name} <span style="font-size:10px;opacity:0.7">(${c.fund_count})</span>
+    </button>`;
+  }).join('');
+  document.getElementById('sel-count').textContent = `${selected.size} selected`;
+}
+
+function filterChips(q) { renderChips(q); }
+
+function toggleChip(slug, name) {
+  if (selected.has(slug)) {
+    selected.delete(slug);
+  } else {
+    if (selected.size >= 4) { alert('Select up to 4 categories.'); return; }
+    selected.add(slug);
+  }
+  renderChips(document.getElementById('cat-filter-input').value);
+}
+
+// ── Helpers ──
+function fmtPct(v, dp=1) { return v == null ? '—' : v.toFixed(dp) + '%'; }
+function fmtNum(v, dp=2) { return v == null ? '—' : v.toFixed(dp); }
+function fmtAum(v) {
+  if (v == null) return '—';
+  if (v >= 100000) return '₹' + (v/100000).toFixed(1) + 'L Cr';
+  if (v >= 1000) return '₹' + (v/1000).toFixed(1) + 'K Cr';
+  return '₹' + v.toFixed(0) + ' Cr';
+}
+function colorRet(v) { if (v == null) return 'inherit'; return v > 0 ? 'var(--success)' : v < 0 ? 'var(--danger)' : 'inherit'; }
+function colorScore(v) {
+  if (v == null) return 'inherit';
+  if (v >= 75) return 'var(--success)';
+  if (v >= 55) return '#3b82f6';
+  if (v >= 40) return 'var(--warning)';
+  return 'var(--danger)';
+}
+function highlightBest(vals, higherBetter) {
+  const nums = vals.filter(v => v != null);
+  if (!nums.length) return vals.map(() => false);
+  if (Math.max(...nums) === Math.min(...nums)) return vals.map(() => false);
+  const best = higherBetter ? Math.max(...nums) : Math.min(...nums);
+  return vals.map(v => v === best && v != null);
+}
+
+function getCatMetricBtn(label) {
+  const map = {
+    '📊 Scale & Coverage': { title: 'Scale & Coverage', what: 'Total number of funds and total AUM in this category.', interp: 'Larger AUM categories have more market validation, but in small/mid cap may cause liquidity challenges.' },
+    'Fund Count': { title: 'Fund Count', what: 'Total number of direct plan funds in this category.', interp: 'More funds means more peer benchmarking data and fund manager selection options.' },
+    'Total AUM': { title: 'Total Category AUM', what: 'Sum of assets under management across all direct plan funds.', interp: 'Very large AUM in Small Cap/Mid Cap categories may cause liquidity constraints for fund managers.' },
+    '📈 Returns': { title: 'Return Metrics', what: 'Average and median trailing and rolling returns across funds in the category.', interp: 'Always compare to benchmark and to other categories in the same risk tier.' },
+    'Avg 1Y Return': { title: 'Avg 1Y Return', what: 'Simple average of 1-year trailing returns across all direct plan funds.', interp: 'Short-term; heavily impacted by recent market events.' },
+    'Avg 3Y CAGR': { title: 'Avg 3Y CAGR', what: 'Average 3-year compound annual growth rate across funds.', interp: 'Medium-term compounding. Key for evaluating sustained performance.' },
+    'Avg 5Y CAGR': { title: 'Avg 5Y CAGR', what: 'Average 5-year CAGR. Most widely used long-term metric.', interp: 'Captures one full market cycle; filters out short-term noise.' },
+    'Median 3Y CAGR': { title: 'Median 3Y CAGR', what: 'Median 3-year CAGR — the middle fund when sorted by 3Y CAGR.', interp: 'More representative of the typical investor experience; unaffected by outliers.' },
+    'Excess Return 3Y (vs BM)': { title: 'Excess Return vs Benchmark (3Y)', what: 'Category average excess return over the designated benchmark index.', interp: 'Positive = active funds are adding value over passive index. Negative = consider index funds for this category.' },
+    'Return Spread 1Y': { title: 'Return Spread (1Y)', what: 'Difference between the best and worst fund 1Y return in this category.', interp: 'Wide spread = manager skill matters a lot. Narrow spread = category beta dominates.' },
+    'Return Spread 3Y': { title: 'Return Spread (3Y)', what: 'Difference between the best and worst fund 3Y CAGR in this category.', interp: 'Wide spread over 3 years signals high dispersion — fund selection is critical in this category.' },
+    '🔄 Rolling Returns': { title: 'Rolling Return Metrics', what: 'Average of all possible rolling return windows for each holding period, computed across all funds.', interp: 'Rolling returns remove the start/end date bias of trailing returns — they show the realistic investor experience.' },
+    'Avg Rolling 1Y': { title: 'Avg 1Y Rolling Return', what: 'Average of all 1-year rolling returns across funds in the category.', interp: 'Shows the typical annualized return an investor could have received over any 12-month period.' },
+    'Avg Rolling 3Y': { title: 'Avg 3Y Rolling Return', what: 'Average of all 3-year rolling returns across funds.', interp: 'Most reliable indicator of category performance. Reduces recency and start-date bias.' },
+    'Avg Rolling 5Y': { title: 'Avg 5Y Rolling Return', what: 'Average of all 5-year rolling returns across funds.', interp: 'Excellent for assessing long-term performance; eliminates cycle entry-point bias.' },
+    '% Positive Windows (3Y)': { title: '% Positive Rolling Windows (3Y)', what: 'Percentage of 3-year rolling windows where the average fund returned a positive return.', interp: '≥90% means investors almost always made money over any 3-year horizon. Lower values indicate higher cycle risk.' },
+    '⚖️ Risk': { title: 'Risk Metrics', what: 'Volatility, Sharpe, Sortino, Max Drawdown, and Capture Ratios — the complete risk profile of the category.', interp: 'Compare risk metrics together. A category with high Sharpe but also high drawdown has different risk characteristics.' },
+    'Avg Volatility': { title: 'Avg Volatility (3Y Annualized SD)', what: 'Average annualized standard deviation of 3-year monthly returns.', interp: 'Higher SD = wider return swings = more emotional stress for investors. Compare to other categories in same bucket.' },
+    'Avg Sharpe (3Y)': { title: 'Avg Sharpe Ratio (3Y)', what: 'Average 3-year Sharpe ratio: (return − risk-free rate) / volatility.', interp: 'Higher is better. Shows return earned per unit of total risk.' },
+    'Avg Sortino (3Y)': { title: 'Avg Sortino Ratio (3Y)', what: 'Average 3-year Sortino ratio: (return − risk-free rate) / downside deviation.', interp: 'Higher is better. Penalizes only downside volatility — preferred for equity categories.' },
+    'Avg Max Drawdown (3Y)': { title: 'Avg Max Drawdown (3Y)', what: 'Average worst peak-to-trough NAV drop over the last 3 years.', interp: 'Closer to 0% is better. The real downside pain investors experienced.' },
+    'Avg Max Drawdown (5Y)': { title: 'Avg Max Drawdown (5Y)', what: 'Average worst peak-to-trough NAV drop over the last 5 years — includes COVID crash.', interp: 'More comprehensive stress-period measure than 3Y. Shows what happened during major market dislocations.' },
+    'Avg Upside Capture': { title: 'Avg Upside Capture Ratio (3Y)', what: 'When the benchmark rises X%, the category rises X% × upside capture. >100% = outperforms benchmark on up-days.', interp: '>100% is generally better. Pair with downside capture: want high upside + low downside.' },
+    'Avg Downside Capture': { title: 'Avg Downside Capture Ratio (3Y)', what: 'When the benchmark falls X%, the category falls X% × downside capture. <100% = category falls less than benchmark on down-days.', interp: '<100% is better. The ideal fund profile: upside capture >100%, downside capture <100%.' },
+    '🏅 Fund Quality': { title: 'Fund Quality Distribution', what: 'Distribution of funds by our 0–100 composite quality score (performance, risk, fees, management).', interp: 'A high % of Strong (≥75) and Good (55–75) funds across a category indicates institutional-grade asset management.' },
+    'Avg Model Score': { title: 'Avg Model Score', what: 'Average of our composite quality score (0–100) across all direct plan funds in this category.', interp: '≥75: Strong. 55–75: Good. 40–55: Fair. <40: Weak.' },
+    '% Strong Funds (≥75)': { title: '% Strong Funds', what: 'Percentage of direct plan funds with a quality score of 75 or above.', interp: 'Higher is better. Indicates more consistently high-quality funds to choose from in this category.' },
+    '% Weak Funds (<40)': { title: '% Weak Funds', what: 'Percentage of direct plan funds with a quality score below 40.', interp: 'Lower is better. High weak % signals persistent underperformance or poor risk management in the category.' },
+    '💰 Costs': { title: 'Cost & Efficiency', what: 'Average and median Total Expense Ratios (TER) and portfolio turnover.', interp: 'Costs are the most predictable drag on returns. Lower TER + lower turnover = better long-run outcome for investors.' },
+    'Avg Expense Ratio': { title: 'Avg Expense Ratio (TER)', what: 'Average Total Expense Ratio for direct plans across all funds.', interp: 'Lower is better. Every 0.5% higher TER costs ~₹50K per ₹1Cr invested per year. Always compare TER within same category.' },
+    'Median Expense Ratio': { title: 'Median Expense Ratio (TER)', what: 'Median TER — represents the typical fund cost in this category.', interp: 'Prefer funds with TER below this median for long-term compounding advantage.' },
+    'Avg Portfolio Turnover': { title: 'Avg Portfolio Turnover', what: 'Average annual portfolio turnover (% of holdings replaced per year) across funds.', interp: 'High turnover (>100%) means higher transaction costs and short-term capital gains tax drag. Buy-and-hold managers have lower turnover.' },
+    '🔁 Alpha & Active Management': { title: 'Alpha & Active Management', what: 'Alpha (excess return over benchmark), Beta (market sensitivity), Information Ratio, and Tracking Error.', interp: 'The section that answers: "Is active management adding value in this category, and how consistently?"' },
+    'Avg Alpha (3Y)': { title: 'Avg Alpha (3Y)', what: 'Average Jensen\'s Alpha: excess return above what the market risk (beta) alone explains.', interp: 'Positive alpha = managers adding genuine skill-based value. Negative = paying active fees for benchmark-like returns.' },
+    'Median Alpha (3Y)': { title: 'Median Alpha (3Y)', what: 'Median 3-year Alpha — the middle fund when sorted by alpha.', interp: 'A positive median alpha means the majority of active funds beat benchmark on a risk-adjusted basis.' },
+    'Avg Beta (3Y)': { title: 'Avg Beta (3Y)', what: 'Average 3-year beta (sensitivity to benchmark movements) across funds.', interp: 'β > 1: category amplifies market moves. β < 1: category is more defensive. Near 0: near-zero correlation (Debt/Liquid).' },
+    'Avg Info Ratio (3Y)': { title: 'Avg Information Ratio (3Y)', what: 'IR = Active Return / Tracking Error. Measures consistency of active outperformance over the benchmark.', interp: 'IR > 0.5 sustained over 5 years is considered strong. Higher IR = more consistent alpha generation per unit of active risk.' },
+    'Avg Tracking Error (3Y)': { title: 'Avg Tracking Error (3Y)', what: 'Average standard deviation of active returns (fund return − benchmark return).', interp: 'Low TE = closely tracks index (closet indexers). High TE = taking real active bets. Pair with IR to assess if the bets are paying off.' },
+  };
+  const t = map[label];
+  if (!t) return '';
+  return ` <button type="button" class="info-btn" aria-label="Info" data-t-title="${t.title}" data-t-what="${t.what}" data-t-interp="${t.interp}">ⓘ</button>`;
+}
+
+// ── DIMENSIONS ──
+const DIMENSIONS = [
+  ['📊 Scale & Coverage', null, null, null, null, false],
+  [null, 'Fund Count', c => c.fund_count, v => v != null ? v : '—', true, true],
+  [null, 'Total AUM', c => c.total_aum, v => fmtAum(v), true, true],
+
+  ['📈 Returns', null, null, null, null, false],
+  [null, 'Avg 1Y Return', c => c.avg_return_1y, v => fmtPct(v), true, true],
+  [null, 'Avg 3Y CAGR', c => c.avg_return_3y, v => fmtPct(v), true, true],
+  [null, 'Avg 5Y CAGR', c => c.avg_return_5y, v => fmtPct(v), true, true],
+  [null, 'Median 3Y CAGR', c => c.median_return_3y, v => fmtPct(v), true, true],
+  [null, 'Excess Return 3Y (vs BM)', c => c.excess_return_3y, v => fmtPct(v), true, true],
+  [null, 'Return Spread 1Y', c => c.spread_1y, v => fmtPct(v), null, false],
+  [null, 'Return Spread 3Y', c => c.spread_3y, v => fmtPct(v), null, false],
+
+  ['🔄 Rolling Returns', null, null, null, null, false],
+  [null, 'Avg Rolling 1Y', c => c.avg_rolling_1y, v => fmtPct(v), true, true],
+  [null, 'Avg Rolling 3Y', c => c.avg_rolling_3y, v => fmtPct(v), true, true],
+  [null, 'Avg Rolling 5Y', c => c.avg_rolling_5y, v => fmtPct(v), true, true],
+  [null, '% Positive Windows (3Y)', c => c.pos_pct_3y, v => fmtPct(v), true, true],
+
+  ['⚖️ Risk', null, null, null, null, false],
+  [null, 'Avg Volatility', c => c.avg_volatility, v => fmtPct(v), false, true],
+  [null, 'Avg Sharpe (3Y)', c => c.avg_sharpe, v => fmtNum(v), true, true],
+  [null, 'Avg Sortino (3Y)', c => c.avg_sortino, v => fmtNum(v), true, true],
+  [null, 'Avg Max Drawdown (3Y)', c => c.avg_max_drawdown, v => fmtPct(v), true, true],
+  [null, 'Avg Max Drawdown (5Y)', c => c.avg_max_drawdown_5y, v => fmtPct(v), true, true],
+  [null, 'Avg Upside Capture', c => c.avg_upside_capture, v => fmtPct(v), true, true],
+  [null, 'Avg Downside Capture', c => c.avg_downside_capture, v => fmtPct(v), false, true],
+
+  ['🏅 Fund Quality', null, null, null, null, false],
+  [null, 'Avg Model Score', c => c.avg_model_score, v => v != null ? v.toFixed(0)+'/100' : '—', true, true],
+  [null, '% Strong Funds (≥75)', c => c.pct_strong, v => fmtPct(v), true, true],
+  [null, '% Weak Funds (<40)', c => c.pct_weak, v => fmtPct(v), false, true],
+
+  ['💰 Costs', null, null, null, null, false],
+  [null, 'Avg Expense Ratio', c => c.avg_expense_ratio, v => fmtPct(v, 2), false, true],
+  [null, 'Median Expense Ratio', c => c.median_expense_ratio, v => fmtPct(v, 2), false, true],
+  [null, 'Avg Portfolio Turnover', c => c.avg_turnover, v => fmtPct(v, 0), false, true],
+
+  ['🔁 Alpha & Active Management', null, null, null, null, false],
+  [null, 'Avg Alpha (3Y)', c => c.avg_alpha_3y, v => fmtPct(v), true, true],
+  [null, 'Median Alpha (3Y)', c => c.median_alpha_3y, v => fmtPct(v), true, true],
+  [null, 'Avg Beta (3Y)', c => c.avg_beta_3y, v => fmtNum(v), null, false],
+  [null, 'Avg Info Ratio (3Y)', c => c.avg_ir, v => fmtNum(v), true, true],
+  [null, 'Avg Tracking Error (3Y)', c => c.avg_te, v => fmtPct(v), false, false],
+];
+
+function renderTable(cats) {
+  const thead = document.getElementById('compare-thead');
+  const tbody = document.getElementById('compare-tbody');
+
+  thead.innerHTML = '<tr><th style="text-align:left;min-width:200px">Dimension / Metric</th>' +
+    cats.map((c, i) => `
+      <th class="cat-header">
+        <div class="cat-header-name" style="color:${CAT_COLORS[i]}">${c.sub_category}</div>
+        <div class="cat-header-sub">${c.fund_count} funds · ${c.category_group}</div>
+        <a href="/research/categories/${c.slug}/" style="font-size:11px;color:var(--indigo-400);text-decoration:none">View Details →</a>
+      </th>`).join('') +
+    '</tr>';
+
+  tbody.innerHTML = DIMENSIONS.map(([section, metric, extractor, formatter, higherBetter, showBar]) => {
+    if (section && !metric) {
+      return `<tr class="section-header"><td colspan="${cats.length + 1}">${section}${getCatMetricBtn(section)}</td></tr>`;
+    }
+    const values = cats.map(c => extractor ? extractor(c) : null);
+    const numericVals = values.map(v => typeof v === 'number' ? v : null);
+    const bestFlags = higherBetter != null ? highlightBest(numericVals, higherBetter) : cats.map(() => false);
+
+    const cells = cats.map((c, i) => {
+      const v = values[i];
+      const numV = numericVals[i];
+      const isBest = bestFlags[i];
+      const displayVal = formatter ? formatter(v) : (v != null ? v : '—');
+      let colorStyle = '';
+      if (metric && (metric.includes('Return') || metric.includes('CAGR') || metric.includes('Alpha') || metric.includes('Rolling'))) {
+        colorStyle = `color:${colorRet(numV)}`;
+      } else if (metric && (metric.includes('Score') || metric.includes('Strong'))) {
+        colorStyle = `color:${colorScore(numV)}`;
+      }
+      const bar = showBar && numV != null
+        ? `<div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${Math.min(100, Math.abs(numV) / (Math.max(...numericVals.filter(x=>x!=null).map(Math.abs)) || 1) * 100).toFixed(1)}%;background:${CAT_COLORS[i]}"></div></div>`
+        : '';
+      return `<td style="text-align:center;${isBest ? 'background:rgba(34,197,94,0.05)' : ''}">
+        <span style="font-weight:700;font-size:14px;${colorStyle}">${displayVal}</span>
+        ${isBest ? '<span class="winner-badge">★ Best</span>' : ''}
+        ${bar}
+      </td>`;
+    }).join('');
+
+    return `<tr><td class="metric-label">${metric}${getCatMetricBtn(metric)}</td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('compare-subtitle').textContent =
+    `Comparing ${cats.length} categories across ${DIMENSIONS.filter(d => d[1]).length} metrics`;
+
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('compare-table'));
+}
+
+async function loadComparison() {
+  const slugs = [...selected];
+  if (slugs.length < 2) { alert('Select at least 2 categories.'); return; }
+  document.getElementById('compare-section').style.display = '';
+  document.getElementById('compare-tbody').innerHTML =
+    `<tr><td colspan="${slugs.length + 1}" style="text-align:center;padding:40px;color:var(--text-muted)" class="loading-pulse">Loading…</td></tr>`;
+  document.getElementById('compare-thead').innerHTML = '';
+
+  const url = `${CAT_COMPARE_API}?cats=${slugs.join(',')}`;
+  history.pushState({}, '', `/research/categories/compare/?cats=${slugs.join(',')}`);
+
+  try {
+    const resp = await fetch(url);
+    const json = await resp.json();
+    const cats = (json.categories || []).filter(c => !c.error);
+    if (!cats.length) {
+      document.getElementById('compare-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted)">No data available for selected categories.</td></tr>';
+      return;
+    }
+    renderTable(cats);
+  } catch (err) {
+    document.getElementById('compare-tbody').innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--danger)">Error loading data: ${err.message}</td></tr>`;
+  }
+}
+
+// Init
+renderChips();
+if (INITIAL_SLUGS.length >= 2) {
+  loadComparison();
+  document.getElementById('compare-section').style.display = '';
+}
+</script>
+{% endblock %}

@@ -1313,7 +1313,15 @@ def category_detail_funds_api(request, slug):
                 'age': _flt(f.fund_age_years),
                 'risk_label': f.risk_label,
             }
-            if tab == 'returns':
+            if tab == 'snapshot':
+                base.update({
+                    'info_ratio': _flt(f.info_ratio_3y),
+                    'upside_capture': _flt(f.upside_capture_3y),
+                    'downside_capture': _flt(f.downside_capture_3y),
+                    'excess_cat_1y': _flt(f.excess_cat_1y),
+                    'manager': f.fund_manager or '',
+                })
+            elif tab == 'returns':
                 base.update({
                     'ret_1w': _flt(f.returns_1w_pct),
                     'ret_1m': _flt(f.returns_1m_pct),
@@ -1322,6 +1330,8 @@ def category_detail_funds_api(request, slug):
                     'ret_1y': _flt(f.returns_1y_pct),
                     'ret_3y': _flt(f.returns_3y_pct),
                     'ret_5y': _flt(f.returns_5y_pct),
+                    'ret_7y': _flt(f.cagr_7y_pct),
+                    'ret_10y': _flt(f.cagr_10y_pct),
                     'rank_1y': f.rank_return_1y,
                     'rank_3y': f.rank_return_3y,
                     'rank_5y': f.rank_return_5y,
@@ -1330,6 +1340,9 @@ def category_detail_funds_api(request, slug):
                     'q_ret_5y': f.quartile_return_5y,
                     'rolling': f.rolling_returns_json,
                     'calendar': f.calendar_returns_json,
+                    'excess_cat_1y': _flt(f.excess_cat_1y),
+                    'excess_cat_3y': _flt(f.excess_cat_3y),
+                    'excess_cat_5y': _flt(f.excess_cat_5y),
                 })
             elif tab == 'risk':
                 base.update({
@@ -1337,7 +1350,12 @@ def category_detail_funds_api(request, slug):
                     'sharpe': _flt(f.sharpe_ratio),
                     'sortino': _flt(f.sortino_ratio),
                     'max_drawdown': _flt(f.max_drawdown),
-                    'alpha': _flt(f.excess_return_3y),
+                    'alpha': _flt(f.alpha_3y),
+                    'beta': _flt(f.beta_3y),
+                    'upside_capture': _flt(f.upside_capture_3y),
+                    'downside_capture': _flt(f.downside_capture_3y),
+                    'info_ratio': _flt(f.info_ratio_3y),
+                    'tracking_error': _flt(f.tracking_error_3y),
                     'q_vol': f.quartile_volatility,
                     'q_sharpe': f.quartile_sharpe,
                     'q_sortino': f.quartile_sortino,
@@ -1348,10 +1366,37 @@ def category_detail_funds_api(request, slug):
                     'aum': _flt(f.aum_cr),
                     'age': _flt(f.fund_age_years),
                     'benchmark': f.benchmark_name,
+                    'manager': f.fund_manager or '',
+                    'sip_min': _flt(f.sip_min),
+                    'lump_min': _flt(f.lump_min),
                 })
             elif tab == 'portfolio':
                 base.update({
-                    'sectors': alloc_map.get(f.scheme_id, {})
+                    'sectors': alloc_map.get(f.scheme_id, {}),
+                    'turnover': _flt(f.portfolio_turnover),
+                    'top10_conc': _flt(f.port_top10_concentration),
+                    'top5_conc': _flt(f.port_top5_concentration),
+                })
+            elif tab == 'intelligence':
+                # For category intelligence tab — return full metrics for rankings
+                base.update({
+                    'sharpe': _flt(f.sharpe_ratio),
+                    'sortino': _flt(f.sortino_ratio),
+                    'alpha': _flt(f.alpha_3y),
+                    'info_ratio': _flt(f.info_ratio_3y),
+                    'upside_capture': _flt(f.upside_capture_3y),
+                    'downside_capture': _flt(f.downside_capture_3y),
+                    'max_drawdown': _flt(f.max_drawdown),
+                    'volatility': _flt(f.volatility_3y_pct),
+                    'expense': _flt(f.expense_ratio),
+                    'turnover': _flt(f.portfolio_turnover),
+                    'ret_1y': _flt(f.returns_1y_pct),
+                    'ret_3y': _flt(f.returns_3y_pct),
+                    'ret_5y': _flt(f.returns_5y_pct),
+                    'rolling': f.rolling_returns_json,
+                    'excess_cat_1y': _flt(f.excess_cat_1y),
+                    'excess_cat_3y': _flt(f.excess_cat_3y),
+                    'manager': f.fund_manager or '',
                 })
             data.append(base)
 
@@ -2151,3 +2196,196 @@ def amc_compare_api(request):
     except Exception as exc:
         logger.error('amc_compare_api error: %s', exc)
         return JsonResponse({'error': 'server error'}, status=500)
+
+
+# ── Category Compare ──────────────────────────────────────────────────────────
+
+def _compute_category_compare_metrics(sub_category: str) -> dict:
+    """
+    Compute all cross-category comparison metrics for a single category.
+    Uses CategorySnapshot for aggregates + FundScreenerSnapshot for extra metrics.
+    """
+    snap = CategorySnapshot.objects.filter(scheme_sub_category=sub_category).first()
+    slug = _make_slug(sub_category)
+
+    # Total AUM from fund snapshots
+    qs = FundScreenerSnapshot.objects.filter(
+        Q(is_direct=True) | Q(is_etf=True),
+        scheme_sub_category=sub_category
+    )
+    aum_agg = qs.aggregate(
+        total_aum=Sum('aum_cr'),
+        avg_upside=Avg('upside_capture_3y'),
+        avg_downside=Avg('downside_capture_3y'),
+        avg_ir=Avg('info_ratio_3y'),
+        avg_te=Avg('tracking_error_3y'),
+        avg_alpha_5y=Avg('alpha_5y'),
+    )
+
+    rolling = snap.rolling_returns_json if snap else {}
+    pos_pct_3y = rolling.get('3Y', {}).get('pos_pct') if rolling else None
+    avg_rolling_1y = rolling.get('1Y', {}).get('avg') if rolling else None
+    avg_rolling_3y = rolling.get('3Y', {}).get('avg') if rolling else None
+    avg_rolling_5y = rolling.get('5Y', {}).get('avg') if rolling else None
+
+    def _fv(v):
+        if v is None:
+            return None
+        try:
+            return round(float(v), 4)
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        'sub_category': sub_category,
+        'slug': slug,
+        'category_group': snap.category_group if snap else '',
+        # Scale
+        'fund_count': snap.fund_count if snap else 0,
+        'total_aum': _fv(aum_agg.get('total_aum')),
+        # Returns
+        'avg_return_1y': _fv(snap.avg_return_1y if snap else None),
+        'avg_return_3y': _fv(snap.avg_return_3y if snap else None),
+        'avg_return_5y': _fv(snap.avg_return_5y if snap else None),
+        'median_return_3y': _fv(snap.median_return_3y if snap else None),
+        'excess_return_3y': _fv(snap.excess_return_3y if snap else None),
+        'spread_1y': _fv((snap.max_return_1y - snap.min_return_1y) if snap and snap.max_return_1y is not None and snap.min_return_1y is not None else None),
+        'spread_3y': _fv((snap.max_return_3y - snap.min_return_3y) if snap and snap.max_return_3y is not None and snap.min_return_3y is not None else None),
+        'max_return_1y': _fv(snap.max_return_1y if snap else None),
+        'min_return_1y': _fv(snap.min_return_1y if snap else None),
+        # Rolling
+        'avg_rolling_1y': _fv(avg_rolling_1y),
+        'avg_rolling_3y': _fv(avg_rolling_3y),
+        'avg_rolling_5y': _fv(avg_rolling_5y),
+        'pos_pct_3y': _fv(pos_pct_3y),
+        # Risk
+        'avg_volatility': _fv(snap.avg_volatility if snap else None),
+        'avg_sharpe': _fv(snap.avg_sharpe if snap else None),
+        'avg_sortino': _fv(snap.avg_sortino if snap else None),
+        'avg_max_drawdown': _fv(snap.avg_max_drawdown if snap else None),
+        'avg_max_drawdown_5y': _fv(snap.avg_max_drawdown_5y if snap else None),
+        'avg_upside_capture': _fv(aum_agg.get('avg_upside')),
+        'avg_downside_capture': _fv(aum_agg.get('avg_downside')),
+        # Quality
+        'avg_model_score': _fv(snap.avg_model_score if snap else None),
+        'pct_strong': _fv(snap.pct_strong if snap else None),
+        'pct_good': _fv(snap.pct_good if snap else None),
+        'pct_fair': _fv(snap.pct_fair if snap else None),
+        'pct_weak': _fv(snap.pct_weak if snap else None),
+        # Costs
+        'avg_expense_ratio': _fv(snap.avg_expense_ratio if snap else None),
+        'median_expense_ratio': _fv(snap.median_expense_ratio if snap else None),
+        'avg_turnover': _fv(snap.avg_turnover if snap else None),
+        # Alpha & IR
+        'avg_alpha_3y': _fv(snap.avg_alpha_3y if snap else None),
+        'median_alpha_3y': _fv(snap.median_alpha_3y if snap else None),
+        'avg_beta_3y': _fv(snap.avg_beta_3y if snap else None),
+        'avg_ir': _fv(aum_agg.get('avg_ir')),
+        'avg_te': _fv(aum_agg.get('avg_te')),
+    }
+
+
+class ResearchCategoryCompareView(TemplateView):
+    """
+    Research > Category Compare: Side-by-side comparison of 2-4 categories.
+    """
+    template_name = 'research/category_compare.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        slugs_param = self.request.GET.get('cats', '')
+        slugs = [s.strip() for s in slugs_param.split(',') if s.strip()][:4]
+        ctx['slugs'] = slugs
+        ctx['slugs_param'] = slugs_param
+
+        names = []
+        for slug in slugs:
+            cat = _slug_to_sub_category(slug)
+            names.append(cat or slug)
+        ctx['cat_names'] = names
+        ctx['cat_names_json'] = json.dumps(names)
+
+        # All categories for the "add/change" selector
+        all_snaps = CategorySnapshot.objects.order_by('category_group', 'scheme_sub_category').values(
+            'scheme_sub_category', 'fund_count', 'category_group'
+        )
+        ctx['all_categories'] = [
+            {'name': s['scheme_sub_category'], 'slug': _make_slug(s['scheme_sub_category']),
+             'fund_count': s['fund_count'], 'group': s['category_group']}
+            for s in all_snaps
+        ]
+        ctx['all_categories_json'] = json.dumps(ctx['all_categories'])
+        return ctx
+
+
+def category_list_api(request):
+    """
+    AJAX: GET /research/categories/api/list/
+    Returns all categories with aggregate metrics for the directory grid.
+    """
+    try:
+        snaps = list(CategorySnapshot.objects.all().order_by('category_group', 'scheme_sub_category'))
+        # Get AUM per category
+        aum_by_cat = dict(
+            FundScreenerSnapshot.objects
+            .filter(Q(is_direct=True) | Q(is_etf=True))
+            .values('scheme_sub_category')
+            .annotate(total_aum=Sum('aum_cr'))
+            .values_list('scheme_sub_category', 'total_aum')
+        )
+
+        data = []
+        for snap in snaps:
+            def fv(x):
+                return round(float(x), 4) if x is not None else None
+
+            rolling = snap.rolling_returns_json or {}
+            data.append({
+                'name': snap.scheme_sub_category,
+                'slug': _make_slug(snap.scheme_sub_category),
+                'group': snap.category_group,
+                'fund_count': snap.fund_count,
+                'total_aum': fv(aum_by_cat.get(snap.scheme_sub_category)),
+                'avg_return_1y': fv(snap.avg_return_1y),
+                'avg_return_3y': fv(snap.avg_return_3y),
+                'avg_return_5y': fv(snap.avg_return_5y),
+                'avg_sharpe': fv(snap.avg_sharpe),
+                'avg_max_drawdown': fv(snap.avg_max_drawdown),
+                'avg_expense_ratio': fv(snap.avg_expense_ratio),
+                'avg_model_score': fv(snap.avg_model_score),
+                'pct_strong': fv(snap.pct_strong),
+                'pct_good': fv(snap.pct_good),
+                'pct_fair': fv(snap.pct_fair),
+                'pct_weak': fv(snap.pct_weak),
+                'avg_rolling_3y': fv(rolling.get('3Y', {}).get('avg') if rolling else None),
+                'pos_pct_3y': fv(rolling.get('3Y', {}).get('pos_pct') if rolling else None),
+            })
+        return JsonResponse({'categories': data})
+    except Exception as exc:
+        logger.error('category_list_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+def category_compare_api(request):
+    """
+    AJAX: GET /research/categories/api/compare/?cats=slug1,slug2,...
+    Returns comparison metrics for 2-4 categories.
+    """
+    slugs_param = request.GET.get('cats', '')
+    slugs = [s.strip() for s in slugs_param.split(',') if s.strip()][:4]
+    if len(slugs) < 2:
+        return JsonResponse({'error': 'Need at least 2 category slugs'}, status=400)
+
+    try:
+        result = []
+        for slug in slugs:
+            cat = _slug_to_sub_category(slug)
+            if not cat:
+                result.append({'slug': slug, 'sub_category': None, 'error': 'Not found'})
+                continue
+            result.append(_compute_category_compare_metrics(cat))
+        return JsonResponse({'categories': result})
+    except Exception as exc:
+        logger.error('category_compare_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+

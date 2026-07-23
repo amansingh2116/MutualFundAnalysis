@@ -181,6 +181,7 @@ function colorScore(s) {
 function highlightBest(values, higherBetter) {
   const valid = values.filter(v => v != null);
   if (!valid.length) return values.map(() => false);
+  if (Math.max(...valid) === Math.min(...valid)) return values.map(() => false);
   const best = higherBetter ? Math.max(...valid) : Math.min(...valid);
   return values.map(v => v != null && v === best);
 }
@@ -266,7 +267,7 @@ function renderTable(amcs) {
     [null, 'Total AUM', a => a.total_aum, fmtAum, true, true],
     [null, 'Fund Count', a => a.fund_count, v => v != null ? v : '—', true, true],
     [null, 'Active Funds', a => a.active_count, v => v != null ? v : '—', true, true],
-    [null, 'ETF / Index Funds', a => a.etf_count, v => v != null ? v : '—', false, true],
+    [null, 'ETF / Index Funds', a => a.etf_count, v => v != null ? v : '—', true, true],
     [null, 'Category Breadth', a => a.cat_count, v => v != null ? v : '—', true, true],
 
     ['📈 Returns', null, null, null, null, false],
@@ -279,7 +280,7 @@ function renderTable(amcs) {
     ['⚖️ Risk', null, null, null, null, false],
     [null, 'Avg Sharpe Ratio (3Y)', a => a.avg_sharpe, v => fmtNum(v), true, true],
     [null, 'Avg Sortino Ratio (3Y)', a => a.avg_sortino, v => fmtNum(v), true, true],
-    [null, 'Avg Max Drawdown (3Y)', a => a.avg_max_drawdown, v => fmtPct(v), false, true],
+    [null, 'Avg Max Drawdown (3Y)', a => a.avg_max_drawdown, v => fmtPct(v), true, true],
 
     ['🏅 Fund Quality', null, null, null, null, false],
     [null, 'Avg Model Score', a => a.avg_model_score, v => v != null ? v.toFixed(0) + '/100' : '—', true, true],

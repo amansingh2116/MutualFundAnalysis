@@ -73,9 +73,10 @@
       {{ funds_count }} fund{{ funds_count|pluralize }}
       {% if category_snap %} · {{ category_snap.category_group }}{% endif %}
     </p>
+    <div id="sebi-mandate-badge" style="margin-top:8px;font-size:11px;color:var(--text-muted);border-left:3px solid var(--indigo-400);padding-left:8px;max-width:600px;line-height:1.5"></div>
   </div>
-  {% if all_categories %}
-  <div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    {% if all_categories %}
     <select onchange="if(this.value) window.location='/research/categories/'+this.value+'/';"
             style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px">
       <option value="">Switch category…</option>
@@ -90,9 +91,82 @@
       </optgroup>
       {% endfor %}
     </select>
+    {% endif %}
+    <button onclick="goCompare()" class="btn btn-secondary"
+            style="font-size:13px;padding:8px 16px;border-radius:8px">
+      ⚖️ Compare
+    </button>
   </div>
-  {% endif %}
 </div>
+<script>
+const CURRENT_CAT_SLUG = '{{ slug }}';
+const CURRENT_CAT_NAME = '{{ sub_category|escapejs }}';
+
+const SEBI_MANDATES_DETAIL = {
+  'Large Cap Fund': '≥80% in stocks ranked #1–100 by market cap. SEBI-defined Large Cap universe is reviewed every 6 months.',
+  'Mid Cap Fund': '≥65% in stocks ranked #101–250 by market cap. Higher growth potential, higher volatility than Large Cap.',
+  'Small Cap Fund': '≥65% in stocks ranked #251 onwards. Highest growth potential, highest risk. Illiquidity risk in large AUM funds.',
+  'Large & Mid Cap Fund': '≥35% in Large Cap + ≥35% in Mid Cap stocks. Provides diversification across two market-cap segments.',
+  'Multi Cap Fund': '≥75% equity with mandatory ≥25% each in Large, Mid, and Small Cap. Enforced sector-agnostic diversification.',
+  'Flexi Cap Fund': '≥65% in equity, with full discretion to allocate across Large, Mid, and Small Cap. Most flexible equity mandate.',
+  'Focused Fund': 'Maximum 30 stock concentrated portfolio with ≥65% equity. High conviction, high active risk.',
+  'ELSS': '≥80% in equity per ELSS notification. 3-year statutory lock-in. Tax benefit under Section 80C (₹1.5L limit).',
+  'Value Fund': '≥65% equity following a value strategy — buying stocks trading below intrinsic value. Tends to outperform in recovery cycles.',
+  'Contra Fund': '≥65% equity using contrarian strategy — investing against prevailing market sentiment. Typically out-of-favour sectors.',
+  'Dividend Yield Fund': '≥65% in dividend-yielding stocks. Focus on cash-generating businesses with consistent dividend history.',
+  'Sectoral/ Thematic': '≥80% in a specific sector or theme. Concentrated sector risk; requires active monitoring of sector cycles.',
+  'Overnight Fund': '100% overnight (1-day maturity) securities. Nearest to risk-free; suitable for very short-term parking of funds.',
+  'Liquid Fund': 'Invests in debt & money market instruments with maturity up to 91 days. Low risk, low return. Better than savings account for 1–90 days.',
+  'Ultra Short Duration Fund': 'Macaulay duration: 3–6 months. For surplus up to 6 months. Moderate credit risk depending on AMC strategy.',
+  'Low Duration Fund': 'Macaulay duration: 6–12 months. Better returns than liquid/ultra short. Moderate interest rate risk.',
+  'Money Market Fund': 'Invests in T-Bills, CPs, CDs with maturity up to 1 year. Low credit risk, low interest rate risk.',
+  'Short Duration Fund': 'Macaulay duration: 1–3 years. Suitable for 1–3 year investment horizon. Moderate duration risk.',
+  'Medium Duration Fund': 'Macaulay duration: 3–4 years. Higher interest rate sensitivity. Suitable for 3–5 year horizon.',
+  'Medium to Long Duration Fund': 'Macaulay duration: 4–7 years. Significant interest rate risk. Suitable in falling rate cycles.',
+  'Long Duration Fund': 'Macaulay duration: >7 years. Most sensitive to interest rate moves. Ideal when rates are falling.',
+  'Dynamic Bond': 'No duration constraint — fund manager actively manages duration based on interest rate outlook.',
+  'Corporate Bond Fund': '≥80% in AA+ and above corporate bonds. Credit risk is minimal; moderate interest rate risk.',
+  'Credit Risk Fund': '≥65% in below-AA-rated corporate bonds. Highest credit risk in the debt category; potential for high yield but also default risk.',
+  'Banking and PSU Fund': '≥80% in Banking, PSU, PFI, and Municipal bonds. Very high credit quality; mainly government-backed entities.',
+  'Gilt Fund': '≥80% in government securities. Zero credit risk (sovereign guarantee). Pure interest rate risk play.',
+  'Gilt Fund with 10 year constant duration': '≥80% in G-Secs with constant 10-year Macaulay duration. Used for precise rate-cycle positioning.',
+  'Floater Fund': '≥65% in floating-rate instruments. Interest rate risk is lower as coupons reset; credit risk varies by issuer.',
+  'Floating Rate': '≥65% in floating-rate instruments. Similar to Floater Fund.',
+  'Conservative Hybrid Fund': '10–25% equity + 75–90% debt. For investors wanting equity exposure with stability. Lower equity upside but capital preservation focus.',
+  'Aggressive Hybrid Fund': '65–80% equity + 20–35% debt. Automatic rebalancing between equity and debt. Good for first-time equity investors.',
+  'Balanced Hybrid': '40–60% equity + 40–60% debt. No arbitrage allowed. Provides balanced exposure with risk mitigation.',
+  'Dynamic Asset Allocation or Balanced Advantage': 'Dynamically adjusts equity/debt mix based on market valuations (P/E, P/B). Useful for investors without market-timing skill.',
+  'Multi Asset Allocation': '≥10% each in ≥3 asset classes (e.g., equity, debt, gold). Broadest diversification in a single fund. Automatic rebalancing.',
+  'Arbitrage Fund': '≥65% equity via arbitrage (simultaneous buy in cash and sell in futures market). Near-risk-free; taxed as equity. Better than liquid post-tax for >1 month.',
+  'Equity Savings': '≥65% equity via cash + arbitrage; balance in debt. Lower equity risk than Aggressive Hybrid; higher potential than Conservative Hybrid.',
+  'FoF Domestic': 'Invests ≥95% in domestic mutual fund schemes. Provides diversification across AMCs. Slightly higher cost structure.',
+  'FoF Overseas': 'Invests ≥95% in overseas MFs/ETFs. Provides geographic and currency diversification. Taxed as debt funds.',
+  'Index Funds': 'Passively replicates a stock market index. No active management. Low TER, no manager risk, but no alpha.',
+  'Index': 'Passively tracks a market index. Expense ratio typically <0.5%.',
+  "Children's Fund": 'Solution-oriented with ≥65% equity; 5-year lock-in or until child turns 18. Cannot be liquidated earlier.',
+  'Retirement Fund': 'Solution-oriented for retirement planning. ≥65% equity (aggressive) or flexible. 5-year lock-in or retirement age.',
+};
+
+function renderMandate() {
+  const mandate = SEBI_MANDATES_DETAIL[CURRENT_CAT_NAME];
+  if (mandate) {
+    document.getElementById('sebi-mandate-badge').textContent = '📋 SEBI Mandate: ' + mandate;
+  } else {
+    for (const [k, v] of Object.entries(SEBI_MANDATES_DETAIL)) {
+      if (CURRENT_CAT_NAME.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(CURRENT_CAT_NAME.toLowerCase())) {
+        document.getElementById('sebi-mandate-badge').textContent = '📋 SEBI Mandate: ' + v;
+        break;
+      }
+    }
+  }
+}
+renderMandate();
+
+function goCompare() {
+  sessionStorage.setItem('cat_compare_presel', CURRENT_CAT_SLUG);
+  window.location.href = '/research/categories/?compare=' + CURRENT_CAT_SLUG;
+}
+</script>
 
 {# Category snapshot summary #}
 {% if category_snap %}
@@ -113,7 +187,9 @@ const CAT_SNAP = {
   med_5y: {{ category_snap.median_return_5y|default:"null" }},
   avg_vol: {{ category_snap.avg_volatility|default:"null" }},
   avg_sharpe: {{ category_snap.avg_sharpe|default:"null" }},
+  avg_sortino: {{ category_snap.avg_sortino|default:"null" }},
   avg_drawdown: {{ category_snap.avg_max_drawdown|default:"null" }},
+  avg_drawdown_5y: {{ category_snap.avg_max_drawdown_5y|default:"null" }},
   avg_alpha: {{ category_snap.avg_alpha_3y|default:"null" }},
   med_alpha: {{ category_snap.median_alpha_3y|default:"null" }},
   avg_beta: {{ category_snap.avg_beta_3y|default:"null" }},
@@ -124,24 +200,34 @@ const CAT_SNAP = {
   med_turnover: {{ category_snap.median_turnover|default:"null" }},
   fund_count: {{ category_snap.fund_count }},
 };
+// Get rolling return averages and pos_pct from rolling_returns_json
+const _rolling = {{ category_snap.rolling_returns_json|safe|default:"{}" }};
+const _r3 = _rolling['3Y'] || {};
+if (_r3.pos_pct != null) CAT_SNAP.pos_pct_3y = _r3.pos_pct;
+if (_r3.avg != null)     CAT_SNAP.avg_rolling_3y = _r3.avg;
+
 const metrics = [
-  ['Avg 1Y Return',   CAT_SNAP.avg_1y,      '%',    CAT_SNAP.avg_1y  > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Med 1Y Return',   CAT_SNAP.med_1y,      '%',    CAT_SNAP.med_1y  > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Avg 3Y CAGR',     CAT_SNAP.avg_3y,      '%',    CAT_SNAP.avg_3y  > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Med 3Y CAGR',     CAT_SNAP.med_3y,      '%',    CAT_SNAP.med_3y  > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Avg 5Y CAGR',     CAT_SNAP.avg_5y,      '%',    CAT_SNAP.avg_5y  > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Med 5Y CAGR',     CAT_SNAP.med_5y,      '%',    CAT_SNAP.med_5y  > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Avg Volatility',  CAT_SNAP.avg_vol,     '%',    'var(--warning)'],
-  ['Avg Sharpe',      CAT_SNAP.avg_sharpe,  '',     'var(--indigo-400)'],
-  ['Avg Max Drawdown',CAT_SNAP.avg_drawdown,'%',    'var(--danger)'],
-  ['Avg Alpha (3Y)',  CAT_SNAP.avg_alpha,   '%',    CAT_SNAP.avg_alpha > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Med Alpha (3Y)',  CAT_SNAP.med_alpha,   '%',    CAT_SNAP.med_alpha > 0 ? 'var(--success)' : 'var(--danger)'],
-  ['Avg Beta (3Y)',   CAT_SNAP.avg_beta,    '',     'var(--indigo-400)'],
-  ['Med Beta (3Y)',   CAT_SNAP.med_beta,    '',     'var(--indigo-400)'],
-  ['Avg Expense%',    CAT_SNAP.avg_expense, '%',    'var(--warning)'],
-  ['Med Expense%',    CAT_SNAP.med_expense, '%',    'var(--warning)'],
-  ['Avg Turnover',    CAT_SNAP.avg_turnover,'x',    'var(--text-muted)'],
-  ['Med Turnover',    CAT_SNAP.med_turnover,'x',    'var(--text-muted)'],
+  ['Avg 1Y Return',   CAT_SNAP.avg_1y,         '%',    CAT_SNAP.avg_1y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med 1Y Return',   CAT_SNAP.med_1y,         '%',    CAT_SNAP.med_1y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg 3Y CAGR',     CAT_SNAP.avg_3y,         '%',    CAT_SNAP.avg_3y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med 3Y CAGR',     CAT_SNAP.med_3y,         '%',    CAT_SNAP.med_3y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg 5Y CAGR',     CAT_SNAP.avg_5y,         '%',    CAT_SNAP.avg_5y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med 5Y CAGR',     CAT_SNAP.med_5y,         '%',    CAT_SNAP.med_5y  > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg Rolling 3Y',  CAT_SNAP.avg_rolling_3y ?? null, '%', 'var(--indigo-400)'],
+  ['3Y Roll+ Windows',CAT_SNAP.pos_pct_3y ?? null,     '%', CAT_SNAP.pos_pct_3y != null && CAT_SNAP.pos_pct_3y >= 80 ? 'var(--success)' : 'var(--warning)'],
+  ['Avg Volatility',  CAT_SNAP.avg_vol,        '%',    'var(--warning)'],
+  ['Avg Sharpe',      CAT_SNAP.avg_sharpe,     '',     'var(--indigo-400)'],
+  ['Avg Sortino',     CAT_SNAP.avg_sortino,    '',     'var(--indigo-400)'],
+  ['Avg Max Drawdown',CAT_SNAP.avg_drawdown,   '%',    'var(--danger)'],
+  ['Avg MaxDD (5Y)',  CAT_SNAP.avg_drawdown_5y,'%',    'var(--danger)'],
+  ['Avg Alpha (3Y)',  CAT_SNAP.avg_alpha,      '%',    CAT_SNAP.avg_alpha > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Med Alpha (3Y)',  CAT_SNAP.med_alpha,      '%',    CAT_SNAP.med_alpha > 0 ? 'var(--success)' : 'var(--danger)'],
+  ['Avg Beta (3Y)',   CAT_SNAP.avg_beta,       '',     'var(--indigo-400)'],
+  ['Med Beta (3Y)',   CAT_SNAP.med_beta,       '',     'var(--indigo-400)'],
+  ['Avg Expense%',    CAT_SNAP.avg_expense,    '%',    'var(--warning)'],
+  ['Med Expense%',    CAT_SNAP.med_expense,    '%',    'var(--warning)'],
+  ['Avg Turnover',    CAT_SNAP.avg_turnover,   'x',    'var(--text-muted)'],
+  ['Med Turnover',    CAT_SNAP.med_turnover,   'x',    'var(--text-muted)'],
 ];
 const STRIP_TOOLTIPS = {
   'Avg 1Y Return': { title: 'Average 1Y Return', what: 'Average 1-year trailing return of all funds in this category.', interp: 'Shows average short-term performance.' },
@@ -152,7 +238,11 @@ const STRIP_TOOLTIPS = {
   'Med 5Y CAGR': { title: 'Median 5Y CAGR', what: 'Median 5-year CAGR — the middle fund when sorted by 5Y CAGR.', interp: 'More representative of typical long-term returns, unaffected by outliers.' },
   'Avg Volatility': { title: 'Average Volatility', what: 'Average annualised standard deviation of returns of all funds.', interp: 'Higher values mean larger price fluctuations and greater risk.' },
   'Avg Sharpe': { title: 'Average Sharpe Ratio', what: 'Average Sharpe Ratio over the last 3 years.', interp: 'Higher is better — shows more return per unit of risk.' },
+  'Avg Sortino': { title: 'Average Sortino Ratio (3Y)', what: 'Average 3-year Sortino Ratio: return relative to downside deviation only.', interp: 'Higher is better than Sharpe for equity categories — it only penalizes downside volatility, not upside volatility.' },
   'Avg Max Drawdown': { title: 'Average Max Drawdown', what: 'Average maximum peak-to-trough drop across all funds.', interp: 'Closer to 0% is better. Indicates historical worst-case average loss.' },
+  'Avg MaxDD (5Y)': { title: 'Average Max Drawdown (5Y)', what: 'Average worst peak-to-trough NAV drop across funds over the last 5 years. Includes major bear markets like COVID crash (2020).', interp: 'Closer to 0% is better. The 5Y window captures more complete market cycles, including tail-risk events.' },
+  'Avg Rolling 3Y': { title: 'Avg 3Y Rolling Return', what: 'Average of all 3-year rolling windows across funds. Removes start-date and end-date bias from trailing returns.', interp: 'Best indicator of typical investor experience. High rolling average with high positive windows = consistently rewarding category.' },
+  '3Y Roll+ Windows': { title: '% Positive 3Y Rolling Windows', what: 'Percentage of 3-year rolling return windows (across all funds) that delivered positive returns.', interp: '≥90% means investors almost always made money over any 3-year period. <70% signals material cycle risk in this category.' },
   'Avg Alpha (3Y)': { title: 'Average Alpha (3Y)', what: 'Average 3-year Jensen\'s Alpha across funds — excess return above the benchmark.', interp: 'Positive values indicate that on average funds are beating their benchmarks.' },
   'Med Alpha (3Y)': { title: 'Median Alpha (3Y)', what: 'Median 3-year Alpha — the middle value across all funds.', interp: 'A positive median alpha means the majority of funds beat their benchmarks.' },
   'Avg Beta (3Y)': { title: 'Average Beta (3Y)', what: 'Average 3-year Beta — measures sensitivity of fund returns to the benchmark.', interp: 'Beta > 1 means more volatile than the benchmark; < 1 means more stable.' },
@@ -190,6 +280,7 @@ if (window.initInfoTooltips) {
   <button class="tab-btn" id="tab-risk" onclick="switchCatTab('risk')">Risk</button>
   <button class="tab-btn" id="tab-portfolio" onclick="switchCatTab('portfolio')">Portfolio Analysis</button>
   <button class="tab-btn" id="tab-fees" onclick="switchCatTab('fees')">Fees &amp; Details</button>
+  <button class="tab-btn" id="tab-intelligence" onclick="switchCatTab('intelligence')">🔍 Intelligence</button>
 </div>
 
 {# Returns Sub-tabs #}
@@ -247,7 +338,9 @@ const HEADERS = {
     '1Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Rank" data-t-link-key="rank">ⓘ</button>',
     'Risk <button type="button" class="info-btn" aria-label="Info" data-t-title="Risk" data-t-link-key="risk">ⓘ</button>',
     'AUM (Cr) <button type="button" class="info-btn" aria-label="Info" data-t-title="AUM" data-t-link-key="aum">ⓘ</button>',
-    'Expense% <button type="button" class="info-btn" aria-label="Info" data-t-title="Expense%" data-t-link-key="expense_ratio">ⓘ</button>'
+    'Expense% <button type="button" class="info-btn" aria-label="Info" data-t-title="Expense%" data-t-link-key="expense_ratio">ⓘ</button>',
+    'Excess Cat 1Y <button type="button" class="info-btn" aria-label="Info" data-t-title="Excess vs Category (1Y)" data-t-what="The fund\'s 1-year return minus the category median 1-year return. Shows how much better or worse this fund performed relative to its peers." data-t-interp="Positive = outperforming category median. Negative = underperforming category. Track this over multiple periods to identify consistent winners.">ⓘ</button>',
+    'Info Ratio <button type="button" class="info-btn" aria-label="Info" data-t-title="Information Ratio (3Y)" data-t-what="Information Ratio = Active Return / Tracking Error. Measures consistency of outperformance over the benchmark index." data-t-interp="IR > 0.5 is considered good. Higher IR means more consistent value addition per unit of active risk taken.">ⓘ</button>'
   ],
   returns_trailing: [
     'Fund Name',
@@ -275,6 +368,7 @@ const HEADERS = {
     '1Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Min Rolling Return" data-t-link-key="rolling_returns">ⓘ</button>',
     '3Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Min Rolling Return" data-t-link-key="rolling_returns">ⓘ</button>',
     '5Y Min <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Min Rolling Return" data-t-link-key="rolling_returns">ⓘ</button>',
+    '3Y % Pos <button type="button" class="info-btn" aria-label="Info" data-t-title="% Positive Rolling Windows (3Y)" data-t-what="Percentage of all 3-year rolling return windows where this fund delivered a positive return." data-t-interp="≥90% is excellent — it means the fund almost never lost money over any 3-year period. <70% signals meaningful cycle risk.">ⓘ</button>',
     '1Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="1Y Rank" data-t-link-key="rank">ⓘ</button>',
     '3Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y Rank" data-t-link-key="rank">ⓘ</button>',
     '5Y Rank <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y Rank" data-t-link-key="rank">ⓘ</button>',
@@ -286,10 +380,15 @@ const HEADERS = {
     'Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Sharpe Ratio" data-t-link-key="sharpe">ⓘ</button>',
     'Sortino <button type="button" class="info-btn" aria-label="Info" data-t-title="Sortino Ratio" data-t-link-key="sortino">ⓘ</button>',
     'Max DD% <button type="button" class="info-btn" aria-label="Info" data-t-title="Max Drawdown" data-t-link-key="max_drawdown">ⓘ</button>',
-    'Alpha% <button type="button" class="info-btn" aria-label="Info" data-t-title="Alpha" data-t-link-key="alpha">ⓘ</button>',
-    'Q Vol <button type="button" class="info-btn" aria-label="Info" data-t-title="Quartile Volatility Rank" data-t-what="Ranks the fund into one of four groups (Q1 to Q4) based on its volatility compared to all other funds in this category. Q1 = lowest volatility (most stable)." data-t-interp="Lower quartile is generally better for risk-averse investors. Q1 means the fund has less volatility than 75% of its peers. However, very low volatility may also mean lower return potential.">ⓘ</button>',
+    'Alpha% <button type="button" class="info-btn" aria-label="Info" data-t-title="Alpha (3Y)" data-t-what="Jensen\'s Alpha: the fund\'s return in excess of what its beta (market exposure) alone would have predicted." data-t-interp="Positive alpha = manager generating genuine skill-based excess return. Track over 3Y+ to confirm persistence.">ⓘ</button>',
+    'Beta <button type="button" class="info-btn" aria-label="Info" data-t-title="Beta (3Y)" data-t-what="Beta measures the fund\'s sensitivity to benchmark movements. A beta of 1.2 means the fund rises/falls 1.2x the benchmark." data-t-interp="β > 1: more aggressive than market. β < 1: more defensive. β ≈ 0: near-zero correlation with the market index.">ⓘ</button>',
+    'Up Cap <button type="button" class="info-btn" aria-label="Info" data-t-title="Upside Capture Ratio (3Y)" data-t-what="When the benchmark rises, the upside capture ratio measures how much of that gain the fund captured. >100% = outperforms benchmark on up-markets." data-t-interp="Want high upside capture. >100 = fund rises more than benchmark in bull markets. Best paired with a low downside capture.">ⓘ</button>',
+    'Dn Cap <button type="button" class="info-btn" aria-label="Info" data-t-title="Downside Capture Ratio (3Y)" data-t-what="When the benchmark falls, the downside capture ratio shows how much of that loss the fund suffered. <100% = falls less than benchmark in bear markets." data-t-interp="Want low downside capture. <100 = fund falls less than benchmark in bear markets. The best funds have high upside + low downside capture.">ⓘ</button>',
+    'Info Ratio <button type="button" class="info-btn" aria-label="Info" data-t-title="Information Ratio (3Y)" data-t-what="IR = Active Return / Tracking Error. Measures consistency of outperformance over the benchmark." data-t-interp="IR > 0.5 over 3–5 years is considered strong. Shows if the active risk is being rewarded consistently.">ⓘ</button>',
+    'Q Vol <button type="button" class="info-btn" aria-label="Info" data-t-title="Quartile Volatility Rank" data-t-what="Ranks the fund into one of four groups (Q1 to Q4) based on its volatility compared to all other funds in this category. Q1 = lowest volatility (most stable)." data-t-interp="Lower quartile is generally better for risk-averse investors. Q1 means the fund has less volatility than 75% of its peers.">ⓘ</button>',
     'Q Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Quartile Sharpe Ratio Rank" data-t-what="Ranks the fund into one of four groups (Q1 to Q4) based on its Sharpe ratio compared to all other funds in this category. Q1 = highest Sharpe (best risk-adjusted return)." data-t-interp="Higher Sharpe quartile (Q1) is better. Q1 means the fund converts risk into return more efficiently than 75% of its category peers.">ⓘ</button>'
   ],
+  intelligence: ['Fund Name'], // Built dynamically
   fees: [
     'Fund Name',
     'Expense% <button type="button" class="info-btn" aria-label="Info" data-t-title="Expense%" data-t-link-key="expense_ratio">ⓘ</button>',
@@ -376,7 +475,9 @@ function renderTable(data) {
         <td>${rankCell(f.rank_1y, f.total)}</td>
         <td>${f.risk_label||'—'}</td>
         <td>${f.aum ? f.aum.toFixed(0) : '—'}</td>
-        <td>${f.expense ? f.expense.toFixed(2)+'%' : '—'}</td>`;
+        <td>${f.expense ? f.expense.toFixed(2)+'%' : '—'}</td>
+        <td>${f.excess_cat_1y != null ? retCell(f.excess_cat_1y) : '—'}</td>
+        <td>${f.info_ratio != null ? f.info_ratio.toFixed(2) : '—'}</td>`;
     } else if (currentTab === 'returns') {
       if (currentReturnsSubTab === 'trailing') {
         cells = `
@@ -403,6 +504,7 @@ function renderTable(data) {
           <td>${f.rolling && f.rolling['1Y'] && f.rolling['1Y'].min != null ? retCell(f.rolling['1Y'].min) : '—'}</td>
           <td>${f.rolling && f.rolling['3Y'] && f.rolling['3Y'].min != null ? retCell(f.rolling['3Y'].min) : '—'}</td>
           <td>${f.rolling && f.rolling['5Y'] && f.rolling['5Y'].min != null ? retCell(f.rolling['5Y'].min) : '—'}</td>
+          <td>${f.rolling && f.rolling['3Y'] && f.rolling['3Y'].pos_pct != null ? f.rolling['3Y'].pos_pct.toFixed(0)+'%' : '—'}</td>
           <td>${rankCell(f.rank_1y,f.total)}</td>
           <td>${rankCell(f.rank_3y,f.total)}</td>
           <td>${rankCell(f.rank_5y,f.total)}</td>`;
@@ -421,6 +523,10 @@ function renderTable(data) {
         <td>${f.sortino ? f.sortino.toFixed(2) : '—'}</td>
         <td style="color:var(--danger)">${f.max_drawdown ? f.max_drawdown.toFixed(2)+'%' : '—'}</td>
         <td>${retCell(f.alpha)}</td>
+        <td>${f.beta != null ? f.beta.toFixed(2) : '—'}</td>
+        <td>${f.upside_capture != null ? f.upside_capture.toFixed(1)+'%' : '—'}</td>
+        <td>${f.downside_capture != null ? f.downside_capture.toFixed(1)+'%' : '—'}</td>
+        <td>${f.info_ratio != null ? f.info_ratio.toFixed(2) : '—'}</td>
         <td>${qBadge(f.q_vol)}</td><td>${qBadge(f.q_sharpe)}</td>`;
     } else if (currentTab === 'fees') {
       cells = `
@@ -430,6 +536,19 @@ function renderTable(data) {
         <td>${f.age ? f.age.toFixed(1) : '—'}</td>
         <td style="font-size:12px;color:var(--text-muted)">${f.benchmark||'—'}</td>
         <td>${f.risk_label||'—'}</td>`;
+    } else if (currentTab === 'intelligence') {
+      cells = `
+        <td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
+        <td>${scoreBadge(f.score, f.badge)}</td>
+        <td>${f.sharpe ? f.sharpe.toFixed(2) : '—'}</td>
+        <td>${f.alpha != null ? retCell(f.alpha) : '—'}</td>
+        <td>${f.info_ratio != null ? f.info_ratio.toFixed(2) : '—'}</td>
+        <td>${f.upside_capture != null ? f.upside_capture.toFixed(1)+'%' : '—'}</td>
+        <td>${f.downside_capture != null ? f.downside_capture.toFixed(1)+'%' : '—'}</td>
+        <td>${f.excess_cat_1y != null ? retCell(f.excess_cat_1y) : '—'}</td>
+        <td>${f.excess_cat_3y != null ? retCell(f.excess_cat_3y) : '—'}</td>
+        <td>${retCell(f.ret_3y)}</td>
+        <td>${retCell(f.ret_5y)}</td>`;
     }
     tr.innerHTML = cells;
     tbody.appendChild(tr);
@@ -456,10 +575,27 @@ async function loadTab(tab) {
 
 function switchCatTab(tab) {
   currentTab = tab;
-  ['snapshot','returns','risk','portfolio','fees'].forEach(t => {
+  ['snapshot','returns','risk','portfolio','fees','intelligence'].forEach(t => {
     const btn = document.getElementById('tab-' + t);
     if(btn) btn.classList.toggle('active', t === tab);
   });
+
+  // Set intelligence tab dynamic headers
+  if (tab === 'intelligence') {
+    HEADERS['intelligence'] = [
+      'Fund Name',
+      'Score <button type="button" class="info-btn" aria-label="Info" data-t-title="Score" data-t-key="model_score">ⓘ</button>',
+      'Sharpe <button type="button" class="info-btn" aria-label="Info" data-t-title="Sharpe Ratio" data-t-link-key="sharpe">ⓘ</button>',
+      'Alpha% <button type="button" class="info-btn" aria-label="Info" data-t-title="Alpha (3Y)" data-t-what="Jensen\'s Alpha: excess return above the benchmark after accounting for market risk (beta)." data-t-interp="Positive alpha = manager adding value above market returns. Persistent positive alpha over 3Y+ is the hallmark of a skilled fund manager.">ⓘ</button>',
+      'Info Ratio <button type="button" class="info-btn" aria-label="Info" data-t-title="Information Ratio (3Y)" data-t-what="IR = Active Return / Tracking Error. How consistently the fund beats its benchmark per unit of active risk." data-t-interp="IR > 0.5 is considered good skill. >1.0 is exceptional. Pairs with Alpha: high alpha + high IR = consistent outperformer.">ⓘ</button>',
+      'Up Cap <button type="button" class="info-btn" aria-label="Info" data-t-title="Upside Capture (3Y)" data-t-what="How much of the benchmark\'s up-moves the fund captures. >100 = captures more than benchmark rise." data-t-interp="Higher is better. Pair with downside capture — ideal: up cap >100, down cap <100.">ⓘ</button>',
+      'Dn Cap <button type="button" class="info-btn" aria-label="Info" data-t-title="Downside Capture (3Y)" data-t-what="How much of the benchmark\'s down-moves the fund experiences. <100 = falls less than benchmark." data-t-interp="Lower is better. <100% means the fund provides downside protection in bear markets.">ⓘ</button>',
+      'Excess Cat 1Y <button type="button" class="info-btn" aria-label="Info" data-t-title="Excess vs Category (1Y)" data-t-what="Fund\'s 1Y return minus category median 1Y return." data-t-interp="Positive = beating peers. Negative = lagging peers. Track consistency across multiple periods.">ⓘ</button>',
+      'Excess Cat 3Y <button type="button" class="info-btn" aria-label="Info" data-t-title="Excess vs Category (3Y)" data-t-what="Fund\'s 3Y CAGR minus category median 3Y CAGR." data-t-interp="More reliable than 1Y excess. Positive over 3Y = consistent category outperformer.">ⓘ</button>',
+      '3Y CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="3Y CAGR" data-t-link-key="cagr">ⓘ</button>',
+      '5Y CAGR <button type="button" class="info-btn" aria-label="Info" data-t-title="5Y CAGR" data-t-link-key="cagr">ⓘ</button>',
+    ];
+  }
   
   document.getElementById('returns-subtabs').style.display = (tab === 'returns') ? 'flex' : 'none';
 

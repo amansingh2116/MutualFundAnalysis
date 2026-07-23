@@ -1,111 +1,450 @@
 {% extends "base.html" %}
-{% block title %}Category Analysis{% endblock %}
-{% block meta_description %}Browse and search all mutual fund categories with performance, risk, and score analytics.{% endblock %}
+{% block title %}Category Analysis — Mutual Fund Research{% endblock %}
+{% block meta_description %}Browse and compare all SEBI mutual fund categories. Multi-select 2-4 categories to run side-by-side comparison across returns, risk, costs, and quality.{% endblock %}
+
+{% block extra_head %}
+<style>
+.cat-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  position: relative;
+  user-select: none;
+}
+.cat-card:hover { border-color: var(--indigo-400); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(99,102,241,0.12); }
+.cat-card.selected { border-color: var(--indigo-400); background: rgba(99,102,241,0.06); box-shadow: 0 0 0 2px var(--indigo-400); }
+.cat-rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--surface-3); color: var(--text-muted);
+  font-size: 11px; font-weight: 700;
+}
+.cat-select-box {
+  width: 22px; height: 22px; border-radius: 6px;
+  border: 2px solid var(--border); background: var(--surface-3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--indigo-400);
+  transition: border-color 0.15s, background 0.15s;
+}
+.cat-card.selected .cat-select-box { background: var(--indigo-400); border-color: var(--indigo-400); color: #fff; }
+.cat-name { font-weight: 700; font-size: 14px; color: var(--text-primary); line-height: 1.3; }
+.cat-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.cat-group-label {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  padding: 2px 8px; border-radius: 20px; margin-top: 4px;
+  text-transform: uppercase;
+}
+.cat-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+.cat-metric  { text-align: center; }
+.cat-metric-label { font-size: 10px; color: var(--text-muted); }
+.cat-metric-val   { font-weight: 700; font-size: 13px; }
+.score-bar-row { margin-top: 10px; display: flex; gap: 3px; }
+.score-bar-seg { height: 4px; border-radius: 2px; }
+
+/* Compare bar */
+#compare-bar {
+  position: fixed; bottom: -80px; left: 50%; transform: translateX(-50%);
+  background: var(--surface-2); border: 1px solid var(--indigo-400);
+  border-radius: 16px; padding: 12px 20px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 8px 40px rgba(99,102,241,0.25);
+  transition: bottom 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 100; white-space: nowrap;
+}
+#compare-bar.visible { bottom: 24px; }
+
+/* Sort / filter controls */
+.sort-btn {
+  padding: 5px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-muted); font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
+}
+.sort-btn.active { background: var(--indigo-400); border-color: var(--indigo-400); color: #fff; }
+.group-btn {
+  padding: 5px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
+}
+.group-btn.active { background: var(--surface-2); border-color: var(--indigo-400); color: var(--indigo-400); font-weight: 600; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header" style="margin-bottom:20px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px">
   <div>
-    <h1 style="font-size:24px;font-weight:700;margin:0">🔬 Category Analysis</h1>
-    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Deep-dive into any mutual fund category</p>
+    <h1 style="font-size:24px;font-weight:800;margin:0">🔬 Category Analysis</h1>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">Deep-dive into any SEBI mutual fund category. Select 2–4 to compare side-by-side.</p>
   </div>
 </div>
 
-<div style="margin-bottom:16px">
+{# ── Controls ── #}
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px">
   <input type="text" id="cat-search" placeholder="🔍 Search categories…"
-         oninput="filterCategories(this.value)"
-         style="width:100%;max-width:420px;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px">
-</div>
+         oninput="filterCats(this.value)"
+         style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;width:240px">
 
-{% if not category_groups %}
-<div class="empty-state" style="padding:60px 24px;text-align:center">
-  <div style="font-size:48px;margin-bottom:16px">🔬</div>
-  <h3 style="margin:0 0 8px">No category data yet</h3>
-  <p style="color:var(--text-muted)">Run <code>python manage.py populate_home_dashboard</code> to build category snapshots.</p>
-</div>
-{% else %}
-{% for grp, items in category_groups %}
-<div class="cat-group-section" data-group="{{ grp }}">
-  <h3 style="font-size:16px;font-weight:700;margin:24px 0 12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em">
-    {{ grp }}
-  </h3>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
-    {% for item in items %}
-    {% with snap=item.snap slug=item.slug %}
-    <a href="{% url 'funds:research_category_detail' slug %}"
-       class="cat-card cat-item"
-       data-name="{{ snap.scheme_sub_category|lower }}"
-       style="background:var(--surface-2);border-radius:12px;border:1px solid var(--border);padding:16px;text-decoration:none;display:block;transition:border-color 0.2s,transform 0.15s">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div>
-          <div style="font-weight:700;color:var(--text-primary);font-size:14px;margin-bottom:2px">{{ snap.scheme_sub_category }}</div>
-          <div style="color:var(--text-muted);font-size:12px">{{ snap.fund_count }} fund{{ snap.fund_count|pluralize }}</div>
-        </div>
-        {% if snap.avg_model_score %}
-        <div style="background:var(--surface-3);padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;color:{% if snap.avg_model_score >= 70 %}var(--success){% elif snap.avg_model_score >= 50 %}var(--warning){% else %}var(--danger){% endif %}">
-          {{ snap.avg_model_score|floatformat:0 }} Score
-        </div>
-        {% endif %}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px">
-        <div style="text-align:center">
-          <div style="font-size:11px;color:var(--text-muted)">1Y Avg</div>
-          <div style="font-weight:700;font-size:13px;color:{% if snap.avg_return_1y and snap.avg_return_1y > 0 %}var(--success){% elif snap.avg_return_1y %}var(--danger){% else %}var(--text-muted){% endif %}">
-            {{ snap.avg_return_1y|floatformat:1|default:"—" }}{% if snap.avg_return_1y %}%{% endif %}
-          </div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:11px;color:var(--text-muted)">3Y Avg</div>
-          <div style="font-weight:700;font-size:13px;color:{% if snap.avg_return_3y and snap.avg_return_3y > 0 %}var(--success){% elif snap.avg_return_3y %}var(--danger){% else %}var(--text-muted){% endif %}">
-            {{ snap.avg_return_3y|floatformat:1|default:"—" }}{% if snap.avg_return_3y %}%{% endif %}
-          </div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:11px;color:var(--text-muted)">5Y Avg</div>
-          <div style="font-weight:700;font-size:13px;color:{% if snap.avg_return_5y and snap.avg_return_5y > 0 %}var(--success){% elif snap.avg_return_5y %}var(--danger){% else %}var(--text-muted){% endif %}">
-            {{ snap.avg_return_5y|floatformat:1|default:"—" }}{% if snap.avg_return_5y %}%{% endif %}
-          </div>
-        </div>
-      </div>
-      {% if snap.pct_strong is not None %}
-      <div style="margin-top:10px;height:4px;border-radius:2px;background:var(--border);overflow:hidden;display:flex">
-        <div style="width:{{ snap.pct_strong }}%;background:var(--success)"></div>
-        <div style="width:{{ snap.pct_good }}%;background:#3b82f6"></div>
-        <div style="width:{{ snap.pct_fair }}%;background:var(--warning)"></div>
-        <div style="width:{{ snap.pct_weak }}%;background:var(--danger)"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:5px;font-size:10px;color:var(--text-muted)">
-        <span style="color:var(--success)">■ {{ snap.pct_strong|floatformat:0 }}% Strong</span>
-        <span style="color:#3b82f6">■ {{ snap.pct_good|floatformat:0 }}% Good</span>
-        <span style="color:var(--warning)">■ {{ snap.pct_fair|floatformat:0 }}% Fair</span>
-        <span style="color:var(--danger)">■ {{ snap.pct_weak|floatformat:0 }}% Weak</span>
-      </div>
-      {% endif %}
-      <div style="margin-top:10px;font-size:11px;color:var(--indigo-400);font-weight:600">View Deep Dive →</div>
-    </a>
-    {% endwith %}
-    {% endfor %}
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span style="font-size:12px;color:var(--text-muted);align-self:center">Group:</span>
+    <button class="group-btn active" id="grp-All" onclick="filterGroup('All')">All</button>
+    <button class="group-btn" id="grp-Equity" onclick="filterGroup('Equity')">Equity</button>
+    <button class="group-btn" id="grp-Debt" onclick="filterGroup('Debt')">Debt</button>
+    <button class="group-btn" id="grp-Hybrid" onclick="filterGroup('Hybrid')">Hybrid</button>
+    <button class="group-btn" id="grp-Other" onclick="filterGroup('Other')">Others</button>
+  </div>
+
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span style="font-size:12px;color:var(--text-muted);align-self:center">Sort:</span>
+    <button class="sort-btn active" id="sort-aum" onclick="sortCats('aum')">By AUM</button>
+    <button class="sort-btn" id="sort-r3y" onclick="sortCats('r3y')">3Y Return</button>
+    <button class="sort-btn" id="sort-score" onclick="sortCats('score')">Score</button>
+    <button class="sort-btn" id="sort-er" onclick="sortCats('er')">Expense</button>
+    <button class="sort-btn" id="sort-funds" onclick="sortCats('funds')">Fund Count</button>
   </div>
 </div>
-{% endfor %}
-{% endif %}
 
+{# ── Grid ── #}
+<div id="cat-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px"></div>
+
+<div id="cat-empty" style="display:none;padding:60px 24px;text-align:center">
+  <div style="font-size:48px;margin-bottom:12px">🔬</div>
+  <h3 style="margin:0 0 8px">No categories found</h3>
+  <p style="color:var(--text-muted)">Try a different search or group filter.</p>
+</div>
+
+{# ── Compare Float Bar ── #}
+<div id="compare-bar">
+  <span id="compare-label" style="font-weight:600;color:var(--text-primary);font-size:14px">Compare Categories</span>
+  <span id="compare-names" style="font-size:12px;color:var(--text-muted)"></span>
+  <button onclick="clearSelection()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer">Clear</button>
+  <button id="go-compare-btn" onclick="goCompare()"
+          style="padding:8px 20px;border-radius:10px;border:none;background:var(--indigo-400);color:white;font-weight:600;font-size:13px;cursor:pointer">
+    Compare →
+  </button>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function filterCategories(q) {
-  q = q.toLowerCase();
-  document.querySelectorAll('.cat-item').forEach(el => {
-    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
-  });
-  document.querySelectorAll('.cat-group-section').forEach(sec => {
-    const visible = Array.from(sec.querySelectorAll('.cat-item')).some(el => el.style.display !== 'none');
-    sec.style.display = visible ? '' : 'none';
+const CAT_LIST_API = '{% url "funds:category_list_api" %}';
+let allCats = [];
+let selectedSlugs = new Set();
+let currentSort = 'aum';
+let currentGroup = 'All';
+
+const GROUP_COLORS = {
+  'Equity': '#6366f1',
+  'Debt': '#0ea5e9',
+  'Hybrid': '#8b5cf6',
+  'Other': '#10b981',
+  'Solution Oriented': '#f59e0b',
+};
+
+const SEBI_MANDATES = {
+  'Large Cap Fund': '≥80% in stocks ranked #1–100 by market cap (Large Cap stocks).',
+  'Mid Cap Fund': '≥65% in stocks ranked #101–250 by market cap (Mid Cap stocks).',
+  'Small Cap Fund': '≥65% in stocks ranked #251 onwards by market cap (Small Cap stocks).',
+  'Large & Mid Cap Fund': '≥35% in Large Cap stocks + ≥35% in Mid Cap stocks.',
+  'Multi Cap Fund': '≥75% in equity, with ≥25% each in Large Cap, Mid Cap, and Small Cap stocks.',
+  'Flexi Cap Fund': '≥65% in equity with dynamic allocation across Large, Mid & Small Cap.',
+  'Focused Fund': 'Concentrated portfolio of maximum 30 stocks; ≥65% in equity.',
+  'ELSS': '≥80% in equity as per ELSS notification; 3-year statutory lock-in for tax benefit u/s 80C.',
+  'Value Fund': '≥65% in equity; follows a value investment strategy (invests in undervalued stocks).',
+  'Contra Fund': '≥65% in equity; follows a contrarian investment strategy (goes against market consensus).',
+  'Dividend Yield Fund': '≥65% in equity; predominantly invests in dividend-yielding stocks.',
+  'Sectoral/ Thematic': '≥80% in stocks of a particular sector/theme (e.g., Banking, IT, Infrastructure).',
+  'Overnight Fund': '100% in overnight securities (1-day maturity). No credit or interest rate risk.',
+  'Liquid Fund': 'Invests in debt & money market instruments with maturity up to 91 days.',
+  'Ultra Short Duration Fund': 'Macaulay duration of portfolio: 3–6 months.',
+  'Low Duration Fund': 'Macaulay duration of portfolio: 6–12 months.',
+  'Money Market Fund': 'Invests in money market instruments with maturity up to 1 year.',
+  'Short Duration Fund': 'Macaulay duration of portfolio: 1–3 years.',
+  'Medium Duration Fund': 'Macaulay duration of portfolio: 3–4 years.',
+  'Medium to Long Duration Fund': 'Macaulay duration of portfolio: 4–7 years.',
+  'Long Duration Fund': 'Macaulay duration of portfolio: >7 years.',
+  'Dynamic Bond': 'Dynamic duration fund; no fixed Macaulay duration constraint.',
+  'Corporate Bond Fund': '≥80% in highest-rated (AA+ and above) corporate bonds.',
+  'Credit Risk Fund': '≥65% in below-AA-rated corporate bonds. Higher yield, higher credit risk.',
+  'Banking and PSU Fund': '≥80% in debt instruments of Banks, PSUs, PFIs, and Municipal Bonds.',
+  'Gilt Fund': '≥80% in government securities across maturities.',
+  'Gilt Fund with 10 year constant duration': '≥80% in government securities with constant Macaulay duration of 10 years.',
+  'Floater Fund': '≥65% in floating-rate instruments.',
+  'Floating Rate': '≥65% in floating-rate instruments (similar to Floater Fund).',
+  'Conservative Hybrid Fund': '10–25% in equity & equity-related instruments; 75–90% in debt instruments.',
+  'Balanced Hybrid': '40–60% in equity; 40–60% in debt. No arbitrage allowed.',
+  'Hybrid Scheme - Balanced Hybrid Fund': '40–60% in equity; 40–60% in debt.',
+  'Aggressive Hybrid Fund': '65–80% in equity & equity-related instruments; 20–35% in debt instruments.',
+  'Dynamic Asset Allocation or Balanced Advantage': 'Dynamically manages equity/debt allocation based on market conditions (no fixed mandate).',
+  'Multi Asset Allocation': '≥10% each in at least 3 asset classes (e.g., equity, debt, gold/commodities).',
+  'Arbitrage Fund': '≥65% in equity (through arbitrage positions). Low-risk, near-debt-like returns.',
+  'Equity Savings': '≥65% in equity; uses equity, debt, and arbitrage — hedge equity exposure.',
+  'FoF Domestic': 'Invests in other domestic mutual fund schemes (≥95% of total assets in domestic funds).',
+  'FoF Overseas': 'Invests in overseas mutual fund schemes/ETFs (≥95% in overseas funds).',
+  'Index Funds': 'Passively tracks a market index (e.g., Nifty 50, Nifty Midcap 150). Low cost.',
+  'Index': 'Passively tracks a market index. Expense ratio typically <0.5%.',
+  "Children's Fund": 'Solution-oriented fund for children with ≥65% in equity; lock-in of ≥5 years or until child turns 18.',
+  'Retirement Fund': 'Solution-oriented for retirement with ≥65% equity (aggressive) or flexible; lock-in ≥5 years or retirement age.',
+};
+
+function getMandate(name) {
+  if (SEBI_MANDATES[name]) return SEBI_MANDATES[name];
+  // Partial match
+  for (const [k, v] of Object.entries(SEBI_MANDATES)) {
+    if (name.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(name.toLowerCase())) return v;
+  }
+  return null;
+}
+
+function fmtAum(v) {
+  if (v == null) return '—';
+  if (v >= 100000) return '₹' + (v/100000).toFixed(1) + 'L Cr';
+  if (v >= 1000) return '₹' + (v/1000).toFixed(1) + 'K Cr';
+  return '₹' + v.toFixed(0) + ' Cr';
+}
+function fmtPct(v) { return v == null ? '—' : v.toFixed(1) + '%'; }
+function fmtScore(v) { return v == null ? '—' : v.toFixed(0); }
+function fmtNum(v, dp=2) { return v == null ? '—' : v.toFixed(dp); }
+function scoreColor(s) {
+  if (s == null) return 'var(--text-muted)';
+  if (s >= 75) return 'var(--success)';
+  if (s >= 55) return '#3b82f6';
+  if (s >= 40) return 'var(--warning)';
+  return 'var(--danger)';
+}
+function returnColor(v) {
+  if (v == null) return 'var(--text-muted)';
+  return v >= 0 ? 'var(--success)' : 'var(--danger)';
+}
+
+function buildCard(a, rank) {
+  const sel = selectedSlugs.has(a.slug);
+  const grpColor = GROUP_COLORS[a.group] || 'var(--indigo-400)';
+  const mandate = getMandate(a.name);
+  const mandateHtml = mandate
+    ? `<div style="font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.4;border-left:2px solid ${grpColor};padding-left:6px">${mandate}</div>`
+    : '';
+
+  const pStrong = a.pct_strong || 0, pGood = a.pct_good || 0;
+  const pFair = a.pct_fair || 0, pWeak = a.pct_weak || 0;
+  const hasScore = pStrong + pGood + pFair + pWeak > 0;
+
+  return `
+  <div class="cat-card ${sel ? 'selected' : ''}" id="card-${a.slug}"
+       onclick="toggleSelect('${a.slug}', event)"
+       data-name="${a.name.toLowerCase()}" data-slug="${a.slug}" data-group="${a.group}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+      <div class="cat-rank-badge">#${rank}</div>
+      <div class="cat-select-box" id="cb-${a.slug}">${sel ? '✓' : ''}</div>
+    </div>
+    <div>
+      <div class="cat-name">${a.name}</div>
+      <div class="cat-sub">${a.fund_count} fund${a.fund_count !== 1 ? 's' : ''}</div>
+      <span class="cat-group-label" style="background:${grpColor}22;color:${grpColor}">${a.group}</span>
+    </div>
+    ${mandateHtml}
+    <div style="font-size:15px;font-weight:800;color:var(--text-primary);margin-top:10px">
+      ${fmtAum(a.total_aum)}
+      <span style="font-size:11px;font-weight:500;color:var(--text-muted)"> total AUM</span>
+    </div>
+    <div class="cat-metrics">
+      <div class="cat-metric">
+        <div class="cat-metric-label">1Y Avg</div>
+        <div class="cat-metric-val" style="color:${returnColor(a.avg_return_1y)}">${fmtPct(a.avg_return_1y)}</div>
+      </div>
+      <div class="cat-metric">
+        <div class="cat-metric-label">3Y Avg</div>
+        <div class="cat-metric-val" style="color:${returnColor(a.avg_return_3y)}">${fmtPct(a.avg_return_3y)}</div>
+      </div>
+      <div class="cat-metric">
+        <div class="cat-metric-label">Avg Sharpe</div>
+        <div class="cat-metric-val">${fmtNum(a.avg_sharpe)}</div>
+      </div>
+      <div class="cat-metric">
+        <div class="cat-metric-label">Avg Score</div>
+        <div class="cat-metric-val" style="color:${scoreColor(a.avg_model_score)}">${fmtScore(a.avg_model_score)}</div>
+      </div>
+      <div class="cat-metric">
+        <div class="cat-metric-label">Avg TER</div>
+        <div class="cat-metric-val">${fmtPct(a.avg_expense_ratio)}</div>
+      </div>
+      <div class="cat-metric">
+        <div class="cat-metric-label">3Y Roll+</div>
+        <div class="cat-metric-val" style="color:${a.pos_pct_3y != null && a.pos_pct_3y >= 80 ? 'var(--success)' : 'var(--warning)'}">${a.pos_pct_3y != null ? a.pos_pct_3y.toFixed(0)+'%' : '—'}</div>
+      </div>
+    </div>
+    ${hasScore ? `
+    <div class="score-bar-row">
+      <div class="score-bar-seg" style="flex:${pStrong};background:var(--success)" title="${pStrong.toFixed(0)}% Strong"></div>
+      <div class="score-bar-seg" style="flex:${pGood};background:#3b82f6" title="${pGood.toFixed(0)}% Good"></div>
+      <div class="score-bar-seg" style="flex:${pFair};background:var(--warning)" title="${pFair.toFixed(0)}% Fair"></div>
+      <div class="score-bar-seg" style="flex:${pWeak};background:var(--danger)" title="${pWeak.toFixed(0)}% Weak"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;font-size:10px;color:var(--text-muted)">
+      <span style="color:var(--success)">■ ${pStrong.toFixed(0)}% Strong</span>
+      <span style="color:#3b82f6">■ ${pGood.toFixed(0)}% Good</span>
+      <span style="color:var(--warning)">■ ${pFair.toFixed(0)}% Fair</span>
+      <span style="color:var(--danger)">■ ${pWeak.toFixed(0)}% Weak</span>
+    </div>` : ''}
+    <div style="font-size:11px;color:var(--indigo-400);font-weight:600;margin-top:8px">View Deep Dive →</div>
+  </div>`;
+}
+
+function renderGrid(list) {
+  const grid = document.getElementById('cat-grid');
+  const empty = document.getElementById('cat-empty');
+  if (!list.length) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = list.map((a, i) => buildCard(a, i + 1)).join('');
+  grid.querySelectorAll('.cat-card').forEach(card => {
+    card.addEventListener('dblclick', () => {
+      window.location.href = `/research/categories/${card.dataset.slug}/`;
+    });
   });
 }
-document.querySelectorAll('.cat-card').forEach(card => {
-  card.addEventListener('mouseenter', () => { card.style.borderColor='var(--indigo-400)'; card.style.transform='translateY(-2px)'; });
-  card.addEventListener('mouseleave', () => { card.style.borderColor='var(--border)'; card.style.transform=''; });
-});
+
+function toggleSelect(slug, e) {
+  if (e.target.tagName === 'BUTTON') return;
+  if (selectedSlugs.size === 0 && !e.target.classList.contains('cat-select-box')) {
+    window.location.href = `/research/categories/${slug}/`;
+    return;
+  }
+  if (selectedSlugs.has(slug)) {
+    selectedSlugs.delete(slug);
+  } else {
+    if (selectedSlugs.size >= 4) {
+      alert('You can compare up to 4 categories at a time.');
+      return;
+    }
+    selectedSlugs.add(slug);
+  }
+  updateCard(slug);
+  updateCompareBar();
+}
+
+function updateCard(slug) {
+  const card = document.getElementById('card-' + slug);
+  const cb = document.getElementById('cb-' + slug);
+  if (!card) return;
+  if (selectedSlugs.has(slug)) {
+    card.classList.add('selected');
+    if (cb) cb.textContent = '✓';
+  } else {
+    card.classList.remove('selected');
+    if (cb) cb.textContent = '';
+  }
+}
+
+function updateCompareBar() {
+  const bar = document.getElementById('compare-bar');
+  const label = document.getElementById('compare-label');
+  const names = document.getElementById('compare-names');
+  const btn = document.getElementById('go-compare-btn');
+  const n = selectedSlugs.size;
+  if (n >= 1) {
+    bar.classList.add('visible');
+    const nameList = [...selectedSlugs].map(s => {
+      const a = allCats.find(x => x.slug === s);
+      return a ? a.name : s;
+    });
+    names.textContent = nameList.join(' vs ');
+    if (n === 1) {
+      label.textContent = '1 Category Selected — Select 1 to 3 more to compare';
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.style.cursor = 'not-allowed'; btn.textContent = 'Select 1+ more'; }
+    } else {
+      label.textContent = `Compare ${n} Categories`;
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.textContent = 'Compare →'; }
+    }
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function clearSelection() {
+  selectedSlugs.forEach(s => {
+    const card = document.getElementById('card-' + s);
+    const cb = document.getElementById('cb-' + s);
+    if (card) card.classList.remove('selected');
+    if (cb) cb.textContent = '';
+  });
+  selectedSlugs.clear();
+  updateCompareBar();
+}
+
+function goCompare() {
+  if (selectedSlugs.size < 2) return;
+  const slugStr = [...selectedSlugs].join(',');
+  window.location.href = `/research/categories/compare/?cats=${slugStr}`;
+}
+
+function filterCats(q) {
+  q = q.toLowerCase().trim();
+  const filtered = q ? visibleCats().filter(a => a.name.toLowerCase().includes(q)) : visibleCats();
+  renderGrid(filtered);
+  selectedSlugs.forEach(s => updateCard(s));
+}
+
+function filterGroup(group) {
+  currentGroup = group;
+  document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('grp-' + group)?.classList.add('active');
+  filterCats(document.getElementById('cat-search').value);
+}
+
+function visibleCats() {
+  if (currentGroup === 'All') return allCats;
+  if (currentGroup === 'Other') return allCats.filter(a => a.group !== 'Equity' && a.group !== 'Debt' && a.group !== 'Hybrid');
+  return allCats.filter(a => a.group === currentGroup);
+}
+
+function sortCats(key) {
+  currentSort = key;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-' + key)?.classList.add('active');
+  allCats = [...allCats].sort((a, b) => {
+    if (key === 'aum') return (b.total_aum || 0) - (a.total_aum || 0);
+    if (key === 'r3y') return ((b.avg_return_3y ?? -999) - (a.avg_return_3y ?? -999));
+    if (key === 'score') return ((b.avg_model_score ?? -999) - (a.avg_model_score ?? -999));
+    if (key === 'er') return ((a.avg_expense_ratio ?? 9999) - (b.avg_expense_ratio ?? 9999));
+    if (key === 'funds') return (b.fund_count || 0) - (a.fund_count || 0);
+    return 0;
+  });
+  filterCats(document.getElementById('cat-search').value);
+}
+
+// Load data
+fetch(CAT_LIST_API)
+  .then(r => r.json())
+  .then(json => {
+    allCats = json.categories || [];
+    filterCats('');
+
+    // Pre-select from sessionStorage or URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const presel = urlParams.get('compare') || urlParams.get('select') || sessionStorage.getItem('cat_compare_presel');
+    if (presel) {
+      sessionStorage.removeItem('cat_compare_presel');
+      const t = allCats.find(x => x.slug === presel);
+      if (t) {
+        selectedSlugs.add(t.slug);
+        updateCard(t.slug);
+        updateCompareBar();
+        setTimeout(() => {
+          const el = document.getElementById('card-' + t.slug);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+  })
+  .catch(() => {
+    document.getElementById('cat-grid').innerHTML = '<p style="color:var(--text-muted);padding:40px;text-align:center">No category data available yet. Run <code>populate_home_dashboard</code> to build snapshots.</p>';
+  });
 </script>
 {% endblock %}
