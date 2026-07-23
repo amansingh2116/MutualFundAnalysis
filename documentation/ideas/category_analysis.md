@@ -1,5 +1,7 @@
 # Mutual Fund Category Analysis: Research Analyst's Deep-Dive Framework
 
+> **Implementation Status:** Fully implemented into production! Accessible via the sidebar under **Research → Category Analysis** (`/research/categories/<slug>/`). Features SEBI mandate descriptions, 21-KPI snapshot strip, 6 interactive tabs (Snapshot with Excess Cat & Info Ratio, Returns with Rolling & Calendar sub-tabs, Risk with Beta/Capture/IR/TE, Portfolio, Fees, and 🔍 Intelligence tab), Category Average Rolling Returns banner, and ⚖️ Compare button.
+
 This is distinct from cross-category comparison — here you're asking **"is this category worth investing in, which fund within it is best, and when?"** The analysis has three layers: the **category itself**, **funds within it**, and **market cycle positioning**.
 
 ---

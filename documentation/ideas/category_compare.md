@@ -1,5 +1,7 @@
 # Mutual Fund Category Comparison: Analyst's Metric Framework
 
+> **Implementation Status:** Fully implemented into production! Accessible via the sidebar under **Research → Category Analysis** → select 2-4 categories or visit `/research/categories/compare/`. Features side-by-side comparison across 35+ metrics in 6 dimensions with winner badges (★ Best, accurately direction-calibrated for negative drawdowns), mini progress bars, searchable category chips, and URL state persistence.
+
 Here's how a research analyst structures a cross-category comparison — not just fund vs. fund, but understanding *why* one category behaves differently from another.
 
 ---

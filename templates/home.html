@@ -253,24 +253,6 @@
 .ret-pos { color: var(--success); font-weight: 600; }
 .ret-neg { color: var(--danger); font-weight: 600; }
 
-/* ── Market manage modal ─────────────────────────────────────────────────── */
-.mkt-modal {
-  position: fixed; inset: 0; z-index: 1000; display: none;
-  align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
-}
-.mkt-modal.open { display: flex; }
-.mkt-modal-box {
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 24px; width: min(500px, 92vw);
-  max-height: 80vh; overflow-y: auto;
-}
-.market-manage-btn {
-  background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35);
-  color: var(--indigo-400); border-radius: var(--radius); padding: 2px 8px;
-  font-size: 11px; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
-}
-.market-manage-btn:hover { background: rgba(99,102,241,0.28); }
 </style>
 {% endblock %}
 
@@ -646,32 +628,6 @@
   </div>
 </div>
 
-
-
-
-{# ── Market Metrics Manage Modal (for logged-in users) ───────────────────── #}
-{% if user.is_authenticated %}
-<div class="mkt-modal" id="mkt-metrics-modal" onclick="if(event.target===this)closeMktModal()">
-  <div class="mkt-modal-box">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:15px;font-weight:700;color:var(--text-primary)">⚙ Manage Market Strip</div>
-      <button onclick="closeMktModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
-    </div>
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">
-      Choose which metrics appear in the scrolling bar at the top of every page.
-      Changes are saved to your account and sync across devices.
-    </p>
-    <div id="mkt-metrics-list" style="margin-bottom:16px">
-      <div style="color:var(--text-muted);font-size:12px;padding:20px;text-align:center">Loading…</div>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-secondary btn-sm" onclick="closeMktModal()">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="saveMktMetrics()">Save</button>
-    </div>
-  </div>
-</div>
-{% endif %}
-
 {% endblock %}
 
 {% block extra_js %}
@@ -682,9 +638,8 @@ const ALL_BENCH_INDICES = {{ all_benchmark_index_json|safe }};
 const HOME_BENCH_WATCHLIST = {{ home_bench_watchlist_ids|safe }};
 const IS_AUTHENTICATED = {{ user.is_authenticated|yesno:"true,false" }};
 const BENCH_WATCHLIST_URL = "{% url 'funds:benchmark_watchlist_api' %}";
-const MKT_METRICS_URL = "/api/market/metrics/";
-const MKT_SAVE_URL = "/api/market/metrics/save/";
 const Q_URL = "{% url 'funds:home_category_funds' %}";
+
 
 // ── Section 2: Category Return Meter (compact table) ─────────────────────────
 let meterPeriod = '1y';
@@ -889,50 +844,80 @@ async function saveBenchWatchlist() {
   } catch(e) { console.error('saveBenchWatchlist', e); }
 }
 
-// ── Market Strip Manage Modal ─────────────────────────────────────────────────
-function openMarketManageModal() {
-  const modal = document.getElementById('mkt-metrics-modal');
-  if (!modal) return;
-  modal.classList.add('open');
-  fetch(MKT_METRICS_URL).then(r => r.json()).then(data => {
-    const list = document.getElementById('mkt-metrics-list');
-    list.innerHTML = data.metrics.map(m => `
-      <label class="bench-index-chip ${m.selected ? 'selected' : ''}" id="mchip-${m.key}" for="mcheck-${m.key}">
-        <input type="checkbox" id="mcheck-${m.key}" value="${m.key}"
-               ${m.selected ? 'checked' : ''}
-               onchange="toggleMktChip('${m.key}', this)">
-        <span style="font-size:13px">${m.label}</span>
-      </label>`).join('');
-  }).catch(() => {});
+  } catch(e) { msg.textContent = 'Error saving key.'; msg.style.color='var(--red-400)'; }
 }
 
-function toggleMktChip(key, chk) {
-  const chip = document.getElementById(`mchip-${key}`);
-  if (chk.checked) chip.classList.add('selected');
-  else chip.classList.remove('selected');
-}
-
-function closeMktModal() {
-  document.getElementById('mkt-metrics-modal').classList.remove('open');
-}
-
-async function saveMktMetrics() {
-  const chosen = Array.from(document.querySelectorAll('#mkt-metrics-list input:checked')).map(el => el.value);
+async function deleteMktApiKey(provider) {
+  if (!confirm('Delete ' + provider.toUpperCase() + ' API key?')) return;
   try {
-    const res = await fetch(MKT_SAVE_URL, {
+    await fetch(MKT_APIKEY_DEL, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
-      body: JSON.stringify({metrics: chosen}),
+      headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+      body: JSON.stringify({provider}),
     });
-    const data = await res.json();
-    if (data.saved) {
-      closeMktModal();
-      // Reload market strip via HTMX
-      const strip = document.getElementById('market-strip');
-      if (strip && window.htmx) htmx.trigger(strip, 'load');
-      else window.location.reload();
-    }
-  } catch(e) { console.error('saveMktMetrics', e); }
+    loadMktApiKeys();
+  } catch(e) { console.error(e); }
+}
+
+// ── Fund Monitor tab ──────────────────────────────────────────────────────────
+let _fundTimer = null;
+async function mktFundSearch(q) {
+  clearTimeout(_fundTimer);
+  const res = document.getElementById('mkt-fund-results');
+  if (q.length < 2) { res.style.display = 'none'; return; }
+  _fundTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=6`);
+      const data = await r.json();
+      if (!data.results.length) { res.style.display='none'; return; }
+      res.innerHTML = data.results.map(s =>
+        `<div style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)" onclick="selectMktFund('${s.amfi_code}','${s.scheme_name.replace(/'/g,'')}')">` +
+        `<span style="color:var(--text-primary);font-weight:600">${s.scheme_name}</span>` +
+        `<span style="color:var(--text-muted);margin-left:6px;font-size:10px">${s.fund_house||''}</span></div>`
+      ).join('');
+      res.style.display = 'block';
+    } catch(e) {}
+  }, 300);
+}
+
+function selectMktFund(code, name) {
+  _selectedFund = {scheme_code: code, name};
+  document.getElementById('mkt-fund-search').value = name;
+  document.getElementById('mkt-fund-results').style.display = 'none';
+  const sel = document.getElementById('mkt-fund-selected');
+  document.getElementById('mkt-fund-name').textContent = name;
+  sel.style.display = 'block';
+}
+
+function addFundMetricToStrip() {
+  if (!_selectedFund) { alert('Select a fund first.'); return; }
+  const metric = document.getElementById('mkt-fund-metric').value;
+  if (!metric) { alert('Choose a metric.'); return; }
+  const metricLabel = document.getElementById('mkt-fund-metric').selectedOptions[0].text;
+  const label = _selectedFund.name.slice(0, 20) + ' | ' + metricLabel;
+  _fundMetricEntries.push({type:'fund', scheme_code:_selectedFund.scheme_code, metric, label});
+  _selectedFund = null;
+  document.getElementById('mkt-fund-search').value = '';
+  document.getElementById('mkt-fund-selected').style.display = 'none';
+  document.getElementById('mkt-fund-metric').value = '';
+  renderFundChips();
+}
+
+function renderFundChips() {
+  const el = document.getElementById('mkt-fund-chips');
+  if (!_fundMetricEntries.length) { el.innerHTML = '<p style="font-size:11px;color:var(--text-muted)">No fund metrics added yet.</p>'; return; }
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px">Added Fund Metrics:</div>' +
+    _fundMetricEntries.map((e, i) =>
+      `<div class="msi-apikey-row">
+        <span style="font-size:12px;flex:1">${e.label}</span>
+        <button style="background:none;border:none;color:var(--red-400);cursor:pointer" onclick="removeFundEntry(${i})">✕</button>
+      </div>`
+    ).join('');
+}
+
+function removeFundEntry(idx) {
+  _fundMetricEntries.splice(idx, 1);
+  renderFundChips();
 }
 
 // ── Hero Search ──────────────────────────────────────────────────────────────

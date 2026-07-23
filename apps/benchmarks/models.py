@@ -160,16 +160,20 @@ class UserMarketStripProfile(BaseModel):
     Stores a logged-in user's preferred metrics to display in the scrolling
     market strip at the top of every page.
 
-    ``metrics`` is an ordered list of metric *keys* matching MARKET_INDICES
-    in apps.benchmarks.registry (e.g. ["nifty50", "sensex", "midcap"]).
+    ``metrics`` is an ordered list of entries. Each entry is either:
+      - A plain string key (e.g. "nifty50", "india_vix") — a market metric
+      - A dict like {"type": "fund", "scheme_code": "120503",
+                     "metric": "sharpe_3y", "label": "HDFC Flexicap | Sharpe"}
+        — a fund-level metric chip
+
     An empty list means "show the site defaults".
     """
-    user    = models.OneToOneField(
+    user         = models.OneToOneField(
         'auth.User', on_delete=models.CASCADE, related_name='market_strip_profile',
     )
-    metrics = models.JSONField(
+    metrics      = models.JSONField(
         default=list, blank=True,
-        help_text="Ordered list of market-strip metric keys the user has chosen.",
+        help_text="Ordered list of market-strip metric entries (keys or fund dicts).",
     )
 
     class Meta:
@@ -177,3 +181,44 @@ class UserMarketStripProfile(BaseModel):
 
     def __str__(self):
         return f"MarketStripProfile: {self.user.username} ({len(self.metrics)} metrics)"
+
+
+class UserAPIKey(BaseModel):
+    """
+    Stores per-user API keys for external data providers (FRED, etc.).
+    Keys are stored in plaintext — not sensitive enough for encryption,
+    and FRED keys are free public-access keys.
+    """
+    PROVIDER_CHOICES = [
+        ('fred',    'FRED (Federal Reserve Economic Data)'),
+        ('quandl',  'Nasdaq Data Link / Quandl'),
+        ('alphavantage', 'Alpha Vantage'),
+    ]
+    user     = models.ForeignKey(
+        'auth.User', on_delete=models.CASCADE, related_name='api_keys',
+    )
+    provider = models.CharField(max_length=50, choices=PROVIDER_CHOICES)
+    api_key  = models.CharField(max_length=255)
+    is_valid = models.BooleanField(
+        default=False,
+        help_text="Set to True after a successful validation call.",
+    )
+    label    = models.CharField(
+        max_length=100, blank=True,
+        help_text="Optional user-facing label (e.g. 'My FRED Key').",
+    )
+
+    class Meta:
+        unique_together = ('user', 'provider')
+        verbose_name = 'User API Key'
+        verbose_name_plural = 'User API Keys'
+
+    def __str__(self):
+        return f"{self.provider} key for {self.user.username} ({'valid' if self.is_valid else 'unvalidated'})"
+
+    def masked_key(self):
+        """Return key with middle characters replaced by *."""
+        k = self.api_key
+        if len(k) <= 8:
+            return '****'
+        return k[:4] + '*' * (len(k) - 8) + k[-4:]

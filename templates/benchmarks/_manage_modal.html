@@ -1,0 +1,499 @@
+{% if user.is_authenticated %}
+<div class="mkt-modal" id="mkt-metrics-modal" onclick="if(event.target===this)closeMktModal()">
+  <div class="mkt-modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div style="font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px">
+        <span>⚙</span> Manage Top Market Strip
+      </div>
+      <button type="button" onclick="closeMktModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1">×</button>
+    </div>
+
+    {# Tab nav #}
+    <div class="msi-tab-nav">
+      <button type="button" class="msi-tab-btn active" id="mkt-tabbtn-metrics" onclick="switchMktTab('metrics',this)">📊 Metrics</button>
+      <button type="button" class="msi-tab-btn" id="mkt-tabbtn-fund" onclick="switchMktTab('fund',this)">🏛 Fund Monitor</button>
+      <button type="button" class="msi-tab-btn" id="mkt-tabbtn-benchmark" onclick="switchMktTab('benchmark',this)">📈 Benchmark</button>
+      <button type="button" class="msi-tab-btn" id="mkt-tabbtn-apikeys" onclick="switchMktTab('apikeys',this)">🔑 API Keys</button>
+    </div>
+
+    {# Tab: Metrics #}
+    <div class="msi-tab-panel" id="mkt-tab-metrics" style="display:block">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+        Select metrics to show in your top ticker bar. Click <span class="info-btn" style="pointer-events:none;display:inline-flex">ⓘ</span> next to any metric to learn how to interpret it.
+      </p>
+      <div id="mkt-metrics-list" style="max-height:360px;overflow-y:auto;padding-right:4px">
+        <div style="color:var(--text-muted);font-size:12px;padding:20px;text-align:center">Loading metrics catalogue…</div>
+      </div>
+    </div>
+
+    {# Tab: Fund Monitor #}
+    <div class="msi-tab-panel" id="mkt-tab-fund" style="display:none">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+        Add custom fund metrics to your top strip. Track your favorite fund's Sharpe, Alpha, Drawdown, or Expense Ratio live in the top bar.
+      </p>
+      <div class="msi-fund-select" style="background:var(--bg-surface);padding:14px;border-radius:12px;border:1px solid var(--border)">
+        <div style="position:relative">
+          <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">1. Search Fund</label>
+          <input type="text" id="mkt-fund-search" placeholder="Type fund name or AMFI code…"
+                 style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px"
+                 oninput="mktFundSearch(this.value)">
+          <div id="mkt-fund-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);max-height:180px;overflow-y:auto;margin-top:4px;box-shadow:0 12px 32px rgba(0,0,0,0.3)"></div>
+        </div>
+
+        <div id="mkt-fund-selected" style="display:none;padding:8px 12px;border:1px solid var(--emerald-400);border-radius:8px;background:rgba(52,211,153,0.08);font-size:12px;color:var(--text-secondary);margin-top:8px">
+          <span style="font-size:10px;color:var(--emerald-400);font-weight:700;display:block">SELECTED FUND</span>
+          <span id="mkt-fund-name" style="font-weight:600;color:var(--text-primary)"></span>
+        </div>
+
+        <div style="margin-top:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em">2. Metric to Track</label>
+            <span id="mkt-fund-metric-info-span"></span>
+          </div>
+        <select id="mkt-fund-metric" onchange="updateFundMetricInfoBtn(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px">
+            <option value="">-- Choose metric to track --</option>
+            <option value="1d_return">1D Return (%)</option>
+            <option value="rolling_3y">Rolling 3Y Return (%)</option>
+            <option value="dist_ath">Distance from ATH (%)</option>
+            <option value="max_drawdown">Max Drawdown (%)</option>
+            <option value="sharpe_3y">Sharpe Ratio (3Y)</option>
+            <option value="sortino_3y">Sortino Ratio (3Y)</option>
+            <option value="alpha_3y">Alpha (3Y %)</option>
+            <option value="beta_3y">Beta (3Y)</option>
+            <option value="tracking_error">Tracking Error (%)</option>
+            <option value="expense_ratio">Expense Ratio (%)</option>
+          </select>
+        </div>
+
+        <button type="button" class="btn btn-sm" style="background:var(--emerald-400);color:#000;font-weight:700;margin-top:10px" onclick="addFundMetricToStrip()">+ Add Fund Metric to Strip</button>
+      </div>
+
+      <div id="mkt-fund-chips" style="margin-top:14px"></div>
+    </div>
+
+    {# Tab: Benchmark Monitor #}
+    <div class="msi-tab-panel" id="mkt-tab-benchmark" style="display:none">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+        Track benchmark index metrics in your strip. Uses stored index NAV history for computed metrics.
+      </p>
+      <div class="msi-fund-select" style="background:var(--bg-surface);padding:14px;border-radius:12px;border:1px solid var(--border)">
+        <div style="position:relative">
+          <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">1. Search Benchmark Index</label>
+          <input type="text" id="mkt-bench-search" placeholder="Type index name e.g. NIFTY 50…"
+                 style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px"
+                 oninput="mktBenchSearch(this.value)">
+          <div id="mkt-bench-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);max-height:180px;overflow-y:auto;margin-top:4px;box-shadow:0 12px 32px rgba(0,0,0,0.3)"></div>
+        </div>
+
+        <div id="mkt-bench-selected" style="display:none;padding:8px 12px;border:1px solid var(--indigo-400,#818cf8);border-radius:8px;background:rgba(129,140,248,0.08);font-size:12px;color:var(--text-secondary);margin-top:8px">
+          <span style="font-size:10px;color:var(--indigo-400,#818cf8);font-weight:700;display:block">SELECTED INDEX</span>
+          <span id="mkt-bench-name" style="font-weight:600;color:var(--text-primary)"></span>
+        </div>
+
+        <div style="margin-top:8px">
+          <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">2. Metric to Track</label>
+          <select id="mkt-bench-metric" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px">
+            <option value="">-- Choose metric --</option>
+            <option value="1d_return">1D Return (%)</option>
+            <option value="rolling_3y">Rolling 3Y Return (%)</option>
+            <option value="dist_ath">Distance from ATH (%)</option>
+            <option value="max_drawdown">Max Drawdown (3Y %)</option>
+          </select>
+        </div>
+
+        <button type="button" class="btn btn-sm" style="background:var(--indigo-400,#818cf8);color:#000;font-weight:700;margin-top:10px" onclick="addBenchmarkMetricToStrip()">+ Add Benchmark Metric to Strip</button>
+      </div>
+
+      <div id="mkt-bench-chips" style="margin-top:14px"></div>
+    </div>
+
+    {# Tab: API Keys #}
+    <div class="msi-tab-panel" id="mkt-tab-apikeys" style="display:none">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+        Some macro metrics (India CPI, Fed Funds Rate, RBI Repo Rate) require a free FRED API key.
+        <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank" style="color:var(--indigo-400);font-weight:600">Get a free FRED key →</a>
+      </p>
+      <div id="mkt-apikeys-list"><div style="color:var(--text-muted);font-size:12px;padding:12px;text-align:center">Loading API keys…</div></div>
+      
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:8px">Add or Update API Key</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <select id="mkt-key-provider" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-surface);color:var(--text-primary);font-size:12px">
+            <option value="fred">FRED (Federal Reserve Economic Data)</option>
+          </select>
+          <input type="text" id="mkt-key-value" placeholder="Paste your 32-character API key here…"
+                 style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-surface);color:var(--text-primary);font-size:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button type="button" class="btn btn-sm" style="background:var(--emerald-400);color:#000;font-weight:700" onclick="saveMktApiKey()">Save & Validate Key</button>
+            <span id="mkt-key-msg" style="font-size:12px;color:var(--text-muted)"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Footer actions #}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeMktModal()">Cancel</button>
+      <button type="button" id="mkt-save-btn" class="btn btn-primary btn-sm" onclick="saveMktMetrics()">Save &amp; Update Strip</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Global Market Strip Manage Modal JavaScript ──────────────────────────────
+const MKT_METRICS_URL = '/api/market/metrics/';
+const MKT_SAVE_URL    = '/api/market/metrics/save/';
+const MKT_APIKEYS_URL = '/api/market/apikeys/';
+const MKT_APIKEY_SAVE = '/api/market/apikeys/save/';
+const MKT_APIKEY_DEL  = '/api/market/apikeys/delete/';
+
+let _mktCatalogueData = null;
+let _mktSavedFundEntries = [];
+let _mktSavedBenchEntries = [];
+let _mktSelectedFund = null;
+let _mktSelectedBench = null;
+
+function switchMktTab(tabName, btn) {
+  const panels = ['metrics', 'fund', 'benchmark', 'apikeys'];
+  panels.forEach(p => {
+    const el = document.getElementById('mkt-tab-' + p);
+    if (el) el.style.display = 'none';
+    const b = document.getElementById('mkt-tabbtn-' + p);
+    if (b) b.classList.remove('active');
+  });
+
+  const target = document.getElementById('mkt-tab-' + tabName);
+  if (target) target.style.display = 'block';
+  if (btn) btn.classList.add('active');
+
+  if (tabName === 'apikeys') loadMktApiKeys();
+  if (tabName === 'fund') renderTrackedChips();
+  if (tabName === 'benchmark') renderTrackedChips();
+}
+
+function openMarketManageModal() {
+  const modal = document.getElementById('mkt-metrics-modal');
+  if (!modal) return;
+  modal.classList.add('open');
+  switchMktTab('metrics', document.getElementById('mkt-tabbtn-metrics'));
+  loadMktMetricsCatalogue();
+}
+
+function closeMktModal() {
+  const m = document.getElementById('mkt-metrics-modal');
+  if (m) m.classList.remove('open');
+}
+
+async function loadMktMetricsCatalogue() {
+  try {
+    const res  = await fetch(MKT_METRICS_URL);
+    const data = await res.json();
+    _mktCatalogueData = data;
+    _mktSavedFundEntries = data.saved_funds || [];
+    _mktSavedBenchEntries = data.saved_benchmarks || [];
+
+    const list = document.getElementById('mkt-metrics-list');
+    let html = '';
+    (data.groups || []).forEach(grp => {
+      html += `<div class="msi-cat-header">${grp.label}</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">`;
+      (grp.metrics || []).forEach(m => {
+        const infoAttr = `data-t-title="${escapeHtml(m.label)}" data-t-what="${escapeHtml(m.tooltip_what||'')}" data-t-interp="${escapeHtml(m.tooltip_interp||'')}" data-t-threshold="${escapeHtml(m.threshold||'')} "`;
+        html += `<label class="msi-metric-chip ${m.selected ? 'selected' : ''}" id="mchip-${m.key}">
+          <input type="checkbox" id="mcheck-${m.key}" value="${m.key}" ${m.selected ? 'checked' : ''} onchange="toggleMktChip('${m.key}', this)">
+          <span>${m.label}</span>
+          ${m.unit ? `<span style="font-size:9px;opacity:0.7">${m.unit}</span>` : ''}
+          <button type="button" class="info-btn" ${infoAttr} onclick="openMsiTooltip(this);event.stopPropagation()">ⓘ</button>
+        </label>`;
+      });
+      html += '</div>';
+    });
+    list.innerHTML = html;
+    renderTrackedChips();
+  } catch(e) {
+    console.error('loadMktMetricsCatalogue error:', e);
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toggleMktChip(key, chk) {
+  const chip = document.getElementById(`mchip-${key}`);
+  if (chip) {
+    if (chk.checked) chip.classList.add('selected');
+    else chip.classList.remove('selected');
+  }
+}
+
+async function saveMktMetrics() {
+  const saveBtn = document.getElementById('mkt-save-btn');
+  const origText = saveBtn ? saveBtn.textContent : 'Save & Update Strip';
+  if (saveBtn) { saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; }
+
+  const chosen = Array.from(document.querySelectorAll('#mkt-metrics-list input:checked')).map(el => el.value);
+  const allEntries = [...chosen, ..._mktSavedFundEntries, ..._mktSavedBenchEntries];
+  try {
+    const res = await fetch(MKT_SAVE_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+      body: JSON.stringify({metrics: allEntries}),
+    });
+    const data = await res.json();
+    if (data.saved) {
+      // Re-enable button first so it's ready if modal reopened fast
+      if (saveBtn) { saveBtn.textContent = origText; saveBtn.disabled = false; }
+      closeMktModal();
+      // Immediately show loading state in the strip
+      const strip = document.getElementById('market-strip');
+      if (strip) {
+        strip.innerHTML = ['NIFTY 50','SENSEX','NIFTY MIDCAP','USD/INR'].map(n =>
+          `<div class="market-item"><span class="market-name">${n}</span><span class="market-val" style="opacity:.4">loading…</span></div>`
+        ).join('');
+        if (window.htmx) {
+          htmx.ajax('GET', '/api/market/strip/', {target: '#market-strip', swap: 'innerHTML'});
+        } else {
+          fetch('/api/market/strip/').then(r => r.text()).then(html => { strip.innerHTML = html; });
+        }
+      }
+    } else {
+      if (saveBtn) { saveBtn.textContent = origText; saveBtn.disabled = false; }
+    }
+  } catch(e) {
+    console.error('saveMktMetrics error:', e);
+    if (saveBtn) { saveBtn.textContent = origText; saveBtn.disabled = false; }
+  }
+}
+
+// ── API Keys Management ──────────────────────────────────────────────────────
+async function loadMktApiKeys() {
+  try {
+    const res  = await fetch(MKT_APIKEYS_URL);
+    const data = await res.json();
+    const el   = document.getElementById('mkt-apikeys-list');
+    if (!data.authenticated) {
+      el.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">Please log in to manage your API keys.</p>';
+      return;
+    }
+    if (!data.keys || !data.keys.length) {
+      el.innerHTML = '<p style="font-size:12px;color:var(--text-muted);padding:8px 0">No API keys saved yet. Add a key below to enable macro metrics.</p>';
+      return;
+    }
+    el.innerHTML = data.keys.map(k => `
+      <div class="msi-apikey-row">
+        <span style="font-size:12px;font-weight:700;flex:1;color:var(--text-primary)">${k.provider.toUpperCase()}</span>
+        <code style="font-size:11px;color:var(--text-muted);flex:2">${k.masked_key}</code>
+        <span class="msi-apikey-badge ${k.is_valid ? 'valid' : 'invalid'}">${k.is_valid ? '✓ Valid' : '✗ Unvalidated'}</span>
+        <button type="button" style="background:none;border:none;color:var(--red-400);cursor:pointer;font-size:13px;padding:2px 6px" title="Delete API Key" onclick="deleteMktApiKey('${k.provider}')">🗑</button>
+      </div>`).join('');
+  } catch(e) {
+    console.error('loadMktApiKeys error:', e);
+  }
+}
+
+async function saveMktApiKey() {
+  const provider = document.getElementById('mkt-key-provider').value;
+  const api_key  = document.getElementById('mkt-key-value').value.trim();
+  const msg      = document.getElementById('mkt-key-msg');
+  if (!api_key) {
+    msg.textContent = 'Please enter an API key.';
+    msg.style.color = 'var(--red-400)';
+    return;
+  }
+  msg.textContent = 'Validating key…';
+  msg.style.color = 'var(--text-muted)';
+  try {
+    const res  = await fetch(MKT_APIKEY_SAVE, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+      body: JSON.stringify({provider, api_key}),
+    });
+    const data = await res.json();
+    msg.style.color = data.is_valid ? 'var(--emerald-400)' : 'var(--red-400)';
+    msg.textContent = data.message || (data.is_valid ? 'Key validated & saved ✓' : 'Validation failed');
+    if (data.saved) {
+      document.getElementById('mkt-key-value').value = '';
+      loadMktApiKeys();
+    }
+  } catch(e) {
+    msg.textContent = 'Error saving key.';
+    msg.style.color = 'var(--red-400)';
+  }
+}
+
+async function deleteMktApiKey(provider) {
+  if (!confirm('Are you sure you want to delete your ' + provider.toUpperCase() + ' API key?')) return;
+  try {
+    await fetch(MKT_APIKEY_DEL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+      body: JSON.stringify({provider}),
+    });
+    loadMktApiKeys();
+  } catch(e) {
+    console.error('deleteMktApiKey error:', e);
+  }
+}
+let _mktBenchTimer = null;
+async function mktBenchSearch(q) {
+  clearTimeout(_mktBenchTimer);
+  const res = document.getElementById('mkt-bench-results');
+  if (!q || q.trim().length < 2) { res.style.display = 'none'; return; }
+  _mktBenchTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`/api/market/benchmark-search/?q=${encodeURIComponent(q)}`);
+      const data = await r.json();
+      if (!data.results || !data.results.length) { res.style.display = 'none'; return; }
+      res.innerHTML = data.results.map(b =>
+        `<div style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)" onclick="selectMktBench('${escapeHtml(b.name)}')">
+          <span style="color:var(--text-primary);font-weight:600">${escapeHtml(b.name)}</span></div>`
+      ).join('');
+      res.style.display = 'block';
+    } catch(e) {}
+  }, 280);
+}
+
+function selectMktBench(name) {
+  _mktSelectedBench = {index_name: name};
+  document.getElementById('mkt-bench-search').value = name;
+  document.getElementById('mkt-bench-results').style.display = 'none';
+  document.getElementById('mkt-bench-name').textContent = name;
+  document.getElementById('mkt-bench-selected').style.display = 'block';
+}
+
+function addBenchmarkMetricToStrip() {
+  if (!_mktSelectedBench) { alert('Please search and select a benchmark index first.'); return; }
+  const metric = document.getElementById('mkt-bench-metric').value;
+  if (!metric) { alert('Please select a metric to track.'); return; }
+  const metricLabel = document.getElementById('mkt-bench-metric').selectedOptions[0].text;
+  const shortName = _mktSelectedBench.index_name.length > 20 ? _mktSelectedBench.index_name.slice(0, 18) + '…' : _mktSelectedBench.index_name;
+  const label = `${shortName} | ${metricLabel}`;
+  _mktSavedBenchEntries.push({type: 'benchmark', index_name: _mktSelectedBench.index_name, metric, label});
+  _mktSelectedBench = null;
+  document.getElementById('mkt-bench-search').value = '';
+  document.getElementById('mkt-bench-selected').style.display = 'none';
+  document.getElementById('mkt-bench-metric').value = '';
+  renderTrackedChips();
+}
+
+// ── Fund Monitor ──────────────────────────────────────────────────────────────
+let _mktFundTimer = null;
+async function mktFundSearch(q) {
+  clearTimeout(_mktFundTimer);
+  const res = document.getElementById('mkt-fund-results');
+  if (!q || q.trim().length < 2) {
+    res.style.display = 'none';
+    return;
+  }
+  _mktFundTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=6`);
+      const data = await r.json();
+      if (!data.results || !data.results.length) {
+        res.style.display = 'none';
+        return;
+      }
+      res.innerHTML = data.results.map(s =>
+        `<div style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)" onclick="selectMktFund('${s.amfi_code}','${escapeHtml(s.scheme_name)}')">`+
+        `<span style="color:var(--text-primary);font-weight:600">${escapeHtml(s.scheme_name)}</span>`+
+        `<span style="color:var(--text-muted);margin-left:6px;font-size:10px">${escapeHtml(s.fund_house||'')}</span></div>`
+      ).join('');
+      res.style.display = 'block';
+    } catch(e) {}
+  }, 280);
+}
+
+function selectMktFund(code, name) {
+  _mktSelectedFund = {scheme_code: code, name: name};
+  document.getElementById('mkt-fund-search').value = name;
+  document.getElementById('mkt-fund-results').style.display = 'none';
+  const sel = document.getElementById('mkt-fund-selected');
+  document.getElementById('mkt-fund-name').textContent = name;
+  sel.style.display = 'block';
+}
+
+function updateFundMetricInfoBtn(metricKey) {
+  const container = document.getElementById('mkt-fund-metric-info-span');
+  if (!metricKey || !_mktCatalogueData || !_mktCatalogueData.fund_metrics) {
+    container.innerHTML = '';
+    return;
+  }
+  const fm = _mktCatalogueData.fund_metrics.find(f => f.key === metricKey);
+  if (fm) {
+    container.innerHTML = `<button type="button" class="info-btn" data-t-title="${escapeHtml(fm.label)}" data-t-what="${escapeHtml(fm.tooltip_what||'')}" data-t-interp="${escapeHtml(fm.tooltip_interp||'')}">ⓘ</button>`;
+  } else {
+    container.innerHTML = '';
+  }
+}
+
+function addFundMetricToStrip() {
+  if (!_mktSelectedFund) { alert('Please search and select a fund first.'); return; }
+  const metric = document.getElementById('mkt-fund-metric').value;
+  if (!metric) { alert('Please select a metric to track for this fund.'); return; }
+  const metricLabel = document.getElementById('mkt-fund-metric').selectedOptions[0].text;
+  const shortName = _mktSelectedFund.name.length > 22 ? _mktSelectedFund.name.slice(0, 20) + '…' : _mktSelectedFund.name;
+  const label = `${shortName} | ${metricLabel}`;
+  _mktSavedFundEntries.push({type: 'fund', scheme_code: _mktSelectedFund.scheme_code, metric: metric, label: label});
+  _mktSelectedFund = null;
+  document.getElementById('mkt-fund-search').value = '';
+  document.getElementById('mkt-fund-selected').style.display = 'none';
+  document.getElementById('mkt-fund-metric').value = '';
+  document.getElementById('mkt-fund-metric-info-span').innerHTML = '';
+  renderTrackedChips();
+}
+
+// ── Unified tracked chips renderer ────────────────────────────────────────────
+function renderTrackedChips() {
+  renderFundChips();
+  renderBenchChips();
+}
+
+function renderFundChips() {
+  const el = document.getElementById('mkt-fund-chips');
+  if (!el) return;
+  if (!_mktSavedFundEntries.length) {
+    el.innerHTML = '<p style="font-size:11px;color:var(--text-muted)">No custom fund metrics added yet.</p>';
+    return;
+  }
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">TRACKED FUND METRICS</div>' +
+    _mktSavedFundEntries.map((e, i) =>
+      `<div class="msi-apikey-row" style="margin-bottom:6px">
+        <span style="font-size:12px;font-weight:600;flex:1;color:var(--text-primary)">${escapeHtml(e.label)}</span>
+        <button type="button" style="background:none;border:none;color:var(--red-400);cursor:pointer;padding:2px 6px;font-size:14px" title="Remove" onclick="removeFundEntry(${i})">✕</button>
+      </div>`
+    ).join('');
+}
+
+function removeFundEntry(idx) {
+  _mktSavedFundEntries.splice(idx, 1);
+  renderFundChips();
+}
+
+function renderBenchChips() {
+  const el = document.getElementById('mkt-bench-chips');
+  if (!el) return;
+  if (!_mktSavedBenchEntries.length) {
+    el.innerHTML = '<p style="font-size:11px;color:var(--text-muted)">No benchmark metrics added yet.</p>';
+    return;
+  }
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">TRACKED BENCHMARK METRICS</div>' +
+    _mktSavedBenchEntries.map((e, i) =>
+      `<div class="msi-apikey-row" style="margin-bottom:6px">
+        <span style="font-size:12px;font-weight:600;flex:1;color:var(--text-primary)">${escapeHtml(e.label)}</span>
+        <button type="button" style="background:none;border:none;color:var(--red-400);cursor:pointer;padding:2px 6px;font-size:14px" title="Remove" onclick="removeBenchEntry(${i})">✕</button>
+      </div>`
+    ).join('');
+}
+
+function removeBenchEntry(idx) {
+  _mktSavedBenchEntries.splice(idx, 1);
+  renderBenchChips();
+}
+
+function getCookie(name) {
+  const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+  return v ? v[2] : '';
+}
+</script>
+{% endif %}

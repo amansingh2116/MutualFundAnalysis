@@ -481,7 +481,11 @@ def user_dashboard_view(request):
     # 5. Market Strip Watchlist
     market_profile = UserMarketStripProfile.objects.filter(user=request.user).first()
     chosen_metrics = market_profile.metrics if (market_profile and market_profile.metrics) else DEFAULT_METRIC_KEYS
-    chosen_metric_labels = [ALL_METRICS[k] for k in chosen_metrics if k in ALL_METRICS]
+    # chosen_metrics may contain dicts (fund entries) — filter to string keys only for label display
+    chosen_metric_labels = [
+        ALL_METRICS[k] for k in chosen_metrics
+        if isinstance(k, str) and k in ALL_METRICS
+    ]
 
     return render(request, 'core/user_dashboard.html', {
         'portfolios': portfolios,

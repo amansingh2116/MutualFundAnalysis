@@ -1,22 +1,39 @@
-{% for idx in indices %}
-<div class="market-item">
-  <span class="market-name">{{ idx.label }}</span>
-  {% if idx.value %}
-  <span class="market-val">
-    {% if idx.key == 'usdinr' %}₹{{ idx.value|floatformat:2 }}
-    {% else %}{{ idx.value|floatformat:0 }}{% endif %}
+{% load l10n %}
+{# ── Each strip chip ─────────────────────────────────────────────────── #}
+{% for item in strip_items %}
+<div class="market-item msi-cat-{{ item.category }}" data-key="{{ item.key }}">
+  {# Category dot #}
+  <span class="msi-dot msi-dot-{{ item.category|default:'index' }}"></span>
+
+  {# Label #}
+  <span class="market-name">
+    {% if item.fund_entry %}{{ item.fund_entry.label|default:item.label }}{% else %}{{ item.label }}{% endif %}
   </span>
-  <span class="market-chg {% if idx.direction == 'up' %}up{% else %}down{% endif %}">
-    {% if idx.direction == 'up' %}▲{% else %}▼{% endif %}
-    {% if idx.change_pct %}{{ idx.change_pct|floatformat:2 }}%{% endif %}
-  </span>
+
+  {# Value or N/A #}
+  {% if item.stale %}
+    <span class="market-val msi-na" title="{{ item.error }}">N/A</span>
   {% else %}
-  <span class="market-val muted">—</span>
+    <span class="market-val {% if item.direction == 'up' %}msi-val-up{% elif item.direction == 'down' %}msi-val-down{% endif %}">
+      {% if item.unit == 'Rs.' %}₹{% elif item.unit and item.unit != '%' and item.unit != 'x' %}{{ item.unit }} {% endif %}{% if item.unit == 'x' %}x {% endif %}{{ item.value|floatformat:2 }}{% if item.unit == '%' %}%{% endif %}
+    </span>
+    {% if item.change_pct is not None %}
+    <span class="market-chg {% if item.direction == 'up' %}up{% else %}down{% endif %}">
+      {% if item.direction == 'up' %}▲{% else %}▼{% endif %}{{ item.abs_change_pct|floatformat:2 }}%
+    </span>
+    {% endif %}
+    {% if item.signal %}
+    <span class="msi-signal msi-signal-{{ item.signal|slugify }}">{{ item.signal }}</span>
+    {% endif %}
   {% endif %}
 </div>
 {% endfor %}
+
+{# ── Manage / Settings gear (logged-in users only) ──────────────────── #}
 {% if is_authenticated %}
 <button type="button" class="market-manage-btn" id="market-manage-btn"
-        onclick="openMarketManageModal()"
-        title="Manage which metrics appear here">⚙</button>
+        onclick="openMarketManageModal()" title="Manage metrics in this strip">⚙</button>
 {% endif %}
+
+{# ── Shared tooltip popup lives in base.html (always available as global) #}
+
