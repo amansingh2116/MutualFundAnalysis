@@ -751,7 +751,7 @@ window.TOOLTIP_REGISTRY = {
   }
 
   function showTooltipFor(btn) {
-    if (activeBtn === btn && tooltip && tooltip.classList.contains('visible')) {
+    if (activeBtn === btn && (tooltip || document.querySelector('.info-tooltip'))) {
       hideTooltip();
       return;
     }
@@ -774,24 +774,28 @@ window.TOOLTIP_REGISTRY = {
 
     // Trigger reflow then show
     requestAnimationFrame(() => {
-      positionTooltip(btn, tooltip);
-      requestAnimationFrame(() => {
-        tooltip.classList.add('visible');
-      });
+      if (tooltip) {
+        positionTooltip(btn, tooltip);
+        requestAnimationFrame(() => {
+          if (tooltip) tooltip.classList.add('visible');
+        });
+      }
     });
   }
 
   function hideTooltip() {
-    if (tooltip) {
-      tooltip.classList.remove('visible');
-      tooltip.addEventListener('transitionend', () => tooltip.remove(), { once: true });
-      tooltip = null;
-    }
+    document.querySelectorAll('.info-tooltip').forEach(el => el.remove());
+    tooltip = null;
     if (activeBtn) {
       activeBtn.classList.remove('active');
       activeBtn = null;
     }
   }
+
+  window.openMsiTooltip = function(btn) {
+    if (btn) showTooltipFor(btn);
+  };
+  window.closeMsiTooltip = hideTooltip;
 
   window.initInfoTooltips = function(root) {
     const container = root || document;
@@ -827,7 +831,7 @@ window.TOOLTIP_REGISTRY = {
 
   // Global close on outside click / Escape
   document.addEventListener('click', e => {
-    if (tooltip && !tooltip.contains(e.target)) hideTooltip();
+    if (tooltip && !tooltip.contains(e.target) && !e.target.closest('.info-btn')) hideTooltip();
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') hideTooltip();
@@ -837,4 +841,5 @@ window.TOOLTIP_REGISTRY = {
     if (tooltip && e.target === tooltip) hideTooltip();
   }, true);
 })();
+
 

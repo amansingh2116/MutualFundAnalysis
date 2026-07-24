@@ -273,68 +273,6 @@
 </style>
 
 
-<!-- Shared MSI Tooltip Hover Card -->
-<div id="msi-tooltip-popup" class="msi-tooltip-popup" style="display:none;">
-  <div class="msi-tooltip-box">
-    <div class="msi-tooltip-header">
-      <span id="msi-tip-label" style="font-weight:700;font-size:13px;color:var(--text-primary)"></span>
-    </div>
-    <div id="msi-tip-what"      class="msi-tip-section"></div>
-    <div id="msi-tip-interp"    class="msi-tip-section msi-tip-interp"></div>
-    <div id="msi-tip-threshold" class="msi-tip-section msi-tip-threshold"></div>
-  </div>
-</div>
-<script>
-(function() {
-  var _hideTimer = null, _popup = null;
-  function getPopup() { if (!_popup) _popup = document.getElementById("msi-tooltip-popup"); return _popup; }
-  function positionNear(btn) {
-    var p = getPopup(), r = btn.getBoundingClientRect(), MARGIN = 10;
-    var pw = p.offsetWidth || 300, ph = p.offsetHeight || 160;
-    var top = r.top - ph - 8 > 0 ? r.top - ph - 8 : r.bottom + 8;
-    var left = Math.min(Math.max(r.left, MARGIN), window.innerWidth - pw - MARGIN);
-    p.style.top = top + 'px'; p.style.left = left + 'px';
-  }
-  function fillTooltip(btn) {
-    var what = btn.dataset.tWhat || '', interp = btn.dataset.tInterp || '', thr = btn.dataset.tThreshold || '';
-    document.getElementById("msi-tip-label").textContent = btn.dataset.tTitle || btn.dataset.label || '';
-    var wEl = document.getElementById("msi-tip-what"), iEl = document.getElementById("msi-tip-interp"), tEl = document.getElementById("msi-tip-threshold");
-    wEl.innerHTML = what   ? '<strong>What is it?</strong><br>' + what   : '';
-    iEl.innerHTML = interp ? '<strong>How to interpret:</strong><br>' + interp : '';
-    tEl.innerHTML = thr    ? '<strong>Thresholds:</strong> ' + thr : '';
-    wEl.style.display = what ? '' : 'none';
-    iEl.style.display = interp ? '' : 'none';
-    tEl.style.display = thr ? '' : 'none';
-  }
-  function showTooltip(btn) {
-    clearTimeout(_hideTimer);
-    var p = getPopup(); if (!p) return;
-    fillTooltip(btn);
-    p.style.display = 'block';
-    p.classList.remove('visible'); void p.offsetWidth;
-    positionNear(btn); p.classList.add('visible');
-  }
-  function scheduleHide() {
-    _hideTimer = setTimeout(function() {
-      var p = getPopup(); if (p) { p.classList.remove('visible'); setTimeout(function() { if (!p.classList.contains('visible')) p.style.display = 'none'; }, 150); }
-    }, 150);
-  }
-  document.addEventListener('mouseenter', function(e) {
-    if (e.target && e.target.classList && e.target.classList.contains('info-btn')) showTooltip(e.target);
-  }, true);
-  document.addEventListener('mouseleave', function(e) {
-    if (e.target && e.target.classList && e.target.classList.contains('info-btn')) scheduleHide();
-  }, true);
-  document.addEventListener('mouseenter', function(e) {
-    var p = getPopup(); if (p && (e.target === p || p.contains(e.target))) clearTimeout(_hideTimer);
-  }, true);
-  document.addEventListener('mouseleave', function(e) {
-    var p = getPopup(); if (p && (e.target === p || p.contains(e.target))) scheduleHide();
-  }, true);
-  window.openMsiTooltip  = showTooltip;
-  window.closeMsiTooltip = function() { clearTimeout(_hideTimer); var p = getPopup(); if (p) { p.classList.remove('visible'); p.style.display = 'none'; } };
-})();
-</script>
-
 </body>
 </html>
+

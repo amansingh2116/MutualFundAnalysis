@@ -30,7 +30,7 @@ Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV dat
    - **NAV:** Fetches historical NAV from mfapi.in (primary), mftool (fallback)
    - **Metadata:** Fetches from captnemo by ISIN; falls back to a same-fund sibling growth plan with a UI label indicating it's a reference value
    - **Holdings/Sectors:** Uses mstarpy (Morningstar) first, then yahooquery fallback after Yahoo ticker resolution
-   - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, etc.
+   - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, quarterly top/worst performance, **Macro Stress Testing (Crisis Period Behaviour across 6 crash events)**, and **Market-Regime Analysis (across 5 economic cycles with per-window breakdowns)**.
 3. **Peer Matching:** `apps.funds.peers.get_peer_matches(scheme)` fingerprints scheme names and basic metadata to rank peers even when `scheme_category` is empty.
 4. **Market Intelligence & Ticker Strip:** `apps/benchmarks/metric_providers.py` provides 24 core market metrics plus custom fund/benchmark monitor calculations.
 5. **Portfolio & Benchmarks** are the only data fully persisted in the database.
@@ -80,9 +80,10 @@ apps/
    - `_fetch_technical_metrics()`: Downloads Nifty 50 & Midcap 150 daily data to compute RSI(14), MACD(12,26,9), Bollinger Bands %B, 50/200 DMA gap %, Dist from 52W High, Dist from ATH, and MidCap/LargeCap Relative Strength.
    - `_fetch_fred_metrics()`: Queries FRED API for CPI India, RBI Repo Rate, and Fed Funds Rate using user's key or environment key.
    - `get_fund_metric()` & `get_benchmark_metric()`: Computes fund/benchmark metrics on the fly and attaches direction (`"up"`, `"down"`, `"neutral"`) and signal badges (`"BULLISH"`, `"BEARISH"`, `"EXCELLENT"`, `"DEFENSIVE"`, `"LOW COST"`, `"CAUTION"`).
-4. **Modal & Tooltips (`_manage_modal.html`, `base.html`)**:
-   - Included globally in `base.html`.
-   - Tooltip popup is a fixed, viewport-aware hover card that activates on `mouseenter` of `.info-btn`.
+4. **Modal & Tooltips (`static/js/main.js`)**:
+   - Single-source tooltip engine in `static/js/main.js` (`initInfoTooltips()`).
+   - Attached to `<button class="info-btn">` elements reading `data-t-*` attributes.
+   - Tooltip popup is a fixed, viewport-aware card that activates on `mouseenter` / `click` with DOM auto-purge on hide to prevent duplicate/stacked popovers.
 
 ---
 

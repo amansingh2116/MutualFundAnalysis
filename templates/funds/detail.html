@@ -801,12 +801,216 @@
     <div id="drawdown-chart" style="height:280px"></div>
   </div>
 
+
+  <!-- ══════════════════════════════════════════════════════════════
+       CRISIS PERIOD BEHAVIOUR
+       ══════════════════════════════════════════════════════════════ -->
+  {% if crisis_periods %}
+  <div class="card" style="margin-top:20px">
+    <div class="card-header">
+      <div class="card-title">Crisis Period Behaviour
+        <button class="info-btn" aria-label="Crisis Period Behaviour"
+          data-t-title="Crisis Period Behaviour"
+          data-t-what="Shows how this fund's NAV moved during major historical market crashes. Each card shows the fund's total return from the start to the bottom of the crash window."
+          data-t-interp="A fund that falls significantly less than the market (e.g. Nifty dropped 38% in COVID but your fund dropped only 25%) demonstrates superior downside protection — the mark of a quality fund manager or strategy. 'Recovery' tells you how quickly the fund returned to its pre-crash peak."
+          data-t-range='[{"dot":"good","label":"0% or positive","text":"Held up: avoided the crash"},{"dot":"ok","label":"-1% to -15%","text":"Mild damage: manageable"},{"dot":"bad","label":"< -15%","text":"Significant drawdown: took heavy hit"}]'>ⓘ</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding-bottom:20px">
+      <p style="font-size:11px;color:var(--text-muted);margin:0 0 16px">
+        <em>"Pre-inception" = fund didn't exist during that period. Hover the ⓘ on each card for how to interpret it.</em>
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px">
+        {% for cp in crisis_periods %}
+        <div style="
+          background:var(--bg-elevated);
+          border:1px solid var(--border);
+          border-radius:10px;
+          padding:16px 14px 18px;
+          position:relative;
+          overflow:hidden;
+          transition:box-shadow .18s,border-color .18s;
+          {% if not cp.available %}opacity:.5;{% endif %}
+        "
+        onmouseenter="this.style.boxShadow='0 0 0 2px rgba(99,102,241,.25)';this.style.borderColor='rgba(99,102,241,.4)'"
+        onmouseleave="this.style.boxShadow='';this.style.borderColor='var(--border)'">
+          <!-- Per-card ⓘ tooltip -->
+          {% if cp.available %}
+          <button class="info-btn" style="position:absolute;top:7px;right:7px;z-index:2"
+            aria-label="{{ cp.short }} interpretation"
+            data-t-title="{{ cp.label }}"
+            data-t-what="{{ cp.description }}"
+            data-t-interp="{% if cp.crash_return == None %}The fund has no NAV data for this window.{% elif cp.crash_return >= 0 %}✅ The fund actually gained or held flat during this crash — exceptional downside protection. This is rare and a strong positive signal.{% elif cp.crash_return >= -10 %}🟡 Mild damage. The fund fell less than 10%, showing it held up reasonably well. Compare to how the broader market (Nifty) performed in the same window.{% elif cp.crash_return >= -20 %}🟠 Moderate hit. The fund absorbed a significant drawdown. Check if it recovered quickly — recovery speed matters as much as depth.{% else %}🔴 Heavy drawdown. The fund fell {{ cp.crash_return|floatformat:1 }}% during this period. Look at recovery speed and compare to category peers to judge whether this was fund-specific or market-wide.{% endif %}{% if cp.recovery_label %} {{ cp.recovery_label }}.{% endif %}">ⓘ</button>
+          {% elif not cp.available %}
+          <div style="position:absolute;top:7px;right:8px;font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Pre-inception</div>
+          {% endif %}
+          {% if cp.pre_inception and cp.available %}
+          <div style="position:absolute;top:7px;right:30px;font-size:9px;font-weight:700;color:var(--amber-400);text-transform:uppercase;letter-spacing:.05em">Partial</div>
+          {% endif %}
+
+          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;padding-right:28px">{{ cp.short }}</div>
+          <div style="font-size:28px;font-weight:800;line-height:1;
+            {% if cp.crash_return == None %}color:var(--text-muted);
+            {% elif cp.crash_return >= 0 %}color:#10b981;
+            {% elif cp.crash_return >= -10 %}color:#f59e0b;
+            {% else %}color:#ef4444;{% endif %}
+          ">
+            {% if cp.crash_return == None %}—{% else %}{{ cp.crash_return|floatformat:1 }}%{% endif %}
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:7px">
+            {{ cp.crash_start }} → {{ cp.crash_end }}
+          </div>
+          {% if cp.recovery_label %}
+          <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-style:italic">{{ cp.recovery_label }}</div>
+          {% endif %}
+          <!-- Color bar at bottom -->
+          <div style="position:absolute;bottom:0;left:0;right:0;height:3px;
+            {% if cp.crash_return == None %}background:var(--border);
+            {% elif cp.crash_return >= 0 %}background:#10b981;
+            {% elif cp.crash_return >= -10 %}background:#f59e0b;
+            {% else %}background:#ef4444;{% endif %}
+          "></div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- How to read this -->
+      <div style="margin-top:18px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:8px;padding:12px 14px">
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);margin-bottom:8px">📖 How to interpret these numbers</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 16px;font-size:11px;color:var(--text-muted)">
+          <div><span style="font-weight:600;color:#10b981">0% or positive</span> — Held up during crash (exceptional)</div>
+          <div><span style="font-weight:600;color:#f59e0b">0% to -15%</span> — Mild damage, manageable drawdown</div>
+          <div><span style="font-weight:600;color:#ef4444">Below -15%</span> — Significant hit; check recovery speed</div>
+          <div><span style="font-weight:600;color:var(--text-secondary)">Recovery label</span> — Months from trough back to pre-crash peak</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════
+       MARKET REGIME ANALYSIS
+       ══════════════════════════════════════════════════════════════ -->
+  {% if market_regimes %}
+  <div class="card" style="margin-top:20px">
+    <div class="card-header">
+      <div class="card-title">Market Regime Analysis
+        <button class="info-btn" aria-label="Market Regime Analysis"
+          data-t-title="Market Regime Analysis"
+          data-t-what="Evaluates how the fund has performed across 5 distinct economic and market cycle types: bull markets, bear markets, sideways/consolidation, high inflation periods, and RBI rate-cut cycles."
+          data-t-interp="A great all-weather fund should deliver strong CAGR in bull markets AND protect capital in bear markets. Use this to understand the fund's style: Is it a momentum fund that only shines in bull runs? Or is it a defensive fund that lags in rallies but protects in crashes? The 'Avg CAGR' shown is time-weighted across all covered windows — a fair picture of consistent performance."
+          data-t-range='[{"dot":"good","label":"Bull market CAGR > 20%","text":"Strong momentum capture"},{"dot":"ok","label":"Bear market loss < 10%","text":"Good downside shield"},{"dot":"bad","label":"Bear CAGR worse than benchmark","text":"Review risk management"}]'>ⓘ</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding-bottom:20px">
+      <!-- Legend row -->
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding:10px 12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-muted)">
+        <span style="font-weight:600;color:var(--text-secondary)">Reading the cards:</span>
+        <span><span style="font-weight:700;color:#10b981">≥15%</span> Excellent</span>
+        <span><span style="font-weight:700;color:#6ee7b7">5–15%</span> Good</span>
+        <span><span style="font-weight:700;color:#f59e0b">0–5%</span> Muted</span>
+        <span><span style="font-weight:700;color:#ef4444">&lt;0%</span> Lost money</span>
+        <span style="color:rgba(148,163,184,.5)">|</span>
+        <span>Click <strong>▼ Per-window</strong> on any card to see each individual time window</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
+        {% for regime in market_regimes %}
+        <div style="
+          background:var(--bg-elevated);
+          border:1px solid var(--border);
+          border-radius:10px;
+          padding:0;
+          position:relative;
+          overflow:hidden;
+          transition:box-shadow .18s,border-color .18s;
+          {% if not regime.total_months %}opacity:.5;{% endif %}
+        "
+        onmouseenter="this.style.boxShadow='0 0 0 2px {{ regime.color }}40';this.style.borderColor='{{ regime.color }}80'"
+        onmouseleave="this.style.boxShadow='';this.style.borderColor='var(--border)'">
+
+          <!-- Colored top header bar -->
+          <div style="background:{{ regime.color }}18;border-bottom:1px solid {{ regime.color }}30;padding:10px 14px 8px;display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:7px">
+              <span style="font-size:17px">{{ regime.icon }}</span>
+              <span style="font-size:12px;font-weight:700;color:var(--text-primary)">{{ regime.label }}</span>
+            </div>
+            <!-- Per-card ⓘ tooltip -->
+            <button class="info-btn" style="flex-shrink:0"
+              aria-label="{{ regime.label }} interpretation"
+              data-t-title="{{ regime.label }}"
+              data-t-what="{{ regime.description }}. Avg CAGR shown is the time-weighted annualised return across all covered windows of this regime type."
+              data-t-interp="{% if regime.label == 'Bull Market' %}A bull market is when the index is rising 20%+ from a trough. Your fund should ideally exceed the index return here. CAGR ≥ 20% is excellent; 15–20% is good. If the fund underperforms in bull runs, it may not capture market upside well — only acceptable if it compensates with much lower losses in bear phases.{% elif regime.label == 'Bear Market' %}A bear market tests the fund manager's risk management. A good fund here loses significantly less than the index. CAGR loss < 10% is excellent. If this CAGR is worse than the Nifty's bear market return, the fund offered no downside protection — a red flag.{% elif regime.label == 'Sideways / Consolidation' %}Sideways markets reward stock-picking over macro bets. Alpha generation here (any positive CAGR when the index is flat) is a hallmark of genuine active management skill.{% elif regime.label == 'High Inflation Period' %}High inflation erodes fixed-income and growth valuations. Funds with pricing-power sectors (commodities, banking, FMCG) typically hold up better. A positive CAGR here shows the portfolio has inflation-resilient positioning.{% elif regime.label == 'Rate Cut Cycle' %}Rate cuts are typically bullish for equities and especially for interest-rate sensitive sectors (real estate, NBFCs, small caps). Strong CAGR here is expected; consistently underperforming in rate-cut cycles suggests the fund misses the liquidity rally.{% else %}Evaluate this return relative to the fund's category peers and the broader market during the same period.{% endif %}">ⓘ</button>
+          </div>
+
+          <!-- Card body -->
+          <div style="padding:12px 14px 0">
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px">{{ regime.description }}</div>
+
+            {% if regime.avg_cagr != None %}
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
+              <span style="font-size:26px;font-weight:800;
+                {% if regime.avg_cagr >= 15 %}color:#10b981;
+                {% elif regime.avg_cagr >= 5 %}color:#6ee7b7;
+                {% elif regime.avg_cagr >= 0 %}color:#f59e0b;
+                {% else %}color:#ef4444;{% endif %}
+              ">{{ regime.avg_cagr|floatformat:1 }}%</span>
+              <span style="font-size:10px;color:var(--text-muted)">avg CAGR</span>
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px">
+              {{ regime.total_months }} months covered · {{ regime.covered_windows }} window{{ regime.covered_windows|pluralize }}
+            </div>
+            {% else %}
+            <div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:10px">No data — fund not active in this regime</div>
+            {% endif %}
+          </div>
+
+          <!-- Per-window breakdown — always visible as a togglable section -->
+          {% if regime.windows %}
+          <div style="border-top:1px solid var(--border);margin:0">
+            <button
+              onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.querySelector('.regime-arrow').style.transform=open?'rotate(0deg)':'rotate(90deg)';})(this)"
+              style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:{{ regime.color }}10;border:none;cursor:pointer;font-size:11px;font-weight:600;color:{{ regime.color }};text-align:left;transition:background .15s"
+              onmouseenter="this.style.background='{{ regime.color }}22'"
+              onmouseleave="this.style.background='{{ regime.color }}10'">
+              <span style="display:flex;align-items:center;gap:5px">
+                <span class="regime-arrow" style="display:inline-block;font-size:9px;transition:transform .2s">▶</span>
+                Per-window breakdown
+              </span>
+              <span style="font-size:10px;font-weight:400;color:var(--text-muted)">{{ regime.covered_windows }} period{{ regime.covered_windows|pluralize }}</span>
+            </button>
+            <div style="display:none;padding:4px 14px 10px;background:rgba(0,0,0,.15)">
+              <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;padding-top:4px">Each row = one historical occurrence of this regime</div>
+              {% for w in regime.windows %}
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:5px 0;border-bottom:1px solid rgba(148,163,184,.07)">
+                <span style="color:var(--text-secondary)">{{ w.start }} – {{ w.end }}<br><span style="font-size:10px;color:var(--text-muted)">{{ w.months }} months</span></span>
+                <span style="font-weight:800;font-size:13px;
+                  {% if w.cagr >= 15 %}color:#10b981;
+                  {% elif w.cagr >= 0 %}color:#6ee7b7;
+                  {% else %}color:#ef4444;{% endif %}
+                ">{{ w.cagr|floatformat:1 }}%</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <p style="font-size:10px;color:var(--text-muted);margin-top:14px;margin-bottom:0">
+        ℹ️ Regime windows are approximations based on Nifty 50 price action and RBI policy dates. Returns shown are fund NAV CAGR within covered dates only.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- TRI Disclaimer -->
   <div class="alert alert-warning" style="margin-top:16px">
     ⚠️ <strong>Benchmark Note:</strong> Index data shown is Price Index, not TRI (Total Return Index).
     <button class="info-btn" aria-label="TRI vs Price Index" data-t-title="TRI vs Price Index" data-t-what="Price Index tracks only the price changes of stocks. TRI (Total Return Index) also includes dividends reinvested. Since most stocks pay dividends, TRI is always higher than Price Index." data-t-interp="SEBI mandates TRI as the official benchmark. This means the benchmark shown here is slightly understated (by ~1–2% per year). The fund's actual alpha vs a proper TRI benchmark is lower than shown.">ⓘ</button>
     TRI includes dividends and is typically 1-2% higher annually. SEBI mandates TRI for official benchmark comparison.
   </div>
+
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->

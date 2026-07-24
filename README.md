@@ -27,7 +27,9 @@
 - Browse and search across **all Direct Growth mutual funds and all ETFs** (~2,000+ Direct Growth + ~300+ ETFs) with real-time AMFI cache fallback
 - Full **fund detail pages** with NAV history, metadata, and analytics
 - **Performance**: Calendar-year returns, trailing returns (1M, 3M, 6M, 1Y, 3Y, 5Y, Max)
-- **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Quarterly Performance Analysis
+- **Risk Metrics**: Sharpe, Sortino, Alpha, Beta, Max Drawdown, Capture Ratios, Quarterly Performance Analysis (Top 5 & Worst 5 Quarters)
+- **Macro Stress Testing (Crisis Period Behaviour)**: Simulates and displays fund performance across 6 major historical market crashes (2024–25 Tariff Shock, COVID-19 Crash, 2022 Rate Hike, 2018 IL&FS, 2015–16 China Slowdown, 2008 GFC) with crash returns, pre-inception status, and trough-to-peak recovery month metrics
+- **Market-Regime Analysis**: Evaluates fund returns across 5 distinct economic cycles (Bull Markets, Bear Markets, Sideways/Consolidation, High Inflation, Rate Cut Cycles) with aggregate CAGR, total months covered, and interactive per-window drill-down tables
 - **Rolling return distributions** with win rates, medians, and min/max ranges
 - **Composition**: Holdings, sector allocation, and asset allocation from Morningstar
 - **Advanced Fund Screener** *(login required)*: Filter, sort, and export across the complete Direct Growth + ETF universe on 30+ metrics — see [SCREENER.md](documentation/SCREENER.md) for a full feature guide

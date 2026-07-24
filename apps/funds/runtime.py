@@ -184,6 +184,8 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
     drawdown = compute_drawdown(nav_series)
     quarterly = compute_quarterly_performance(nav_series, benchmark_series)
     yearly_risk = compute_yearly_risk_metrics(nav_series, benchmark_series)
+    crisis_periods = compute_crisis_periods(nav_series)
+    market_regimes = compute_market_regimes(nav_series)
 
     managers = split_manager_names(str(getattr(meta, "fund_manager", "") or ""))
     manager_source = ""
@@ -229,6 +231,8 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         drawdown=drawdown,
         quarterly_performance=quarterly,
         yearly_risk=yearly_risk,
+        crisis_periods=crisis_periods,
+        market_regimes=market_regimes,
         top_holdings=holdings_normalized,
         sector_alloc=sectors_normalized,
         asset_alloc=portfolio.get("asset_alloc"),
@@ -1490,7 +1494,268 @@ def compute_quarterly_performance(nav: pd.Series, bm: pd.Series) -> dict[str, li
     return results
 
 
+
+# ── Historical Crisis Periods ────────────────────────────────────────────────
+_CRISIS_PERIODS = [
+    # (label, crash_start, crash_end, recovery_end_approx, description)
+    # crash_start/crash_end: the peak-to-trough window
+    # recovery_end_approx: approximate date of full recovery to prior peak
+    {
+        "label": "COVID-19 Crash",
+        "short": "COVID-19",
+        "crash_start": "2020-01-17",
+        "crash_end": "2020-03-23",
+        "recovery_end": "2020-08-01",
+        "description": "Sharp global sell-off as COVID-19 spread; Nifty fell ~38% in 6 weeks, recovered by Aug 2020.",
+    },
+    {
+        "label": "2022 Rate Hike Cycle",
+        "short": "2022 Rate Hike",
+        "crash_start": "2022-01-18",
+        "crash_end": "2022-06-17",
+        "recovery_end": "2022-12-01",
+        "description": "RBI and global central bank rate hikes crushed growth stocks; Nifty fell ~17% peak-to-trough.",
+    },
+    {
+        "label": "2018 IL&FS Crisis",
+        "short": "2018 IL&FS",
+        "crash_start": "2018-08-28",
+        "crash_end": "2018-10-26",
+        "recovery_end": "2019-05-01",
+        "description": "IL&FS default triggered credit market fears; Nifty fell ~15%, small/midcap much harder hit.",
+    },
+    {
+        "label": "2024–25 Tariff Shock",
+        "short": "2024-25 Tariff",
+        "crash_start": "2024-09-27",
+        "crash_end": "2025-04-07",
+        "recovery_end": None,   # ongoing / TBD
+        "description": "Global tariff escalation and FII outflows drove a prolonged correction in Indian equities.",
+    },
+    {
+        "label": "2015–16 China Slowdown",
+        "short": "2015-16 China",
+        "crash_start": "2015-03-04",
+        "crash_end": "2016-02-11",
+        "recovery_end": "2016-11-01",
+        "description": "China growth fears and commodity price crash dragged EMs; Nifty fell ~23% over 11 months.",
+    },
+    {
+        "label": "2008 Global Financial Crisis",
+        "short": "2008 GFC",
+        "crash_start": "2008-01-08",
+        "crash_end": "2009-03-09",
+        "recovery_end": "2010-11-01",
+        "description": "Subprime mortgage collapse caused the worst global recession in decades; Nifty fell ~65%.",
+    },
+]
+
+
+def compute_crisis_periods(nav: pd.Series) -> list[SimpleNamespace]:
+    """
+    For each historical crisis window, compute:
+    - crash_return: NAV return during the crash window (crash_start → crash_end)
+    - recovery_months: calendar months from trough to recovery (if applicable)
+    - available: True if the fund existed during this period
+    Returns a list of SimpleNamespace objects sorted by crash_start desc.
+    """
+    if nav.empty or not isinstance(nav.index, pd.DatetimeIndex):
+        return []
+
+    results = []
+    fund_start = nav.index[0]
+    fund_end = nav.index[-1]
+
+    for cp in _CRISIS_PERIODS:
+        cs = pd.Timestamp(cp["crash_start"])
+        ce = pd.Timestamp(cp["crash_end"])
+        re_date = pd.Timestamp(cp["recovery_end"]) if cp["recovery_end"] else None
+
+        # Check if fund existed during crash
+        fund_existed = fund_start <= ce  # fund launched before crash trough
+        pre_inception = fund_start > cs  # fund didn't exist at crash start
+
+        crash_return = None
+        recovery_months = None
+        trough_recovery_label = None
+
+        if fund_existed:
+            # Align to fund's actual range
+            actual_start = max(cs, fund_start)
+            actual_end = min(ce, fund_end)
+
+            try:
+                s_slice = nav.loc[actual_start:actual_end]
+                if not s_slice.empty and len(s_slice) >= 2:
+                    sv = float(s_slice.iloc[0])
+                    ev = float(s_slice.iloc[-1])
+                    if sv > 0:
+                        crash_return = round((ev / sv - 1) * 100, 1)
+            except Exception:
+                pass
+
+            # Recovery: how many months from trough to re_date
+            if re_date and ce <= fund_end:
+                if re_date <= fund_end:
+                    recovery_months = round(
+                        (re_date - ce).days / 30.44
+                    )
+                    trough_recovery_label = f"Rec: {re_date.strftime('%b %Y')} ({recovery_months} mo)"
+                else:
+                    # Still not recovered by fund's last nav
+                    trough_recovery_label = "Not yet recovered"
+            elif re_date is None:
+                trough_recovery_label = "Recovery TBD"
+
+        results.append(ns(
+            label=cp["label"],
+            short=cp["short"],
+            crash_start=cs.strftime("%b %Y"),
+            crash_end=ce.strftime("%b %Y"),
+            crash_return=crash_return,
+            recovery_months=recovery_months,
+            recovery_label=trough_recovery_label,
+            description=cp["description"],
+            available=fund_existed,
+            pre_inception=pre_inception,
+        ))
+
+    # Most recent first
+    results.sort(key=lambda x: x.crash_end, reverse=True)
+    return results
+
+
+# ── Market Regime Analysis ───────────────────────────────────────────────────
+_MARKET_REGIMES = [
+    {
+        "label": "Bull Market",
+        "icon": "📈",
+        "color": "#10b981",
+        "description": "Strong sustained uptrend (>20% from lows)",
+        "windows": [
+            ("2014-02-01", "2015-03-04"),
+            ("2016-02-11", "2018-01-29"),
+            ("2020-03-23", "2021-10-19"),
+            ("2023-03-28", "2024-09-27"),
+        ],
+    },
+    {
+        "label": "Bear Market",
+        "icon": "📉",
+        "color": "#ef4444",
+        "description": "Sustained decline >20% from recent highs",
+        "windows": [
+            ("2008-01-08", "2009-03-09"),
+            ("2015-03-04", "2016-02-11"),
+            ("2018-08-28", "2018-10-26"),
+            ("2020-01-17", "2020-03-23"),
+            ("2024-09-27", "2025-04-07"),
+        ],
+    },
+    {
+        "label": "Sideways / Consolidation",
+        "icon": "↔️",
+        "color": "#f59e0b",
+        "description": "Range-bound market, low trend conviction",
+        "windows": [
+            ("2010-11-01", "2013-09-01"),
+            ("2021-10-19", "2023-03-28"),
+        ],
+    },
+    {
+        "label": "High Inflation Period",
+        "icon": "🔥",
+        "color": "#f97316",
+        "description": "CPI/WPI elevated >6%; RBI tightening",
+        "windows": [
+            ("2010-01-01", "2013-12-31"),
+            ("2022-01-01", "2023-02-28"),
+        ],
+    },
+    {
+        "label": "Rate Cut Cycle",
+        "icon": "✂️",
+        "color": "#6366f1",
+        "description": "RBI cutting repo rate; liquidity supportive",
+        "windows": [
+            ("2019-02-07", "2019-10-04"),
+            ("2020-03-27", "2022-04-08"),
+            ("2025-02-07", "2025-06-06"),
+        ],
+    },
+]
+
+
+def compute_market_regimes(nav: pd.Series) -> list[SimpleNamespace]:
+    """
+    For each regime type, aggregate the fund's annualised return across
+    all regime windows where the fund existed, and count total months.
+    """
+    if nav.empty or not isinstance(nav.index, pd.DatetimeIndex):
+        return []
+
+    fund_start = nav.index[0]
+    fund_end = nav.index[-1]
+    results = []
+
+    for regime in _MARKET_REGIMES:
+        total_days = 0
+        weighted_cagr_sum = 0.0
+        covered_windows = 0
+        windows_detail = []
+
+        for w_start_str, w_end_str in regime["windows"]:
+            ws = pd.Timestamp(w_start_str)
+            we = pd.Timestamp(w_end_str)
+            actual_s = max(ws, fund_start)
+            actual_e = min(we, fund_end)
+
+            if actual_s >= actual_e:
+                continue  # fund didn't exist in this window
+
+            try:
+                s_slice = nav.loc[actual_s:actual_e]
+                if len(s_slice) < 10:
+                    continue
+                sv = float(s_slice.iloc[0])
+                ev = float(s_slice.iloc[-1])
+                if sv <= 0:
+                    continue
+                days = (actual_e - actual_s).days
+                if days < 10:
+                    continue
+                ann_ret = ((ev / sv) ** (365 / days) - 1) * 100
+                total_days += days
+                weighted_cagr_sum += ann_ret * days
+                covered_windows += 1
+                windows_detail.append(ns(
+                    start=actual_s.strftime("%b %Y"),
+                    end=actual_e.strftime("%b %Y"),
+                    months=round(days / 30.44),
+                    cagr=round(ann_ret, 1),
+                ))
+            except Exception:
+                continue
+
+        avg_cagr = round(weighted_cagr_sum / total_days, 1) if total_days > 0 else None
+        total_months = round(total_days / 30.44)
+
+        results.append(ns(
+            label=regime["label"],
+            icon=regime["icon"],
+            color=regime["color"],
+            description=regime["description"],
+            avg_cagr=avg_cagr,
+            total_months=total_months,
+            covered_windows=covered_windows,
+            windows=windows_detail,
+        ))
+
+    return results
+
+
 def empty_benchmark_result(name: str | None = None) -> SimpleNamespace:
+
     return ns(
         requested_name=name,
         actual_name=None,

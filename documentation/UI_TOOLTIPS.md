@@ -9,6 +9,7 @@ The tooltip engine is a self-contained IIFE in `static/js/main.js` (`initInfoToo
 ### Key design decisions
 - **Plain text in attributes** — no HTML is embedded in `data-t-*` values. The engine renders sections in its own structured layout.
 - **`_tooltipBound` guard** — prevents double-binding when `initInfoTooltips()` is called multiple times.
+- **Single-source architecture** — `static/js/main.js` is the sole tooltip engine. `hideTooltip()` purges all lingering `.info-tooltip` nodes automatically to guarantee single-instance popup rendering without double-popup artifacts.
 - **Dynamic content** — after any JS re-render (e.g., SIP results), call `initInfoTooltips(container)` with the updated DOM subtree to bind new buttons.
 - **`&#9432;` character** — every `<button class="info-btn">` must have this as its text content so the ⓘ glyph renders correctly.
 
