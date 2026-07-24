@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    MF Analysis Platform â€” Main CSS Design System
    Dark-mode premium UI inspired by Bloomberg + Kuvera
    ============================================================ */
@@ -678,15 +678,32 @@ input[type="range"]::-webkit-slider-thumb {
 .btn-loading::after { content: ''; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.7s linear infinite; position: absolute; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ────────────────────────────────────────────────────────── Tabs ────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
-  scrollbar-width: none;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) rgba(148, 163, 184, 0.12);
+  -webkit-overflow-scrolling: touch;
 }
-.tabs::-webkit-scrollbar { display: none; }
+.tabs::-webkit-scrollbar {
+  height: 6px;
+}
+.tabs::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 99px;
+  margin: 0 4px;
+}
+.tabs::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 99px;
+}
+.tabs::-webkit-scrollbar-thumb:hover {
+  background: var(--indigo-400);
+}
 .tab-btn {
   padding: 10px 18px;
   font-size: 13px;

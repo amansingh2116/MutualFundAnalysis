@@ -244,6 +244,9 @@ function initSidebar() {
     sidebar.setAttribute('aria-hidden', String(!open));
     if (overlay) overlay.setAttribute('aria-hidden', String(!open));
     document.body.classList.toggle('sidebar-scroll-lock', mobileQuery.matches && open);
+    
+    // Trigger dynamic chart resize during and after CSS transition
+    [30, 100, 220, 350].forEach(ms => setTimeout(window.triggerAllChartResizes, ms));
   }
 
   setSidebarOpen(!mobileQuery.matches);
@@ -378,6 +381,36 @@ function initDropZone(zoneId, inputId) {
   });
 }
 
+// ── Global Dynamic Chart Resize Helper ─────────────────────────
+window.triggerAllChartResizes = function() {
+  if (window.Plotly) {
+    const plotlyContainers = document.querySelectorAll('.js-plotly-plot, [id*="-chart"], .chart-container');
+    plotlyContainers.forEach(el => {
+      try {
+        if (el && el._fullLayout) {
+          Plotly.Plots.resize(el);
+        }
+      } catch (e) {}
+    });
+  }
+  if (window.ci && typeof window.ci === 'object') {
+    Object.values(window.ci).forEach(chartInstance => {
+      try {
+        if (chartInstance && typeof chartInstance.resize === 'function') {
+          chartInstance.resize();
+        }
+      } catch (e) {}
+    });
+  }
+};
+
+// Debounced resize listener
+let _resizeDebounceTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeDebounceTimer);
+  _resizeDebounceTimer = setTimeout(window.triggerAllChartResizes, 60);
+});
+
 // ── Init ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
@@ -385,6 +418,17 @@ document.addEventListener('DOMContentLoaded', () => {
   initSearch();
   initRangeInputs();
   initInfoTooltips();
+
+  // Attach ResizeObserver to main content container to handle sidebar animations & layout changes
+  const mainContent = document.querySelector('.main-content');
+  if (mainContent && typeof ResizeObserver !== 'undefined') {
+    let roTimer = null;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(roTimer);
+      roTimer = setTimeout(window.triggerAllChartResizes, 40);
+    });
+    ro.observe(mainContent);
+  }
 });
 
 // ── Info Tooltip Engine ────────────────────────────────────────
