@@ -137,6 +137,5 @@ some fix/improvements left to implement in future:
 - UI improvement
 - application testing (security, login, performance, etc.)
 - deploy
-- category analysis add to fund analysis
 - report
 - AI

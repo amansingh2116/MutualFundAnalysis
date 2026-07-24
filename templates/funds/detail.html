@@ -250,13 +250,14 @@
         </div>
         <div class="card-body-tight">
           {% if trailing_returns %}
+          <div class="table-wrapper">
           <table>
             <thead><tr><th>Period</th><th>Fund
               <button class="info-btn" aria-label="Fund CAGR" data-t-title="Fund CAGR" data-t-what="Compound Annual Growth Rate of this specific fund over the period." data-t-link-key="cagr">ⓘ</button>
             </th><th>Benchmark
               <button class="info-btn" aria-label="Benchmark Return" data-t-title="Benchmark Return" data-t-what="Return of the declared benchmark index over the same period.">ⓘ</button>
             </th><th>Cat Avg
-              <button class="info-btn" aria-label="Category Average" data-t-title="Category Average Return" data-t-what="The average return of all funds in the same SEBI sub-category ({{ category_name }}). Use this to see how this fund stacks up against its direct peers.">ⓘ</button>
+              <button class="info-btn" aria-label="Category Average" data-t-title="Category Average Return" data-t-what="The average return of all funds in the same SEBI sub-category ({{ category_name }}). Min/Max shows the range from best to worst fund in category.">ⓘ</button>
             </th><th>Excess
               <button class="info-btn" aria-label="Excess Return" data-t-title="Excess Return" data-t-what="Fund return minus benchmark return.">ⓘ</button>
             </th></tr></thead>
@@ -267,9 +268,24 @@
                 <td class="{% if r.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.cagr_pct|floatformat:2 }}%</td>
                 <td class="muted">{% if r.bm_cagr %}{{ r.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="muted">
-                  {% if r.period == '1Y' and category_snap.avg_return_1y %}{{ category_snap.avg_return_1y|floatformat:2 }}%
-                  {% elif r.period == '3Y' and category_snap.avg_return_3y %}{{ category_snap.avg_return_3y|floatformat:2 }}%
-                  {% elif r.period == '5Y' and category_snap.avg_return_5y %}{{ category_snap.avg_return_5y|floatformat:2 }}%
+                  {% if r.period == '1Y' and category_snap.avg_return_1y %}
+                    <span title="Cat Range: Min {{ category_snap.min_return_1y|floatformat:1 }}% | Avg {{ category_snap.avg_return_1y|floatformat:1 }}% | Max {{ category_snap.max_return_1y|floatformat:1 }}%">{{ category_snap.avg_return_1y|floatformat:2 }}%</span>
+                    <div style="font-size:9px;color:var(--text-muted)">
+                      {% if category_snap.min_return_1y %}<span class="negative">↓{{ category_snap.min_return_1y|floatformat:1 }}%</span>{% endif %}
+                      {% if category_snap.max_return_1y %}&nbsp;<span class="positive">↑{{ category_snap.max_return_1y|floatformat:1 }}%</span>{% endif %}
+                    </div>
+                  {% elif r.period == '3Y' and category_snap.avg_return_3y %}
+                    <span title="Cat Range: Min {{ category_snap.min_return_3y|floatformat:1 }}% | Avg {{ category_snap.avg_return_3y|floatformat:1 }}% | Max {{ category_snap.max_return_3y|floatformat:1 }}%">{{ category_snap.avg_return_3y|floatformat:2 }}%</span>
+                    <div style="font-size:9px;color:var(--text-muted)">
+                      {% if category_snap.min_return_3y %}<span class="negative">↓{{ category_snap.min_return_3y|floatformat:1 }}%</span>{% endif %}
+                      {% if category_snap.max_return_3y %}&nbsp;<span class="positive">↑{{ category_snap.max_return_3y|floatformat:1 }}%</span>{% endif %}
+                    </div>
+                  {% elif r.period == '5Y' and category_snap.avg_return_5y %}
+                    <span title="Cat Range: Min {{ category_snap.min_return_5y|floatformat:1 }}% | Avg {{ category_snap.avg_return_5y|floatformat:1 }}% | Max {{ category_snap.max_return_5y|floatformat:1 }}%">{{ category_snap.avg_return_5y|floatformat:2 }}%</span>
+                    <div style="font-size:9px;color:var(--text-muted)">
+                      {% if category_snap.min_return_5y %}<span class="negative">↓{{ category_snap.min_return_5y|floatformat:1 }}%</span>{% endif %}
+                      {% if category_snap.max_return_5y %}&nbsp;<span class="positive">↑{{ category_snap.max_return_5y|floatformat:1 }}%</span>{% endif %}
+                    </div>
                   {% else %}—{% endif %}
                 </td>
                 <td class="{% if r.excess and r.excess >= 0 %}positive{% else %}negative{% endif %}">{% if r.excess %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}</td>
@@ -277,6 +293,7 @@
               {% endfor %}
             </tbody>
           </table>
+          </div>
           {% else %}
           <div class="chart-placeholder" style="min-height:80px">
             <span style="font-size:12px;color:var(--text-muted)">Returns are unavailable from the on-demand NAV source right now.</span>
@@ -294,17 +311,33 @@
         <div class="metrics-dl">
           <div><div class="metric-key">Sharpe Ratio
             <button class="info-btn" aria-label="Sharpe Ratio" data-t-title="Sharpe Ratio" data-t-what="Measures how much return you get for each unit of risk you take. Risk here means total volatility (ups and downs)." data-t-formula="(Fund Return − Risk-Free Rate) ÷ Standard Deviation" data-t-range='[{"dot":"bad","label":"&lt; 0","text":"Lost money even after risk"},{"dot":"ok","label":"0–1","text":"Acceptable"},{"dot":"good","label":"1–2","text":"Good"},{"dot":"good","label":"&gt; 2","text":"Excellent"}]' data-t-link-key="sharpe">ⓘ</button>
-          </div><div class="metric-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}</div></div>
+          </div><div class="metric-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}
+            {% if category_snap.avg_sharpe %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_sharpe|floatformat:2 }})</span>{% endif %}
+          </div></div>
           <div><div class="metric-key">Max Drawdown
             <button class="info-btn" aria-label="Max Drawdown" data-t-title="Maximum Drawdown" data-t-what="The largest peak-to-trough fall in the fund's value over the period. For example, −25% means the fund fell 25% from its highest point to its lowest." data-t-interp="Tells you the worst loss you would have suffered if you had unluckily invested at the peak. Lower magnitude = better. All equity funds have drawdowns — that's normal. What matters is how quickly they recover." data-t-link-key="max_drawdown">ⓘ</button>
-          </div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%</div></div>
+          </div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%
+            {% if category_snap.avg_max_drawdown %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_max_drawdown|floatformat:2 }}%)</span>{% endif %}
+          </div></div>
           <div><div class="metric-key">Std Dev (Ann)
             <button class="info-btn" aria-label="Standard Deviation" data-t-title="Standard Deviation (Annualised)" data-t-what="Measures how much the fund's returns fluctuate. A high std dev means the fund's value swings a lot — up and down." data-t-interp="Lower = more stable/predictable. Large-cap funds typically have 12–18% std dev. Small-cap can be 20–30%. If you hate seeing your portfolio go up and down, prefer funds with lower std dev." data-t-link-key="volatility">ⓘ</button>
-          </div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}%</div></div>
+          </div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}%
+            {% if category_snap.avg_volatility %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_volatility|floatformat:1 }}%)</span>{% endif %}
+          </div></div>
           <div><div class="metric-key">Beta
             <button class="info-btn" aria-label="Beta" data-t-title="Beta" data-t-what="Measures how much the fund moves relative to its benchmark index. A beta of 1.2 means if the market falls 10%, this fund typically falls 12%." data-t-interp="Beta &gt; 1 = more volatile than market (higher risk, higher potential reward). Beta &lt; 1 = less volatile (safer). Most well-managed active funds have beta 0.8–1.2." data-t-link-key="beta">ⓘ</button>
-          </div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</div></div>
+          </div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}
+            {% if category_snap.avg_beta_3y %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_beta_3y|floatformat:2 }})</span>{% endif %}
+          </div></div>
         </div>
+        {% if category_snap %}
+        <div style="background:rgba(251,191,36,.06);border-radius:0 0 10px 10px;padding:8px 16px;font-size:11px;color:var(--text-muted);border-top:1px solid rgba(251,191,36,.15)">
+          <span style="color:var(--amber-400);font-weight:600">{{ category_name }}</span>
+          &nbsp;·&nbsp; {{ category_snap.fund_count }} funds
+          {% if category_snap.avg_model_score %}&nbsp;·&nbsp; Avg Score: <strong style="color:var(--amber-400)">{{ category_snap.avg_model_score|floatformat:0 }}/100</strong>{% endif %}
+          &nbsp;·&nbsp; <a href="/research/category-meter/" style="color:var(--amber-400);text-decoration:underline;font-size:10px">Category Meter →</a>
+        </div>
+        {% endif %}
       </div>
       {% endif %}
     </div>
@@ -341,6 +374,7 @@
       </div></div>
       <div class="card-body-tight">
         {% if trailing_returns %}
+        <div class="table-wrapper">
         <table>
           <thead><tr><th>Period</th><th>Fund</th><th>Benchmark</th><th style="color:var(--amber-400)">Cat Avg</th><th>Excess</th></tr></thead>
           <tbody>
@@ -350,9 +384,9 @@
               <td class="{% if r.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.cagr_pct|floatformat:2 }}%</td>
               <td class="muted">{% if r.bm_cagr %}{{ r.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
               <td class="muted" style="color:var(--amber-400)">
-                {% if r.period == '1Y' and category_snap.avg_return_1y %}{{ category_snap.avg_return_1y|floatformat:2 }}%
-                {% elif r.period == '3Y' and category_snap.avg_return_3y %}{{ category_snap.avg_return_3y|floatformat:2 }}%
-                {% elif r.period == '5Y' and category_snap.avg_return_5y %}{{ category_snap.avg_return_5y|floatformat:2 }}%
+                {% if r.period == '1Y' and category_snap.avg_return_1y %}<span title="Cat Range: Min {{ category_snap.min_return_1y|floatformat:1 }}% | Avg {{ category_snap.avg_return_1y|floatformat:1 }}% | Max {{ category_snap.max_return_1y|floatformat:1 }}%">{{ category_snap.avg_return_1y|floatformat:2 }}%</span>
+                {% elif r.period == '3Y' and category_snap.avg_return_3y %}<span title="Cat Range: Min {{ category_snap.min_return_3y|floatformat:1 }}% | Avg {{ category_snap.avg_return_3y|floatformat:1 }}% | Max {{ category_snap.max_return_3y|floatformat:1 }}%">{{ category_snap.avg_return_3y|floatformat:2 }}%</span>
+                {% elif r.period == '5Y' and category_snap.avg_return_5y %}<span title="Cat Range: Min {{ category_snap.min_return_5y|floatformat:1 }}% | Avg {{ category_snap.avg_return_5y|floatformat:1 }}% | Max {{ category_snap.max_return_5y|floatformat:1 }}%">{{ category_snap.avg_return_5y|floatformat:2 }}%</span>
                 {% else %}—{% endif %}
               </td>
               <td class="{% if r.excess and r.excess >= 0 %}positive{% else %}negative{% endif %}">{% if r.excess %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}</td>
@@ -360,6 +394,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
         {% else %}
         <div class="chart-placeholder" style="min-height:120px"><span style="font-size:12px;color:var(--text-muted)">No returns data yet.</span></div>
         {% endif %}
@@ -434,10 +469,19 @@
           var el = document.getElementById('cat-rolling-' + e[0]);
           if (!el) return;
           var d = catRolling[e[1]];
-          if (d && d.avg != null) el.textContent = d.avg.toFixed(2) + '%';
+          if (d && d.avg != null) {
+            var txt = d.avg.toFixed(2) + '%';
+            var tipParts = ['Cat Avg: ' + d.avg.toFixed(2) + '%'];
+            if (d.max != null) tipParts.push('Cat Max: ' + d.max.toFixed(2) + '%');
+            if (d.min != null) tipParts.push('Cat Min: ' + d.min.toFixed(2) + '%');
+            if (d.pos_pct != null) { txt += ' <span style="font-size:9px;opacity:.75">(' + d.pos_pct.toFixed(0) + '% +ve)</span>'; tipParts.push('Cat +ve periods: ' + d.pos_pct.toFixed(1) + '%'); }
+            el.innerHTML = txt;
+            el.title = tipParts.join(' | ');
+          }
         });
       })();
       </script>
+
       {% else %}
       <div class="chart-placeholder" style="min-height:80px"><span style="font-size:12px;color:var(--text-muted)">Rolling returns not computed yet.</span></div>
       {% endif %}
@@ -580,7 +624,7 @@
       <div class="metrics-dl">
         <div><div class="metric-key">Std Dev (Ann %)
           <button class="info-btn" aria-label="Standard Deviation" data-t-title="Std Deviation (Annualised)" data-t-link-key="volatility">ⓘ</button>
-        </div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}
+        </div><div class="metric-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}%
           {% if category_snap.avg_volatility %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_volatility|floatformat:1 }}%)</span>{% endif %}
         </div></div>
         <div><div class="metric-key">Sharpe Ratio
@@ -595,30 +639,34 @@
         </div></div>
         <div><div class="metric-key">Max Drawdown %
           <button class="info-btn" aria-label="Max Drawdown" data-t-title="Maximum Drawdown" data-t-what="The biggest fall from any peak to subsequent trough in this period." data-t-link-key="max_drawdown">ⓘ</button>
-        </div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}
+        </div><div class="metric-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%
           {% if category_snap.avg_max_drawdown %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_max_drawdown|floatformat:2 }}%)</span>{% endif %}
         </div></div>
         <div><div class="metric-key">Beta
           <button class="info-btn" aria-label="Beta" data-t-title="Beta" data-t-what="How much the fund moves per unit of market movement." data-t-link-key="beta">ⓘ</button>
-        </div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</div></div>
+        </div><div class="metric-val">{{ risk_3y.beta|floatformat:2|default:"—" }}
+          {% if category_snap.avg_beta_3y %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_beta_3y|floatformat:2 }})</span>{% endif %}
+        </div></div>
         <div><div class="metric-key">Alpha (Ann %)
           <button class="info-btn" aria-label="Alpha" data-t-title="Alpha (Annualised)" data-t-what="The extra return the fund generates above what you'd expect given the market's return and the fund's beta." data-t-link-key="alpha">ⓘ</button>
-        </div><div class="metric-val {% if risk_3y.alpha_ann and risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_3y.alpha_ann|floatformat:2|default:"—" }}</div></div>
+        </div><div class="metric-val {% if risk_3y.alpha_ann and risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_3y.alpha_ann|floatformat:2|default:"—" }}%
+          {% if category_snap.avg_alpha_3y %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_alpha_3y|floatformat:2 }})</span>{% endif %}
+        </div></div>
         <div><div class="metric-key">R-Squared %
           <button class="info-btn" aria-label="R-Squared" data-t-title="R-Squared" data-t-what="How much of the fund's movement is explained by the benchmark index.">ⓘ</button>
-        </div><div class="metric-val">{{ risk_3y.r_squared|floatformat:2|default:"—" }}</div></div>
+        </div><div class="metric-val">{{ risk_3y.r_squared|floatformat:2|default:"—" }}%</div></div>
         <div><div class="metric-key">Tracking Error %
           <button class="info-btn" aria-label="Tracking Error" data-t-title="Tracking Error" data-t-what="How much the fund's returns deviate from its benchmark on a day-to-day basis." data-t-link-key="tracking_error">ⓘ</button>
-        </div><div class="metric-val">{{ risk_3y.tracking_error|floatformat:2|default:"—" }}</div></div>
+        </div><div class="metric-val">{{ risk_3y.tracking_error|floatformat:2|default:"—" }}%</div></div>
         <div><div class="metric-key">Info Ratio
           <button class="info-btn" aria-label="Information Ratio" data-t-title="Information Ratio" data-t-what="Measures how consistently the fund beats its benchmark per unit of active risk taken." data-t-link-key="info_ratio">ⓘ</button>
         </div><div class="metric-val">{{ risk_3y.info_ratio|floatformat:2|default:"—" }}</div></div>
         <div><div class="metric-key">Upside Capture %
           <button class="info-btn" aria-label="Upside Capture" data-t-title="Upside Capture Ratio" data-t-what="When the benchmark goes up, how much of that gain does the fund capture?">ⓘ</button>
-        </div><div class="metric-val positive">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}</div></div>
+        </div><div class="metric-val positive">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}%</div></div>
         <div><div class="metric-key">Downside Capture %
           <button class="info-btn" aria-label="Downside Capture" data-t-title="Downside Capture Ratio" data-t-what="When the benchmark falls, how much of that loss does the fund suffer?">ⓘ</button>
-        </div><div class="metric-val negative">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}</div></div>
+        </div><div class="metric-val negative">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}%</div></div>
         <div><div class="metric-key">Risk-Free Rate Used</div><div class="metric-val" style="font-size:13px">{{ risk_3y.rf_rate_pct|floatformat:2 }}%</div></div>
       </div>
     </div>
@@ -641,7 +689,7 @@
       </div>
       {% endif %}
       <div class="metrics-dl">
-        <div><div class="metric-key">Std Dev (Ann %)</div><div class="metric-val">{{ risk_5y.std_dev_ann|floatformat:2|default:"—" }}
+        <div><div class="metric-key">Std Dev (Ann %)</div><div class="metric-val">{{ risk_5y.std_dev_ann|floatformat:2|default:"—" }}%
           {% if category_snap.avg_volatility_5y %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_volatility_5y|floatformat:1 }}%)</span>{% endif %}
         </div></div>
         <div><div class="metric-key">Sharpe Ratio</div><div class="metric-val">{{ risk_5y.sharpe_ratio|floatformat:2|default:"—" }}
@@ -654,12 +702,12 @@
           {% if category_snap.avg_max_drawdown_5y %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat: {{ category_snap.avg_max_drawdown_5y|floatformat:2 }}%)</span>{% endif %}
         </div></div>
         <div><div class="metric-key">Beta</div><div class="metric-val">{{ risk_5y.beta|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Alpha (Ann %)</div><div class="metric-val {% if risk_5y.alpha_ann and risk_5y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_5y.alpha_ann|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">R-Squared %</div><div class="metric-val">{{ risk_5y.r_squared|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Tracking Error %</div><div class="metric-val">{{ risk_5y.tracking_error|floatformat:2|default:"—" }}</div></div>
+        <div><div class="metric-key">Alpha (Ann %)</div><div class="metric-val {% if risk_5y.alpha_ann and risk_5y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_5y.alpha_ann|floatformat:2|default:"—" }}%</div></div>
+        <div><div class="metric-key">R-Squared %</div><div class="metric-val">{{ risk_5y.r_squared|floatformat:2|default:"—" }}%</div></div>
+        <div><div class="metric-key">Tracking Error %</div><div class="metric-val">{{ risk_5y.tracking_error|floatformat:2|default:"—" }}%</div></div>
         <div><div class="metric-key">Info Ratio</div><div class="metric-val">{{ risk_5y.info_ratio|floatformat:2|default:"—" }}</div></div>
-        <div><div class="metric-key">Upside Capture %</div><div class="metric-val positive">{{ risk_5y.upside_capture|floatformat:1|default:"—" }}</div></div>
-        <div><div class="metric-key">Downside Capture %</div><div class="metric-val negative">{{ risk_5y.downside_capture|floatformat:1|default:"—" }}</div></div>
+        <div><div class="metric-key">Upside Capture %</div><div class="metric-val positive">{{ risk_5y.upside_capture|floatformat:1|default:"—" }}%</div></div>
+        <div><div class="metric-key">Downside Capture %</div><div class="metric-val negative">{{ risk_5y.downside_capture|floatformat:1|default:"—" }}%</div></div>
         <div><div class="metric-key">Benchmark</div><div class="metric-val" style="font-size:12px">{{ benchmark_display_name|default:"—" }}</div></div>
       </div>
     </div>
@@ -1081,6 +1129,13 @@
 
   <div class="card" style="margin-bottom:20px">
     <div class="card-header"><div class="card-title">Portfolio Summary</div></div>
+    {% if category_snap and category_snap.avg_turnover %}
+    <div style="background:rgba(251,191,36,.07);border-radius:8px;padding:10px 14px;margin:0 16px 12px;font-size:12px;border-left:3px solid var(--amber-400)">
+      <span style="color:var(--amber-400);font-weight:600">Category Avg ({{ category_name }})</span>
+      &nbsp;·&nbsp; Turnover: <strong>{{ category_snap.avg_turnover|floatformat:1 }}%</strong>
+      {% if category_snap.median_turnover %}&nbsp;(median: {{ category_snap.median_turnover|floatformat:1 }}%){% endif %}
+    </div>
+    {% endif %}
     <div class="metrics-dl">
       <div><div class="metric-key">Total Holdings</div><div class="metric-val">{{ total_holdings_count|default:"—" }}</div></div>
       <div><div class="metric-key">Top 10 Weight
@@ -1090,7 +1145,9 @@
       </div></div>
       <div><div class="metric-key">Portfolio Turnover
         <button class="info-btn" aria-label="Portfolio Turnover" data-t-title="Portfolio Turnover" data-t-what="How frequently the fund manager buys and sells stocks. 100% turnover = the entire portfolio was replaced once during the year." data-t-interp="High turnover (&gt; 100%) = active trading, higher costs, more tax events. Low turnover (&lt; 30%) = buy-and-hold approach. Index funds have very low turnover (&lt; 5%). High turnover without proportional returns is a red flag." data-t-link-key="turnover">ⓘ</button>
-      </div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:2 }}%{% else %}—{% endif %}</div></div>
+      </div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:2 }}%{% else %}—{% endif %}
+        {% if category_snap.avg_turnover %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat avg: {{ category_snap.avg_turnover|floatformat:1 }}%)</span>{% endif %}
+      </div></div>
     </div>
   </div>
 
@@ -1150,14 +1207,26 @@
   <div class="grid-2" style="gap:20px">
     <div class="card">
       <div class="card-header"><div class="card-title">Costs & Fees</div></div>
+      {% if category_snap and category_snap.avg_expense_ratio %}
+      <div style="background:rgba(251,191,36,.07);border-radius:8px;padding:10px 14px;margin:0 16px 12px;font-size:12px;border-left:3px solid var(--amber-400)">
+        <span style="color:var(--amber-400);font-weight:600">Category Avg ({{ category_name }})</span>
+        &nbsp;·&nbsp; Expense Ratio: <strong>{{ category_snap.avg_expense_ratio|floatformat:2 }}%</strong>
+        {% if category_snap.median_expense_ratio %}&nbsp;(median: {{ category_snap.median_expense_ratio|floatformat:2 }}%){% endif %}
+        {% if category_snap.avg_turnover %}&nbsp;·&nbsp; Turnover: <strong>{{ category_snap.avg_turnover|floatformat:1 }}%</strong>{% endif %}
+      </div>
+      {% endif %}
       <div class="metrics-dl">
         <div><div class="metric-key">Expense Ratio
-          <button class="info-btn" aria-label="Expense Ratio" data-t-title="Expense Ratio" data-t-what="Annual fee deducted from the fund's NAV to cover management, distribution, and admin costs. Always prefer Direct plans which have lower expense ratios than Regular plans." data-t-range='[{"dot":"good","label":"&lt; 0.5%","text":"Very low"},{"dot":"good","label":"0.5%–1%","text":"Low (good for equity)"},{"dot":"ok","label":"1%–1.5%","text":"Average"},{"dot":"bad","label":"&gt; 1.5%","text":"High"}]' data-t-link-key="expense_ratio">ⓘ</button>
-        </div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}</div></div>
+          <button class="info-btn" aria-label="Expense Ratio" data-t-title="Expense Ratio" data-t-what="Annual fee deducted from the fund's NAV to cover management, distribution, and admin costs. Always prefer Direct plans which have lower expense ratios than Regular plans." data-t-range='[{"dot":"good","label":"&lt; 0.5%","text":"Very low"},{"dot":"good","label":"0.5%–1%","text":"Low (good for equity)"},{"dot":"ok","label":"1%–1.5%","text":"Average"},{"dot":"bad","label":"> 1.5%","text":"High"}]' data-t-link-key="expense_ratio">ⓘ</button>
+        </div><div class="metric-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% elif meta.reference_expense_ratio %}<span style="font-size:13px">{{ meta.reference_expense_ratio }}%</span><div class="fund-house">{{ meta.reference_expense_label }}</div>{% else %}—{% endif %}
+          {% if category_snap.avg_expense_ratio %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat avg: {{ category_snap.avg_expense_ratio|floatformat:2 }}%)</span>{% endif %}
+        </div></div>
         {% if meta.expense_ratio_date %}<div><div class="metric-key">Expense Ratio Date</div><div class="metric-val" style="font-size:13px">{{ meta.expense_ratio_date|date:"d M Y" }}</div></div>{% endif %}
         <div><div class="metric-key">Portfolio Turnover
           <button class="info-btn" aria-label="Portfolio Turnover" data-t-title="Portfolio Turnover" data-t-what="How frequently the fund replaces its holdings. Impacts transaction costs and tax efficiency. Very active trading (&gt;100%) increases hidden costs." data-t-link-key="turnover">ⓘ</button>
-        </div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover }}%{% else %}—{% endif %}</div></div>
+        </div><div class="metric-val">{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover }}%{% else %}—{% endif %}
+          {% if category_snap.avg_turnover %}<span style="font-size:10px;color:var(--amber-400);margin-left:4px">(cat avg: {{ category_snap.avg_turnover|floatformat:1 }}%)</span>{% endif %}
+        </div></div>
         <div><div class="metric-key">CRISIL Rating
           <button class="info-btn" aria-label="CRISIL Rating" data-t-title="CRISIL Fund Ranking" data-t-what="An independent rating by CRISIL (a subsidiary of S&amp;P Global) that ranks mutual funds within their category. Rank 1 = top 10%, Rank 5 = bottom 10%.">ⓘ</button>
         </div><div class="metric-val" style="font-size:13px">{{ meta.crisil_rating|default:"—" }}</div></div>
@@ -1362,6 +1431,32 @@
         </div>
       </div>
     </div>
+
+    {% if category_snap and category_snap.avg_model_score %}
+    <!-- ── Category Score Distribution ──────────────────────────── -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">Category Score Distribution — {{ category_name }}
+          <button class="info-btn" aria-label="Category Distribution" data-t-title="Category Score Distribution" data-t-what="Shows how the {{ category_snap.fund_count }} funds in the same SEBI sub-category ({{ category_name }}) distribute across our model score tiers. Use this to see how competitive this category is and where this fund stands within it." data-t-interp="If most funds in the category are Weak/Fair, a Good fund here is genuinely standout. If most are Strong, the bar is high.">ⓘ</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted)">{{ category_snap.fund_count }} funds &nbsp;·&nbsp; Avg score: <strong style="color:var(--amber-400)">{{ category_snap.avg_model_score|floatformat:0 }}/100</strong></div>
+      </div>
+      <div class="card-body" style="padding:16px 20px">
+        <div style="display:flex;gap:4px;border-radius:8px;overflow:hidden;height:32px;margin-bottom:10px">
+          {% if category_snap.pct_strong %}<div style="width:{{ category_snap.pct_strong }}%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;min-width:20px" title="Strong: {{ category_snap.pct_strong|floatformat:0 }}%">{{ category_snap.pct_strong|floatformat:0 }}%</div>{% endif %}
+          {% if category_snap.pct_good %}<div style="width:{{ category_snap.pct_good }}%;background:#6366f1;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;min-width:20px" title="Good: {{ category_snap.pct_good|floatformat:0 }}%">{{ category_snap.pct_good|floatformat:0 }}%</div>{% endif %}
+          {% if category_snap.pct_fair %}<div style="width:{{ category_snap.pct_fair }}%;background:rgba(251,191,36,0.8);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#1e293b;min-width:20px" title="Fair: {{ category_snap.pct_fair|floatformat:0 }}%">{{ category_snap.pct_fair|floatformat:0 }}%</div>{% endif %}
+          {% if category_snap.pct_weak %}<div style="width:{{ category_snap.pct_weak }}%;background:#f87171;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;min-width:20px" title="Weak/Poor: {{ category_snap.pct_weak|floatformat:0 }}%">{{ category_snap.pct_weak|floatformat:0 }}%</div>{% endif %}
+        </div>
+        <div style="display:flex;gap:16px;font-size:11px;flex-wrap:wrap">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#22c55e;margin-right:4px;vertical-align:middle"></span>Strong (≥75)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#6366f1;margin-right:4px;vertical-align:middle"></span>Good (55–74)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(251,191,36,0.8);margin-right:4px;vertical-align:middle"></span>Fair (40–54)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f87171;margin-right:4px;vertical-align:middle"></span>Weak/Poor (&lt;40)</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- ── Pillar Cards Grid ────────────────────────────────────── -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:20px">
@@ -2210,12 +2305,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load returns + risk charts when those tabs are activated
   document.querySelector('[data-tab="tab-performance"]')?.addEventListener('click', () => {
     if (!document.getElementById('returns-bar-chart').__loaded) {
-      loadChart('returns-bar-chart', `/api/funds/${AMFI_CODE}/returns/`, (el, d) => renderReturnsChart(el, d));
-      loadChart('calendar-chart', `/api/funds/${AMFI_CODE}/calendar/`, (el, d) => renderCalendarChart(el, d));
+      loadChart('returns-bar-chart', `/api/funds/${AMFI_CODE}/returns/`, (el, d) => renderReturnsChart(el, d, window.categoryAvgData));
+      loadChart('calendar-chart', `/api/funds/${AMFI_CODE}/calendar/`, (el, d) => renderCalendarChart(el, d, window.categoryAvgData ? window.categoryAvgData.calendar : null));
       loadChart('rolling-chart', `/api/funds/${AMFI_CODE}/rolling/`, (el, d) => renderRollingChart(el, d));
       document.getElementById('returns-bar-chart').__loaded = true;
     }
   });
+
   
   document.querySelector('[data-tab="tab-risk"]')?.addEventListener('click', () => {
     if (!document.getElementById('drawdown-chart').__loaded) {

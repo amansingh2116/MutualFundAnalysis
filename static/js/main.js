@@ -75,7 +75,7 @@ function renderNavChart(el, { data, scheme_name, benchmark_data, benchmark_name 
 }
 
 // ── Returns Bar Chart ──────────────────────────────────────────
-function renderReturnsChart(el, { trailing, benchmark_name }) {
+function renderReturnsChart(el, { trailing, benchmark_name }, catAvg) {
   if (!trailing || !trailing.length) {
     el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📊</span><span style="font-size:12px;color:var(--text-muted)">No on-demand returns data available yet.</span></div>`;
     return;
@@ -88,6 +88,14 @@ function renderReturnsChart(el, { trailing, benchmark_name }) {
   ];
   if (bmVals.some(v => v != null)) {
     traces.push({ name: benchmark_name || 'Benchmark', x: periods, y: bmVals, type: 'bar', marker: { color: 'rgba(148,163,184,0.4)' }, hovertemplate: '%{x}: %{y:.2f}%<extra>Benchmark</extra>' });
+  }
+  // Category average bars (amber)
+  if (catAvg && catAvg.trailing) {
+    const catMap = { '1Y': catAvg.trailing['1Y'], '3Y': catAvg.trailing['3Y'], '5Y': catAvg.trailing['5Y'] };
+    const catVals = periods.map(p => catMap[p] != null ? catMap[p] : null);
+    if (catVals.some(v => v != null)) {
+      traces.push({ name: 'Cat Avg', x: periods, y: catVals, type: 'bar', marker: { color: 'rgba(251,191,36,0.55)', line: { color: 'rgba(251,191,36,0.9)', width: 1 } }, hovertemplate: '%{x}: %{y:.2f}%<extra>Cat Avg</extra>' });
+    }
   }
   Plotly.newPlot(el, traces, mergePlotlyLayout({ barmode: 'group', xaxis: { type: 'category' }, yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
 }
@@ -124,7 +132,7 @@ function renderSectorChart(el, { sectors }) {
 }
 
 // ── Calendar Return Chart ──────────────────────────────────────
-function renderCalendarChart(el, { calendar, benchmark_name }) {
+function renderCalendarChart(el, { calendar, benchmark_name }, catCal) {
   if (!calendar || !calendar.length) { el.innerHTML = `<div class="chart-placeholder"><span class="placeholder-icon">📅</span></div>`; return; }
   const years = calendar.map(c => c.year.toString());
   const rets = calendar.map(c => c.return_pct);
@@ -145,6 +153,21 @@ function renderCalendarChart(el, { calendar, benchmark_name }) {
       marker: { color: 'rgba(148,163,184,0.45)' },
       hovertemplate: '%{x}: %{y:.2f}%<extra>Benchmark</extra>',
     });
+  }
+  // Category average line (amber) — overlay on calendar chart
+  if (catCal && typeof catCal === 'object' && Object.keys(catCal).length) {
+    const catYears = years.filter(y => catCal[y] != null);
+    const catVals = catYears.map(y => catCal[y]);
+    if (catYears.length) {
+      traces.push({
+        name: 'Cat Avg',
+        x: catYears, y: catVals,
+        type: 'scatter', mode: 'lines+markers',
+        line: { color: 'rgba(251,191,36,0.9)', width: 2, dash: 'dot' },
+        marker: { color: 'rgba(251,191,36,1)', size: 5 },
+        hovertemplate: '%{x}: %{y:.2f}%<extra>Cat Avg</extra>',
+      });
+    }
   }
   Plotly.newPlot(el, traces, mergePlotlyLayout({ barmode: 'group', xaxis: { type: 'category' }, yaxis: { ticksuffix: '%' } }), MF_PLOTLY_CONFIG);
 }
