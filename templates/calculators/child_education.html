@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Child Education Planner{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'calculators:hub' %}">Calculators</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>Child Education Planner</span>
+</div>
+
+<div class="page-header">
+  <div class="page-title">🎓 Child Education Planner
+    <button class="info-btn" data-t-title="Child Education Planner" data-t-what="Calculates the future cost of higher education by factoring in high education inflation (8–12%) and computes the exact monthly SIP or lumpsum required to build the college corpus." data-t-interp="Education inflation in India rises faster than CPI retail inflation. Starting early allows power of compounding to build a major portion of your target corpus.">ⓘ</button>
+  </div>
+  <div class="page-subtitle">Calculate future college fees considering education inflation and compute your required monthly SIP &amp; lumpsum strategy.</div>
+</div>
+
+<!-- Course Presets Bar -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div class="card-title">🚀 Quick Course Cost Benchmarks (Today's Value)
+      <button class="info-btn" data-t-title="Course Benchmark Presets" data-t-what="Click any benchmark to pre-fill average estimated costs in India and abroad." data-t-interp="Presets provide realistic starting baselines for premier Indian institutes (IIT, IIM, AIIMS) and foreign universities.">ⓘ</button>
+    </div>
+  </div>
+  <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap">
+    <button type="button" class="btn btn-outline" onclick="applyPreset(1500000, 10, 'Engineering (India)')">🎓 B.Tech / Engg (₹15L)</button>
+    <button type="button" class="btn btn-outline" onclick="applyPreset(2500000, 10, 'MBA (India)')">💼 MBA / IIM (₹25L)</button>
+    <button type="button" class="btn btn-outline" onclick="applyPreset(3500000, 10, 'Medical / MBBS (India)')">🩺 MBBS / Medical (₹35L)</button>
+    <button type="button" class="btn btn-outline" onclick="applyPreset(6000000, 12, 'Higher Studies Abroad')">✈️ Foreign University (₹60L)</button>
+  </div>
+</div>
+
+<div class="calc-layout">
+  <!-- Inputs -->
+  <div class="calc-inputs">
+    <form id="child-edu-form">{% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Child's Current Age (Years)
+          <button class="info-btn" data-t-title="Child's Current Age" data-t-what="The current age of your child in years." data-t-interp="Starting when your child is 1-3 years old gives you 15+ years of compounding, cutting required SIP by up to 60%.">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="current_age" id="current_age" min="0" max="17" value="3" oninput="updateYearsText()">
+          <span class="range-value" id="current_age_display">3 yrs</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">College Entry Age (Years)
+          <button class="info-btn" data-t-title="College Entry Age" data-t-what="The age at which your child will enter college/higher education." data-t-interp="Standard undergraduate entry in India is 18 years; post-graduation/master's entry is typically 21-22 years.">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="target_age" id="target_age" min="15" max="25" value="18" oninput="updateYearsText()">
+          <span class="range-value" id="target_age_display">18 yrs</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px" id="time_horizon_text">Time Horizon: 15 Years</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Current Cost of Course Today (₹)
+          <button class="info-btn" data-t-title="Current Cost Today" data-t-what="The total cost of the degree/course if your child were joining college today." data-t-interp="Includes tuition fees, hostel, books, and living expenses in today's money.">ⓘ</button>
+        </label>
+        <input class="form-control" type="number" name="current_cost" id="current_cost" value="2500000" min="50000" step="50000">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Education Inflation Rate (% p.a.)
+          <button class="info-btn" data-t-title="Education Inflation Rate" data-t-what="The annual percentage rate at which higher education costs increase over time." data-t-interp="Education inflation in India typically runs at 8–12% per year, significantly higher than general CPI (5-6%).">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="education_inflation" id="education_inflation" min="5" max="15" value="10" step="0.5">
+          <span class="range-value" id="education_inflation_display">10.0%</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Expected Investment Return (% p.a.)
+          <button class="info-btn" data-t-title="Expected Annual Return" data-t-what="The annual CAGR you expect from your education investment portfolio." data-t-interp="Historical equity mutual fund CAGR in India is 12–15% over 10+ year horizons. Conservative hybrid funds yield 9-11%.">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="expected_rate" id="expected_rate" min="5" max="20" value="12" step="0.5">
+          <span class="range-value" id="expected_rate_display">12.0%</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Existing Savings Allocated Today (₹)
+          <button class="info-btn" data-t-title="Existing Savings Allocated" data-t-what="Any lump sum amount already set aside or invested for your child's education." data-t-interp="This amount will grow at your expected return rate, reducing the net SIP gap required every month.">ⓘ</button>
+        </label>
+        <input class="form-control" type="number" name="existing_savings" id="existing_savings" value="0" min="0" step="25000">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">🎓 Calculate Education Plan</button>
+    </form>
+  </div>
+
+  <!-- Results -->
+  <div class="calc-results">
+    <div id="child-edu-results">
+      <div class="chart-placeholder" style="min-height:220px">
+        <span style="font-size:13px;color:var(--text-muted)">Configure parameters and click Calculate Education Plan.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Guide Card -->
+<div class="card" style="margin-top:24px">
+  <div class="card-header">
+    <div class="card-title">💡 How Child Education Planning Works &amp; Key Rules
+      <button class="info-btn" data-t-title="Child Education Strategy Guide" data-t-what="Explains education inflation, compounding, and risk management." data-t-interp="Follow an equity-to-debt glide path as college entry approaches.">ⓘ</button>
+    </div>
+  </div>
+  <div class="card-body" style="font-size:12px;line-height:1.65;color:var(--text-secondary)">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:12px">
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔥 The Impact of Education Inflation</div>
+        Higher education costs in India rise at <strong>8% to 12% annually</strong> — nearly double general retail inflation:
+        <ul style="margin:4px 0 0 16px;padding:0">
+          <li>A course costing <strong>₹25 Lakhs today</strong> will cost <strong>₹1.04 Crore in 15 years</strong> at 10% inflation.</li>
+          <li>Never plan using today's fees; always calculate monthly SIP against the <strong>inflation-adjusted future cost</strong>.</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🛡️ Equity-to-Debt Glide Path Strategy</div>
+        Protect your child's college corpus from market downturns right when college starts:
+        <ul style="margin:4px 0 0 16px;padding:0">
+          <li><strong>Age 0–12 Years</strong>: Invest 80–100% in Equity Mutual Funds for aggressive long-term compounding.</li>
+          <li><strong>Age 13–15 Years</strong>: Gradually shift 30% of corpus into conservative hybrid/debt funds.</li>
+          <li><strong>Age 16–18 Years (Final 3Y)</strong>: De-risk 80%+ of corpus into liquid/short-duration debt funds or STPs to lock in gains.</li>
+        </ul>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic">
+      💡 <strong>Pro Tip:</strong> Step up your SIP by 10% every year as your income grows. This can reduce your starting monthly SIP requirement by up to 35%.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateYearsText() {
+  const cur = parseInt(document.getElementById('current_age').value);
+  const tgt = parseInt(document.getElementById('target_age').value);
+  document.getElementById('current_age_display').textContent = cur + ' yrs';
+  document.getElementById('target_age_display').textContent = tgt + ' yrs';
+  const horizon = Math.max(1, tgt - cur);
+  document.getElementById('time_horizon_text').textContent = `Time Horizon: ${horizon} Year${horizon > 1 ? 's' : ''} until college`;
+}
+
+function applyPreset(cost, inf, name) {
+  document.getElementById('current_cost').value = cost;
+  document.getElementById('education_inflation').value = inf;
+  document.getElementById('education_inflation_display').textContent = inf.toFixed(1) + '%';
+  document.getElementById('child-edu-form').dispatchEvent(new Event('submit', { cancelable: true }));
+}
+
+document.getElementById('child-edu-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const curAge = parseInt(document.getElementById('current_age').value);
+  const tgtAge = parseInt(document.getElementById('target_age').value);
+  if (tgtAge <= curAge) {
+    document.getElementById('child-edu-results').innerHTML = `<div class="alert alert-danger">College entry age must be greater than current age.</div>`;
+    return;
+  }
+
+  const fd = new FormData(e.target);
+  const r = await fetch('{% url "calculators:api_child_education" %}', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_age: curAge,
+      target_age: tgtAge,
+      current_cost: parseFloat(fd.get('current_cost')),
+      education_inflation: parseFloat(fd.get('education_inflation')),
+      expected_rate: parseFloat(fd.get('expected_rate')),
+      existing_savings: parseFloat(fd.get('existing_savings')) || 0
+    }),
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }
+  });
+
+  const d = await r.json();
+  if (d.error) {
+    document.getElementById('child-edu-results').innerHTML = `<div class="alert alert-danger">${d.error}</div>`;
+    return;
+  }
+
+  const futCostL = (d.future_cost / 100000).toFixed(2);
+  const gapL = (d.net_gap / 100000).toFixed(2);
+  const sipReq = d.monthly_sip_required.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+  document.getElementById('child-edu-results').innerHTML = `
+    <div class="calc-result-highlight">
+      <div class="label">Monthly SIP Required
+        <button class="info-btn" data-t-title="Monthly SIP Required" data-t-what="The fixed monthly mutual fund SIP needed to bridge your target education gap." data-t-interp="Start this monthly investment immediately to build the required inflation-adjusted college corpus.">&#9432;</button>
+      </div>
+      <div class="value">₹${sipReq}</div>
+      <div class="sub">to build ₹${futCostL} Lakhs in ${d.years} years (at age ${d.target_age})</div>
+    </div>
+
+    <div class="metrics-dl">
+      <div>
+        <div class="metric-key">Current Course Cost</div>
+        <div class="metric-val" style="font-size:14px">₹${(d.current_cost / 100000).toFixed(2)}L</div>
+      </div>
+      <div>
+        <div class="metric-key">Inflation-Adjusted Target
+          <button class="info-btn" data-t-title="Inflation-Adjusted Target" data-t-what="Future cost of the course when child enters college at age ${d.target_age}." data-t-interp="Calculated at ${d.education_inflation_pct}% education inflation p.a.">&#9432;</button>
+        </div>
+        <div class="metric-val" style="font-size:14px;color:var(--danger)">₹${futCostL}L</div>
+      </div>
+      <div>
+        <div class="metric-key">Existing Savings FV
+          <button class="info-btn" data-t-title="Future Value of Existing Savings" data-t-what="The projected value of current savings after growing at ${d.expected_rate_pct}% p.a. over ${d.years} years." data-t-interp="Reduces the net gap you need to invest for.">&#9432;</button>
+        </div>
+        <div class="metric-val" style="font-size:14px;color:var(--success)">₹${(d.fv_existing / 100000).toFixed(2)}L</div>
+      </div>
+      <div>
+        <div class="metric-key">Net Target Deficit
+          <button class="info-btn" data-t-title="Net Target Deficit" data-t-what="The remaining corpus gap needed after deducting existing savings growth." data-t-interp="This is the gap your SIP will accumulate.">&#9432;</button>
+        </div>
+        <div class="metric-val" style="font-size:14px">₹${gapL}L</div>
+      </div>
+      <div>
+        <div class="metric-key">Lumpsum Today Option
+          <button class="info-btn" data-t-title="Alternative Lumpsum Today" data-t-what="One-time lumpsum needed today (instead of SIP) to fund the net gap." data-t-interp="Invest this once today at ${d.expected_rate_pct}% CAGR to reach your target.">&#9432;</button>
+        </div>
+        <div class="metric-val" style="font-size:14px">₹${(d.lumpsum_today_required / 100000).toFixed(2)}L</div>
+      </div>
+      <div>
+        <div class="metric-key">Total Investment Outgo</div>
+        <div class="metric-val" style="font-size:14px">₹${(d.total_outgo / 100000).toFixed(2)}L</div>
+      </div>
+    </div>
+
+    <!-- Year by Year Progression Table -->
+    <div style="margin-top:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">📈 Year-by-Year Growth Trajectory</div>
+      <div class="table-wrapper" style="max-height:260px;overflow-y:auto">
+        <table class="indicator-table" style="font-size:11px">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Child Age</th>
+              <th>Total Invested (₹)</th>
+              <th>Portfolio Value (₹)</th>
+              <th>College Cost Projection (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${d.trajectory.map(t => `
+              <tr>
+                <td>Yr ${t.year}</td>
+                <td style="font-weight:700">${t.child_age} yrs</td>
+                <td style="font-family:monospace">₹${(t.sip_invested / 100000).toFixed(2)}L</td>
+                <td style="font-family:monospace;font-weight:700;color:var(--success)">₹${(t.total_portfolio_value / 100000).toFixed(2)}L</td>
+                <td style="font-family:monospace;color:var(--danger)">₹${(t.inflation_cost_projection / 100000).toFixed(2)}L</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('child-edu-results'));
+});
+
+// Auto-run on load
+updateYearsText();
+document.getElementById('child-edu-form').dispatchEvent(new Event('submit', { cancelable: true }));
+</script>
+{% endblock %}

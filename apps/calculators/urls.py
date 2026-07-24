@@ -18,11 +18,17 @@ urlpatterns = [
     path('compare/', views.compare_view, name='compare'),
     path('stp/', views.stp_view, name='stp'),
     path('net-worth/', views.net_worth_view, name='net_worth'),
+    path('child-education/', views.child_education_view, name='child_education'),
+    path('retirement/', views.retirement_view, name='retirement'),
     # API endpoints
     path('api/sip/', views.calc_sip_api, name='api_sip'),
     path('api/lumpsum/', views.calc_lumpsum_api, name='api_lumpsum'),
     path('api/swp/', views.calc_swp_api, name='api_swp'),
     path('api/goal/', views.calc_goal_api, name='api_goal'),
+    path('api/child-education/', views.calc_child_education_api, name='api_child_education'),
+    path('api/retirement/', views.calc_retirement_api, name='api_retirement'),
+
+
     path('api/tax/', views.calc_tax_api, name='api_tax'),
     path('api/overlap/', views.calc_overlap_api, name='api_overlap'),
     path('api/xirr/', views.calc_xirr_api, name='api_xirr'),

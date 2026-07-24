@@ -1,82 +1,402 @@
 {% extends "base.html" %}
-{% block title %}Calculators{% endblock %}
+{% block title %}Financial Calculators &amp; Research Tools{% endblock %}
+
+{% block extra_head %}
+<style>
+.calc-hub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.calc-search-box {
+  position: relative;
+  min-width: 280px;
+  flex: 1;
+  max-width: 400px;
+}
+.calc-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: all var(--transition);
+}
+.calc-search-input:focus {
+  outline: none;
+  border-color: var(--indigo-400);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+.calc-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.calc-filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.calc-filter-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  user-select: none;
+}
+.calc-filter-btn:hover {
+  border-color: var(--indigo-400);
+  color: var(--text-primary);
+}
+.calc-filter-btn.active {
+  background: var(--indigo-400);
+  border-color: var(--indigo-400);
+  color: #ffffff;
+}
+
+.calc-section {
+  margin-bottom: 32px;
+}
+.calc-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.calc-section-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(99,102,241,0.12);
+  color: var(--indigo-400);
+}
+
+.calc-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  position: relative;
+}
+.calc-card:hover {
+  border-color: var(--indigo-400);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(99,102,241,0.15);
+}
+.calc-card-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+.calc-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.calc-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.calc-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--indigo-400);
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <div class="page-title">🧮 Financial Calculators</div>
-  <div class="page-subtitle">All computations are done on the server — no data sent to third parties.</div>
+<div class="page-header" style="margin-bottom:20px">
+  <div class="page-title">🧮 Financial Calculators &amp; Planning Suite</div>
+  <div class="page-subtitle">16 specialized calculators for SIPs, inflation goals, tax optimization, net worth, and peer comparisons.</div>
 </div>
 
-<div class="grid-3">
-  <a href="{% url 'calculators:sip' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">📈</div>
-    <div class="fund-card-name">SIP Calculator</div>
-    <div class="fund-card-house">Monthly investment → Future Value with XIRR</div>
-  </a>
-  <a href="{% url 'calculators:lumpsum' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">💰</div>
-    <div class="fund-card-name">Lumpsum Calculator</div>
-    <div class="fund-card-house">One-time investment growth projection</div>
-  </a>
-  <a href="{% url 'calculators:swp' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">💸</div>
-    <div class="fund-card-name">SWP Calculator</div>
-    <div class="fund-card-house">Systematic Withdrawal Plan — corpus longevity</div>
-  </a>
-  <a href="{% url 'calculators:goal' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🎯</div>
-    <div class="fund-card-name">Goal Planner</div>
-    <div class="fund-card-house">Target amount → required SIP amount</div>
-  </a>
-  <a href="{% url 'calculators:tax' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🧾</div>
-    <div class="fund-card-name">MF Tax Calculator</div>
-    <div class="fund-card-house">Multi-fund STCG/LTCG · Tax loss harvesting · SIP FIFO · FY 2025-26</div>
-  </a>
-  <a href="{% url 'calculators:overlap' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🔄</div>
-    <div class="fund-card-name">Fund Overlap Checker</div>
-    <div class="fund-card-house">Stock-level overlap between two funds</div>
-  </a>
-  <a href="{% url 'calculators:compare' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">⚖️</div>
-    <div class="fund-card-name">Fund Comparison</div>
-    <div class="fund-card-house">Compare up to 5 funds — returns, risk, portfolio &amp; charts</div>
-  </a>
-  <a href="{% url 'calculators:stp' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🔀</div>
-    <div class="fund-card-name">STP Calculator</div>
-    <div class="fund-card-house">Systematic Transfer Plan between two funds</div>
-  </a>
-  <a href="{% url 'calculators:step_sip' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">📊</div>
-    <div class="fund-card-name">Step-Up SIP</div>
-    <div class="fund-card-house">Annual SIP increase → accelerated wealth</div>
-  </a>
-  <a href="{% url 'calculators:xirr' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">📐</div>
-    <div class="fund-card-name">XIRR Calculator</div>
-    <div class="fund-card-house">Irregular cashflow returns (IRR)</div>
-  </a>
-  <a href="{% url 'calculators:rolling' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🔁</div>
-    <div class="fund-card-name">Rolling Return Calculator</div>
-    <div class="fund-card-house">Analyse 1Y–10Y rolling returns vs benchmark with distribution</div>
-  </a>
-  <a href="{% url 'calculators:net_worth' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🏛️</div>
-    <div class="fund-card-name">Net Worth Calculator</div>
-    <div class="fund-card-house">Tally your assets and liabilities to calculate your true net worth</div>
-  </a>
-  <a href="{% url 'funds:research_amc_compare' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🏦</div>
-    <div class="fund-card-name">AMC Comparison</div>
-    <div class="fund-card-house">Compare 2–4 fund houses side-by-side on AUM, returns, risk, costs &amp; fund quality</div>
-  </a>
-  <a href="{% url 'funds:research_category_compare' %}" class="fund-card" style="padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:12px">🔬</div>
-    <div class="fund-card-name">Category Comparison</div>
-    <div class="fund-card-house">Compare 2–4 SEBI fund categories across 35+ metrics — returns, risk, costs &amp; mandates</div>
-  </a>
+<!-- Search & Filter Controls -->
+<div class="calc-hub-header">
+  <div class="calc-search-box">
+    <span class="calc-search-icon">🔍</span>
+    <input type="text" id="calc-search-input" class="calc-search-input" placeholder="Search calculators (e.g. SIP, SWP, Tax, Retirement, AMC)..." oninput="filterCalculators()">
+  </div>
 </div>
+
+<!-- Category Filter Pills -->
+<div class="calc-filter-bar">
+  <button type="button" class="calc-filter-btn active" data-cat="all" onclick="setCategoryFilter('all', this)">All Tools (16)</button>
+  <button type="button" class="calc-filter-btn" data-cat="growth" onclick="setCategoryFilter('growth', this)">📈 Investment &amp; Growth (7)</button>
+  <button type="button" class="calc-filter-btn" data-cat="compare" onclick="setCategoryFilter('compare', this)">🔍 Research &amp; Comparison (4)</button>
+  <button type="button" class="calc-filter-btn" data-cat="goals" onclick="setCategoryFilter('goals', this)">🎯 Goals &amp; Life Events (3)</button>
+  <button type="button" class="calc-filter-btn" data-cat="wealth" onclick="setCategoryFilter('wealth', this)">🧾 Tax &amp; Wealth (2)</button>
+</div>
+
+<div id="no-calc-results" style="display:none;padding:50px;text-align:center;color:var(--text-muted)">
+  <div style="font-size:32px;margin-bottom:10px">🔍</div>
+  <div>No calculators found matching your search.</div>
+</div>
+
+<!-- Category 1: Investment & Growth -->
+<div class="calc-section" data-section-cat="growth">
+  <div class="calc-section-title">
+    <span>📈 Investment &amp; Growth Accumulation</span>
+    <span class="calc-section-badge">7 Tools</span>
+  </div>
+  <div class="grid-3">
+    <a href="{% url 'calculators:sip' %}" class="calc-card" data-tags="sip monthly investment future value cagr xirr">
+      <div>
+        <div class="calc-card-icon">📈</div>
+        <div class="calc-card-name" style="margin-top:10px">SIP Calculator</div>
+        <div class="calc-card-desc">Monthly mutual fund investment → Future Value, CAGR &amp; historical NAV XIRR.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:lumpsum' %}" class="calc-card" data-tags="lumpsum one time investment growth compounding">
+      <div>
+        <div class="calc-card-icon">💰</div>
+        <div class="calc-card-name" style="margin-top:10px">Lumpsum Calculator</div>
+        <div class="calc-card-desc">One-time investment growth projection across multi-year horizons.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:swp' %}" class="calc-card" data-tags="swp systematic withdrawal pension monthly income payout">
+      <div>
+        <div class="calc-card-icon">💸</div>
+        <div class="calc-card-name" style="margin-top:10px">SWP Calculator</div>
+        <div class="calc-card-desc">Systematic Withdrawal Plan — simulate monthly payout and corpus longevity.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:step_sip' %}" class="calc-card" data-tags="step up sip annual increment salary increase topup">
+      <div>
+        <div class="calc-card-icon">📊</div>
+        <div class="calc-card-name" style="margin-top:10px">Step-Up SIP Calculator</div>
+        <div class="calc-card-desc">Annual percentage increase in monthly SIP → accelerated wealth accumulation.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:stp' %}" class="calc-card" data-tags="stp systematic transfer plan debt to equity switch">
+      <div>
+        <div class="calc-card-icon">🔀</div>
+        <div class="calc-card-name" style="margin-top:10px">STP Calculator</div>
+        <div class="calc-card-desc">Systematic Transfer Plan from debt fund to equity fund over time.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:xirr' %}" class="calc-card" data-tags="xirr irr internal rate of return cashflows">
+      <div>
+        <div class="calc-card-icon">📐</div>
+        <div class="calc-card-name" style="margin-top:10px">XIRR Calculator</div>
+        <div class="calc-card-desc">Calculate exact annualized return (IRR) for irregular cashflows and SIPs.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:rolling' %}" class="calc-card" data-tags="rolling return consistency 1y 3y 5y cagr distribution">
+      <div>
+        <div class="calc-card-icon">🔁</div>
+        <div class="calc-card-name" style="margin-top:10px">Rolling Return Calculator</div>
+        <div class="calc-card-desc">Analyze 1Y–10Y rolling return distributions and consistency vs benchmark.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+  </div>
+</div>
+
+<!-- Category 2: Research & Peer Comparison -->
+<div class="calc-section" data-section-cat="compare">
+  <div class="calc-section-title">
+    <span>🔍 Research &amp; Peer Comparison</span>
+    <span class="calc-section-badge">4 Tools</span>
+  </div>
+  <div class="grid-3">
+    <a href="{% url 'calculators:compare' %}" class="calc-card" data-tags="fund compare comparison side by side 5 funds">
+      <div>
+        <div class="calc-card-icon">⚖️</div>
+        <div class="calc-card-name" style="margin-top:10px">Fund Comparison</div>
+        <div class="calc-card-desc">Compare up to 5 mutual funds side-by-side on returns, risk, portfolio &amp; charts.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:overlap' %}" class="calc-card" data-tags="overlap portfolio common stocks holdings duplicate">
+      <div>
+        <div class="calc-card-icon">🔄</div>
+        <div class="calc-card-name" style="margin-top:10px">Fund Overlap Checker</div>
+        <div class="calc-card-desc">Stock-level overlap &amp; common holding percentage between two funds.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'funds:research_amc_compare' %}" class="calc-card" data-tags="amc comparison fund house aum quality returns fees">
+      <div>
+        <div class="calc-card-icon">🏦</div>
+        <div class="calc-card-name" style="margin-top:10px">AMC Comparison</div>
+        <div class="calc-card-desc">Compare 2–4 fund houses side-by-side on AUM, returns, risk, costs &amp; quality.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'funds:research_category_compare' %}" class="calc-card" data-tags="category comparison sebi mandates peer benchmarks">
+      <div>
+        <div class="calc-card-icon">🔬</div>
+        <div class="calc-card-name" style="margin-top:10px">Category Comparison</div>
+        <div class="calc-card-desc">Compare 2–4 SEBI categories across 35+ metrics — returns, risk &amp; mandates.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+  </div>
+</div>
+
+<!-- Category 3: Goals & Life Event Planners -->
+<div class="calc-section" data-section-cat="goals">
+  <div class="calc-section-title">
+    <span>🎯 Goals &amp; Life Event Planning</span>
+    <span class="calc-section-badge">3 Tools</span>
+  </div>
+  <div class="grid-3">
+    <a href="{% url 'calculators:goal' %}" class="calc-card" data-tags="goal target inflation sip planner">
+      <div>
+        <div class="calc-card-icon">🎯</div>
+        <div class="calc-card-name" style="margin-top:10px">Goal Planner</div>
+        <div class="calc-card-desc">Target corpus amount → required monthly SIP adjusted for inflation.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:retirement' %}" class="calc-card" data-tags="retirement fire corpus 25x rule monthly pension swp">
+      <div>
+        <div class="calc-card-icon">🏖️</div>
+        <div class="calc-card-name" style="margin-top:10px">Retirement Planner</div>
+        <div class="calc-card-desc">Calculate 25x FIRE retirement corpus, future monthly expense &amp; required SIP.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:child_education' %}" class="calc-card" data-tags="child education college degree fees inflation sip">
+      <div>
+        <div class="calc-card-icon">🎓</div>
+        <div class="calc-card-name" style="margin-top:10px">Child Education Planner</div>
+        <div class="calc-card-desc">Plan future college fees with education inflation (8-12%) &amp; required SIP.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+  </div>
+</div>
+
+<!-- Category 4: Tax & Wealth Management -->
+<div class="calc-section" data-section-cat="wealth">
+  <div class="calc-section-title">
+    <span>🧾 Tax &amp; Wealth Management</span>
+    <span class="calc-section-badge">2 Tools</span>
+  </div>
+  <div class="grid-3">
+    <a href="{% url 'calculators:tax' %}" class="calc-card" data-tags="tax stcg ltcg harvesting income tax fy 2025-26 capital gains">
+      <div>
+        <div class="calc-card-icon">🧾</div>
+        <div class="calc-card-name" style="margin-top:10px">MF Tax Calculator</div>
+        <div class="calc-card-desc">Multi-fund STCG/LTCG, tax loss harvesting &amp; SIP FIFO tax (FY 2025-26).</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
+    <a href="{% url 'calculators:net_worth' %}" class="calc-card" data-tags="net worth assets liabilities balance sheet wealth tally">
+      <div>
+        <div class="calc-card-icon">🏛️</div>
+        <div class="calc-card-name" style="margin-top:10px">Net Worth Calculator</div>
+        <div class="calc-card-desc">Tally your assets and liabilities to calculate your true net worth.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentCategory = 'all';
+
+function setCategoryFilter(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('.calc-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterCalculators();
+}
+
+function filterCalculators() {
+  const query = document.getElementById('calc-search-input').value.toLowerCase().trim();
+  const sections = document.querySelectorAll('.calc-section');
+  let totalVisible = 0;
+
+  sections.forEach(sec => {
+    const secCat = sec.getAttribute('data-section-cat');
+    const cards = sec.querySelectorAll('.calc-card');
+    let visibleInSec = 0;
+
+    cards.forEach(card => {
+      const name = card.querySelector('.calc-card-name').textContent.toLowerCase();
+      const desc = card.querySelector('.calc-card-desc').textContent.toLowerCase();
+      const tags = (card.getAttribute('data-tags') || '').toLowerCase();
+
+      const matchesCat = (currentCategory === 'all' || currentCategory === secCat);
+      const matchesSearch = !query || name.includes(query) || desc.includes(query) || tags.includes(query);
+
+      if (matchesCat && matchesSearch) {
+        card.style.display = '';
+        visibleInSec++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    if (visibleInSec > 0) {
+      sec.style.display = '';
+      totalVisible += visibleInSec;
+    } else {
+      sec.style.display = 'none';
+    }
+  });
+
+  const noRes = document.getElementById('no-calc-results');
+  if (totalVisible === 0) {
+    noRes.style.display = 'block';
+  } else {
+    noRes.style.display = 'none';
+  }
+}
+</script>
 {% endblock %}

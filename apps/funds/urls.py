@@ -34,3 +34,10 @@ urlpatterns = [
     path('research/amcs/<str:slug>/', views.ResearchAMCDetailView.as_view(), name='research_amc_detail'),
     path('research/amcs/<str:slug>/funds/', views.amc_detail_funds_api, name='amc_detail_funds_api'),
 ]
+
+# Aliases for calculator pages under funds namespace to prevent NoReverseMatch
+from apps.calculators import views as calc_views
+urlpatterns.append(path('calculators/child-education/', calc_views.child_education_view, name='child_education'))
+urlpatterns.append(path('calculators/retirement/', calc_views.retirement_view, name='retirement'))
+
+

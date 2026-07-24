@@ -1,6 +1,7 @@
 # Financial Calculators — Developer & User Reference
 
-This document covers all 12 financial calculators available at `/calculators/`. It describes each calculator's purpose, inputs, calculation logic, output, and the URL routes they are served from.
+This document covers all financial calculators available at `/calculators/`. It describes each calculator's purpose, inputs, calculation logic, output, and the URL routes they are served from.
+
 
 ---
 
@@ -487,33 +488,151 @@ Three sub-tabs:
 
 ---
 
+---
+
+## Calculator 13 — Child Education Planner
+
+**Route:** `/calculators/child-education/`  
+**Template:** `templates/calculators/child_education.html`  
+**API:** `POST /api/calculators/child-education/` → `calc_child_education_api`
+
+### Overview
+Calculates the inflation-adjusted future cost of higher education and computes the exact monthly SIP or lump sum needed to fund your child's college degree.
+
+### Presets (Today's Value)
+- 🎓 B.Tech / Engineering (India): ₹15,00,000
+- 💼 MBA / IIM (India): ₹25,00,000
+- 🩺 MBBS / Medical (India): ₹35,00,000
+- ✈️ Foreign University Degree: ₹60,00,000
+
+### Inputs
+| Field | Default | Notes |
+|-------|---------|-------|
+| Child Current Age (yrs) | 3 | Range: 0 to 17 |
+| College Entry Age (yrs) | 18 | Range: 15 to 25 |
+| Current Course Cost Today (₹) | ₹25,00,000 | Total cost of 4Y/2Y degree today |
+| Education Inflation Rate (% p.a.) | 10.0% | Education CPI in India (typically 8–12%) |
+| Expected Annual Return (%) | 12.0% | Pre-college equity portfolio CAGR |
+| Existing Savings Allocated (₹) | ₹0 | Initial lump sum set aside |
+
+### Calculation Logic
+```
+Years until college N = target_age - current_age
+Future Course Cost = current_cost * (1 + edu_inflation)^N
+FV Existing Savings = existing_savings * (1 + expected_rate)^N
+Net Target Deficit = max(0, Future Course Cost - FV Existing Savings)
+Monthly SIP Required = Net Deficit * r_m / (((1 + r_m)^(12*N) - 1) * (1 + r_m))
+where r_m = expected_rate / 12
+```
+
+### Output
+- Required Monthly SIP (₹/mo)
+- Inflation-Adjusted Target Cost vs Existing Savings Growth
+- Alternative One-Time Lumpsum Today
+- Year-by-Year Growth Trajectory Table (Child Age, Total Invested, Portfolio Value, College Cost Projection)
+- Educational guide card on Education Inflation & Equity-to-Debt Glide Path Strategy
+
+---
+
+## Calculator 14 — Retirement Planner
+
+**Route:** `/calculators/retirement/`  
+**Template:** `templates/calculators/retirement.html`  
+**API:** `POST /api/calculators/retirement/` → `calc_retirement_api`
+
+### Overview
+Calculates the target retirement corpus using the 25x Annual Expenses Rule (4% Safe Withdrawal Rate / FIRE Rule) and determines the exact monthly SIP required today.
+
+### Inputs
+| Field | Default | Notes |
+|-------|---------|-------|
+| Current Age (yrs) | 30 | Range: 20 to 60 |
+| Retirement Age (yrs) | 60 | Range: 40 to 70 |
+| Monthly Expenses Today (₹) | ₹50,000 | Core living expenses in today's value |
+| Expected Inflation Rate (%) | 6.0% | India average CPI (doubles expenses ~12 yrs) |
+| Pre-Retirement Return (% p.a.) | 12.0% | Portfolio CAGR before retirement |
+| Existing Retirement Corpus (₹) | ₹0 | Current PF, NPS, MF savings |
+
+### Calculation Logic
+```
+Years to Retire N = retirement_age - current_age
+Future Monthly Expense = monthly_expenses * (1 + inflation)^N
+Future Annual Expense = Future Monthly Expense * 12
+Target Corpus (25x FIRE Rule) = Future Annual Expense * 25
+FV Existing Savings = existing_savings * (1 + pre_rate)^N
+Net Corpus Deficit = max(0, Target Corpus - FV Existing Savings)
+Monthly SIP Required = Net Deficit * r_m / (((1 + r_m)^(12*N) - 1) * (1 + r_m))
+where r_m = pre_rate / 12
+```
+
+### Output
+- Prominent Retirement Target Corpus Card (e.g. `₹8.62 Cr`)
+- Years to Retirement & Inflation-Adjusted Monthly Expense at Retirement
+- Required Monthly SIP (₹/mo) & Total SIP Investment Outgo
+- Year-by-Year Growth Progression Table (Age, Year, Invested, Portfolio Value, Target Benchmark)
+- Educational guide card on 25x Rule & 3-Bucket SWP Strategy
+
+---
+
+## Tool 15 — AMC Comparison Tool
+
+**Route:** `/research/amcs/compare/`  
+**Template:** `templates/research/amc_compare.html`  
+**API:** `GET /research/amcs/api/compare/?amcs=slug1,slug2,...`
+
+### Overview
+Side-by-side comparison of 2–4 Indian Asset Management Companies (AMCs) across AUM, returns, risk, expense ratios, portfolio turnover, sector allocations, and high-conviction stock consensus.
+
+### Features
+- Searchable inline AMC picker grid to select/deselect AMCs with real-time filtering
+- 22 metrics grouped across 7 dimensions (Scale & Growth, Returns, Risk, Fund Quality, Costs, Philosophy, People)
+- Direction-calibrated winner highlights (best metric highlighted in green)
+- Side-by-side sector allocation bar charts
+- High-conviction stock overlap matrix (stocks held in 3+ funds at each AMC)
+
+---
+
+## Tool 16 — Category Comparison Tool
+
+**Route:** `/research/categories/compare/`  
+**Template:** `templates/research/category_compare.html`  
+**API:** `GET /research/categories/api/compare/?cats=slug1,slug2,...`
+
+### Overview
+Side-by-side comparison of 2–4 SEBI mutual fund sub-categories across 35+ metrics including official SEBI mandates, returns, risk-adjusted metrics, TERs, rolling return consistency, and fund quality score distributions.
+
+---
+
 ## URL Reference
 
-| Route | Calculator |
-|-------|-----------|
-| `/calculators/` | Hub page |
-| `/calculators/sip/` | SIP Calculator |
-| `/calculators/step-sip/` | Step-Up SIP Calculator |
-| `/calculators/lumpsum/` | Lumpsum Calculator |
-| `/calculators/swp/` | SWP Calculator |
-| `/calculators/stp/` | STP Calculator |
-| `/calculators/xirr/` | XIRR Calculator |
-| `/calculators/goal/` | Goal Planner |
-| `/calculators/net-worth/` | Net Worth Calculator |
-| `/calculators/rolling/` | Rolling Returns Calculator |
-| `/calculators/overlap/` | Fund Overlap Checker |
-| `/calculators/compare/` | Fund Comparison Calculator |
-| `/calculators/tax/` | Tax Calculator (FY 2025-26) |
+| Route | Calculator / Tool | Category |
+|-------|------------------|----------|
+| `/calculators/` | Hub page (Search & Filter Pills) | Dashboard |
+| `/calculators/sip/` | SIP Calculator | 📈 Investment & Growth |
+| `/calculators/lumpsum/` | Lumpsum Calculator | 📈 Investment & Growth |
+| `/calculators/swp/` | SWP Calculator | 📈 Investment & Growth |
+| `/calculators/step-sip/` | Step-Up SIP Calculator | 📈 Investment & Growth |
+| `/calculators/stp/` | STP Calculator | 📈 Investment & Growth |
+| `/calculators/xirr/` | XIRR Calculator | 📈 Investment & Growth |
+| `/calculators/rolling/` | Rolling Returns Calculator | 📈 Investment & Growth |
+| `/research/categories/compare/` | Category Comparison | 🔍 Research & Comparison |
+| `/research/amcs/compare/` | AMC Comparison | 🔍 Research & Comparison |
+| `/calculators/compare/` | Fund Comparison Calculator | 🔍 Research & Comparison |
+| `/calculators/overlap/` | Fund Overlap Checker | 🔍 Research & Comparison |
+| `/calculators/goal/` | Goal Planner | 🎯 Goals & Life Events |
+| `/calculators/retirement/` | Retirement Planner (25x Rule) | 🎯 Goals & Life Events |
+| `/calculators/child-education/` | Child Education Planner | 🎯 Goals & Life Events |
+| `/calculators/tax/` | Tax Calculator (FY 2025-26) | 🧾 Tax & Wealth |
+| `/calculators/net-worth/` | Net Worth Calculator | 🧾 Tax & Wealth |
 
 ---
 
 ## Audit & Accuracy Notes
 
-All 12 calculators were audited in July 2025 for input logic, calculation accuracy, and output presentation. Key findings:
+All 16 financial calculators and tools were audited for calculation accuracy, input validation, and UI response:
 
-- **SIP / Lumpsum / SWP / STP / Step-Up SIP**: All formulas verified correct. CAGR for SIP is a simplified approximation (standard for projection tools).
-- **Goal Planner**: PV formula `real_target / (1 + r)^years` verified correct.
-- **XIRR**: Delegates to SciPy's Brentq root-solver — numerically robust.
-- **Tax Calculator**: FY 2025-26 rates, holding-period thresholds, set-off priority, and 4% cess — all verified correct per Budget 2024/2025.
-- **Fund Comparison**: `getWinnerIndex()` correctly handles "lower is better" vs "higher is better" per metric. Best badge logic audited and fixed.
-- **Overlap**: Minimum Weight Method verified correct against industry standard.
+- **Child Education Planner**: 10% default inflation accurately reflects Indian education fee growth. Net gap calculation handles existing savings compound growth.
+- **Retirement Planner**: Uses 25x annual expense rule (4% Safe Withdrawal Rate) to compute inflation-adjusted corpus requirement.
+- **AMC & Category Compare**: Real-time searchable picker, URL state persistence, guarded API fetches, and side-by-side metric tables.
+- **Hub Navigation**: Filter pills and search input allow instant drill-down across all 16 calculators.
+

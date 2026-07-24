@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Retirement Planner{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'calculators:hub' %}">Calculators</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>Retirement Planner</span>
+</div>
+
+<div class="page-header">
+  <div class="page-title">🏖️ Retirement Planner
+    <button class="info-btn" data-t-title="Retirement Planner Calculator" data-t-what="Calculates the target retirement corpus required to maintain your lifestyle post-retirement and computes the monthly SIP needed today." data-t-interp="Accounts for inflation and uses the 25x annual expenses rule (4% Safe Withdrawal Rate) to ensure your corpus lasts throughout retirement.">ⓘ</button>
+  </div>
+  <div class="page-subtitle">Find out exactly how much SIP you need today to retire comfortably — accounting for inflation and the 25x rule for retirement corpus.</div>
+</div>
+
+<div class="calc-layout">
+  <!-- Inputs -->
+  <div class="calc-inputs">
+    <form id="retirement-form">{% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Current Age (Years)
+          <button class="info-btn" data-t-title="Current Age" data-t-what="Your present age in years." data-t-interp="Starting early gives you more compounding years. E.g. starting at age 25 vs 35 can cut your required SIP by over 50%.">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="current_age" id="current_age" min="20" max="60" value="30" oninput="updateRetireYearsText()">
+          <span class="range-value" id="current_age_display">30 Yrs</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Retirement Age (Years)
+          <button class="info-btn" data-t-title="Retirement Age" data-t-what="The age at which you plan to stop working and begin living off your retirement corpus." data-t-interp="Standard retirement age in India is 60 years. FIRE (Financial Independence, Retire Early) practitioners target 45–50.">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="retirement_age" id="retirement_age" min="40" max="70" value="60" oninput="updateRetireYearsText()">
+          <span class="range-value" id="retirement_age_display">60 Yrs</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px" id="retire_years_text">Years to Retirement: 30 Years</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Monthly Expenses Today (₹)
+          <button class="info-btn" data-t-title="Monthly Expenses Today" data-t-what="Your current monthly household and personal living expenses." data-t-interp="Excludes temporary expenses like home loans or child education that will end before retirement. Focus on core living expenses.">ⓘ</button>
+        </label>
+        <input class="form-control" type="number" name="monthly_expenses" id="monthly_expenses" value="50000" min="10000" step="5000">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Expected Inflation (% p.a.)
+          <button class="info-btn" data-t-title="Expected Inflation" data-t-what="The annual rate at which your cost of living increases." data-t-interp="India's long-term CPI inflation averages 6% p.a. A 6% inflation means living expenses double every 12 years.">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="inflation" id="inflation" min="3" max="12" value="6" step="0.5">
+          <span class="range-value" id="inflation_display">6%</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Expected Return (Pre-Retirement % p.a.)
+          <button class="info-btn" data-t-title="Expected Pre-Retirement Return" data-t-what="The expected annual CAGR on your equity &amp; mutual fund portfolio before retirement." data-t-interp="Historical long-term Indian equity returns average 12–14% CAGR. Use 12% for a realistic baseline.">ⓘ</button>
+        </label>
+        <div class="range-wrapper">
+          <input type="range" name="expected_rate" id="expected_rate" min="6" max="20" value="12" step="0.5">
+          <span class="range-value" id="expected_rate_display">12%</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Existing Savings Allocated Today (₹)
+          <button class="info-btn" data-t-title="Existing Retirement Corpus Today" data-t-what="Total current value of PF, NPS, mutual funds, or FD set aside for retirement." data-t-interp="This sum will compound until retirement, reducing the net SIP needed.">ⓘ</button>
+        </label>
+        <input class="form-control" type="number" name="existing_savings" id="existing_savings" value="0" min="0" step="50000">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">🏖️ Calculate Retirement Plan</button>
+    </form>
+  </div>
+
+  <!-- Results -->
+  <div class="calc-results">
+    <div id="retirement-results">
+      <div class="chart-placeholder" style="min-height:220px">
+        <span style="font-size:13px;color:var(--text-muted)">Configure your retirement parameters and click Calculate.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Guide Card -->
+<div class="card" style="margin-top:24px">
+  <div class="card-header">
+    <div class="card-title">💡 How the 25x Retirement Rule Works &amp; Key Guidelines
+      <button class="info-btn" data-t-title="25x Rule &amp; FIRE Guide" data-t-what="Explains the 25x annual expense rule (4% withdrawal rate) and retirement strategy." data-t-interp="Accumulating 25x your future annual expenses allows a safe 4% initial withdrawal rate that scales with inflation.">ⓘ</button>
+    </div>
+  </div>
+  <div class="card-body" style="font-size:12px;line-height:1.65;color:var(--text-secondary)">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:12px">
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔥 The 25x Rule (4% Safe Withdrawal Rate)</div>
+        The 25x rule states that your retirement corpus should equal <strong>25 times your future annual expenses</strong> at retirement:
+        <ul style="margin:4px 0 0 16px;padding:0">
+          <li>Withdraw <strong>4% of corpus</strong> in Year 1 of retirement to cover living expenses.</li>
+          <li>Increase withdrawal by inflation annually. Historically, this corpus lasts <strong>30+ years</strong> without running out.</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🛡️ Post-Retirement Bucket Strategy</div>
+        Structure your corpus into 3 risk-adjusted buckets upon retirement:
+        <ul style="margin:4px 0 0 16px;padding:0">
+          <li><strong>Bucket 1 (1–3 Years)</strong>: Liquid &amp; Ultra Short Debt Funds for immediate monthly SWP payouts.</li>
+          <li><strong>Bucket 2 (4–7 Years)</strong>: Short Duration &amp; Corporate Bond funds generating steady income.</li>
+          <li><strong>Bucket 3 (8+ Years)</strong>: Equity Funds to outpace long-term inflation.</li>
+        </ul>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic">
+      📢 <strong>Note:</strong> Revisit your retirement plan every 3–5 years as your income, expenses, and lifestyle evolve.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateRetireYearsText() {
+  const cur = parseInt(document.getElementById('current_age').value);
+  const ret = parseInt(document.getElementById('retirement_age').value);
+  document.getElementById('current_age_display').textContent = cur + ' Yrs';
+  document.getElementById('retirement_age_display').textContent = ret + ' Yrs';
+  const yrs = Math.max(1, ret - cur);
+  document.getElementById('retire_years_text').textContent = `Years to Retirement: ${yrs} Year${yrs > 1 ? 's' : ''}`;
+}
+
+function fmtCr(v) {
+  if (v == null) return '—';
+  if (v >= 10000000) return '₹' + (v / 10000000).toFixed(2) + ' Cr';
+  if (v >= 100000) return '₹' + (v / 100000).toFixed(2) + ' L';
+  return '₹' + Math.round(v).toLocaleString('en-IN');
+}
+
+function fmtMo(v) {
+  if (v == null) return '—';
+  if (v >= 100000) return '₹' + (v / 100000).toFixed(2) + ' L/mo';
+  return '₹' + Math.round(v).toLocaleString('en-IN') + '/mo';
+}
+
+document.getElementById('retirement-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const curAge = parseInt(document.getElementById('current_age').value);
+  const retAge = parseInt(document.getElementById('retirement_age').value);
+  if (retAge <= curAge) {
+    document.getElementById('retirement-results').innerHTML = `<div class="alert alert-danger">Retirement age must be greater than current age.</div>`;
+    return;
+  }
+
+  const fd = new FormData(e.target);
+  const r = await fetch('{% url "calculators:api_retirement" %}', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_age: curAge,
+      retirement_age: retAge,
+      monthly_expenses: parseFloat(fd.get('monthly_expenses')),
+      inflation: parseFloat(fd.get('inflation')),
+      expected_rate: parseFloat(fd.get('expected_rate')),
+      existing_savings: parseFloat(fd.get('existing_savings')) || 0
+    }),
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }
+  });
+
+  const d = await r.json();
+  if (d.error) {
+    document.getElementById('retirement-results').innerHTML = `<div class="alert alert-danger">${d.error}</div>`;
+    return;
+  }
+
+  const corpusDisplay = fmtCr(d.corpus_required);
+  const futMoExp = fmtMo(d.future_monthly_expense);
+  const sipReq = d.monthly_sip_required.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+  document.getElementById('retirement-results').innerHTML = `
+    <div style="background:rgba(15,23,42,0.85);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:20px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Corpus Required at Retirement</div>
+      <div style="font-size:38px;font-weight:900;color:#f59e0b;font-family:serif;letter-spacing:-.02em;line-height:1.1;margin-bottom:4px">${corpusDisplay}</div>
+      <div style="font-size:12px;color:var(--text-muted)">Assumes 25x annual expenses at retirement (4% FIRE rule)</div>
+    </div>
+
+    <div class="metrics-dl">
+      <div>
+        <div class="metric-key">Years to Retirement</div>
+        <div class="metric-val" style="font-size:14px">${d.years_to_retire} Years</div>
+      </div>
+      <div>
+        <div class="metric-key">Monthly Expenses at Retirement
+          <button class="info-btn" data-t-title="Monthly Expenses at Retirement" data-t-what="Your monthly living expenses adjusted for ${d.inflation_pct}% annual inflation over ${d.years_to_retire} years." data-t-interp="Inflation will increase your ₹${(d.monthly_expenses/1000).toFixed(0)}K expenses to ${futMoExp}">&#9432;</button>
+        </div>
+        <div class="metric-val" style="font-size:14px">${futMoExp}</div>
+      </div>
+      <div>
+        <div class="metric-key">Monthly SIP Required
+          <button class="info-btn" data-t-title="Monthly SIP Required" data-t-what="The monthly mutual fund investment needed to accumulate the net retirement corpus gap." data-t-interp="Start this monthly SIP immediately to build your target corpus.">&#9432;</button>
+        </div>
+        <div class="metric-val" style="font-size:15px;font-weight:800;color:#10b981">₹${sipReq}/mo</div>
+      </div>
+      <div>
+        <div class="metric-key">Total SIP Investment
+          <button class="info-btn" data-t-title="Total Investment Outgo" data-t-what="Sum of all monthly SIP contributions over ${d.years_to_retire} years." data-t-interp="The rest of your retirement corpus is generated by investment compounding.">&#9432;</button>
+        </div>
+        <div class="metric-val" style="font-size:14px">${fmtCr(d.total_sip_invested)}</div>
+      </div>
+      <div>
+        <div class="metric-key">Wealth Gain from Compounding</div>
+        <div class="metric-val" style="font-size:14px;color:var(--success)">${fmtCr(d.wealth_gain)}</div>
+      </div>
+      <div>
+        <div class="metric-key">Existing Savings FV</div>
+        <div class="metric-val" style="font-size:14px">${fmtCr(d.fv_existing)}</div>
+      </div>
+    </div>
+
+    <!-- Year by Year Progression Table -->
+    <div style="margin-top:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">📈 Retirement Corpus Progression</div>
+      <div class="table-wrapper" style="max-height:260px;overflow-y:auto">
+        <table class="indicator-table" style="font-size:11px">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Age</th>
+              <th>Total Invested (₹)</th>
+              <th>Portfolio Value (₹)</th>
+              <th>Target Benchmark (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${d.trajectory.map(t => `
+              <tr>
+                <td>Yr ${t.year}</td>
+                <td style="font-weight:700">${t.age} yrs</td>
+                <td style="font-family:monospace">₹${(t.sip_invested / 100000).toFixed(2)}L</td>
+                <td style="font-family:monospace;font-weight:700;color:var(--success)">${fmtCr(t.total_portfolio_value)}</td>
+                <td style="font-family:monospace;color:#f59e0b">${fmtCr(t.target_corpus_progression)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('retirement-results'));
+});
+
+// Auto-run on load
+updateRetireYearsText();
+document.getElementById('retirement-form').dispatchEvent(new Event('submit', { cancelable: true }));
+</script>
+{% endblock %}

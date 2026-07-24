@@ -63,9 +63,13 @@
 
 ---
 
-### Financial Calculators
-- **Calculator Hub** (`/calculators/`) — all 12 calculators accessible from a single dashboard:
-  - SIP, Step-Up SIP, Lumpsum, SWP, STP, XIRR, Goal Planner, Net Worth, Rolling Returns, Fund Overlap Checker, Fund Comparison, and FY 2025-26 Tax Calculator — see [CALCULATORS.md](documentation/CALCULATORS.md).
+### Financial Calculators & Planning Suite
+- **Categorized Calculator Hub** (`/calculators/`): 16 specialized calculators organized into 4 intuitive categories with real-time keyword search and instant category filter pills — see [CALCULATORS.md](documentation/CALCULATORS.md):
+  - **📈 Investment & Growth**: SIP, Lumpsum, SWP, Step-Up SIP, STP, XIRR, and Rolling Return calculators.
+  - **🔍 Research & Peer Comparison**: Fund Comparison (up to 5 funds), Fund Overlap Checker (stock-level overlap), AMC Comparison (2–4 fund houses), and Category Comparison (2–4 SEBI categories).
+  - **🎯 Goals & Life Event Planning**: Goal Planner, **Retirement Planner** (25x FIRE rule & 4% SWR), **Child Education Planner** (8–12% education inflation & college benchmarks), and SWP pension longevity planner.
+  - **🧾 Tax & Wealth Management**: MF Tax Calculator (FY 2025-26 STCG/LTCG & tax loss harvesting) and Net Worth Calculator.
+
 
 ---
 

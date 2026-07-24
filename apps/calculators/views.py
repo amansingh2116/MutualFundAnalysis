@@ -1086,3 +1086,207 @@ def calc_nav_stp_api(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+def child_education_view(request):
+    """Child Education Planner Page."""
+    return render(request, 'calculators/child_education.html')
+
+
+@require_http_methods(["POST"])
+def calc_child_education_api(request):
+    """Child Education Planner API."""
+    d = _parse_body(request)
+    try:
+        current_age = int(d.get('current_age', 3))
+        target_age = int(d.get('target_age', 18))
+        current_cost = float(d.get('current_cost', 2500000))
+        edu_inf = float(d.get('education_inflation', 10.0)) / 100
+        rate_annual = float(d.get('expected_rate', 12.0)) / 100
+        existing_savings = float(d.get('existing_savings', 0))
+
+        years = max(1, target_age - current_age)
+        months = years * 12
+
+        # 1. Inflation adjusted future cost
+        future_cost = current_cost * ((1 + edu_inf) ** years)
+
+        # 2. Future value of existing savings
+        fv_existing = existing_savings * ((1 + rate_annual) ** years)
+
+        # 3. Net target gap
+        net_gap = max(0, future_cost - fv_existing)
+
+        # 4. Monthly SIP required for net gap
+        r_monthly = rate_annual / 12
+        if r_monthly == 0:
+            monthly_sip = net_gap / months
+        else:
+            monthly_sip = net_gap * r_monthly / (((1 + r_monthly) ** months - 1) * (1 + r_monthly))
+
+        # 5. One-time additional lumpsum today needed for net gap
+        lumpsum_today = net_gap / ((1 + rate_annual) ** years)
+
+        total_sip_invested = monthly_sip * months
+        total_outgo = total_sip_invested + existing_savings
+
+        # Year-by-year trajectory
+        trajectory = []
+        cum_sip_invested = 0
+        current_existing_val = existing_savings
+
+        for yr in range(1, years + 1):
+            child_age = current_age + yr
+            current_existing_val = existing_savings * ((1 + rate_annual) ** yr)
+            n_months = yr * 12
+            cum_sip_invested = monthly_sip * n_months
+            if r_monthly == 0:
+                sip_val = cum_sip_invested
+            else:
+                sip_val = monthly_sip * (((1 + r_monthly) ** n_months - 1) / r_monthly) * (1 + r_monthly)
+
+            total_val = current_existing_val + sip_val
+            target_progression = current_cost * ((1 + edu_inf) ** yr)
+
+            trajectory.append({
+                'year': yr,
+                'child_age': child_age,
+                'sip_invested': round(cum_sip_invested, 2),
+                'existing_value': round(current_existing_val, 2),
+                'sip_value': round(sip_val, 2),
+                'total_portfolio_value': round(total_val, 2),
+                'inflation_cost_projection': round(target_progression, 2)
+            })
+
+        return JsonResponse({
+            'current_age': current_age,
+            'target_age': target_age,
+            'years': years,
+            'current_cost': round(current_cost, 2),
+            'education_inflation_pct': round(edu_inf * 100, 2),
+            'expected_rate_pct': round(rate_annual * 100, 2),
+            'existing_savings': round(existing_savings, 2),
+            'future_cost': round(future_cost, 2),
+            'fv_existing': round(fv_existing, 2),
+            'net_gap': round(net_gap, 2),
+            'monthly_sip_required': round(monthly_sip, 2),
+            'lumpsum_today_required': round(lumpsum_today, 2),
+            'total_sip_invested': round(total_sip_invested, 2),
+            'total_outgo': round(total_outgo, 2),
+            'wealth_gain': round(future_cost - total_outgo, 2),
+            'trajectory': trajectory,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+def retirement_view(request):
+    """Retirement Planner Page."""
+    return render(request, 'calculators/retirement.html')
+
+
+@require_http_methods(["POST"])
+def calc_retirement_api(request):
+    """Retirement Planner API."""
+    d = _parse_body(request)
+    try:
+        current_age = int(d.get('current_age', 30))
+        retirement_age = int(d.get('retirement_age', 60))
+        monthly_expenses = float(d.get('monthly_expenses', 50000))
+        inf_pct = float(d.get('inflation', 6.0)) / 100
+        pre_rate_pct = float(d.get('expected_rate', 12.0)) / 100
+        post_rate_pct = float(d.get('post_rate', 8.0)) / 100
+        life_exp = int(d.get('life_expectancy', 85))
+        existing_savings = float(d.get('existing_savings', 0))
+
+        years_to_retire = max(1, retirement_age - current_age)
+        months_to_retire = years_to_retire * 12
+
+        # 1. Inflation-adjusted monthly expense at retirement
+        future_monthly_expense = monthly_expenses * ((1 + inf_pct) ** years_to_retire)
+        future_annual_expense = future_monthly_expense * 12
+
+        # 2. Corpus required at retirement
+        # 25x Rule (FIRE Benchmark)
+        corpus_25x = future_annual_expense * 25
+
+        # SWP / Capital Preservation Corpus over post-retirement years
+        post_retire_years = max(1, life_exp - retirement_age)
+        if abs(post_rate_pct - inf_pct) < 0.0001:
+            corpus_swp = future_annual_expense * post_retire_years
+        else:
+            real_post_rate = (1 + post_rate_pct) / (1 + inf_pct) - 1
+            corpus_swp = future_annual_expense * (1 - ((1 + real_post_rate) ** (-post_retire_years))) / real_post_rate
+
+        corpus_required = corpus_25x
+
+        # 3. Growth of existing savings
+        fv_existing = existing_savings * ((1 + pre_rate_pct) ** years_to_retire)
+
+        # 4. Net corpus gap
+        net_gap = max(0, corpus_required - fv_existing)
+
+        # 5. Monthly SIP required
+        r_monthly = pre_rate_pct / 12
+        if r_monthly == 0:
+            monthly_sip = net_gap / months_to_retire
+        else:
+            monthly_sip = net_gap * r_monthly / (((1 + r_monthly) ** months_to_retire - 1) * (1 + r_monthly))
+
+        total_sip_invested = monthly_sip * months_to_retire
+        total_outgo = total_sip_invested + existing_savings
+
+        # Year-by-year trajectory
+        trajectory = []
+        cum_sip_invested = 0
+
+        for yr in range(1, years_to_retire + 1):
+            age = current_age + yr
+            current_existing_val = existing_savings * ((1 + pre_rate_pct) ** yr)
+            n_months = yr * 12
+            cum_sip_invested = monthly_sip * n_months
+            if r_monthly == 0:
+                sip_val = cum_sip_invested
+            else:
+                sip_val = monthly_sip * (((1 + r_monthly) ** n_months - 1) / r_monthly) * (1 + r_monthly)
+
+            total_val = current_existing_val + sip_val
+            target_progression = (corpus_required / years_to_retire) * yr
+
+            trajectory.append({
+                'year': yr,
+                'age': age,
+                'sip_invested': round(cum_sip_invested, 2),
+                'existing_value': round(current_existing_val, 2),
+                'sip_value': round(sip_val, 2),
+                'total_portfolio_value': round(total_val, 2),
+                'target_corpus_progression': round(target_progression, 2)
+            })
+
+        return JsonResponse({
+            'current_age': current_age,
+            'retirement_age': retirement_age,
+            'years_to_retire': years_to_retire,
+            'post_retire_years': post_retire_years,
+            'monthly_expenses': round(monthly_expenses, 2),
+            'future_monthly_expense': round(future_monthly_expense, 2),
+            'future_annual_expense': round(future_annual_expense, 2),
+            'inflation_pct': round(inf_pct * 100, 2),
+            'pre_rate_pct': round(pre_rate_pct * 100, 2),
+            'post_rate_pct': round(post_rate_pct * 100, 2),
+            'corpus_25x': round(corpus_25x, 2),
+            'corpus_swp': round(corpus_swp, 2),
+            'corpus_required': round(corpus_required, 2),
+            'existing_savings': round(existing_savings, 2),
+            'fv_existing': round(fv_existing, 2),
+            'net_gap': round(net_gap, 2),
+            'monthly_sip_required': round(monthly_sip, 2),
+            'total_sip_invested': round(total_sip_invested, 2),
+            'total_outgo': round(total_outgo, 2),
+            'wealth_gain': round(corpus_required - total_outgo, 2),
+            'trajectory': trajectory,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
