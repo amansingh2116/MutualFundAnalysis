@@ -144,7 +144,7 @@
 
 /* ── Sticky Table (shared by meter + quartile) ───────────────────────────── */
 .sticky-table-wrap {
-  max-height: 340px; overflow-y: auto; overflow-x: auto;
+  max-height: 420px; overflow-y: auto; overflow-x: auto;
   border-radius: var(--radius-lg);
 }
 .sticky-table {
@@ -361,7 +361,10 @@
       <button class="btn btn-secondary btn-sm" id="bench-manage-btn"
               onclick="openBenchManageModal()"
               title="Choose which benchmarks appear here">⚙ Manage</button>
+      {% else %}
+      <a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="btn btn-secondary btn-sm" title="Log in to add more benchmarks &amp; save watchlist">Sign in to add benchmarks</a>
       {% endif %}
+
       <a href="{% url 'funds:research_benchmarks' %}" class="btn btn-secondary btn-sm">Full Analysis →</a>
     </div>
   </div>
@@ -454,7 +457,6 @@
         <button class="ptab" data-period="5y" onclick="setMeterPeriod('5y',this)">5Y</button>
       </div>
       <a href="{% url 'funds:research_category_meter' %}" class="btn btn-secondary btn-sm">Full Table →</a>
-      <a href="{% url 'funds:research_categories' %}" class="btn btn-secondary btn-sm">Category Analysis →</a>
     </div>
   </div>
 
@@ -464,11 +466,11 @@
         <thead>
           <tr>
             <th style="min-width:180px">Category</th>
-            <th class="num">Funds <button type="button" class="info-btn" data-t-key="funds">ⓘ</button></th>
-            <th class="num">Min <button type="button" class="info-btn" data-t-key="category_min">ⓘ</button></th>
-            <th class="num">Avg <button type="button" class="info-btn" data-t-key="category_avg">ⓘ</button></th>
-            <th class="num">Median <button type="button" class="info-btn" data-t-key="category_median">ⓘ</button></th>
-            <th class="num">Max <button type="button" class="info-btn" data-t-key="category_max">ⓘ</button></th>
+            <th class="num">Funds</th>
+            <th class="num" id="meter-hdr-min">Min</th>
+            <th class="num" id="meter-hdr-avg">Avg</th>
+            <th class="num" id="meter-hdr-med">Median</th>
+            <th class="num" id="meter-hdr-max">Max</th>
           </tr>
         </thead>
         <tbody id="meter-tbody">
@@ -481,14 +483,15 @@
 
 
 {# ─────────────────────────────────────────────────────────────────────────── #}
-{# Section 3 — Category Analysis                                               #}
+{# Section 3 — Category Analysis (Authenticated Users Only)                   #}
 {# ─────────────────────────────────────────────────────────────────────────── #}
+{% if user.is_authenticated %}
 <div class="dash-section">
   <div class="dash-section-header">
     <div class="dash-section-title">🔬 Category Analysis <button type="button" class="info-btn" data-t-key="category_analysis">ⓘ</button></div>
     <div style="display:flex;align-items:center;gap:8px">
       <span class="dash-section-badge">Score distribution · Risk · Returns</span>
-      <a href="{% url 'funds:research_categories' %}" class="btn btn-secondary btn-sm">Deep Dive →</a>
+      <a href="{% url 'funds:research_category_meter' %}" class="btn btn-secondary btn-sm">Deep Dive →</a>
     </div>
   </div>
 
@@ -555,17 +558,20 @@
   </div>
   {% endif %}
 </div>
+{% endif %}
 
 
 {# ─────────────────────────────────────────────────────────────────────────── #}
-{# Section 4 — Browse Funds by Category                                        #}
+{# Section 4 — Browse Funds by Category (All Users)                            #}
 {# ─────────────────────────────────────────────────────────────────────────── #}
 <div class="dash-section">
   <div class="dash-section-header">
     <div class="dash-section-title">📂 Browse by Category</div>
     <div style="display:flex;align-items:center;gap:8px">
+      <a href="{% url 'funds:category_list' %}" class="btn btn-secondary btn-sm">Browse All Funds →</a>
+      {% if user.is_authenticated %}
       <a href="{% url 'funds:screener' %}" class="btn btn-secondary btn-sm">Open Screener →</a>
-      <a href="{% url 'funds:research_categories' %}" class="btn btn-secondary btn-sm">Category Analysis →</a>
+      {% endif %}
     </div>
   </div>
 
@@ -575,7 +581,7 @@
     <div class="browse-chip-row" style="margin-bottom:4px">
       {% for cat in cats %}
       {% if cat.count > 0 %}
-      <a href="{% url 'funds:screener' %}?sub_category={{ cat.name|urlencode }}" class="browse-chip">
+      <a href="{% url 'funds:category_list' %}?sub_category={{ cat.name|urlencode }}" class="browse-chip">
         {{ cat.name }}
         <span class="browse-chip-count">{{ cat.count }}</span>
       </a>
@@ -592,8 +598,9 @@
 
 
 {# ─────────────────────────────────────────────────────────────────────────── #}
-{# Section 5 — Quartile Rankings                                               #}
+{# Section 5 — Quartile Rankings (Authenticated Users Only)                     #}
 {# ─────────────────────────────────────────────────────────────────────────── #}
+{% if user.is_authenticated %}
 <div class="dash-section">
   <div class="dash-section-header">
     <div class="dash-section-title">🎯 Fund Quartile Rankings</div>
@@ -627,6 +634,8 @@
     </div>
   </div>
 </div>
+{% endif %}
+
 
 {% endblock %}
 
@@ -665,7 +674,19 @@ function renderMeterTable() {
     '3y': ['min_3y','avg_3y','med_3y','max_3y'],
     '5y': ['min_5y','avg_5y','med_5y','max_5y'],
   };
+  const periodLabel = meterPeriod.toUpperCase();
   const [minK, avgK, medK, maxK] = keys[meterPeriod] || keys['1y'];
+
+  // Update column headers to reflect current period
+  const hMin = document.getElementById('meter-hdr-min');
+  const hAvg = document.getElementById('meter-hdr-avg');
+  const hMed = document.getElementById('meter-hdr-med');
+  const hMax = document.getElementById('meter-hdr-max');
+  if (hMin) hMin.textContent = `Min ${periodLabel}`;
+  if (hAvg) hAvg.textContent = `Avg ${periodLabel}`;
+  if (hMed) hMed.textContent = `Median ${periodLabel}`;
+  if (hMax) hMax.textContent = `Max ${periodLabel}`;
+
   const fmt = v => v != null ? `<span style="color:${v>=0?'var(--success)':v<0?'var(--danger)':'inherit'}">${v>=0?'+':''}${v.toFixed(1)}%</span>` : '<span style="color:var(--text-muted)">—</span>';
 
   if (!data.length) {
@@ -673,9 +694,10 @@ function renderMeterTable() {
     return;
   }
   tbody.innerHTML = data.map(d => {
-    const cat_slug = d.name.toLowerCase().replace(/'/g,'').replace(/[ /]/g,'-').replace(/&/g,'and').replace(/--/g,'-').replace(/^-|-$/g,'');
+    const cat_url = `{% url 'funds:category_list' %}?sub_category=${encodeURIComponent(d.name)}`;
     return `<tr>
-      <td><a href="/research/categories/${cat_slug}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none;font-size:12px">${d.name}</a><br><span style="color:var(--text-muted);font-size:10px">${d.group}</span></td>
+      <td><a href="${cat_url}" style="color:var(--indigo-400);font-weight:600;text-decoration:none;font-size:12px">${d.name}</a><br><span style="color:var(--text-muted);font-size:10px">${d.group}</span></td>
+
       <td class="num" style="font-size:11px;color:var(--text-secondary)">${d.fund_count}</td>
       <td class="num">${fmt(d[minK])}</td>
       <td class="num">${fmt(d[avgK])}</td>
@@ -842,9 +864,6 @@ async function saveBenchWatchlist() {
       window.location.reload();
     }
   } catch(e) { console.error('saveBenchWatchlist', e); }
-}
-
-  } catch(e) { msg.textContent = 'Error saving key.'; msg.style.color='var(--red-400)'; }
 }
 
 async function deleteMktApiKey(provider) {

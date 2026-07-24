@@ -12,7 +12,21 @@
 
   {# Value or N/A #}
   {% if item.stale %}
-    <span class="market-val msi-na" title="{{ item.error }}">N/A</span>
+    {% if item.fred_status == 'MISSING' or item.key in 'cpi_india fed_funds repo_rate' and not item.value and item.fred_status != 'INVALID' %}
+      <span class="market-val msi-na" style="color:var(--amber-400, #f59e0b);font-weight:600;font-size:10px;cursor:pointer"
+            {% if is_authenticated %}onclick="openMarketManageModal();switchMktTab('apikeys',document.getElementById('mkt-tabbtn-apikeys'))"{% else %}onclick="location.href='{% url 'login' %}?next={{ request.path|urlencode }}'"{% endif %}
+            title="{{ item.error|default:'FRED API key required' }}">
+        🔑 Add FRED Key
+      </span>
+    {% elif item.fred_status == 'INVALID' or item.key in 'cpi_india fed_funds repo_rate' and not item.value %}
+      <span class="market-val msi-na" style="color:var(--red-400, #ef4444);font-weight:600;font-size:10px;cursor:pointer"
+            {% if is_authenticated %}onclick="openMarketManageModal();switchMktTab('apikeys',document.getElementById('mkt-tabbtn-apikeys'))"{% else %}onclick="location.href='{% url 'login' %}?next={{ request.path|urlencode }}'"{% endif %}
+            title="{{ item.error|default:'Valid FRED API key required' }}">
+        ⚠️ Add Valid FRED Key
+      </span>
+    {% else %}
+      <span class="market-val msi-na" title="{{ item.error }}">N/A</span>
+    {% endif %}
   {% else %}
     <span class="market-val {% if item.direction == 'up' %}msi-val-up{% elif item.direction == 'down' %}msi-val-down{% endif %}">
       {% if item.unit == 'Rs.' %}₹{% elif item.unit and item.unit != '%' and item.unit != 'x' %}{{ item.unit }} {% endif %}{% if item.unit == 'x' %}x {% endif %}{{ item.value|floatformat:2 }}{% if item.unit == '%' %}%{% endif %}
@@ -29,11 +43,15 @@
 </div>
 {% endfor %}
 
-{# ── Manage / Settings gear (logged-in users only) ──────────────────── #}
+{# ── Manage / Settings gear ──────────────────── #}
 {% if is_authenticated %}
 <button type="button" class="market-manage-btn" id="market-manage-btn"
-        onclick="openMarketManageModal()" title="Manage metrics in this strip">⚙</button>
+        onclick="openMarketManageModal()" title="Manage metrics in this strip">⚙ Edit</button>
+{% else %}
+<a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="market-manage-btn" style="text-decoration:none;font-weight:500;"
+   title="Log in to edit metrics and customize your market strip">⚙ Sign in to edit strip</a>
 {% endif %}
+
 
 {# ── Shared tooltip popup lives in base.html (always available as global) #}
 

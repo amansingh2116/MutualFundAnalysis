@@ -58,10 +58,10 @@ class HomeView(TemplateView):
             ctx['categories'] = []
 
         # ── Section 1: Benchmark Returns Monitor ──────────────────────────────
-        # Hardcoded curated defaults shown to anonymous users (no DB IDs, resolved by name)
-        _DEFAULT_BENCH_NAMES = [
+        # Default 5 benchmarks for non-login & new users
+        DEFAULT_BENCHMARK_NAMES = [
             'NIFTY 50', 'SENSEX', 'NIFTY MIDCAP 150',
-            'NIFTY SMALLCAP 250', 'NIFTY 500', 'NASDAQ 100',
+            'NIFTY SMALLCAP 250', 'NIFTY SMLCAP 250', 'NIFTY 200',
         ]
         try:
             from apps.benchmarks.models import BenchmarkReturns, UserBenchmarkProfile
@@ -74,23 +74,27 @@ class HomeView(TemplateView):
             ctx['all_benchmark_index_json'] = json.dumps([
                 {'id': r.index_id, 'name': r.index.name} for r in all_bench
             ])
+            default_set = [r for r in all_bench if r.index.name.upper() in DEFAULT_BENCHMARK_NAMES]
+            if not default_set:
+                default_set = all_bench[:5]
+
             if self.request.user.is_authenticated:
                 profile = UserBenchmarkProfile.objects.filter(user=self.request.user).first()
                 watchlist_ids = profile.watchlist if (profile and profile.watchlist) else []
                 if watchlist_ids:
                     ctx['benchmark_returns'] = [r for r in all_bench if r.index_id in watchlist_ids]
                 else:
-                    ctx['benchmark_returns'] = all_bench  # show all if watchlist empty
+                    ctx['benchmark_returns'] = default_set
                 ctx['home_bench_watchlist_ids'] = json.dumps(watchlist_ids)
             else:
-                default_set = [r for r in all_bench if r.index.name in _DEFAULT_BENCH_NAMES]
-                ctx['benchmark_returns'] = default_set or all_bench[:6]
+                ctx['benchmark_returns'] = default_set
                 ctx['home_bench_watchlist_ids'] = '[]'
         except Exception as exc:
             logger.error("HomeView benchmark returns failed: %s", exc)
             ctx['benchmark_returns'] = []
             ctx['all_benchmark_index_json'] = '[]'
             ctx['home_bench_watchlist_ids'] = '[]'
+
 
         # ── Section 2 + 4: Category Snapshots ────────────────────────────────
         try:
@@ -1022,6 +1026,14 @@ class ResearchBenchmarksView(TemplateView):
             )
             ctx['all_benchmark_returns'] = all_returns
 
+            DEFAULT_BENCHMARK_NAMES = [
+                'NIFTY 50', 'SENSEX', 'NIFTY MIDCAP 150',
+                'NIFTY SMALLCAP 250', 'NIFTY SMLCAP 250', 'NIFTY 200',
+            ]
+            default_set = [r for r in all_returns if r.index.name.upper() in DEFAULT_BENCHMARK_NAMES]
+            if not default_set:
+                default_set = all_returns[:5]
+
             # User watchlist
             watchlist_ids = []
             if self.request.user.is_authenticated:
@@ -1029,13 +1041,14 @@ class ResearchBenchmarksView(TemplateView):
                 if profile and profile.watchlist:
                     watchlist_ids = profile.watchlist
 
-            # If user has a watchlist, filter to those; else default to all with data
+            # If user has a watchlist, filter to those; else default to 5 curated benchmarks
             if watchlist_ids:
                 ctx['selected_returns'] = [
                     r for r in all_returns if r.index_id in watchlist_ids
                 ]
             else:
-                ctx['selected_returns'] = all_returns
+                ctx['selected_returns'] = default_set
+
                 
             # Serialize for JS heatmap rendering
             benchmarks_js = []

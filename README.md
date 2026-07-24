@@ -64,9 +64,9 @@
 ---
 
 ### Financial Calculators & Planning Suite
-- **Categorized Calculator Hub** (`/calculators/`): 16 specialized calculators organized into 4 intuitive categories with real-time keyword search and instant category filter pills — see [CALCULATORS.md](documentation/CALCULATORS.md):
+- **Categorized Calculator Hub** (`/calculators/`): 17 specialized calculators organized into 4 intuitive categories with real-time keyword search and instant category filter pills — see [CALCULATORS.md](documentation/CALCULATORS.md):
   - **📈 Investment & Growth**: SIP, Lumpsum, SWP, Step-Up SIP, STP, XIRR, and Rolling Return calculators.
-  - **🔍 Research & Peer Comparison**: Fund Comparison (up to 5 funds), Fund Overlap Checker (stock-level overlap), AMC Comparison (2–4 fund houses), and Category Comparison (2–4 SEBI categories).
+  - **🔍 Research & Peer Comparison**: **Peer Comparison Calculator** (`/calculators/peers/` - multi-factor SEBI fingerprint matching), Fund Comparison (up to 5 funds), Fund Overlap Checker (stock-level overlap), AMC Comparison (2–4 fund houses), and Category Comparison (2–4 SEBI categories).
   - **🎯 Goals & Life Event Planning**: Goal Planner, **Retirement Planner** (25x FIRE rule & 4% SWR), **Child Education Planner** (8–12% education inflation & college benchmarks), and SWP pension longevity planner.
   - **🧾 Tax & Wealth Management**: MF Tax Calculator (FY 2025-26 STCG/LTCG & tax loss harvesting) and Net Worth Calculator.
 
@@ -97,7 +97,7 @@
 
 - [SCREENER.md](documentation/SCREENER.md) — Fund Screener guide & metric catalogue
 - [ADVANCED_ANALYSIS.md](documentation/ADVANCED_ANALYSIS.md) — Technical indicators, ML forecasting & risk models
-- [CALCULATORS.md](documentation/CALCULATORS.md) — Documentation for all 12 financial calculators
+- [CALCULATORS.md](documentation/CALCULATORS.md) — Documentation for all 17 financial calculators
 - [backtester_analysis.md](documentation/backtester_analysis.md) — Strategy Backtester V2 user & developer guide
 - [mf_market_metrics_reference.md](documentation/ideas/mf_market_metrics_reference.md) — Market Strip metrics & investment decision framework
 - [PROJECT_CONTEXT.md](documentation/PROJECT_CONTEXT.md) — Complete repository structure and architecture overview

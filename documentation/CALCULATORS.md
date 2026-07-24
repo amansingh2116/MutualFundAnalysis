@@ -603,6 +603,23 @@ Side-by-side comparison of 2–4 SEBI mutual fund sub-categories across 35+ metr
 
 ---
 
+## Tool 17 — Peer Comparison Calculator
+
+**Route:** `/calculators/peers/`  
+**Template:** `templates/calculators/peers.html`  
+**API:** `GET /api/funds/<amfi_code>/peers/?max=5` → `peer_comparison_api` (`apps/analytics/api_views.py`)
+
+### Overview
+Dedicated peer matching & comparison engine that takes any target mutual fund (selected via search or URL parameter `?amfi=...`) and automatically identifies its 5 closest peers in the same SEBI category using multi-factor fingerprint matching (`apps/funds/peers.py`).
+
+### Key Capabilities
+- **Multi-Factor Fingerprint Engine**: Ranks candidate funds by SEBI sub-category, plan type (Direct Growth / ETF), asset class allocation, and AUM size.
+- **Side-by-Side Metric Matrix**: Compares target fund against 5 closest peers across NAV, AUM, Expense Ratio, 1Y/3Y/5Y Trailing CAGR, Sharpe Ratio, Sortino Ratio, Max Drawdown, Alpha, Beta, and Model Quality Scores.
+- **Winner Highlights**: Highlights top performers per metric with direction-calibrated color badges.
+- **One-Click Launch**: Direct "Launch Full Comparison" trigger to populate selected peers into the Fund Comparison Calculator (`/calculators/compare/`).
+
+---
+
 ## URL Reference
 
 | Route | Calculator / Tool | Category |
@@ -615,6 +632,7 @@ Side-by-side comparison of 2–4 SEBI mutual fund sub-categories across 35+ metr
 | `/calculators/stp/` | STP Calculator | 📈 Investment & Growth |
 | `/calculators/xirr/` | XIRR Calculator | 📈 Investment & Growth |
 | `/calculators/rolling/` | Rolling Returns Calculator | 📈 Investment & Growth |
+| `/calculators/peers/` | Peer Comparison Calculator | 🔍 Research & Comparison |
 | `/research/categories/compare/` | Category Comparison | 🔍 Research & Comparison |
 | `/research/amcs/compare/` | AMC Comparison | 🔍 Research & Comparison |
 | `/calculators/compare/` | Fund Comparison Calculator | 🔍 Research & Comparison |
@@ -629,10 +647,11 @@ Side-by-side comparison of 2–4 SEBI mutual fund sub-categories across 35+ metr
 
 ## Audit & Accuracy Notes
 
-All 16 financial calculators and tools were audited for calculation accuracy, input validation, and UI response:
+All 17 financial calculators and tools were audited for calculation accuracy, input validation, and UI response:
 
+- **Peer Comparison Calculator**: Fingerprint matching engine strictly enforces category and plan boundaries, returning 5 closest peer matches with side-by-side metrics.
 - **Child Education Planner**: 10% default inflation accurately reflects Indian education fee growth. Net gap calculation handles existing savings compound growth.
 - **Retirement Planner**: Uses 25x annual expense rule (4% Safe Withdrawal Rate) to compute inflation-adjusted corpus requirement.
 - **AMC & Category Compare**: Real-time searchable picker, URL state persistence, guarded API fetches, and side-by-side metric tables.
-- **Hub Navigation**: Filter pills and search input allow instant drill-down across all 16 calculators.
+- **Hub Navigation**: Filter pills and search input allow instant drill-down across all 17 calculators.
 

@@ -100,7 +100,20 @@ apps/
 
 ---
 
-## 7. Developer Guidelines
+## 7. Financial Calculators & Peer Comparison Engine
+
+1. **Peer Comparison Calculator (`/calculators/peers/`)**:
+   - Powered by `get_peer_matches` (`apps/funds/peers.py`) & `peer_comparison_api` (`apps/analytics/api_views.py`).
+   - Dynamically selects 5 closest peer funds in the same SEBI category using multi-factor fingerprint matching (category, plan, asset allocation, AUM).
+   - Generates side-by-side comparison tables across returns, risk, expense ratio, and model scores with direct 1-click launch into the full Fund Comparison Calculator (`/calculators/compare/`).
+2. **Access Control & Navigation Rules**:
+   - **Login Required**: AMC Analysis (`/research/amcs/`), Category Analysis (`/research/categories/`), Quartile Rankings (`/research/quartiles/`), PDF Guides (`/learn/resources/guides/`), and Fund Screener (`/funds/screener/`).
+   - **Public Access**: Browse Funds (`/funds/`), Category Return Meter (`/research/categories/meter/`), and Benchmark Monitor default views.
+   - **Sidebar Navigation**: Active state glowing CSS is dynamically applied across all 17 calculators (including Peer Comparison, AMC Compare, Category Compare, Child Education, and Retirement Planners).
+
+---
+
+## 8. Developer Guidelines
 
 - **Never mutate private third-party DOM properties**.
 - **Always use explicit UTF-8 encoding** when updating template files containing emojis.

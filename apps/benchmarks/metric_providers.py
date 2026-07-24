@@ -200,39 +200,68 @@ def _fetch_technical_metrics():
         logger.error("technicals: %s",exc); return {k:_stub(k) for k in TECHNICAL_KEYS}
 
 
-def _get_fred_key(user):
-    if user is None or not getattr(user,"is_authenticated",False): return None
+def _get_fred_key_info(user):
+    if user is None or not getattr(user, "is_authenticated", False):
+        return None, "MISSING"
     try:
         from apps.benchmarks.models import UserAPIKey
-        obj=UserAPIKey.objects.filter(user=user,provider="fred").first()
-        return obj.api_key if obj else None
-    except: return None
+        obj = UserAPIKey.objects.filter(user=user, provider="fred").first()
+        if not obj or not obj.api_key:
+            return None, "MISSING"
+        if not obj.is_valid:
+            return obj.api_key, "INVALID"
+        return obj.api_key, "VALID"
+    except Exception as exc:
+        logger.warning("_get_fred_key_info error: %s", exc)
+        return None, "MISSING"
 
-FRED_SERIES={"cpi_india":("INDCPIALLMINMEI","India CPI (YoY)","macro","%"),"fed_funds":("FEDFUNDS","Fed Funds Rate","global","%"),"repo_rate":("INDIRLTLT01STM","RBI Repo Rate","macro","%")}
+FRED_SERIES = {
+    "cpi_india": ("INDCPIALLMINMEI", "India CPI (YoY)", "macro", "%"),
+    "fed_funds": ("FEDFUNDS", "Fed Funds Rate", "global", "%"),
+    "repo_rate": ("INDIRLTLT01STM", "RBI Repo Rate", "macro", "%")
+}
 
 def _fetch_fred_metrics(user=None):
-    api_key=_get_fred_key(user)
-    if not api_key:
-        return {k:{**_stub(k),"error":"No FRED API key. Add yours in Settings > API Keys."} for k in FRED_KEYS}
-    ck="mkt_fred:v4:{}".format(getattr(user,"id","anon")); cached=cache.get(ck)
-    if cached: return cached
-    results={}
+    api_key, status = _get_fred_key_info(user)
+    if status == "MISSING":
+        return {
+            k: {**_stub(k), "error": "FRED API Key Required: Add a free FRED API key in Settings/Manage Strip.", "fred_status": "MISSING"}
+            for k in FRED_KEYS
+        }
+    elif status == "INVALID":
+        return {
+            k: {**_stub(k), "error": "Valid FRED API Key Required: Your FRED API key is invalid. Update in Settings/Manage Strip.", "fred_status": "INVALID"}
+            for k in FRED_KEYS
+        }
+    ck = "mkt_fred:v4:{}".format(getattr(user, "id", "anon"))
+    cached = cache.get(ck)
+    if cached:
+        return cached
+    results = {}
     try:
         from fredapi import Fred
-        fred=Fred(api_key=api_key)
-        for key,(sid,label,category,unit) in FRED_SERIES.items():
+        fred = Fred(api_key=api_key)
+        for key, (sid, label, category, unit) in FRED_SERIES.items():
             try:
-                s=fred.get_series(sid,observation_start="2020-01-01").dropna()
-                if s.empty: results[key]=_stub(key); continue
-                val=float(s.iloc[-1]); prev=float(s.iloc[-2]) if len(s)>=2 else val
-                chg=val-prev; pct=(chg/abs(prev))*100 if prev else 0.0
-                results[key]=_ok(label,category,unit,round(val,3),round(chg,3),round(pct,2),threshold=METRIC_CATALOGUE.get(key,{}).get("threshold",""))
+                s = fred.get_series(sid, observation_start="2020-01-01").dropna()
+                if s.empty:
+                    results[key] = {**_stub(key), "error": "FRED returned no data for key. Add a valid FRED API key.", "fred_status": "INVALID"}
+                    continue
+                val = float(s.iloc[-1])
+                prev = float(s.iloc[-2]) if len(s) >= 2 else val
+                chg = val - prev
+                pct = (chg / abs(prev)) * 100 if prev else 0.0
+                results[key] = {**_ok(label, category, unit, round(val, 3), round(chg, 3), round(pct, 2), threshold=METRIC_CATALOGUE.get(key, {}).get("threshold", "")), "fred_status": "VALID"}
             except Exception as e:
-                logger.warning("FRED %s: %s",sid,e); results[key]=_stub(key)
+                logger.warning("FRED %s: %s", sid, e)
+                results[key] = {**_stub(key), "error": "FRED API error or invalid key. Update FRED API key.", "fred_status": "INVALID"}
     except Exception as exc:
-        logger.error("FRED: %s",exc)
-        for k in FRED_KEYS: results[k]={**_stub(k),"error":"FRED error: {}".format(exc)}
-    cache.set(ck,results,TTL_FRED); return results
+        logger.error("FRED: %s", exc)
+        for k in FRED_KEYS:
+            results[k] = {**_stub(k), "error": "FRED error: {}. Update FRED API key.".format(exc), "fred_status": "INVALID"}
+    cache.set(ck, results, TTL_FRED)
+    return results
+
 
 
 def validate_fred_key(api_key):

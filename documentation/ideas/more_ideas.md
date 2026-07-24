@@ -130,3 +130,13 @@ The individual fund analysis pages will be significantly upgraded with specializ
 - **Explainable Recommendations:** Provide short, transparent, natural-language explanations (e.g., "Why this fund?") instead of a black-box ranking, tailored directly to the user's risk and time horizon questionnaire responses.
 - **Macro Stress Testing:** Simulate portfolio and fund performance under historical and hypothetical extreme scenarios (e.g., 2008 Financial Crisis, COVID-19 crash, interest rate shocks, inflation spikes, and sector concentration shocks).
 - **Market-Regime Analysis:** Evaluate portfolio and fund performance across different economic cycles, including bull markets, bear markets, sideways markets, high-inflation periods, and rate-cut cycles.
+
+some fix/improvements left to implement in future:
+- backtester testing
+- recommendation and portfolio analysis improvement
+- UI improvement
+- application testing (security, login, performance, etc.)
+- deploy
+- category analysis add to fund analysis
+- report
+- AI
