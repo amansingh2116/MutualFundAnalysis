@@ -14,7 +14,9 @@ from django.core.paginator import Paginator
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import DetailView, ListView, TemplateView
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+
 
 from apps.funds.models import (
     CategorySnapshot, FundModelScore, FundScreenerSnapshot,
@@ -270,8 +272,9 @@ def home_category_funds(request):
         return JsonResponse({'error': 'server error'}, status=500)
 
 
-class CategoryListView(LoginRequiredMixin, TemplateView):
+class CategoryListView(TemplateView):
     template_name = 'funds/category_list.html'
+
     paginate_by = 100
 
     sort_options = {
@@ -1093,6 +1096,7 @@ class ResearchCategoryMeterView(TemplateView):
     """
     template_name = 'research/category_meter.html'
 
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         try:
@@ -1137,6 +1141,7 @@ class ResearchCategoriesView(TemplateView):
     Research > Category Analysis: Browse all categories with search.
     """
     template_name = 'research/categories.html'
+
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1188,11 +1193,13 @@ def _slug_to_sub_category(slug: str) -> str:
     return ''
 
 
-class ResearchCategoryDetailView(TemplateView):
+class ResearchCategoryDetailView(LoginRequiredMixin, TemplateView):
     """
     Research > Category Deep Dive: Full tabbed analysis for a specific category.
     Tabs: Snapshot (all funds), Returns, Risk, Portfolio (composition), Fees.
+    Requires login.
     """
+
     template_name = 'research/category_detail.html'
 
     def get_context_data(self, **kwargs):
@@ -1265,6 +1272,7 @@ class ResearchCategoryDetailView(TemplateView):
         return ctx
 
 
+@login_required
 def category_detail_funds_api(request, slug):
     """
     AJAX: GET /research/categories/<slug>/funds/?tab=returns
@@ -1302,14 +1310,24 @@ def category_detail_funds_api(request, slug):
 
         data = []
         for f in funds:
+            score = score_map.get(f.scheme_id)
+            badge = badge_map.get(f.scheme_id, '')
             base = {
-                'name': f.fund_name,
-                'house': f.fund_house,
-                'amfi': f.scheme.amfi_code,
-                'score': _flt(score_map.get(f.scheme_id)),
-                'badge': badge_map.get(f.scheme_id, ''),
-                'rank_1y': f.rank_return_1y,
-                'total': f.rank_count_in_cat,
+                'amfi_code': f.amfi_code,
+                'fund_name': f.fund_name,
+                'fund_house': f.fund_house,
+                'is_etf': f.is_etf,
+                'score': score,
+                'badge': badge,
+                'returns_1y': _flt(f.returns_1y_pct),
+                'returns_3y': _flt(f.cagr_3y_pct),
+                'returns_5y': _flt(f.returns_5y_pct),
+                'sharpe': _flt(f.sharpe_ratio),
+                'sortino': _flt(f.sortino_ratio),
+                'alpha': _flt(f.alpha_3y),
+                'beta': _flt(f.beta_3y),
+                'volatility': _flt(f.volatility_1y_pct),
+                'max_drawdown': _flt(f.max_drawdown),
                 'aum': _flt(f.aum_cr),
                 'expense': _flt(f.expense_ratio),
                 'age': _flt(f.fund_age_years),
@@ -1330,7 +1348,8 @@ def category_detail_funds_api(request, slug):
                     'ret_3m': _flt(f.returns_3m_pct),
                     'ret_6m': _flt(f.returns_6m_pct),
                     'ret_1y': _flt(f.returns_1y_pct),
-                    'ret_3y': _flt(f.returns_3y_pct),
+                    'ret_2y': _flt(f.cagr_2y_pct),
+                    'ret_3y': _flt(f.cagr_3y_pct),
                     'ret_5y': _flt(f.returns_5y_pct),
                     'ret_7y': _flt(f.cagr_7y_pct),
                     'ret_10y': _flt(f.cagr_10y_pct),
@@ -1408,12 +1427,14 @@ def category_detail_funds_api(request, slug):
         return JsonResponse({'error': 'server error'}, status=500)
 
 
-class ResearchQuartilesView(TemplateView):
+class ResearchQuartilesView(LoginRequiredMixin, TemplateView):
     """
     Research > Quartile Rankings: Full standalone page with dynamic on-the-fly
     quartile computation. No stored quartile data — all calculated from
     FundScreenerSnapshot on request.
+    Requires login.
     """
+
     template_name = 'research/quartile_rankings.html'
 
     def get_context_data(self, **kwargs):
@@ -1532,6 +1553,7 @@ def _compute_quartile(value, all_values, higher_is_better):
     return quartile, rank, total
 
 
+@login_required
 def quartile_rankings_api(request):
     """
     AJAX endpoint: GET /research/quartiles/api/
@@ -1541,6 +1563,7 @@ def quartile_rankings_api(request):
     Quartile ranks are ALWAYS computed against the full sub-category cohort,
     even when a search filter is active. Search only filters which rows are displayed.
     """
+
     sub_category = request.GET.get('sub_category', '').strip()
     metric_group = request.GET.get('metric_group', 'returns')
     q = request.GET.get('q', '').strip()
@@ -1813,8 +1836,7 @@ def _compute_amc_metrics(fund_house: str) -> dict:
                 ).values('security_name').distinct().count()
             )
     except Exception as e:
-        logger.info('AMC holdings query failed for %s: %s', fund_house, e)
-
+        pass
     return {
         'fund_house': fund_house,
         'slug': _make_amc_slug(fund_house),
@@ -1849,10 +1871,11 @@ def _compute_amc_metrics(fund_house: str) -> dict:
     }
 
 
-class ResearchAMCListView(TemplateView):
+class ResearchAMCListView(LoginRequiredMixin, TemplateView):
     """
     Research > AMC Analysis: Browse all fund houses with key metrics.
     Supports multi-select comparison (2-4 AMCs).
+    Requires login.
     """
     template_name = 'research/amcs.html'
 
@@ -1899,12 +1922,14 @@ class ResearchAMCListView(TemplateView):
         return ctx
 
 
+@login_required
 def amc_list_api(request):
     """
     AJAX endpoint: GET /research/amcs/api/list/
     Returns all AMCs with computed metrics.
     Params: ?q= (search)
     """
+
     q = request.GET.get('q', '').strip().lower()
     try:
         houses = list(
@@ -1950,11 +1975,13 @@ def amc_list_api(request):
         return JsonResponse({'error': 'server error'}, status=500)
 
 
-class ResearchAMCDetailView(TemplateView):
+class ResearchAMCDetailView(LoginRequiredMixin, TemplateView):
     """
     Research > AMC Detail: Full analysis of a single fund house.
+    Requires login.
     """
     template_name = 'research/amc_detail.html'
+
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -2029,11 +2056,13 @@ class ResearchAMCDetailView(TemplateView):
         return ctx
 
 
+@login_required
 def amc_detail_funds_api(request, slug: str):
     """
     AJAX: GET /research/amcs/<slug>/funds/?tab=returns|risk|portfolio|fees
     Returns fund-level table data for the AMC detail page.
     """
+
     fund_house = _slug_to_fund_house(slug)
     if not fund_house:
         return JsonResponse({'error': 'AMC not found'}, status=404)
@@ -2140,9 +2169,10 @@ def amc_detail_funds_api(request, slug: str):
         return JsonResponse({'error': 'server error'}, status=500)
 
 
-class ResearchAMCCompareView(TemplateView):
+class ResearchAMCCompareView(LoginRequiredMixin, TemplateView):
     """
     Research > AMC Compare: Side-by-side comparison of 2-4 AMCs.
+    Requires login.
     """
     template_name = 'research/amc_compare.html'
 
@@ -2175,6 +2205,7 @@ class ResearchAMCCompareView(TemplateView):
         return ctx
 
 
+@login_required
 def amc_compare_api(request):
     """
     AJAX: GET /research/amcs/api/compare/?amcs=slug1,slug2,...
@@ -2287,9 +2318,10 @@ def _compute_category_compare_metrics(sub_category: str) -> dict:
     }
 
 
-class ResearchCategoryCompareView(TemplateView):
+class ResearchCategoryCompareView(LoginRequiredMixin, TemplateView):
     """
     Research > Category Compare: Side-by-side comparison of 2-4 categories.
+    Requires login.
     """
     template_name = 'research/category_compare.html'
 
@@ -2325,6 +2357,8 @@ def category_list_api(request):
     AJAX: GET /research/categories/api/list/
     Returns all categories with aggregate metrics for the directory grid.
     """
+
+
     try:
         snaps = list(CategorySnapshot.objects.all().order_by('category_group', 'scheme_sub_category'))
         # Get AUM per category
@@ -2368,6 +2402,7 @@ def category_list_api(request):
         return JsonResponse({'error': 'server error'}, status=500)
 
 
+@login_required
 def category_compare_api(request):
     """
     AJAX: GET /research/categories/api/compare/?cats=slug1,slug2,...
@@ -2377,6 +2412,7 @@ def category_compare_api(request):
     slugs = [s.strip() for s in slugs_param.split(',') if s.strip()][:4]
     if len(slugs) < 2:
         return JsonResponse({'error': 'Need at least 2 category slugs'}, status=400)
+
 
     try:
         result = []

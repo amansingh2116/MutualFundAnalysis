@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% block title %}Peer Comparison Calculator{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Search Dropdown (Matches Compare Calculator exact pattern) ── */
+.search-card {
+  margin-bottom: 24px;
+  overflow: visible !important;
+  position: relative;
+  z-index: 10;
+}
+.search-card .card-body {
+  overflow: visible !important;
+}
+.peer-search-wrap {
+  position: relative;
+  max-width: 600px;
+  margin-bottom: 16px;
+}
+.peer-search-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  margin-top: 4px;
+}
+.peer-search-item {
+  padding: 9px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background .1s;
+}
+.peer-search-item:hover {
+  background: rgba(99,102,241,.12);
+}
+.peer-search-item:last-child {
+  border-bottom: none;
+}
+
+/* ── Sample Pills ── */
+.sample-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Empty Landing Card ── */
+.peers-empty-card {
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+.peers-empty-icon {
+  font-size: 42px;
+  margin-bottom: 12px;
+}
+.peers-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.peers-empty-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  max-width: 480px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* ── Loading Card ── */
+.peers-loading-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px 24px;
+  text-align: center;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(99,102,241,0.12);
+}
+.peers-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(99,102,241,0.2);
+  border-top-color: var(--indigo-400);
+  border-radius: 50%;
+  animation: peerSpin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes peerSpin { to { transform: rotate(360deg); } }
+.peers-loading-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.peers-loading-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 500px;
+  margin: 0 auto 16px;
+  line-height: 1.5;
+}
+.peers-loading-bar-wrap {
+  width: 220px;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+.peers-loading-bar-fill {
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--indigo-400), #818cf8);
+  border-radius: 4px;
+  animation: peerBarPulse 1.2s infinite ease-in-out;
+}
+@keyframes peerBarPulse {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* ── Peer Table Styling ── */
+.peers-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  table-layout: fixed;
+}
+.peers-compare-table th, .peers-compare-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  word-break: break-word;
+}
+.peers-compare-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-secondary);
+  white-space: normal;
+  text-align: center;
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.peers-compare-table thead th.peers-base-col {
+  color: var(--indigo-400);
+  border-bottom: 2px solid var(--indigo-400);
+  background: rgba(99,102,241,.08);
+}
+.peers-compare-table tbody tr:hover {
+  background: rgba(255,255,255,.02);
+}
+.peers-compare-table td.peers-metric-label {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  width: 170px;
+  background: var(--bg-elevated);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.peers-compare-table td.peers-base-col {
+  background: rgba(99,102,241,.04);
+  font-weight: 600;
+  text-align: center;
+}
+.peers-compare-table td:not(.peers-metric-label) {
+  text-align: center;
+}
+.peers-val-pos { color: #10b981; font-weight: 600; }
+.peers-val-neg { color: #ef4444; font-weight: 600; }
+.peers-val-neutral { color: var(--text-primary); }
+.peers-section-header td {
+  background: rgba(99,102,241,.06);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--indigo-400);
+  border-top: 2px solid var(--border);
+  padding: 8px 12px;
+}
+
+.peers-fund-link {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--indigo-400);
+  text-decoration: none;
+  display: block;
+  margin-bottom: 2px;
+  line-height: 1.35;
+}
+.peers-fund-link:hover { text-decoration: underline; }
+.peers-fund-house { font-size: 10px; color: var(--text-muted); display: block; }
+.peers-badge-base {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: var(--indigo-400);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: .03em;
+  margin-top: 3px;
+}
+.peers-match-reason {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'calculators:hub' %}">Calculators</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>Peer Comparison</span>
+</div>
+
+<div class="page-header">
+  <div class="page-title">🤝 Peer Comparison Calculator
+    <button class="info-btn" data-t-title="Peer Comparison Engine" data-t-what="Automatically finds direct peers for any fund using a multi-factor fingerprint matching algorithm based on category, fund kind, direct/regular plan, asset allocation, and AMC separation." data-t-interp="Allows you to compare your target fund side-by-side with its 5 closest peers and launch a deep-dive comparison anytime.">ⓘ</button>
+  </div>
+  <div class="page-subtitle">Search any mutual fund to discover its closest category peers and compare risk, returns, expense ratio, and portfolio strategy.</div>
+</div>
+
+<!-- Fund Search & Samples Bar -->
+<div class="card search-card">
+  <div class="card-header">
+    <div class="card-title">🔍 Search Target Fund</div>
+  </div>
+  <div class="card-body">
+    <div class="peer-search-wrap">
+      <input type="text" id="peer-search-input" class="form-control" placeholder="Type fund name or AMFI code (e.g. Axis, Nippon, Parag Parikh, HDFC)..." autocomplete="off">
+      <div id="peer-search-dropdown" class="peer-search-dropdown"></div>
+    </div>
+
+    <div class="sample-pills">
+      <span style="font-size:12px;color:var(--text-muted)">Try popular funds:</span>
+      <button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="selectFund('119598', 'Nippon India Small Cap Fund Direct Growth')">⚡ Nippon Small Cap</button>
+      <button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="selectFund('122639', 'Parag Parikh Flexi Cap Fund Direct Growth')">⚡ Parag Parikh Flexi Cap</button>
+      <button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="selectFund('119062', 'HDFC Top 100 Fund Direct Growth')">⚡ HDFC Top 100</button>
+      <button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="selectFund('119551', 'SBI Bluechip Fund Direct Growth')">⚡ SBI Bluechip</button>
+      <button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="selectFund('118834', 'Mirae Asset Large Cap Fund Direct Growth')">⚡ Mirae Asset Large Cap</button>
+    </div>
+  </div>
+</div>
+
+<!-- Initial Empty Landing State -->
+<div id="peers-empty-state" class="peers-empty-card">
+  <div class="peers-empty-icon">🤝</div>
+  <div class="peers-empty-title">Search or Select a Target Mutual Fund</div>
+  <div class="peers-empty-desc">Enter a mutual fund name above or click one of the popular sample shortcut buttons to discover its closest category peers side-by-side.</div>
+</div>
+
+<!-- Prominent Loading Card -->
+<div id="peers-loading" class="peers-loading-card" style="display:none">
+  <div class="peers-loading-spinner"></div>
+  <div class="peers-loading-title" id="peers-loading-title">Finding Best Category Peers…</div>
+  <div class="peers-loading-desc">Running 5-tier fingerprint matching algorithm to discover closest peers across category, direct/regular plan, risk profile, and AMC separation…</div>
+  <div class="peers-loading-bar-wrap"><div class="peers-loading-bar-fill"></div></div>
+</div>
+
+<!-- Error Display -->
+<div id="peers-error" style="display:none;margin-bottom:24px"></div>
+
+<!-- Peer Results Content -->
+<div id="peers-content" style="display:none">
+  <!-- Top Action Bar -->
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px">
+    <div>
+      <div style="font-size:16px;font-weight:800;color:var(--text-primary)" id="peers-header-title">Peer Comparison</div>
+      <div style="font-size:12px;color:var(--text-muted)" id="peers-header-sub">Showing base fund and category peers</div>
+    </div>
+    <button type="button" id="launch-compare-btn" class="btn btn-primary" onclick="launchAdvancedCompare()">
+      ⚖️ Compare in Advanced Fund Comparison Calculator →
+    </button>
+  </div>
+
+  <!-- Peer Table Wrap -->
+  <div style="border-radius:12px;border:1px solid var(--border);background:var(--bg-card);overflow:hidden;margin-bottom:24px">
+    <div id="peers-table-container"></div>
+  </div>
+</div>
+
+<!-- Algorithm Guide Card -->
+<div class="card" style="margin-top:24px">
+  <div class="card-header">
+    <div class="card-title">💡 How Peer Matching &amp; Ranking Works
+      <button class="info-btn" data-t-title="Peer Match Fingerprinting" data-t-what="Explains the multi-tier peer matching engine." data-t-interp="Ensures fair comparison against funds with identical mandates.">ⓘ</button>
+    </div>
+  </div>
+  <div class="card-body" style="font-size:12px;line-height:1.65;color:var(--text-secondary)">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🎯 Multi-Factor Fingerprint Engine</div>
+        Peer discovery ranks same-plan/same-direct candidates across 5 criteria:
+        <ul style="margin:4px 0 0 16px;padding:0">
+          <li><strong>Category &amp; Kind Alignment</strong>: Matches exact SEBI sub-categories (e.g. Small Cap, Flexi Cap, Liquid).</li>
+          <li><strong>AMC Separation</strong>: Prioritizes funds from competing AMCs for unbiased benchmark comparison.</li>
+          <li><strong>AUM &amp; Liquidity Tiering</strong>: Prefers peers with substantial AUM for robust data quality.</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">⚖️ Transitioning to Advanced Comparison</div>
+        When you click <strong>"Compare in Advanced Fund Comparison Calculator"</strong>:
+        <ul style="margin:4px 0 0 16px;padding:0">
+          <li>Pre-loads all matched peer AMFI codes directly into the 5-fund comparison suite.</li>
+          <li>Enables interactive multi-line NAV growth charts, sector overlap radar, and risk scatter plots.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPeerData = null;
+
+function fmt(v, decimals, suffix) {
+  decimals = decimals == null ? 2 : decimals;
+  suffix = suffix || '';
+  if (v == null) return '—';
+  return parseFloat(v).toFixed(decimals) + suffix;
+}
+
+function colorClass(v) {
+  if (v == null) return 'peers-val-neutral';
+  return v > 0 ? 'peers-val-pos' : 'peers-val-neg';
+}
+
+function fmtCcy(v) {
+  if (v == null) return '—';
+  if (v >= 10000) return '₹' + Math.round(v / 100) + 'Cr';
+  if (v >= 1000)  return '₹' + Math.round(v) + 'Cr';
+  return '₹' + parseFloat(v).toFixed(2) + 'Cr';
+}
+
+function fmtSipLump(v) {
+  if (v == null) return '—';
+  return '₹' + parseInt(v).toLocaleString('en-IN');
+}
+
+function setupSearch() {
+  const inp = document.getElementById('peer-search-input');
+  const dd  = document.getElementById('peer-search-dropdown');
+  let t;
+
+  inp.addEventListener('input', e => {
+    clearTimeout(t);
+    const q = e.target.value.trim();
+    if (q.length < 2) { dd.style.display = 'none'; return; }
+    t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/funds/search/?q=${encodeURIComponent(q)}&limit=8`);
+        const d = await r.json();
+        if (!d.results || !d.results.length) {
+          dd.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:12px;">No funds found.</div>';
+        } else {
+          dd.innerHTML = d.results.map(f => `
+            <div class="peer-search-item" onclick="selectFund('${f.amfi_code}', '${f.scheme_name.replace(/'/g, "\\'")}'); document.getElementById('peer-search-input').value=''; document.getElementById('peer-search-dropdown').style.display='none';">
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.scheme_name}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${f.fund_house} · ${f.amfi_code}</div>
+            </div>`).join('');
+        }
+        dd.style.display = 'block';
+      } catch {}
+    }, 280);
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.peer-search-wrap')) dd.style.display = 'none';
+  });
+}
+
+function selectFund(amfiCode, schemeName) {
+  const emptyEl = document.getElementById('peers-empty-state');
+  const loadingEl = document.getElementById('peers-loading');
+  const titleEl = document.getElementById('peers-loading-title');
+  
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  if (schemeName) {
+    titleEl.textContent = `🔍 Searching category peers for: ${schemeName}…`;
+  } else {
+    titleEl.textContent = `🔍 Searching category peers…`;
+  }
+  
+  loadingEl.style.display = 'block';
+  document.getElementById('peers-error').style.display = 'none';
+  document.getElementById('peers-content').style.display = 'none';
+
+  // Sync selected fund to URL without page reload
+  try {
+    history.replaceState(null, '', '?fund=' + encodeURIComponent(amfiCode));
+  } catch {}
+
+  loadingEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  fetch(`/api/funds/${amfiCode}/peers/?max=5`)
+    .then(r => r.json())
+    .then(data => {
+      loadingEl.style.display = 'none';
+      if (!data.funds || data.funds.length === 0) {
+        const err = document.getElementById('peers-error');
+        err.innerHTML = '<div class="alert alert-warning">No peer funds found in the same SEBI category in the database.</div>';
+        err.style.display = 'block';
+        return;
+      }
+      currentPeerData = data;
+      renderPeersTable(data);
+      document.getElementById('peers-content').style.display = 'block';
+      if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('peers-content'));
+    })
+    .catch(() => {
+      loadingEl.style.display = 'none';
+      const err = document.getElementById('peers-error');
+      err.innerHTML = '<div class="alert alert-danger">Failed to load peer comparison data. Please try again.</div>';
+      err.style.display = 'block';
+    });
+}
+
+function headerCell(f) {
+  const cls = f.is_base ? 'peers-base-col' : '';
+  const badge = f.is_base ? '<span class="peers-badge-base">Target Fund</span>' : '';
+  const reason = f.match_reason ? `<span class="peers-match-reason">${f.match_reason}</span>` : '';
+  return `<th class="${cls}"><a class="peers-fund-link" href="/funds/${f.amfi_code}/">${f.scheme_name}</a><span class="peers-fund-house">${f.fund_house}</span>${badge}${reason}</th>`;
+}
+
+function metricRow(label, funds, valFn) {
+  let cells = '';
+  for (let i = 0; i < funds.length; i++) {
+    const f = funds[i];
+    const r = valFn(f);
+    const colCls = f.is_base ? 'peers-base-col' : '';
+    cells += `<td class="${colCls}"><span class="${r.cls}">${r.txt}</span></td>`;
+  }
+  return `<tr><td class="peers-metric-label">${label}</td>${cells}</tr>`;
+}
+
+function sectionHeaderRow(title, numCols) {
+  return `<tr class="peers-section-header"><td colspan="${numCols}">${title}</td></tr>`;
+}
+
+function renderPeersTable(data) {
+  const funds = data.funds;
+  const numCols = funds.length + 1;
+
+  document.getElementById('peers-header-title').textContent = `🤝 Peer Comparison: ${funds[0].scheme_name}`;
+  document.getElementById('peers-header-sub').textContent = `Category: ${data.category || funds[0].category || 'Mutual Fund'} · Comparing Target Fund with ${funds.length - 1} Matched Peers`;
+
+  const headerRow = `<tr><th class="peers-metric-label" style="min-width:170px">Metric</th>${funds.map(headerCell).join('')}</tr>`;
+
+  // 1. Risk & Valuation Ratios
+  const ratiosRows =
+    metricRow('PE Ratio (Avg)', funds, f => ({cls:'peers-val-neutral', txt: fmt(f.pe_ratio, 1, 'x')})) +
+    metricRow('Std Dev 3Y (Ann %)', funds, f => ({cls:'peers-val-neutral', txt: fmt(f.std_dev_3y) + '%'})) +
+    metricRow('Sharpe Ratio 3Y', funds, f => ({cls: colorClass(f.sharpe_3y), txt: fmt(f.sharpe_3y)})) +
+    metricRow('Sortino Ratio 3Y', funds, f => ({cls: colorClass(f.sortino_3y), txt: fmt(f.sortino_3y)})) +
+    metricRow('Max Drawdown 3Y', funds, f => ({cls:'peers-val-neg', txt: fmt(f.max_drawdown_3y) + '%'})) +
+    metricRow('Std Dev 5Y (Ann %)', funds, f => ({cls:'peers-val-neutral', txt: fmt(f.std_dev_5y) + '%'})) +
+    metricRow('Sharpe Ratio 5Y', funds, f => ({cls: colorClass(f.sharpe_5y), txt: fmt(f.sharpe_5y)})) +
+    metricRow('Sortino Ratio 5Y', funds, f => ({cls: colorClass(f.sortino_5y), txt: fmt(f.sortino_5y)})) +
+    metricRow('Max Drawdown 5Y', funds, f => ({cls:'peers-val-neg', txt: fmt(f.max_drawdown_5y) + '%'}));
+
+  // 2. Trailing & Rolling Returns
+  const PERIODS = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', 'SI'];
+  let trailingRows = '';
+  PERIODS.forEach(p => {
+    trailingRows += metricRow('Trailing ' + p + ' (CAGR)', funds, f => {
+      const v = f.trailing && f.trailing[p] != null ? f.trailing[p] : null;
+      return { cls: colorClass(v), txt: v != null ? (v >= 0 ? '+' : '') + fmt(v) + '%' : '—' };
+    });
+  });
+
+  const rollingRows =
+    metricRow('Rolling 1Y Mean', funds, f => ({cls: colorClass(f.rolling_1y_mean), txt: fmt(f.rolling_1y_mean) + '%'})) +
+    metricRow('Rolling 1Y Median', funds, f => ({cls: colorClass(f.rolling_1y_median), txt: fmt(f.rolling_1y_median) + '%'})) +
+    metricRow('Rolling 3Y Mean', funds, f => ({cls: colorClass(f.rolling_3y_mean), txt: fmt(f.rolling_3y_mean) + '%'})) +
+    metricRow('Rolling 3Y Median', funds, f => ({cls: colorClass(f.rolling_3y_median), txt: fmt(f.rolling_3y_median) + '%'}));
+
+  // 3. Scheme Details
+  const schemeRows =
+    metricRow('Expense Ratio (TER)', funds, f => ({
+      cls: (f.expense_ratio != null && f.expense_ratio < 1) ? 'peers-val-pos' : 'peers-val-neutral',
+      txt: f.expense_ratio != null ? fmt(f.expense_ratio) + '%' : '—'
+    })) +
+    metricRow('Total AUM', funds, f => ({cls:'peers-val-neutral', txt: fmtCcy(f.aum)})) +
+    metricRow('Min SIP', funds, f => ({cls:'peers-val-neutral', txt: fmtSipLump(f.min_sip)})) +
+    metricRow('Min Lumpsum', funds, f => ({cls:'peers-val-neutral', txt: fmtSipLump(f.min_lumpsum)})) +
+    metricRow('Lock-in Period', funds, f => ({cls:'peers-val-neutral', txt: f.lock_in_period || 'None'})) +
+    metricRow('CAGR Inception', funds, f => {
+      const v = f.cagr_inception;
+      return { cls: colorClass(v), txt: v != null ? (v >= 0 ? '+' : '') + fmt(v) + '%' : '—' };
+    }) +
+    metricRow('Fund Manager', funds, f => ({cls:'peers-val-neutral', txt: f.fund_manager || '—'})) +
+    metricRow('Morningstar ★', funds, f => ({
+      cls:'peers-val-neutral',
+      txt: f.ms_rating ? '★'.repeat(f.ms_rating) + '☆'.repeat(5 - f.ms_rating) : '—'
+    }));
+
+  const fullRows =
+    sectionHeaderRow('📊 Risk &amp; Valuation Ratios', numCols) + ratiosRows +
+    sectionHeaderRow('📈 Trailing &amp; Rolling Returns', numCols) + trailingRows + rollingRows +
+    sectionHeaderRow('ℹ️ Scheme Details &amp; Ratings', numCols) + schemeRows;
+
+  document.getElementById('peers-table-container').innerHTML =
+    `<div style="overflow-x:auto"><table class="peers-compare-table"><thead>${headerRow}</thead><tbody>${fullRows}</tbody></table></div>`;
+}
+
+function launchAdvancedCompare() {
+  if (!currentPeerData || !currentPeerData.funds) return;
+  const codes = currentPeerData.funds.map(f => f.amfi_code).join(',');
+  window.location.href = `/calculators/compare/?funds=${encodeURIComponent(codes)}`;
+}
+
+// Initial setup & URL query parameter check
+setupSearch();
+const params = new URLSearchParams(window.location.search);
+const fundParam = params.get('fund') || params.get('amfi') || params.get('amfi_code');
+
+if (fundParam) {
+  selectFund(fundParam);
+} else {
+  // Show clean landing state until user searches or picks a fund
+  document.getElementById('peers-empty-state').style.display = 'block';
+  document.getElementById('peers-loading').style.display = 'none';
+  document.getElementById('peers-content').style.display = 'none';
+}
+</script>
+{% endblock %}

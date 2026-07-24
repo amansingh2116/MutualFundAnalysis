@@ -20,7 +20,9 @@ urlpatterns = [
     path('net-worth/', views.net_worth_view, name='net_worth'),
     path('child-education/', views.child_education_view, name='child_education'),
     path('retirement/', views.retirement_view, name='retirement'),
+    path('peers/', views.peer_comparison_calc_view, name='peers'),
     # API endpoints
+
     path('api/sip/', views.calc_sip_api, name='api_sip'),
     path('api/lumpsum/', views.calc_lumpsum_api, name='api_lumpsum'),
     path('api/swp/', views.calc_swp_api, name='api_swp'),

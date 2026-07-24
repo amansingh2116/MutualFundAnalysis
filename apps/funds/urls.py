@@ -39,5 +39,7 @@ urlpatterns = [
 from apps.calculators import views as calc_views
 urlpatterns.append(path('calculators/child-education/', calc_views.child_education_view, name='child_education'))
 urlpatterns.append(path('calculators/retirement/', calc_views.retirement_view, name='retirement'))
+urlpatterns.append(path('calculators/peers/', calc_views.peer_comparison_calc_view, name='peers'))
+
 
 

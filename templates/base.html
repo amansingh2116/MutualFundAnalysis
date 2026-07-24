@@ -60,7 +60,7 @@
           <span class="nav-section-caret" aria-hidden="true"></span>
         </button>
         <div class="nav-section-items" id="nav-section-tools">
-      <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' %}active{% endif %}">
+      <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' or request.resolver_match.url_name in 'child_education retirement peers research_amc_compare research_category_compare' %}active{% endif %}">
         <span class="nav-icon">🧮</span> Calculators
       </a>
       <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and 'backtester' not in request.resolver_match.url_name and 'strateg' not in request.resolver_match.url_name %}active{% endif %}">
@@ -69,14 +69,13 @@
       <a href="{% url 'recommendations:engine' %}" class="nav-item {% if request.resolver_match.namespace == 'recommendations' %}active{% endif %}">
         <span class="nav-icon">🎯</span> Recommendations
       </a>
-      {% if user.is_authenticated %}
       <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name in 'backtester backtester_build strategies strategy_compare' %}active{% endif %}">
         <span class="nav-icon">🧪</span> Backtester
       </a>
-      {% endif %}
 
         </div>
       </div>
+
       <div class="nav-section" data-nav-section="research">
         <button type="button" class="nav-section-toggle" aria-expanded="true" aria-controls="nav-section-research">
           <span>Research</span>

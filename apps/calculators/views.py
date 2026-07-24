@@ -6,6 +6,7 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
@@ -66,6 +67,7 @@ def stp_view(request):
     return render(request, 'calculators/stp.html')
 
 
+@login_required
 def compare_view(request):
     """
     Side-by-side fund comparison view.
@@ -1288,5 +1290,11 @@ def calc_retirement_api(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+def peer_comparison_calc_view(request):
+    """Peer Comparison Calculator Page."""
+    return render(request, 'calculators/peers.html')
+
 
 

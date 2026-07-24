@@ -207,6 +207,7 @@ def learn_resources_view(request):
     return redirect('core:learn_pdf_guides')
 
 
+@login_required
 def learn_pdf_guides_view(request):
     """Dedicated full-page view for PDF Guides."""
     pdf_guides, _blog_posts = _collect_all_guides_and_blogs()
@@ -304,6 +305,7 @@ def _guide_meta_by_slug(slug):
     return manifest_path, title, manifest_downloadable
 
 
+@login_required
 def learn_pdf_viewer_view(request, slug):
     """Render the in-app PDF viewer page — does NOT expose the raw PDF URL in HTML."""
     pdf_path, title, downloadable = _guide_meta_by_slug(slug)
@@ -318,6 +320,7 @@ def learn_pdf_viewer_view(request, slug):
     })
 
 
+@login_required
 def learn_pdf_serve_view(request, slug):
     """Serve the raw PDF bytes — only intended to be fetched by PDF.js inside the viewer."""
     pdf_path, _title, downloadable = _guide_meta_by_slug(slug)
@@ -329,13 +332,16 @@ def learn_pdf_serve_view(request, slug):
     return _serve_pdf_response(pdf_path, as_attachment=as_attachment)
 
 
+@login_required
 def learn_pdf_detail_view(request, slug):
     """Legacy — redirect to in-app viewer."""
     return redirect(reverse('core:learn_pdf_viewer', args=[slug]))
 
 
+@login_required
 def learn_pdf_view(request, filename):
     """Legacy filename-based route — resolve slug and redirect to viewer."""
+
     safe_name = Path(filename).name
     try:
         guide = LearnPDFGuide.objects.filter(pdf_path__iendswith=f'/{safe_name}', is_published=True).first()

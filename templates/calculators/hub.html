@@ -140,25 +140,26 @@
 {% block content %}
 <div class="page-header" style="margin-bottom:20px">
   <div class="page-title">🧮 Financial Calculators &amp; Planning Suite</div>
-  <div class="page-subtitle">16 specialized calculators for SIPs, inflation goals, tax optimization, net worth, and peer comparisons.</div>
+  <div class="page-subtitle">17 specialized calculators for SIPs, inflation goals, peer discovery, tax optimization, net worth, and peer comparisons.</div>
 </div>
 
 <!-- Search & Filter Controls -->
 <div class="calc-hub-header">
   <div class="calc-search-box">
     <span class="calc-search-icon">🔍</span>
-    <input type="text" id="calc-search-input" class="calc-search-input" placeholder="Search calculators (e.g. SIP, SWP, Tax, Retirement, AMC)..." oninput="filterCalculators()">
+    <input type="text" id="calc-search-input" class="calc-search-input" placeholder="Search calculators (e.g. SIP, Peers, SWP, Tax, Retirement, AMC)..." oninput="filterCalculators()">
   </div>
 </div>
 
 <!-- Category Filter Pills -->
 <div class="calc-filter-bar">
-  <button type="button" class="calc-filter-btn active" data-cat="all" onclick="setCategoryFilter('all', this)">All Tools (16)</button>
+  <button type="button" class="calc-filter-btn active" data-cat="all" onclick="setCategoryFilter('all', this)">All Tools (17)</button>
   <button type="button" class="calc-filter-btn" data-cat="growth" onclick="setCategoryFilter('growth', this)">📈 Investment &amp; Growth (7)</button>
-  <button type="button" class="calc-filter-btn" data-cat="compare" onclick="setCategoryFilter('compare', this)">🔍 Research &amp; Comparison (4)</button>
+  <button type="button" class="calc-filter-btn" data-cat="compare" onclick="setCategoryFilter('compare', this)">🔍 Research &amp; Comparison (5)</button>
   <button type="button" class="calc-filter-btn" data-cat="goals" onclick="setCategoryFilter('goals', this)">🎯 Goals &amp; Life Events (3)</button>
   <button type="button" class="calc-filter-btn" data-cat="wealth" onclick="setCategoryFilter('wealth', this)">🧾 Tax &amp; Wealth (2)</button>
 </div>
+
 
 <div id="no-calc-results" style="display:none;padding:50px;text-align:center;color:var(--text-muted)">
   <div style="font-size:32px;margin-bottom:10px">🔍</div>
@@ -241,9 +242,19 @@
 <div class="calc-section" data-section-cat="compare">
   <div class="calc-section-title">
     <span>🔍 Research &amp; Peer Comparison</span>
-    <span class="calc-section-badge">4 Tools</span>
+    <span class="calc-section-badge">5 Tools</span>
   </div>
+
   <div class="grid-3">
+    <a href="{% url 'calculators:peers' %}" class="calc-card" data-tags="peer comparison peers match similarity category benchmark">
+      <div>
+        <div class="calc-card-icon">🤝</div>
+        <div class="calc-card-name" style="margin-top:10px">Peer Comparison Calculator</div>
+        <div class="calc-card-desc">Find closest category peers for any fund &amp; launch 5-fund comparison.</div>
+      </div>
+      <div class="calc-card-footer"><span>Launch Tool</span><span>→</span></div>
+    </a>
+
     <a href="{% url 'calculators:compare' %}" class="calc-card" data-tags="fund compare comparison side by side 5 funds">
       <div>
         <div class="calc-card-icon">⚖️</div>
@@ -281,6 +292,7 @@
     </a>
   </div>
 </div>
+
 
 <!-- Category 3: Goals & Life Event Planners -->
 <div class="calc-section" data-section-cat="goals">
