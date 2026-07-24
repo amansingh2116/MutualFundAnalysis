@@ -68,5 +68,15 @@
     <div class="fund-card-name">Net Worth Calculator</div>
     <div class="fund-card-house">Tally your assets and liabilities to calculate your true net worth</div>
   </a>
+  <a href="{% url 'funds:research_amc_compare' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">🏦</div>
+    <div class="fund-card-name">AMC Comparison</div>
+    <div class="fund-card-house">Compare 2–4 fund houses side-by-side on AUM, returns, risk, costs &amp; fund quality</div>
+  </a>
+  <a href="{% url 'funds:research_category_compare' %}" class="fund-card" style="padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">🔬</div>
+    <div class="fund-card-name">Category Comparison</div>
+    <div class="fund-card-house">Compare 2–4 SEBI fund categories across 35+ metrics — returns, risk, costs &amp; mandates</div>
+  </a>
 </div>
 {% endblock %}

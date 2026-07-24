@@ -103,29 +103,54 @@
 <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px">
   <div>
     <h1 style="font-size:24px;font-weight:800;margin:0">⚖️ AMC Comparison</h1>
-    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px" id="compare-subtitle">Loading comparison…</p>
+    <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px" id="compare-subtitle">
+      {% if slugs %}Loading comparison…{% else %}Select 2–4 AMCs to compare{% endif %}
+    </p>
   </div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-    <a href="{% url 'funds:research_amcs' %}" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);color:var(--text-secondary);text-decoration:none;font-size:13px">← Edit Selection</a>
+    <button type="button" onclick="togglePickerPanel()" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-size:13px;cursor:pointer">
+      ✏️ Change AMCs
+    </button>
+    <a href="{% url 'funds:research_amcs' %}" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);color:var(--text-secondary);text-decoration:none;font-size:13px">← AMC List</a>
   </div>
 </div>
 
-{# ── AMC selector for modification ── #}
+{# ── Currently comparing pills (only when slugs exist) ── #}
+{% if amc_names %}
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;align-items:center">
   <span style="font-size:13px;color:var(--text-muted)">Comparing:</span>
   {% for name in amc_names %}
   <span class="pill" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-primary)">{{ name }}</span>
   {% endfor %}
 </div>
+{% endif %}
+
+{# ── Inline AMC picker (shown when no slugs in URL) ── #}
+<div id="amc-picker" style="{% if slugs %}display:none{% endif %}margin-bottom:24px">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:20px">
+    <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:4px">🏦 Select Fund Houses to Compare</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Choose 2–4 AMCs. Click a card to select or deselect it.</div>
+    <input id="amc-picker-search" type="text" placeholder="Search AMC name…"
+      style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-size:13px;margin-bottom:14px;box-sizing:border-box">
+    <div id="amc-picker-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-height:340px;overflow-y:auto;padding-right:4px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
+      <span id="amc-picker-count" style="font-size:12px;color:var(--text-muted)">0 selected (need at least 2)</span>
+      <button id="amc-picker-btn" onclick="launchComparison()"
+        style="padding:9px 22px;border-radius:10px;border:none;background:var(--indigo-400);color:#fff;font-weight:700;font-size:13px;cursor:pointer;opacity:0.4;pointer-events:none">
+        Compare →
+      </button>
+    </div>
+  </div>
+</div>
 
 {# ── Loading / Error ── #}
-<div id="compare-loading" style="padding:60px;text-align:center;color:var(--text-muted)">
+<div id="compare-loading" style="{% if not slugs %}display:none;{% endif %}padding:60px;text-align:center;color:var(--text-muted)">
   <div style="font-size:32px;margin-bottom:12px">⏳</div>
   Loading comparison data…
 </div>
 <div id="compare-error" style="display:none;padding:40px;text-align:center">
   <span style="color:var(--danger)">Failed to load comparison data.</span>
-  <a href="{% url 'funds:research_amcs' %}" class="btn btn-primary" style="margin-left:12px">Go Back</a>
+  <a href="{% url 'funds:research_amc_compare' %}" class="btn btn-primary" style="margin-left:12px">Try Again</a>
 </div>
 
 {# ── Main table ── #}
@@ -153,18 +178,98 @@
 {% block extra_js %}
 <script>
 const SLUGS_PARAM = "{{ slugs_param }}";
-const AMC_NAMES = {{ amc_names_json|safe }};
-const AMC_COLORS = ['#818cf8','#34d399','#f59e0b','#f87171'];
+const AMC_NAMES   = {{ amc_names_json|safe }};
+const ALL_AMCS    = {{ all_amcs_json|safe }};
+const AMC_COLORS  = ['#818cf8','#34d399','#f59e0b','#f87171'];
 
+// ── Inline AMC Picker ──
+const pickerSelected = new Set(SLUGS_PARAM ? SLUGS_PARAM.split(',').map(s => s.trim()).filter(Boolean) : []);
+
+function togglePickerPanel() {
+  const p = document.getElementById('amc-picker');
+  if (!p) return;
+  p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+}
+
+function updatePickerCount() {
+  const n = pickerSelected.size;
+  const countEl = document.getElementById('amc-picker-count');
+  const btn = document.getElementById('amc-picker-btn');
+  if (countEl) {
+    countEl.textContent =
+      n === 0 ? '0 selected (need at least 2)' :
+      n === 1 ? '1 selected (need at least 1 more)' :
+      `${n} selected — ready!`;
+  }
+  if (btn) {
+    if (n >= 2) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+    else        { btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
+  }
+}
+
+function buildPickerGrid(filter='') {
+  const grid = document.getElementById('amc-picker-grid');
+  if (!grid) return;
+  const q = filter.trim().toLowerCase();
+  const items = ALL_AMCS.filter(a => !q || a.name.toLowerCase().includes(q) || a.slug.toLowerCase().includes(q));
+  if (items.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No AMCs matching "${filter}"</div>`;
+    return;
+  }
+  grid.innerHTML = items.map(a => {
+    const sel = pickerSelected.has(a.slug);
+    return `<div onclick="toggleAMC('${a.slug}','${a.name.replace(/'/g,"\\'")}')"
+      style="padding:10px 12px;border-radius:10px;border:1.5px solid ${sel ? 'var(--indigo-400)' : 'var(--border)'};
+             background:${sel ? 'rgba(99,102,241,0.08)' : 'var(--bg-elevated)'};
+             cursor:pointer;font-size:12px;font-weight:600;color:${sel ? 'var(--indigo-300)' : 'var(--text-secondary)'};
+             transition:all .15s;user-select:none" id="amc-card-${a.slug}">
+      ${sel ? '✓ ' : ''}${a.name.replace(' Mutual Fund','')}
+    </div>`;
+  }).join('');
+  updatePickerCount();
+}
+
+function toggleAMC(slug, name) {
+  if (pickerSelected.has(slug)) {
+    pickerSelected.delete(slug);
+  } else {
+    if (pickerSelected.size >= 4) { alert('You can compare up to 4 AMCs at a time.'); return; }
+    pickerSelected.add(slug);
+  }
+  const searchInput = document.getElementById('amc-picker-search');
+  buildPickerGrid(searchInput ? searchInput.value : '');
+}
+
+function launchComparison() {
+  if (pickerSelected.size < 2) return;
+  window.location.href = window.location.pathname + '?amcs=' + [...pickerSelected].join(',');
+}
+
+// Unconditionally initialize picker grid and real-time search input listener
+document.addEventListener('DOMContentLoaded', () => {
+  buildPickerGrid();
+  const searchInput = document.getElementById('amc-picker-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', e => buildPickerGrid(e.target.value));
+  }
+});
+// Also call immediately in case script runs after DOM is ready
+buildPickerGrid();
+const searchInput = document.getElementById('amc-picker-search');
+if (searchInput) {
+  searchInput.addEventListener('input', e => buildPickerGrid(e.target.value));
+}
+
+// ── Format helpers ──
 function fmtAum(v) {
   if (v == null) return '—';
   if (v >= 100000) return '₹' + (v/100000).toFixed(2) + 'L Cr';
-  if (v >= 1000) return '₹' + (v/1000).toFixed(1) + 'K Cr';
+  if (v >= 1000)   return '₹' + (v/1000).toFixed(1)   + 'K Cr';
   return '₹' + v.toFixed(0) + ' Cr';
 }
 function fmtPct(v, dec=1) { return v == null ? '—' : v.toFixed(dec) + '%'; }
 function fmtNum(v, dec=2) { return v == null ? '—' : v.toFixed(dec); }
-function fmtInt(v) { return v == null ? '—' : Math.round(v).toString(); }
+function fmtInt(v)        { return v == null ? '—' : Math.round(v).toString(); }
 
 function colorRet(v) {
   if (v == null) return 'var(--text-muted)';
@@ -172,9 +277,9 @@ function colorRet(v) {
 }
 function colorScore(s) {
   if (s == null) return 'var(--text-muted)';
-  if (s >= 75) return 'var(--success)';
-  if (s >= 55) return '#3b82f6';
-  if (s >= 40) return 'var(--warning)';
+  if (s >= 75)   return 'var(--success)';
+  if (s >= 55)   return '#3b82f6';
+  if (s >= 40)   return 'var(--warning)';
   return 'var(--danger)';
 }
 
@@ -413,21 +518,23 @@ function renderConvictionSection(amcs) {
   '</div>';
 }
 
-// ── Fetch data ──
-fetch(`/research/amcs/api/compare/?amcs=${encodeURIComponent(SLUGS_PARAM)}`)
-  .then(r => r.json())
-  .then(data => {
-    document.getElementById('compare-loading').style.display = 'none';
-    if (data.error || !data.amcs) {
+// ── Fetch data (only when slugs are present) ──
+if (SLUGS_PARAM) {
+  fetch(`/research/amcs/api/compare/?amcs=${encodeURIComponent(SLUGS_PARAM)}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('compare-loading').style.display = 'none';
+      if (data.error || !data.amcs) {
+        document.getElementById('compare-error').style.display = '';
+        return;
+      }
+      document.getElementById('compare-table-wrap').style.display = '';
+      renderTable(data.amcs);
+    })
+    .catch(() => {
+      document.getElementById('compare-loading').style.display = 'none';
       document.getElementById('compare-error').style.display = '';
-      return;
-    }
-    document.getElementById('compare-table-wrap').style.display = '';
-    renderTable(data.amcs);
-  })
-  .catch(() => {
-    document.getElementById('compare-loading').style.display = 'none';
-    document.getElementById('compare-error').style.display = '';
-  });
+    });
+}
 </script>
 {% endblock %}
