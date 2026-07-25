@@ -72,6 +72,9 @@ try*.py
 fix_*.py
 debug_*.py
 scratch_*.py
+*.pdf
+FundReport_*.pdf
 
 # PE/PB data cache (auto-populated, not needed in source control)
 apps/portfolio/services/.pe_cache.db
+

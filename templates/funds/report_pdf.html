@@ -1,315 +1,1942 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>{{ scheme.scheme_name }} — Fund Analysis Report</title>
-  <style>
-    /* ── WeasyPrint PDF Styles ── */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+<meta charset="UTF-8">
+<title>{{ scheme.scheme_name }} — Fund Analysis Report</title>
+<style>
+/* ── Fonts & Reset ──────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; color: #1e293b; line-height: 1.55; background: white; }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', Arial, sans-serif; font-size: 11px; color: #1e293b; line-height: 1.5; background: white; }
+/* ── Page Setup ─────────────────────────────────────────────────── */
+@page { size: A4; margin: 14mm 14mm 18mm 14mm; }
+@page { @bottom-center { content: element(footer); } }
+@page:first { margin-top: 0; }
 
-    /* Page setup */
-    @page { size: A4; margin: 15mm 15mm 20mm 15mm; }
-    @page:first { margin-top: 0; }
+/* ── Running footer ─────────────────────────────────────────────── */
+.page-footer {
+  position: running(footer);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 7.5px; color: #94a3b8;
+  border-top: 1px solid #e2e8f0; padding-top: 4px; padding-bottom: 2px;
+  margin-top: 4px;
+}
 
-    /* Cover page */
-    .cover {
-      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1d4ed8 100%);
-      min-height: 120mm;
-      padding: 20mm 18mm;
-      color: white;
-      margin: -15mm -15mm 0 -15mm;
-    }
-    .cover-badge { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6; margin-bottom: 8px; }
-    .cover-title { font-size: 20px; font-weight: 700; line-height: 1.3; margin-bottom: 10px; }
-    .cover-sub { font-size: 12px; opacity: 0.8; margin-bottom: 20px; }
-    .cover-meta { display: flex; gap: 30px; font-size: 10px; opacity: 0.7; }
-    .cover-meta span { display: flex; gap: 6px; }
+/* ── Page breaks ────────────────────────────────────────────────── */
+.page-break { page-break-before: always; }
+.no-break   { break-inside: avoid; }
 
-    /* Sections */
-    .section { margin: 6mm 0; break-inside: avoid; }
-    .section-title {
-      font-size: 13px; font-weight: 700; color: #312e81;
-      border-bottom: 2px solid #4f46e5; padding-bottom: 4px; margin-bottom: 8px;
-      text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px;
-    }
+/* ── Cover page ─────────────────────────────────────────────────── */
+.cover {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 80%, #1d4ed8 100%);
+  min-height: 150mm; padding: 24mm 20mm 18mm 20mm;
+  color: white; margin: -14mm -14mm 0 -14mm;
+}
+.cover-badge {
+  font-size: 8px; text-transform: uppercase; letter-spacing: 0.12em;
+  opacity: 0.55; margin-bottom: 10px;
+  border-left: 3px solid rgba(255,255,255,0.4); padding-left: 8px;
+}
+.cover-title  { font-size: 22px; font-weight: 700; line-height: 1.25; margin-bottom: 8px; }
+.cover-sub    { font-size: 11px; opacity: 0.75; margin-bottom: 24px; }
+.cover-chips  { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.cover-chip   {
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px; padding: 4px 12px; font-size: 8.5px; color: rgba(255,255,255,0.9);
+}
+.cover-kpis   { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 8px; }
+.cover-kpi    { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 16px; min-width: 90px; }
+.cover-kpi-lbl { font-size: 7.5px; opacity: 0.6; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+.cover-kpi-val { font-size: 18px; font-weight: 700; line-height: 1; }
+.cover-kpi-sub { font-size: 7px; opacity: 0.55; margin-top: 3px; }
+.cover-disclaimer {
+  margin-top: 20px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.15);
+  font-size: 7px; opacity: 0.5; line-height: 1.4;
+}
 
-    /* Tables */
-    table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 4px; }
-    th { background: #f1f5f9; padding: 5px 8px; text-align: left; font-weight: 600; color: #475569; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; }
-    td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-    tr:last-child td { border-bottom: none; }
-    .positive { color: #059669; font-weight: 600; }
-    .negative { color: #dc2626; font-weight: 600; }
+/* ── Section header ─────────────────────────────────────────────── */
+.sec-hdr {
+  border-left: 4px solid #6366f1; padding-left: 10px;
+  margin: 0 0 12px 0;
+}
+.sec-hdr h2 {
+  font-size: 12px; font-weight: 700; color: #312e81;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.sec-hdr p { font-size: 8.5px; color: #64748b; margin-top: 2px; }
 
-    /* Grid */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+/* ── Card ────────────────────────────────────────────────────────── */
+.card {
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  margin-bottom: 10px; overflow: hidden;
+  break-inside: avoid;
+}
+.card-header {
+  background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+  padding: 7px 12px;
+  font-size: 9px; font-weight: 700; color: #475569;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.card-body { padding: 10px 12px; }
 
-    /* Stat cards */
-    .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; }
-    .stat-label { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 3px; }
-    .stat-value { font-size: 16px; font-weight: 700; color: #1e293b; line-height: 1; }
-    .stat-value.positive { color: #059669; }
-    .stat-value.negative { color: #dc2626; }
-    .stat-sub { font-size: 8px; color: #94a3b8; margin-top: 2px; }
+/* ── Stat grid ───────────────────────────────────────────────────── */
+.stat-grid   { display: grid; gap: 8px; margin-bottom: 10px; }
+.stat-grid-2 { grid-template-columns: 1fr 1fr; }
+.stat-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.stat-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.stat-card   {
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 6px; padding: 8px 10px;
+  break-inside: avoid;
+}
+.stat-lbl  { font-size: 7.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin-bottom: 3px; }
+.stat-val  { font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1; }
+.stat-sub  { font-size: 7.5px; color: #94a3b8; margin-top: 2px; }
+.stat-val.positive { color: #059669; }
+.stat-val.negative { color: #dc2626; }
+.stat-val.amber    { color: #d97706; }
 
-    /* Key info box */
-    .info-box { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; }
-    .info-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f5f9; }
-    .info-row:last-child { border-bottom: none; }
-    .info-key { font-size: 9px; color: #64748b; font-weight: 500; }
-    .info-val { font-size: 9px; color: #1e293b; font-weight: 600; text-align: right; max-width: 55%; }
+/* ── Info rows ───────────────────────────────────────────────────── */
+.info-table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+.info-table td { padding: 4px 6px; border-bottom: 1px solid #f1f5f9; }
+.info-table td:first-child { color: #64748b; font-weight: 500; width: 38%; }
+.info-table td:last-child  { color: #1e293b; font-weight: 600; text-align: right; }
+.info-table tr:last-child td { border-bottom: none; }
 
-    /* Progress bar */
-    .progress-container { margin: 3px 0; }
-    .progress-label { display: flex; justify-content: space-between; font-size: 9px; color: #64748b; margin-bottom: 2px; }
-    .progress-bar { height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
-    .progress-fill { height: 100%; background: #4f46e5; border-radius: 2px; }
+/* ── Data tables ─────────────────────────────────────────────────── */
+table.data { width: 100%; border-collapse: collapse; font-size: 9px; margin-top: 4px; }
+table.data th {
+  background: #f1f5f9; padding: 5px 7px; text-align: right;
+  font-weight: 700; color: #475569; font-size: 8px;
+  text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid #e2e8f0;
+}
+table.data th:first-child { text-align: left; }
+table.data td {
+  padding: 4px 7px; border-bottom: 1px solid #f1f5f9;
+  color: #334155; text-align: right;
+}
+table.data td:first-child { text-align: left; font-weight: 500; }
+table.data tr:last-child td { border-bottom: none; }
+table.data tr:hover { background: #f8fafc; }
 
-    /* Alert box */
-    .alert { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 4px; padding: 6px 10px; font-size: 9px; color: #92400e; margin-top: 4px; }
+/* ── Color helpers ───────────────────────────────────────────────── */
+.positive { color: #059669 !important; font-weight: 600; }
+.negative { color: #dc2626 !important; font-weight: 600; }
+.neutral  { color: #64748b; }
+.amber    { color: #d97706 !important; font-weight: 600; }
+.muted    { color: #94a3b8; }
+.bold     { font-weight: 700; }
 
-    /* Footer */
-    .footer { position: running(footer); font-size: 8px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 4px; }
-    @page { @bottom-center { content: element(footer); } }
+/* ── Commentary box ─────────────────────────────────────────────── */
+.commentary {
+  background: #f0f4ff; border-left: 3px solid #6366f1;
+  border-radius: 0 6px 6px 0; padding: 8px 10px;
+  font-size: 9px; color: #374151; line-height: 1.6;
+  margin: 8px 0; break-inside: avoid;
+}
 
-    /* Disclaimer */
-    .disclaimer { font-size: 8px; color: #94a3b8; margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e2e8f0; line-height: 1.4; }
-  </style>
+/* ── Alert box ───────────────────────────────────────────────────── */
+.alert-amber { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 5px; padding: 6px 10px; font-size: 8.5px; color: #92400e; margin: 6px 0; }
+.alert-red   { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 5px; padding: 6px 10px; font-size: 8.5px; color: #991b1b; margin: 6px 0; }
+.alert-green { background: #f0fdf4; border: 1px solid #86efac; border-radius: 5px; padding: 6px 10px; font-size: 8.5px; color: #166534; margin: 6px 0; }
+.alert-blue  { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 5px; padding: 6px 10px; font-size: 8.5px; color: #1e40af; margin: 6px 0; }
+
+/* ── Score badge ─────────────────────────────────────────────────── */
+.badge {
+  display: inline-block; border-radius: 4px; padding: 3px 10px;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: white;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────── */
+.prog-wrap { height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 3px; }
+
+/* ── Grid helpers ────────────────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+
+/* ── Chart image ─────────────────────────────────────────────────── */
+.chart-img { width: 100%; display: block; }
+
+/* ── Pillar row ──────────────────────────────────────────────────── */
+.pillar-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; break-inside: avoid; }
+.pillar-row:last-child { border-bottom: none; }
+.pillar-score-box { min-width: 42px; text-align: center; border-radius: 6px; padding: 4px 6px; }
+.pillar-score-num { font-size: 16px; font-weight: 800; color: white; line-height: 1; }
+.pillar-score-lbl { font-size: 7px; color: rgba(255,255,255,0.8); text-transform: uppercase; }
+.pillar-name { font-size: 9.5px; font-weight: 700; color: #1e293b; }
+.pillar-interp { font-size: 8.5px; color: #64748b; margin-top: 1px; line-height: 1.4; }
+
+/* ── Category distribution bar ───────────────────────────────────── */
+.dist-bar { display: flex; border-radius: 5px; overflow: hidden; height: 18px; }
+.dist-seg { display: flex; align-items: center; justify-content: center; font-size: 7.5px; font-weight: 700; color: white; }
+
+/* ── Crisis table highlights ─────────────────────────────────────── */
+td.crash-good  { color: #059669; font-weight: 700; }
+td.crash-bad   { color: #dc2626; font-weight: 700; }
+td.crash-na    { color: #94a3b8; }
+
+/* ── Research Commentary & Verdict Components ────────────────────── */
+.research-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #4f46e5;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+  break-inside: avoid;
+}
+.research-box-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #312e81;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.research-box p {
+  font-size: 8.5px;
+  color: #334155;
+  line-height: 1.45;
+}
+.research-box ul {
+  margin-top: 4px;
+  padding-left: 14px;
+  font-size: 8.5px;
+  color: #334155;
+}
+.research-box li {
+  margin-bottom: 2px;
+  line-height: 1.35;
+}
+
+.verdict-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  margin-bottom: 12px;
+  break-inside: avoid;
+}
+.verdict-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+.verdict-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #1e1b4b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.verdict-badge-box {
+  color: white;
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.verdict-tagline {
+  font-size: 8.5px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+.verdict-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.verdict-item {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 6px 8px;
+}
+.verdict-lbl {
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+.verdict-val {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.bullets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bullet-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 6px 8px;
+}
+.bullet-card-hdr {
+  font-size: 8px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.bullet-card.green .bullet-card-hdr { color: #059669; }
+.bullet-card.amber .bullet-card-hdr { color: #d97706; }
+.bullet-card ul {
+  padding-left: 12px;
+  font-size: 8px;
+  color: #475569;
+}
+.bullet-card li { margin-bottom: 2px; }
+
+.metric-explain-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.metric-explain-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 6px 8px;
+}
+.metric-explain-title {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 2px;
+}
+.metric-explain-desc {
+  font-size: 7.5px;
+  color: #64748b;
+  line-height: 1.35;
+}
+.page-header {
+  position: fixed;
+  top: -9mm;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 7.5px;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 3px;
+  background: white;
+}
+</style>
 </head>
 <body>
 
-<!-- Footer (appears on all pages) -->
-<div class="footer">
-  {{ scheme.scheme_name|truncatechars:80 }} · MF Analysis Report · Generated {{ report_date }} · Not Financial Advice
+<!-- ══════════════════════════════════════════════════════════════════
+     RUNNING HEADER & FOOTER
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <span style="font-weight:700; color:#4338ca;">Mutual Fund Analysis — Research Report</span>
+  <span>{{ scheme.scheme_name|truncatechars:50 }}</span>
+  <span>{{ report_date }}</span>
 </div>
 
-<!-- ══ COVER ══ -->
-<div class="cover">
-  <div class="cover-badge">Mutual Fund Analysis Report</div>
-  <div class="cover-title">{{ scheme.scheme_name }}</div>
-  <div class="cover-sub">{{ scheme.fund_house }} &bull; {{ scheme.scheme_category }}</div>
-  <div class="cover-meta">
-    <span>Report Date: {{ report_date }}</span>
-    <span>AMFI Code: {{ scheme.amfi_code }}</span>
-    {% if scheme.isin_growth %}<span>ISIN: {{ scheme.isin_growth }}</span>{% endif %}
-    {% if scheme.nav_latest %}<span>NAV: ₹{{ scheme.nav_latest }}</span>{% endif %}
+<div class="page-footer">
+  <span>{{ scheme.scheme_name|truncatechars:45 }}</span>
+  <span>MutualFundAnalysis · {{ report_date }}</span>
+  <span>Not Investment Advice</span>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 1 — INSTITUTIONAL COVER PAGE
+══════════════════════════════════════════════════════════════════ -->
+<div class="cover-container" style="page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; min-height: 262mm; box-sizing: border-box; padding: 4px 0;">
+
+  <!-- Hero Header Banner -->
+  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%); border-radius: 12px; padding: 22px 26px; color: white; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25); position: relative; overflow: hidden;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 10px; margin-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; background: #6366f1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: white;">M</div>
+        <span style="font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #cbd5e1; text-transform: uppercase;">MUTUAL FUND ANALYSIS · INSTITUTIONAL RESEARCH</span>
+      </div>
+      <div style="background: rgba(255,255,255,0.12); padding: 4px 12px; border-radius: 20px; font-size: 8.5px; font-weight: 600; color: #e0e7ff;">
+        REPORT DATE: {{ report_date }}
+      </div>
+    </div>
+
+    <!-- Scheme Name -->
+    <div style="font-size: 21px; font-weight: 800; line-height: 1.25; margin-bottom: 8px; color: #ffffff; letter-spacing: -0.3px;">
+      {{ scheme.scheme_name }}
+    </div>
+
+    <!-- Fund Subtitle Chips -->
+    <div style="font-size: 9.5px; color: #94a3b8; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <span style="color: #818cf8; font-weight: 600;">{{ scheme.fund_house|default:"" }}</span>
+      <span>•</span>
+      <span style="color: #cbd5e1;">{{ meta.scheme_category|default:"Equity Scheme" }}</span>
+      <span>•</span>
+      <span style="color: #cbd5e1;">{{ category_name|default:"Flexi Cap Fund" }}</span>
+      <span style="background: rgba(99, 102, 241, 0.25); color: #c7d2fe; font-size: 8px; padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-left: 4px;">
+        {% if scheme.is_direct %}DIRECT PLAN{% else %}REGULAR PLAN{% endif %}
+      </span>
+    </div>
+
+    <!-- Overall Rating Hero Callout -->
+    {% if score_data.final_score %}
+    <div style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: 600;">QUANTITATIVE RATING SCORE</div>
+        <div style="font-size: 19px; font-weight: 800; color: #ffffff; margin-top: 2px;">
+          {{ score_data.final_score|floatformat:1 }} <span style="font-size: 11px; font-weight: 500; color: #94a3b8;">/ 100</span>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <span style="background: {{ narratives.verdict_color }}; color: white; font-size: 9.5px; font-weight: 800; padding: 5px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block;">
+          {{ narratives.verdict_action }}
+        </span>
+        {% if score_data.rank.rank %}
+        <div style="font-size: 8px; color: #cbd5e1; margin-top: 4px;">
+          Category Rank: <strong>#{{ score_data.rank.rank }}</strong> of {{ score_data.rank.total }} (Top {{ score_data.rank.percentile|floatformat:0 }}%)
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Key Metrics KPI Grid (6 Cards) -->
+  <div style="margin-top: 12px;">
+    <div style="font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+      <span style="width: 12px; height: 2px; background: #6366f1; display: inline-block;"></span>
+      <span>Key Performance &amp; Risk Metrics Snapshot</span>
+    </div>
+    <div class="grid-3" style="gap: 8px;">
+      <div class="stat-card" style="border-top: 3px solid #6366f1;">
+        <div class="stat-lbl">3-Year CAGR</div>
+        {% for kpi in perf_kpis %}{% if kpi.period == "3Y" or "3Y" in kpi.label %}
+        <div class="stat-val {% if kpi.fund >= 0 %}positive{% else %}negative{% endif %}">
+          {% if kpi.fund != None %}{{ kpi.fund|floatformat:2 }}%{% else %}—{% endif %}
+        </div>
+        <div class="stat-sub">Cat Avg: {{ kpi.cat|floatformat:1 }}%</div>
+        {% endif %}{% endfor %}
+      </div>
+
+      <div class="stat-card" style="border-top: 3px solid #10b981;">
+        <div class="stat-lbl">3-Year Alpha</div>
+        <div class="stat-val {% if risk_3y.alpha >= 0 %}positive{% else %}negative{% endif %}">
+          {% if risk_3y.alpha != None %}{{ risk_3y.alpha|floatformat:2 }}%{% else %}—{% endif %}
+        </div>
+        <div class="stat-sub">Risk-adjusted excess return</div>
+      </div>
+
+      <div class="stat-card" style="border-top: 3px solid #f59e0b;">
+        <div class="stat-lbl">Sharpe Ratio (3Y)</div>
+        <div class="stat-val {% if risk_3y.sharpe >= 0.8 %}positive{% else %}amber{% endif %}">
+          {% if risk_3y.sharpe != None %}{{ risk_3y.sharpe|floatformat:2 }}{% else %}—{% endif %}
+        </div>
+        <div class="stat-sub">Return per unit risk</div>
+      </div>
+
+      <div class="stat-card" style="border-top: 3px solid #06b6d4;">
+        <div class="stat-lbl">3Y Rolling Win Rate (&gt;0%)</div>
+        <div class="stat-val positive">
+          {% if rolling_3y.win_rate_0 != None %}{{ rolling_3y.win_rate_0|floatformat:1 }}%{% else %}—{% endif %}
+        </div>
+        <div class="stat-sub">Positive return frequency</div>
+      </div>
+
+      <div class="stat-card" style="border-top: 3px solid #8b5cf6;">
+        <div class="stat-lbl">Expense Ratio</div>
+        <div class="stat-val">
+          {% if meta.expense_ratio != None %}{{ meta.expense_ratio|floatformat:2 }}%{% else %}—{% endif %}
+        </div>
+        <div class="stat-sub">Total annual fee</div>
+      </div>
+
+      <div class="stat-card" style="border-top: 3px solid #ec4899;">
+        <div class="stat-lbl">Fund AUM</div>
+        <div class="stat-val">
+          {% if meta.aum %}₹{{ meta.aum|floatformat:0 }} Cr{% else %}—{% endif %}
+        </div>
+        <div class="stat-sub">Total assets under management</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fund Profile & Characteristics Card -->
+  <div class="card" style="margin-top: 12px;">
+    <div class="card-header" style="background: #f8fafc; color: #334155; font-size: 8.5px; font-weight: 700;">
+      📁 Fund Structure &amp; Scheme Specifications
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <table class="info-table">
+        <tr>
+          <td><strong>Fund House / AMC:</strong> {{ scheme.fund_house|default:"—" }}</td>
+          <td><strong>AMFI Code:</strong> {{ scheme.amfi_code|default:"—" }}</td>
+        </tr>
+        <tr>
+          <td><strong>Benchmark Index:</strong> {{ benchmark_name|default:"—" }}</td>
+          <td><strong>Inception Date:</strong> {{ meta.start_date|default:"—" }}</td>
+        </tr>
+        <tr>
+          <td><strong>Min SIP Amount:</strong> {% if meta.min_sip %}₹{{ meta.min_sip|floatformat:0 }}{% else %}—{% endif %}</td>
+          <td><strong>Min Lumpsum:</strong> {% if meta.min_lumpsum %}₹{{ meta.min_lumpsum|floatformat:0 }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+          <td><strong>Exit Load Structure:</strong> {{ meta.exit_load|default:"1% within 365 days, Nil thereafter" }}</td>
+          <td><strong>Portfolio Turnover:</strong> {% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:1 }}%{% else %}—{% endif %}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Investment Objective Callout -->
+  {% if meta.investment_objective %}
+  <div style="margin-top: 10px; background: #f0f9ff; border-left: 4px solid #0284c7; border-radius: 6px; padding: 8px 12px;">
+    <div style="font-size: 8px; font-weight: 700; color: #0369a1; text-transform: uppercase; margin-bottom: 2px;">
+      🎯 Fund Investment Objective
+    </div>
+    <div style="font-size: 8px; color: #334155; line-height: 1.45;">
+      {{ meta.investment_objective }}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Start Compliance & Risk Disclaimer Banner -->
+  <div style="margin-top: 12px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 12px;">
+    <div style="font-size: 8px; font-weight: 700; color: #d48806; text-transform: uppercase; margin-bottom: 2px;">
+      ⚠️ Executive Risk &amp; Regulatory Disclaimer (Start of Report)
+    </div>
+    <div style="font-size: 7.5px; color: #595959; line-height: 1.4;">
+      This research report is generated automatically by <strong>MutualFundAnalysis</strong> for informational and educational purposes only. It does not constitute financial or investment advice, nor a recommendation to buy or sell any mutual fund scheme. Mutual fund investments are subject to market risks; read all scheme-related documents carefully before investing. Historical performance and quantitative scores do not guarantee future returns. Data sourced from AMFI, MFAPI, and Yahoo Finance as of {{ report_date }}.
+    </div>
+  </div>
+
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 2 — FUND SCORECARD (Executive Summary)
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Fund Scorecard &amp; Executive Summary</h2><p>Quantitative multi-factor scoring across 6 pillars ({{ score_data.model_version|default:"v2" }} model) &amp; fund overview</p></div>
+
+<!-- Executive Analyst Verdict Card -->
+<div class="verdict-card">
+  <div class="verdict-header">
+    <span class="verdict-title">Executive Research Verdict &amp; Recommendation</span>
+    <span class="verdict-badge-box" style="background: {{ narratives.verdict_color }};">
+      {{ narratives.verdict_badge }}
+    </span>
+  </div>
+  <div class="verdict-tagline">{{ narratives.verdict_tagline }}</div>
+  
+  <div class="verdict-grid">
+    <div class="verdict-item">
+      <div class="verdict-lbl">Recommended Horizon</div>
+      <div class="verdict-val">{{ narratives.horizon }}</div>
+    </div>
+    <div class="verdict-item">
+      <div class="verdict-lbl">Suitable Investor Profile</div>
+      <div class="verdict-val">{{ narratives.investor_profile }}</div>
+    </div>
+    <div class="verdict-item">
+      <div class="verdict-lbl">Deployment Strategy</div>
+      <div class="verdict-val">{{ narratives.strategy }}</div>
+    </div>
+  </div>
+
+  <div class="bullets-grid">
+    <div class="bullet-card green">
+      <div class="bullet-card-hdr">✓ Key Investment Strengths</div>
+      <ul>
+        {% for s in narratives.strengths %}
+        <li>{{ s }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="bullet-card amber">
+      <div class="bullet-card-hdr">⚠ Key Monitorable Risks</div>
+      <ul>
+        {% for c in narratives.concerns %}
+        <li>{{ c }}</li>
+        {% endfor %}
+      </ul>
+    </div>
   </div>
 </div>
 
-<!-- ══ SECTION 1: Fund Information ══ -->
-<div class="section">
-  <div class="section-title">1. Fund Information</div>
-  <div class="grid-2">
-    <div class="info-box">
-      <div class="info-row"><span class="info-key">Fund House</span><span class="info-val">{{ scheme.fund_house }}</span></div>
-      <div class="info-row"><span class="info-key">Category (SEBI)</span><span class="info-val">{{ scheme.scheme_category }}</span></div>
-      <div class="info-row"><span class="info-key">Plan</span><span class="info-val">{{ scheme.plan }}{% if scheme.is_direct %} (Direct){% endif %}</span></div>
-      <div class="info-row"><span class="info-key">AMFI Code</span><span class="info-val">{{ scheme.amfi_code }}</span></div>
-      {% if scheme.isin_growth %}<div class="info-row"><span class="info-key">ISIN</span><span class="info-val">{{ scheme.isin_growth }}</span></div>{% endif %}
-      {% if meta %}<div class="info-row"><span class="info-key">Fund Start Date</span><span class="info-val">{% if meta.start_date %}{{ meta.start_date|date:"d M Y" }}{% else %}—{% endif %}</span></div>{% endif %}
+<div class="research-box">
+  <div class="research-box-hdr">
+    <span>💡 Quantitative Scorecard Analysis</span>
+    <span style="color:#64748b; font-weight:normal;">Multi-Pillar Evaluation</span>
+  </div>
+  <p>{{ narratives.scorecard_text }}</p>
+</div>
+
+{% if score_data.final_score %}
+<!-- Score Gauge + Summary Grid -->
+<div class="grid-2" style="margin-bottom:10px; align-items:start;">
+  {% if charts.score_gauge %}
+  <div class="card no-break">
+    <div class="card-header">Overall Model Score</div>
+    <div class="card-body" style="padding:6px; text-align:center;">
+      <img src="data:image/png;base64,{{ charts.score_gauge }}" style="max-width:280px; display:inline-block;" alt="Score Gauge">
+      <div style="margin-top:6px;">
+        <span class="badge" style="background:{{ badge_color }}; font-size:10px; padding:4px 14px;">
+          {{ score_data.overall_badge|default:"" }}
+        </span>
+      </div>
+      {% if score_data.rank.rank %}
+      <div style="margin-top:8px; font-size:8.5px; color:#64748b;">
+        Category Rank: <strong>#{{ score_data.rank.rank }}</strong> of {{ score_data.rank.total }}
+        &nbsp;·&nbsp; Top {{ score_data.rank.percentile|floatformat:0 }}%
+      </div>
+      {% endif %}
     </div>
-    <div class="info-box">
-      <div class="info-row"><span class="info-key">Latest NAV</span><span class="info-val">{% if scheme.nav_latest %}₹{{ scheme.nav_latest }}{% else %}—{% endif %}</span></div>
-      {% if scheme.nav_date %}<div class="info-row"><span class="info-key">NAV Date</span><span class="info-val">{{ scheme.nav_date }}</span></div>{% endif %}
-      <div class="info-row"><span class="info-key">AUM</span><span class="info-val">{% if scheme.aum_cr %}₹{{ scheme.aum_cr }} Cr{% else %}—{% endif %}</span></div>
-      <div class="info-row"><span class="info-key">Expense Ratio</span><span class="info-val">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% else %}—{% endif %}</span></div>
-      {% if meta %}<div class="info-row"><span class="info-key">Min SIP</span><span class="info-val">{% if meta.sip_min %}₹{{ meta.sip_min|floatformat:0 }}{% else %}—{% endif %}</span></div>{% endif %}
-      {% if meta %}<div class="info-row"><span class="info-key">Lock-in</span><span class="info-val">{% if meta.lock_in_period %}{{ meta.lock_in_period }} days{% else %}None{% endif %}</span></div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card no-break">
+    <div class="card-header">Score Summary</div>
+    <div class="card-body" style="padding:0;">
+      <table class="info-table">
+        <tr><td>Final Score</td><td>{{ score_data.final_score|floatformat:1 }}/100</td></tr>
+        <tr><td>Badge</td><td><span class="badge" style="background:{{ badge_color }};">{{ score_data.overall_badge|default:"—" }}</span></td></tr>
+        <tr><td>Confidence</td><td>{{ score_data.confidence|default:"—" }}</td></tr>
+        <tr><td>NAV History</td><td>{{ score_data.nav_days|default:"—" }} days</td></tr>
+        {% if category_snap.avg_model_score %}<tr><td>Category Avg Score</td><td>{{ category_snap.avg_model_score|floatformat:0 }}/100</td></tr>{% endif %}
+        {% if score_data.rank.rank %}<tr><td>Rank in Category</td><td>#{{ score_data.rank.rank }} / {{ score_data.rank.total }}</td></tr>{% endif %}
+        {% if score_data.red_flags.total_penalty %}<tr><td>Red Flag Penalty</td><td class="negative">-{{ score_data.red_flags.total_penalty }} pts</td></tr>{% endif %}
+      </table>
     </div>
   </div>
 </div>
 
-<!-- ══ SECTION 2: Key Performance Metrics ══ -->
-<div class="section">
-  <div class="section-title">2. Trailing Returns (CAGR %)</div>
-  {% if trailing_returns %}
-  <table>
-    <thead>
-      <tr>
-        <th>Period</th>
-        <th>Fund Return</th>
-        <th>Benchmark</th>
-        <th>Excess Alpha</th>
-        <th>Years</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in trailing_returns %}
-      <tr>
-        <td><strong>{{ r.period }}</strong></td>
-        <td class="{% if r.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.cagr_pct|floatformat:2 }}%</td>
-        <td>{% if r.bm_cagr %}{{ r.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
-        <td class="{% if r.excess and r.excess >= 0 %}positive{% else %}negative{% endif %}">{% if r.excess %}{% if r.excess >= 0 %}+{% endif %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}</td>
-        <td style="color:#94a3b8">{{ r.years|floatformat:1 }} yrs</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+
+<div class="commentary">{{ commentary.score }}</div>
+
+<!-- Category Distribution Bar -->
+{% if category_snap and category_snap.avg_model_score %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Category Score Distribution — {{ category_name }}</div>
+  <div class="card-body">
+    <div class="dist-bar" style="height:22px; margin-bottom:6px;">
+      {% if category_snap.pct_strong %}<div class="dist-seg" style="width:{{ category_snap.pct_strong }}%; background:#22c55e;" title="Strong">{{ category_snap.pct_strong|floatformat:0 }}%</div>{% endif %}
+      {% if category_snap.pct_good %}<div class="dist-seg" style="width:{{ category_snap.pct_good }}%; background:#6366f1;" title="Good">{{ category_snap.pct_good|floatformat:0 }}%</div>{% endif %}
+      {% if category_snap.pct_fair %}<div class="dist-seg" style="width:{{ category_snap.pct_fair }}%; background:#f59e0b; color:#1e293b;" title="Fair">{{ category_snap.pct_fair|floatformat:0 }}%</div>{% endif %}
+      {% if category_snap.pct_weak %}<div class="dist-seg" style="width:{{ category_snap.pct_weak }}%; background:#ef4444;" title="Weak">{{ category_snap.pct_weak|floatformat:0 }}%</div>{% endif %}
+    </div>
+    <div style="display:flex; gap:14px; font-size:8px; flex-wrap:wrap;">
+      <span><span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:2px;margin-right:3px;"></span>Strong (≥75)</span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:#6366f1;border-radius:2px;margin-right:3px;"></span>Good (55–74)</span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:2px;margin-right:3px;"></span>Fair (40–54)</span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:2px;margin-right:3px;"></span>Weak/Poor (<40)</span>
+      <span style="margin-left:auto; color:#64748b;">{{ category_snap.fund_count|default:"" }} funds · Avg: {{ category_snap.avg_model_score|floatformat:0 }}/100</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Pillar Scores Chart -->
+{% if charts.pillar_scores %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Pillar Score Breakdown</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.pillar_scores }}" class="chart-img" alt="Pillar Scores">
+  </div>
+</div>
+{% endif %}
+
+<!-- Pillar detail rows -->
+<div class="card no-break">
+  <div class="card-header">Pillar-by-Pillar Analysis</div>
+  <div class="card-body">
+
+    {% with p=score_data.performance %}{% if p and p.score is not None %}
+    <div class="pillar-row">
+      <div class="pillar-score-box" style="background:{% if p.score >= 75 %}#22c55e{% elif p.score >= 55 %}#6366f1{% elif p.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
+        <div class="pillar-score-num">{{ p.score|floatformat:0 }}</div><div class="pillar-score-lbl">Performance</div>
+      </div>
+      <div><div class="pillar-name">Performance (30% weight)</div>
+        <div class="pillar-interp">{{ p.interpretation|default:"Measures trailing returns, excess returns, and category outperformance." }}</div>
+        {% if p.missing %}<div style="font-size:7.5px;color:#f59e0b;margin-top:2px;">⚠ {{ p.missing }}</div>{% endif %}
+      </div>
+    </div>{% endif %}{% endwith %}
+    {% with p=score_data.risk %}{% if p and p.score is not None %}
+    <div class="pillar-row">
+      <div class="pillar-score-box" style="background:{% if p.score >= 75 %}#22c55e{% elif p.score >= 55 %}#6366f1{% elif p.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
+        <div class="pillar-score-num">{{ p.score|floatformat:0 }}</div><div class="pillar-score-lbl">Risk</div>
+      </div>
+      <div><div class="pillar-name">Risk / Stability (25% weight)</div>
+        <div class="pillar-interp">{{ p.interpretation|default:"Evaluates Sharpe, Sortino, max drawdown, beta, and volatility." }}</div>
+        {% if p.missing %}<div style="font-size:7.5px;color:#f59e0b;margin-top:2px;">⚠ {{ p.missing }}</div>{% endif %}
+      </div>
+    </div>{% endif %}{% endwith %}
+    {% with p=score_data.cost %}{% if p and p.score is not None %}
+    <div class="pillar-row">
+      <div class="pillar-score-box" style="background:{% if p.score >= 75 %}#22c55e{% elif p.score >= 55 %}#6366f1{% elif p.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
+        <div class="pillar-score-num">{{ p.score|floatformat:0 }}</div><div class="pillar-score-lbl">Cost</div>
+      </div>
+      <div><div class="pillar-name">Cost Efficiency (15% weight)</div>
+        <div class="pillar-interp">{{ p.interpretation|default:"Scores the expense ratio and portfolio turnover relative to category." }}</div>
+        {% if p.missing %}<div style="font-size:7.5px;color:#f59e0b;margin-top:2px;">⚠ {{ p.missing }}</div>{% endif %}
+      </div>
+    </div>{% endif %}{% endwith %}
+    {% with p=score_data.composition %}{% if p and p.score is not None %}
+    <div class="pillar-row">
+      <div class="pillar-score-box" style="background:{% if p.score >= 75 %}#22c55e{% elif p.score >= 55 %}#6366f1{% elif p.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
+        <div class="pillar-score-num">{{ p.score|floatformat:0 }}</div><div class="pillar-score-lbl">Composition</div>
+      </div>
+      <div><div class="pillar-name">Portfolio Composition (15% weight)</div>
+        <div class="pillar-interp">{{ p.interpretation|default:"Assesses diversification, concentration risk, and category adherence." }}</div>
+        {% if p.missing %}<div style="font-size:7.5px;color:#f59e0b;margin-top:2px;">⚠ {{ p.missing }}</div>{% endif %}
+      </div>
+    </div>{% endif %}{% endwith %}
+    {% with p=score_data.manager %}{% if p and p.score is not None %}
+    <div class="pillar-row">
+      <div class="pillar-score-box" style="background:{% if p.score >= 75 %}#22c55e{% elif p.score >= 55 %}#6366f1{% elif p.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
+        <div class="pillar-score-num">{{ p.score|floatformat:0 }}</div><div class="pillar-score-lbl">Manager</div>
+      </div>
+      <div><div class="pillar-name">Manager Quality (15% weight)</div>
+        <div class="pillar-interp">{{ p.interpretation|default:"Evaluates fund manager tenure, AUM, and track record consistency." }}</div>
+        {% if p.missing %}<div style="font-size:7.5px;color:#f59e0b;margin-top:2px;">⚠ {{ p.missing }}</div>{% endif %}
+      </div>
+    </div>{% endif %}{% endwith %}
+    {% with p=score_data.debt %}{% if p and p.score is not None %}
+    <div class="pillar-row">
+      <div class="pillar-score-box" style="background:{% if p.score >= 75 %}#22c55e{% elif p.score >= 55 %}#6366f1{% elif p.score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
+        <div class="pillar-score-num">{{ p.score|floatformat:0 }}</div><div class="pillar-score-lbl">Debt Quality</div>
+      </div>
+      <div><div class="pillar-name">Debt Quality (10% weight, where applicable)</div>
+        <div class="pillar-interp">{{ p.interpretation|default:"For debt/hybrid funds: assesses credit quality and interest rate risk." }}</div>
+        {% if p.missing %}<div style="font-size:7.5px;color:#f59e0b;margin-top:2px;">⚠ {{ p.missing }}</div>{% endif %}
+      </div>
+    </div>{% endif %}{% endwith %}
+  </div>
+</div>
+
+<!-- Red Flags -->
+{% if score_data.red_flags.flags %}
+<div class="alert-red" style="margin-top:10px;">
+  <strong>Red Flags Identified ({{ score_data.red_flags.flags|length }} flag(s), -{{ score_data.red_flags.total_penalty }} pts penalty):</strong>
+  <ul style="margin-top:4px; padding-left:14px;">
+    {% for flag in score_data.red_flags.flags %}
+    <li style="margin-bottom:2px;">{{ flag }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+<div class="alert-green" style="margin-top:10px;">No red flags detected. The fund passes all red-flag criteria.</div>
+{% endif %}
+{% endif %}
+
+<hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;">
+
+<div class="grid-2">
+  <!-- Fund Information -->
+  <div class="card no-break">
+    <div class="card-header">Fund Information</div>
+    <div class="card-body" style="padding: 0;">
+      <table class="info-table">
+        <tr><td>Fund House</td><td>{{ scheme.fund_house|default:"—" }}</td></tr>
+        <tr><td>Category</td><td>{{ meta.scheme_category|default:"—" }}</td></tr>
+        <tr><td>Sub-Category</td><td>{{ category_name|default:"—" }}</td></tr>
+        <tr><td>Plan Type</td><td>{% if scheme.is_direct %}Direct{% else %}Regular{% endif %}</td></tr>
+        <tr><td>Inception Date</td><td>{{ meta.start_date|default:"—" }}</td></tr>
+        <tr><td>Benchmark</td><td>{{ benchmark_name|default:"—" }}</td></tr>
+        <tr><td>AMFI Code</td><td>{{ scheme.amfi_code|default:"—" }}</td></tr>
+        {% if scheme.isin_growth %}<tr><td>ISIN (Growth)</td><td>{{ scheme.isin_growth }}</td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="card no-break">
+    <div class="card-header">Key Metrics</div>
+    <div class="card-body" style="padding: 0;">
+      <table class="info-table">
+        <tr><td>Latest NAV</td><td>{% if nav_latest %}₹{{ nav_latest|floatformat:2 }}{% else %}—{% endif %}</td></tr>
+        <tr><td>AUM</td><td>{% if meta.aum %}₹{{ meta.aum|floatformat:0 }} Cr{% else %}—{% endif %}</td></tr>
+        <tr><td>Expense Ratio</td><td>{{ meta.expense_ratio|floatformat:2|default:"—" }}%</td></tr>
+        <tr><td>Portfolio Turnover</td><td>{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:1 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Min SIP</td><td>{% if meta.min_sip %}₹{{ meta.min_sip|floatformat:0 }}{% else %}—{% endif %}</td></tr>
+        <tr><td>Min Lumpsum</td><td>{% if meta.min_lumpsum %}₹{{ meta.min_lumpsum|floatformat:0 }}{% else %}—{% endif %}</td></tr>
+        <tr><td>Exit Load</td><td>{{ meta.exit_load|default:"—" }}</td></tr>
+        {% if meta.crisil_rating %}<tr><td>CRISIL Rating</td><td>{{ meta.crisil_rating }}</td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Performance KPIs -->
+<div class="stat-grid stat-grid-3" style="margin-bottom:10px;">
+{% for kpi in perf_kpis %}
+<div class="stat-card no-break">
+  <div class="stat-lbl">{{ kpi.label }}</div>
+  {% if kpi.fund is not None %}
+  <div class="stat-val {% if kpi.fund >= 0 %}positive{% else %}negative{% endif %}">
+    {{ kpi.fund|floatformat:2 }}%
+  </div>
   {% else %}
-  <p style="color:#94a3b8;font-size:10px;padding:8px">Return data is not available from the current on-demand sources.</p>
+  <div class="stat-val muted">—</div>
+  {% endif %}
+  {% if kpi.cat is not None %}
+  <div class="stat-sub">Cat avg: {{ kpi.cat|floatformat:2 }}%</div>
   {% endif %}
 </div>
+{% endfor %}
+{% if risk_3y %}
+<div class="stat-card no-break">
+  <div class="stat-lbl">Sharpe Ratio (3Y)</div>
+  <div class="stat-val {% if risk_3y.sharpe >= 0.8 %}positive{% elif risk_3y.sharpe >= 0.4 %}amber{% else %}negative{% endif %}">
+    {{ risk_3y.sharpe|floatformat:2|default:"—" }}
+  </div>
+  <div class="stat-sub">Risk-adjusted returns</div>
+</div>
+<div class="stat-card no-break">
+  <div class="stat-lbl">Max Drawdown (3Y)</div>
+  <div class="stat-val negative">{{ risk_3y.max_drawdown|floatformat:1|default:"—" }}%</div>
+  <div class="stat-sub">Worst peak-to-trough</div>
+</div>
+<div class="stat-card no-break">
+  <div class="stat-lbl">Beta (3Y)</div>
+  <div class="stat-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</div>
+  <div class="stat-sub">Market sensitivity</div>
+</div>
+{% endif %}
+</div>
 
-<!-- ══ SECTION 3: Calendar Year Returns ══ -->
+<!-- Suitability -->
+<div class="card no-break">
+  <div class="card-header">Investor Suitability Profile</div>
+  <div class="card-body">
+    <div style="font-size: 9px; color: #374151; line-height: 1.7;">{{ commentary.suitability }}</div>
+  </div>
+</div>
+
+<!-- Investment Objective -->
+{% if meta.investment_objective %}
+<div class="card no-break">
+  <div class="card-header">Investment Objective</div>
+  <div class="card-body">
+    <div style="font-size: 9px; color: #374151; line-height: 1.7;">{{ meta.investment_objective }}</div>
+  </div>
+</div>
+{% endif %}
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 3 — RETURNS ANALYSIS
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Returns Analysis</h2><p>Trailing CAGR, calendar year returns, and performance vs. benchmark and category</p></div>
+
+<div class="research-box">
+  <div class="research-box-hdr">
+    <span>📊 Historical CAGR &amp; Trailing Performance Commentary</span>
+    <span style="color:#64748b; font-weight:normal;">Multi-Period Return Evaluation</span>
+  </div>
+  <p>{{ narratives.perf_text }}</p>
+</div>
+
+
+<!-- NAV Growth Chart -->
+{% if charts.nav_growth %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Growth of ₹1,00,000 Invested</div>
+  <div class="card-body" style="padding: 6px;">
+    <img src="data:image/png;base64,{{ charts.nav_growth }}" class="chart-img" alt="NAV Growth">
+  </div>
+</div>
+{% endif %}
+
+<!-- Trailing Returns Table -->
+{% if trailing_returns %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Trailing Returns — CAGR (%)</div>
+  <div class="card-body" style="padding: 0;">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Period</th><th>Fund</th><th>Benchmark</th><th style="color:#d97706;">Cat Avg</th>
+          <th>Cat Min</th><th>Cat Max</th><th>Excess vs BM</th><th>Excess vs Cat</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in trailing_returns %}
+        <tr>
+          <td class="bold">{{ r.period }}</td>
+          <td class="{% if r.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.cagr_pct|floatformat:2 }}%</td>
+          <td class="neutral">{% if r.bm_cagr %}{{ r.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td style="color:#d97706;">
+            {% if r.period == '1Y' and category_snap.avg_return_1y %}{{ category_snap.avg_return_1y|floatformat:2 }}%
+            {% elif r.period == '3Y' and category_snap.avg_return_3y %}{{ category_snap.avg_return_3y|floatformat:2 }}%
+            {% elif r.period == '5Y' and category_snap.avg_return_5y %}{{ category_snap.avg_return_5y|floatformat:2 }}%
+            {% else %}—{% endif %}
+          </td>
+          <td class="muted">
+            {% if r.period == '1Y' and category_snap.min_return_1y %}{{ category_snap.min_return_1y|floatformat:2 }}%
+            {% elif r.period == '3Y' and category_snap.min_return_3y %}{{ category_snap.min_return_3y|floatformat:2 }}%
+            {% elif r.period == '5Y' and category_snap.min_return_5y %}{{ category_snap.min_return_5y|floatformat:2 }}%
+            {% else %}—{% endif %}
+          </td>
+          <td class="muted">
+            {% if r.period == '1Y' and category_snap.max_return_1y %}{{ category_snap.max_return_1y|floatformat:2 }}%
+            {% elif r.period == '3Y' and category_snap.max_return_3y %}{{ category_snap.max_return_3y|floatformat:2 }}%
+            {% elif r.period == '5Y' and category_snap.max_return_5y %}{{ category_snap.max_return_5y|floatformat:2 }}%
+            {% else %}—{% endif %}
+          </td>
+          <td class="{% if r.excess and r.excess >= 0 %}positive{% elif r.excess %}negative{% else %}muted{% endif %}">{% if r.excess %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td class="{% if r.excess_cat and r.excess_cat >= 0 %}positive{% elif r.excess_cat %}negative{% else %}muted{% endif %}">
+            {% if r.excess_cat %}{{ r.excess_cat|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="commentary">{{ commentary.trailing }}</div>
+
+<!-- Trailing Returns Chart -->
+{% if charts.trailing_returns %}
+<div class="card no-break">
+  <div class="card-header">Trailing Returns — Fund vs Benchmark vs Category Avg</div>
+  <div class="card-body" style="padding: 6px;">
+    <img src="data:image/png;base64,{{ charts.trailing_returns }}" class="chart-img" alt="Trailing Returns Chart">
+  </div>
+</div>
+{% endif %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 4 — CALENDAR YEAR RETURNS
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Calendar Year Returns</h2><p>Annual performance across each calendar year vs. benchmark and category average</p></div>
+
+{% if charts.calendar_returns %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Calendar Year Returns (%)</div>
+  <div class="card-body" style="padding: 6px;">
+    <img src="data:image/png;base64,{{ charts.calendar_returns }}" class="chart-img" alt="Calendar Returns Chart">
+  </div>
+</div>
+{% endif %}
+
 {% if calendar_returns %}
-<div class="section">
-  <div class="section-title">3. Calendar Year Returns</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Year</th>
-        <th>Fund Return</th>
-        <th>Benchmark</th>
-        <th>Outperformed</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in calendar_returns %}
-      <tr>
-        <td><strong>{{ r.year }}</strong></td>
-        <td class="{% if r.return_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.return_pct|floatformat:2 }}%</td>
-        <td>{% if r.bm_return %}{{ r.bm_return|floatformat:2 }}%{% else %}—{% endif %}</td>
-        <td>{% if r.outperformed is not None %}{% if r.outperformed %}✅{% else %}❌{% endif %}{% else %}—{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card no-break">
+  <div class="card-header">Calendar Year Returns Table</div>
+  <div class="card-body" style="padding: 0;">
+    <table class="data">
+      <thead>
+        <tr><th>Year</th><th>Fund</th><th>Benchmark</th><th>vs Benchmark (Excess)</th></tr>
+      </thead>
+      <tbody>
+        {% for r in calendar_returns reversed %}
+        <tr>
+          <td class="bold">{{ r.year }}</td>
+          <td class="{% if r.fund_return != None and r.fund_return >= 0 %}positive{% elif r.fund_return != None %}negative{% else %}muted{% endif %}">
+            {% if r.fund_return != None %}{{ r.fund_return|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+          <td class="neutral">{% if r.bm_return != None %}{{ r.bm_return|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td class="{% if r.excess != None and r.excess >= 0 %}positive{% elif r.excess != None %}negative{% else %}muted{% endif %}">
+            {% if r.excess != None %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endif %}
 
-<!-- ══ SECTION 4: Risk Metrics ══ -->
-<div class="section">
-  <div class="section-title">4. Risk Metrics</div>
-  <div class="grid-2">
-    {% if risk_3y %}
-    <div>
-      <div style="font-size:9px;font-weight:600;color:#4f46e5;margin-bottom:6px">3-YEAR RISK</div>
-      <div class="info-box">
-        <div class="info-row"><span class="info-key">Std Dev (Ann)</span><span class="info-val">{{ risk_3y.std_dev_ann|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Sharpe Ratio</span><span class="info-val">{{ risk_3y.sharpe_ratio|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Sortino Ratio</span><span class="info-val">{{ risk_3y.sortino_ratio|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Max Drawdown</span><span class="info-val negative">{{ risk_3y.max_drawdown|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Beta</span><span class="info-val">{{ risk_3y.beta|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Alpha (Ann)</span><span class="info-val {% if risk_3y.alpha_ann and risk_3y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_3y.alpha_ann|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">R-Squared</span><span class="info-val">{{ risk_3y.r_squared|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Tracking Error</span><span class="info-val">{{ risk_3y.tracking_error|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Info Ratio</span><span class="info-val">{{ risk_3y.info_ratio|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Upside Capture</span><span class="info-val">{{ risk_3y.upside_capture|floatformat:1|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Downside Capture</span><span class="info-val">{{ risk_3y.downside_capture|floatformat:1|default:"—" }}%</span></div>
-      </div>
-    </div>
-    {% endif %}
-    {% if risk_5y %}
-    <div>
-      <div style="font-size:9px;font-weight:600;color:#4f46e5;margin-bottom:6px">5-YEAR RISK</div>
-      <div class="info-box">
-        <div class="info-row"><span class="info-key">Std Dev (Ann)</span><span class="info-val">{{ risk_5y.std_dev_ann|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Sharpe Ratio</span><span class="info-val">{{ risk_5y.sharpe_ratio|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Sortino Ratio</span><span class="info-val">{{ risk_5y.sortino_ratio|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Max Drawdown</span><span class="info-val negative">{{ risk_5y.max_drawdown|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Beta</span><span class="info-val">{{ risk_5y.beta|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Alpha (Ann)</span><span class="info-val {% if risk_5y.alpha_ann and risk_5y.alpha_ann >= 0 %}positive{% else %}negative{% endif %}">{{ risk_5y.alpha_ann|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">R-Squared</span><span class="info-val">{{ risk_5y.r_squared|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Tracking Error</span><span class="info-val">{{ risk_5y.tracking_error|floatformat:2|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Info Ratio</span><span class="info-val">{{ risk_5y.info_ratio|floatformat:2|default:"—" }}</span></div>
-        <div class="info-row"><span class="info-key">Upside Capture</span><span class="info-val">{{ risk_5y.upside_capture|floatformat:1|default:"—" }}%</span></div>
-        <div class="info-row"><span class="info-key">Downside Capture</span><span class="info-val">{{ risk_5y.downside_capture|floatformat:1|default:"—" }}%</span></div>
-      </div>
-    </div>
-    {% endif %}
+<div class="alert-blue" style="margin-top:8px;">
+  <strong>Reading Calendar Returns:</strong> Green bars indicate positive calendar-year performance;
+  red bars indicate negative years. Compare fund bars against the benchmark line (dashed grey) and
+  category average line (amber). A fund that consistently beats both lines across different market
+  years demonstrates strong active management.
+</div>
+</div>
+
+
+
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 6 — RISK METRICS
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Risk &amp; Risk-Adjusted Returns</h2><p>Volatility, drawdown, and efficiency of returns relative to risk taken</p></div>
+
+<div class="research-box">
+  <div class="research-box-hdr">
+    <span>🛡 Volatility &amp; Risk-Adjusted Return Commentary</span>
+    <span style="color:#64748b; font-weight:normal;">3-Year Risk Evaluation</span>
   </div>
-  <div class="alert" style="margin-top:6px">
-    ⚠️ Benchmark data is Price Index only (not TRI). Actual benchmark CAGR including dividends is typically 1–2% higher.
+  <p>{{ narratives.risk_text }}</p>
+</div>
+
+<div class="metric-explain-grid">
+  <div class="metric-explain-card">
+    <div class="metric-explain-title">Jensen's Alpha (+/-)</div>
+    <div class="metric-explain-desc">Measures the excess return generated by the fund manager above CAPM risk-adjusted expectations. Positive Alpha proves active stock picking skill.</div>
+  </div>
+  <div class="metric-explain-card">
+    <div class="metric-explain-title">Sharpe &amp; Sortino Ratios</div>
+    <div class="metric-explain-desc">Sharpe measures return per unit of total risk. Sortino focuses specifically on downside volatility. Higher ratios indicate superior risk efficiency.</div>
+  </div>
+  <div class="metric-explain-card">
+    <div class="metric-explain-title">Beta (&lt; 1.0 or &gt; 1.0)</div>
+    <div class="metric-explain-desc">Beta measures sensitivity to market index movements. Beta &lt; 1.0 is defensive with lower volatility; Beta &gt; 1.0 amplifies market rallies and corrections.</div>
+  </div>
+  <div class="metric-explain-card">
+    <div class="metric-explain-title">Maximum Drawdown</div>
+    <div class="metric-explain-desc">Captures the worst peak-to-trough decline experienced by an investor. Lower drawdown indicates stronger capital preservation during market crashes.</div>
   </div>
 </div>
 
-<!-- ══ SECTION 5: Top Holdings ══ -->
+
+{% if risk_3y %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">3-Year Risk Metrics</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead>
+        <tr><th>Metric</th><th>Fund (3Y)</th><th style="color:#d97706;">Cat Avg</th><th>Interpretation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Volatility (Std Dev)</td><td>{% if risk_3y.volatility != None %}{{ risk_3y.volatility|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_volatility %}{{ category_snap.avg_volatility|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">Annual return volatility; lower = smoother ride</td></tr>
+        <tr><td>Sharpe Ratio</td><td class="{% if risk_3y.sharpe != None and risk_3y.sharpe >= 0.8 %}positive{% elif risk_3y.sharpe != None and risk_3y.sharpe < 0.4 %}negative{% endif %}">{% if risk_3y.sharpe != None %}{{ risk_3y.sharpe|floatformat:2 }}{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_sharpe %}{{ category_snap.avg_sharpe|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">Return per unit of risk; higher = better</td></tr>
+        <tr><td>Sortino Ratio</td><td>{% if risk_3y.sortino != None %}{{ risk_3y.sortino|floatformat:2 }}{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_sortino %}{{ category_snap.avg_sortino|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">Return per unit of downside risk</td></tr>
+        <tr><td>Max Drawdown</td><td class="negative">{% if risk_3y.max_drawdown != None %}{{ risk_3y.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_max_drawdown %}{{ category_snap.avg_max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">Worst peak-to-trough decline</td></tr>
+        <tr><td>Beta</td><td>{% if risk_3y.beta != None %}{{ risk_3y.beta|floatformat:2 }}{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_beta_3y %}{{ category_snap.avg_beta_3y|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">&lt;1 = defensive, &gt;1 = amplifies market moves</td></tr>
+        <tr><td>Jensen's Alpha</td><td class="{% if risk_3y.alpha != None and risk_3y.alpha > 0 %}positive{% elif risk_3y.alpha != None and risk_3y.alpha < 0 %}negative{% endif %}">{% if risk_3y.alpha != None %}{{ risk_3y.alpha|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_alpha_3y %}{{ category_snap.avg_alpha_3y|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">Excess return above CAPM prediction</td></tr>
+        <tr><td>R-Squared</td><td>{% if risk_3y.r_squared != None %}{{ risk_3y.r_squared|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">Benchmark tracking (0–1); higher = closer tracking</td></tr>
+        <tr><td>Tracking Error</td><td>{% if risk_3y.tracking_error != None %}{{ risk_3y.tracking_error|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">Deviation from benchmark returns</td></tr>
+        <tr><td>Information Ratio</td><td>{% if risk_3y.info_ratio != None %}{{ risk_3y.info_ratio|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">Active return per unit of tracking error</td></tr>
+        {% if risk_3y.upside_capture %}<tr><td>Upside Capture</td><td class="positive">{{ risk_3y.upside_capture|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">Performance in up-markets vs benchmark</td></tr>{% endif %}
+        {% if risk_3y.downside_capture %}<tr><td>Downside Capture</td><td class="negative">{{ risk_3y.downside_capture|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">Performance in down-markets; &lt;100% = good</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if risk_5y %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">5-Year Risk Metrics</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead>
+        <tr><th>Metric</th><th>Fund (5Y)</th><th style="color:#d97706;">Cat Avg</th><th>Interpretation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Volatility (Std Dev)</td><td>{% if risk_5y.volatility != None %}{{ risk_5y.volatility|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_volatility_5y %}{{ category_snap.avg_volatility_5y|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">5-year annualised volatility</td></tr>
+        <tr><td>Sharpe Ratio</td><td class="{% if risk_5y.sharpe != None and risk_5y.sharpe >= 0.8 %}positive{% elif risk_5y.sharpe != None and risk_5y.sharpe < 0.4 %}negative{% endif %}">{% if risk_5y.sharpe != None %}{{ risk_5y.sharpe|floatformat:2 }}{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_sharpe_5y %}{{ category_snap.avg_sharpe_5y|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">5-year risk-adjusted return</td></tr>
+        <tr><td>Sortino Ratio</td><td>{% if risk_5y.sortino != None %}{{ risk_5y.sortino|floatformat:2 }}{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_sortino_5y %}{{ category_snap.avg_sortino_5y|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">Downside-adjusted return efficiency</td></tr>
+        <tr><td>Max Drawdown</td><td class="negative">{% if risk_5y.max_drawdown != None %}{{ risk_5y.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_max_drawdown_5y %}{{ category_snap.avg_max_drawdown_5y|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">Worst 5-year peak-to-trough</td></tr>
+        <tr><td>Beta</td><td>{% if risk_5y.beta != None %}{{ risk_5y.beta|floatformat:2 }}{% else %}—{% endif %}</td><td style="color:#d97706;">{% if category_snap.avg_beta_3y %}{{ category_snap.avg_beta_3y|floatformat:2 }}{% else %}—{% endif %}</td><td class="muted">5-year market sensitivity</td></tr>
+        <tr><td>Jensen's Alpha</td><td class="{% if risk_5y.alpha != None and risk_5y.alpha > 0 %}positive{% elif risk_5y.alpha != None and risk_5y.alpha < 0 %}negative{% endif %}">{% if risk_5y.alpha != None %}{{ risk_5y.alpha|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">5-year excess return</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="commentary">{{ commentary.risk }}</div>
+
+{% if charts.drawdown %}
+<div class="card no-break">
+  <div class="card-header">Historical Drawdown from Peak</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.drawdown }}" class="chart-img" alt="Drawdown Chart">
+  </div>
+</div>
+{% endif %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 7 — YEARLY RISK & MARKET REGIMES
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Yearly Risk &amp; Market Regime Analysis</h2><p>How the fund performed year-by-year and during different market cycles</p></div>
+
+{% if charts.yearly_risk %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Year-by-Year Volatility &amp; Sharpe Ratio</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.yearly_risk }}" class="chart-img" alt="Yearly Risk Chart">
+  </div>
+</div>
+{% endif %}
+
+{% if yearly_risk %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Year-by-Year Risk Statistics</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead>
+        <tr><th>Year</th><th>Return</th><th>Volatility</th><th>Sharpe</th><th>Sortino</th><th>Max Drawdown</th><th>Beta</th><th>Alpha</th></tr>
+      </thead>
+      <tbody>
+        {% for y in yearly_risk %}
+        <tr>
+          <td class="bold">{{ y.year }}{% if y.is_partial %}<span style="font-size:7.5px;color:#94a3b8;"> (part)</span>{% endif %}</td>
+          <td class="{% if y.return_pct != None and y.return_pct >= 0 %}positive{% elif y.return_pct != None %}negative{% else %}muted{% endif %}">
+            {% if y.return_pct != None %}{{ y.return_pct|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+          <td>{% if y.volatility_pct != None %}{{ y.volatility_pct|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td class="{% if y.sharpe != None and y.sharpe >= 0.8 %}positive{% elif y.sharpe != None and y.sharpe < 0 %}negative{% endif %}">
+            {% if y.sharpe != None %}{{ y.sharpe|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td>{% if y.sortino != None %}{{ y.sortino|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="negative">{% if y.max_drawdown != None %}{{ y.max_drawdown|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td>{% if y.beta != None %}{{ y.beta|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="{% if y.alpha != None and y.alpha > 0 %}positive{% elif y.alpha != None and y.alpha < 0 %}negative{% endif %}">
+            {% if y.alpha != None %}{{ y.alpha|floatformat:2 }}%{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if market_regimes %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Market Regime Performance</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead>
+        <tr><th>Market Regime</th><th>Regime Description</th><th>Historical Coverage</th><th>Fund Avg CAGR</th></tr>
+      </thead>
+      <tbody>
+        {% for r in market_regimes %}
+        <tr>
+          <td class="bold">
+            {% if r.icon %}{{ r.icon }} {% endif %}{{ r.label }}
+          </td>
+          <td class="muted" style="font-size:8px;">{{ r.description|default:"—" }}</td>
+          <td class="muted" style="font-size:8px;">{{ r.windows_label|default:"—" }}</td>
+          <td class="{% if r.fund_return != None and r.fund_return >= 0 %}positive{% elif r.fund_return != None %}negative{% else %}muted{% endif %}">
+            {% if r.fund_return != None %}{{ r.fund_return|floatformat:1 }}%{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if crisis_periods %}
+<div class="card no-break">
+  <div class="card-header">Crisis Period Performance — How the Fund Handled Market Stress</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead>
+        <tr><th>Crisis Event</th><th>Crash Window</th><th>Fund Return</th><th>Recovery</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        {% for c in crisis_periods %}
+        <tr>
+          <td class="bold">{{ c.short }}</td>
+          <td class="muted" style="font-size:8px;">{{ c.crash_start }} → {{ c.crash_end }}</td>
+          {% if c.available %}
+            <td class="{% if c.crash_return and c.crash_return >= 0 %}crash-good{% elif c.crash_return %}crash-bad{% else %}crash-na{% endif %}">{% if c.crash_return %}{{ c.crash_return }}%{% else %}—{% endif %}</td>
+            <td class="muted" style="font-size:8px;">{{ c.recovery_label|default:"—" }}</td>
+            <td class="muted" style="font-size:7.5px;">{% if c.pre_inception %}Fund started after crash began{% endif %}</td>
+          {% else %}
+            <td class="crash-na" colspan="3">Fund not yet launched during this period</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 8 — PORTFOLIO COMPOSITION
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Portfolio Composition</h2><p>Asset allocation, sector weights, and top holdings as of {{ holdings_month|default:"latest available" }}</p></div>
+
+<div class="grid-2">
+  {% if charts.asset %}
+  <div class="card no-break">
+    <div class="card-header">Asset Allocation</div>
+    <div class="card-body" style="padding:6px;">
+      <img src="data:image/png;base64,{{ charts.asset }}" class="chart-img" alt="Asset Allocation">
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card no-break">
+    <div class="card-header">Portfolio Summary</div>
+    <div class="card-body" style="padding:0;">
+      <table class="info-table">
+        <tr><td>Total Holdings</td><td>{{ total_holdings_count|default:"—" }}</td></tr>
+        <tr><td>Top 10 Weight</td><td>{% if top10_weight %}{{ top10_weight|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Portfolio Turnover</td><td>
+          {% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:2 }}%{% else %}—{% endif %}
+          {% if category_snap.avg_turnover %} <span style="color:#d97706;">(cat avg: {{ category_snap.avg_turnover|floatformat:1 }}%)</span>{% endif %}
+        </td></tr>
+        <tr><td>Data as of</td><td>{{ holdings_month|default:"—" }}</td></tr>
+        <tr><td>Sectors Covered</td><td>{{ sector_alloc|length|default:"—" }}</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="commentary">{{ commentary.portfolio }}</div>
+
+{% if charts.sector %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Sector Allocation</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.sector }}" class="chart-img" alt="Sector Allocation">
+  </div>
+</div>
+{% endif %}
+
 {% if top_holdings %}
-<div class="section">
-  <div class="section-title">5. Top Holdings</div>
-  <table>
-    <thead>
-      <tr><th>#</th><th>Security</th><th>Sector</th><th>Weight %</th></tr>
-    </thead>
-    <tbody>
-      {% for h in top_holdings %}
-      <tr>
-        <td style="color:#94a3b8;width:24px">{{ forloop.counter }}</td>
-        <td><strong>{{ h.security_name }}</strong>{% if h.isin %}<br><span style="color:#94a3b8;font-size:8px">{{ h.isin }}</span>{% endif %}</td>
-        <td style="color:#64748b">{{ h.sector|default:"—" }}</td>
-        <td>
-          <div class="progress-container">
-            <div class="progress-label"><span></span><strong>{{ h.weight_pct|floatformat:2 }}%</strong></div>
-            <div class="progress-bar"><div class="progress-fill" style="width:{{ h.weight_pct|floatformat:0 }}%"></div></div>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card no-break">
+  <div class="card-header">Top Holdings (up to 20)</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead>
+        <tr><th>#</th><th>Security</th><th>Sector</th><th>ISIN</th><th>Weight</th><th>Weight Bar</th></tr>
+      </thead>
+      <tbody>
+        {% for h in top_holdings %}
+        <tr>
+          <td class="muted">{{ forloop.counter }}</td>
+          <td class="bold">{{ h.security_name|default:"—" }}</td>
+          <td class="muted" style="font-size:8.5px;">{{ h.sector|default:"—" }}</td>
+          <td class="muted" style="font-size:7.5px;">{{ h.isin|default:"—" }}</td>
+          <td class="bold">{{ h.weight_pct|floatformat:2 }}%</td>
+          <td style="width:60px;">
+            <div class="prog-wrap">
+              <div class="prog-fill" style="width:{{ h.weight_pct|floatformat:0 }}%; background:#6366f1;"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 9 — COSTS & FUND MECHANICS
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Costs &amp; Fund Mechanics</h2><p>Expense ratios, turnover, and structural details that affect net investor returns</p></div>
+
+{% if category_snap and category_snap.avg_expense_ratio %}
+<div style="background:#fffbeb; border-left:4px solid #f59e0b; border-radius:0 6px 6px 0; padding:10px 14px; margin-bottom:10px; font-size:9px;">
+  <strong style="color:#d97706;">Category Benchmark ({{ category_name }})</strong>
+  &nbsp;·&nbsp; Avg Expense Ratio: <strong>{{ category_snap.avg_expense_ratio|floatformat:2 }}%</strong>
+  {% if category_snap.median_expense_ratio %}&nbsp;(median: {{ category_snap.median_expense_ratio|floatformat:2 }}%){% endif %}
+  &nbsp;·&nbsp; Avg Turnover: <strong>{% if category_snap.avg_turnover %}{{ category_snap.avg_turnover|floatformat:1 }}%{% else %}—{% endif %}</strong>
+  &nbsp;·&nbsp; Funds in category: <strong>{{ category_snap.fund_count|default:"—" }}</strong>
 </div>
 {% endif %}
 
-<!-- ══ SECTION 6: Sector Allocation ══ -->
-{% if sector_alloc %}
-<div class="section">
-  <div class="section-title">6. Sector Allocation</div>
-  <table>
-    <thead>
-      <tr><th>Sector</th><th>Weight %</th></tr>
-    </thead>
-    <tbody>
-      {% for s in sector_alloc %}
-      <tr>
-        <td>{{ s.sector }}</td>
-        <td>
-          <div class="progress-container">
-            <div class="progress-label"><span></span><strong>{{ s.weight_pct|floatformat:2 }}%</strong></div>
-            <div class="progress-bar"><div class="progress-fill" style="width:{{ s.weight_pct|floatformat:0 }}%"></div></div>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
+<div class="grid-2">
+  <div class="card no-break">
+    <div class="card-header">Cost Analysis</div>
+    <div class="card-body" style="padding:0;">
+      <table class="info-table">
+        <tr><td>Expense Ratio</td>
+          <td>{% if meta.expense_ratio %}{{ meta.expense_ratio|floatformat:2 }}%
+            {% if category_snap.avg_expense_ratio %}
+              <span style="color:#d97706;">(cat avg: {{ category_snap.avg_expense_ratio|floatformat:2 }}%)</span>
+            {% endif %}{% else %}—{% endif %}
+          </td>
+        </tr>
+        <tr><td>Portfolio Turnover</td>
+          <td>{% if meta.portfolio_turnover %}{{ meta.portfolio_turnover|floatformat:2 }}%
+            {% if category_snap.avg_turnover %}
+              <span style="color:#d97706;">(cat avg: {{ category_snap.avg_turnover|floatformat:1 }}%)</span>
+            {% endif %}{% else %}—{% endif %}
+          </td>
+        </tr>
+        <tr><td>CRISIL Rating</td><td>{{ meta.crisil_rating|default:"—" }}</td></tr>
+        <tr><td>Fund Rating</td><td>{{ meta.fund_rating|default:"—" }}</td></tr>
+      </table>
+    </div>
+  </div>
 
-<!-- ══ SECTION 7: Cost Summary ══ -->
-<div class="section">
-  <div class="section-title">7. Cost & Investment Rules Summary</div>
-  <div class="grid-4">
-    <div class="stat-card">
-      <div class="stat-label">Expense Ratio</div>
-      <div class="stat-value">{% if scheme.expense_ratio %}{{ scheme.expense_ratio }}%{% else %}—{% endif %}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">AUM</div>
-      <div class="stat-value" style="font-size:12px">{% if scheme.aum_cr %}₹{{ scheme.aum_cr }} Cr{% else %}—{% endif %}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Min SIP</div>
-      <div class="stat-value" style="font-size:12px">{% if meta and meta.sip_min %}₹{{ meta.sip_min|floatformat:0 }}{% else %}—{% endif %}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Lock-in</div>
-      <div class="stat-value" style="font-size:12px">{% if meta and meta.lock_in_period %}{{ meta.lock_in_period }}d{% else %}None{% endif %}</div>
+  <div class="card no-break">
+    <div class="card-header">Investment Rules</div>
+    <div class="card-body" style="padding:0;">
+      <table class="info-table">
+        <tr><td>Min Lumpsum</td><td>{% if meta.min_lumpsum %}₹{{ meta.min_lumpsum|floatformat:0 }}{% else %}—{% endif %}</td></tr>
+        <tr><td>Min SIP</td><td>{% if meta.min_sip %}₹{{ meta.min_sip|floatformat:0 }}{% else %}—{% endif %}</td></tr>
+        <tr><td>Exit Load</td><td>{{ meta.exit_load|default:"—" }}</td></tr>
+        <tr><td>Lock-in Period</td><td>{{ meta.lock_in|default:"None" }}</td></tr>
+        <tr><td>Plan Type</td><td>{% if scheme.is_direct %}Direct Plan{% else %}Regular Plan{% endif %}</td></tr>
+        <tr><td>Option</td><td>Growth</td></tr>
+      </table>
     </div>
   </div>
 </div>
 
-<!-- ══ DISCLAIMER ══ -->
-<div class="disclaimer">
-  <strong>Disclaimer:</strong> This report is generated automatically by MF Analysis Platform using data from AMFI, mfapi.in, captnemo.in, and Morningstar. 
-  It is for informational and educational purposes only and does not constitute financial advice or a recommendation to buy, sell, or hold any securities.
-  Past performance is not indicative of future results. Returns are subject to market risk. Please consult a SEBI-registered financial advisor before investing.
-  Data accuracy depends on third-party sources and is not guaranteed.
+<div class="commentary">{{ commentary.cost }}</div>
+
+<div class="card no-break">
+  <div class="card-header">Tax Treatment (Indian Taxation)</div>
+  <div class="card-body" style="padding:0;">
+    <table class="info-table">
+      {% with cat=meta.scheme_category|lower %}
+      {% if "equity" in cat or "large" in cat or "mid" in cat or "small" in cat or "flexi" in cat or "multi" in cat %}
+      <tr><td>Fund Type</td><td>Equity Oriented (&gt;65% in equities)</td></tr>
+      <tr><td>STCG (held &lt;1 year)</td><td>20% (as per Finance Act 2024)</td></tr>
+      <tr><td>LTCG (held ≥1 year)</td><td>12.5% on gains &gt; ₹1.25 lakh/year</td></tr>
+      <tr><td>Indexation Benefit</td><td>Not applicable for equity funds</td></tr>
+      {% elif "debt" in cat or "bond" in cat or "gilt" in cat or "credit" in cat or "liquid" in cat %}
+      <tr><td>Fund Type</td><td>Debt Oriented</td></tr>
+      <tr><td>STCG (held &lt;3 years)</td><td>As per income tax slab</td></tr>
+      <tr><td>LTCG (held ≥3 years)</td><td>12.5% without indexation (post Apr 2023)</td></tr>
+      <tr><td>Indexation Benefit</td><td>Removed for debt funds (post Apr 2023)</td></tr>
+      {% elif "hybrid" in cat or "balanced" in cat %}
+      <tr><td>Fund Type</td><td>Hybrid — Tax depends on equity allocation (&gt;/&lt;65%)</td></tr>
+      <tr><td>STCG</td><td>20% (if equity ≥65%) / Slab rate (if &lt;65%)</td></tr>
+      <tr><td>LTCG</td><td>12.5% (if equity ≥65%) / 12.5% w/o indexation (if &lt;65%)</td></tr>
+      {% else %}
+      <tr><td>Fund Type</td><td>{{ meta.scheme_category|default:"—" }}</td></tr>
+      <tr><td>Note</td><td>Consult your tax advisor for applicable rates</td></tr>
+      {% endif %}
+      {% endwith %}
+      <tr><td>STT (Securities Transaction Tax)</td><td>Applicable on equity redemption at 0.001%</td></tr>
+    </table>
+  </div>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 10 — ROLLING RETURNS (1Y / 3Y / 5Y)
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Rolling Returns Analysis — 1Y, 3Y &amp; 5Y</h2><p>Timeseries charts and statistical summaries for each rolling return window</p></div>
+
+<div class="research-box">
+  <div class="research-box-hdr">
+    <span>📈 Rolling Return Consistency &amp; Win-Rate Analysis</span>
+    <span style="color:#64748b; font-weight:normal;">Holding Period Evaluation</span>
+  </div>
+  <p>{{ narratives.rolling_text }}</p>
+</div>
+
+
+{% if charts.rolling_box %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Rolling Return Distribution — Min / Q1 / Median / Q3 / Max (Box Plot)</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.rolling_box }}" class="chart-img" alt="Rolling Box Plot">
+  </div>
+</div>
+{% endif %}
+
+{% if charts.rolling_1y %}
+<div class="card no-break" style="margin-bottom:6px;">
+  <div class="card-header">1-Year Rolling Return — Timeseries</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.rolling_1y }}" class="chart-img" alt="1Y Rolling">
+  </div>
+</div>
+{% endif %}
+{% if rolling_1y %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">1Y Rolling Return Statistics</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead><tr><th>Metric</th><th>Fund</th><th>Benchmark</th><th style="color:#d97706;">Cat Min</th><th style="color:#d97706;">Cat Max</th><th style="color:#d97706;">Cat Avg</th></tr></thead>
+      <tbody>
+        <tr><td>Minimum</td><td class="negative">{{ rolling_1y.min_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_1y.bm_min %}{{ rolling_1y.bm_min|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_1y.cat_min != None %}{{ rolling_1y.cat_min|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_1y.cat_max != None %}{{ rolling_1y.cat_max|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_1y.cat_avg != None %}{{ rolling_1y.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Maximum</td><td class="positive">{{ rolling_1y.max_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_1y.bm_max %}{{ rolling_1y.bm_max|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+        <tr><td>Median</td><td>{{ rolling_1y.median_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_1y.bm_median %}{{ rolling_1y.bm_median|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">—</td><td style="color:#d97706;">{% if rolling_1y.cat_median != None %}{{ rolling_1y.cat_median|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Mean</td><td>{{ rolling_1y.mean_pct|floatformat:2 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td style="color:#d97706;">{% if rolling_1y.cat_avg != None %}{{ rolling_1y.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Win Rate (&gt;0%)</td><td class="positive">{{ rolling_1y.win_rate_0|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+        <tr><td>Win Rate (&gt;8%)</td><td>{{ rolling_1y.win_rate_8|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if charts.rolling_3y %}
+<div class="card no-break" style="margin-bottom:6px;">
+  <div class="card-header">3-Year Rolling Return — Timeseries</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.rolling_3y }}" class="chart-img" alt="3Y Rolling">
+  </div>
+</div>
+{% endif %}
+{% if rolling_3y %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">3Y Rolling Return Statistics</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead><tr><th>Metric</th><th>Fund</th><th>Benchmark</th><th style="color:#d97706;">Cat Min</th><th style="color:#d97706;">Cat Max</th><th style="color:#d97706;">Cat Avg</th></tr></thead>
+      <tbody>
+        <tr><td>Minimum</td><td class="negative">{{ rolling_3y.min_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_3y.bm_min %}{{ rolling_3y.bm_min|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_3y.cat_min != None %}{{ rolling_3y.cat_min|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_3y.cat_max != None %}{{ rolling_3y.cat_max|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_3y.cat_avg != None %}{{ rolling_3y.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Maximum</td><td class="positive">{{ rolling_3y.max_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_3y.bm_max %}{{ rolling_3y.bm_max|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+        <tr><td>Median</td><td>{{ rolling_3y.median_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_3y.bm_median %}{{ rolling_3y.bm_median|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">—</td><td style="color:#d97706;">{% if rolling_3y.cat_median != None %}{{ rolling_3y.cat_median|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Mean</td><td>{{ rolling_3y.mean_pct|floatformat:2 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td style="color:#d97706;">{% if rolling_3y.cat_avg != None %}{{ rolling_3y.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Win Rate (&gt;0%)</td><td class="positive">{{ rolling_3y.win_rate_0|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+        <tr><td>Win Rate (&gt;8%)</td><td>{{ rolling_3y.win_rate_8|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if charts.rolling_5y %}
+<div class="card no-break" style="margin-bottom:6px;">
+  <div class="card-header">5-Year Rolling Return — Timeseries</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.rolling_5y }}" class="chart-img" alt="5Y Rolling">
+  </div>
+</div>
+{% endif %}
+{% if rolling_5y %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">5Y Rolling Return Statistics</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead><tr><th>Metric</th><th>Fund</th><th>Benchmark</th><th style="color:#d97706;">Cat Min</th><th style="color:#d97706;">Cat Max</th><th style="color:#d97706;">Cat Avg</th></tr></thead>
+      <tbody>
+        <tr><td>Minimum</td><td class="negative">{{ rolling_5y.min_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_5y.bm_min %}{{ rolling_5y.bm_min|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_5y.cat_min != None %}{{ rolling_5y.cat_min|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_5y.cat_max != None %}{{ rolling_5y.cat_max|floatformat:2 }}%{% else %}—{% endif %}</td><td style="color:#d97706;">{% if rolling_5y.cat_avg != None %}{{ rolling_5y.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Maximum</td><td class="positive">{{ rolling_5y.max_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_5y.bm_max %}{{ rolling_5y.bm_max|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+        <tr><td>Median</td><td>{{ rolling_5y.median_pct|floatformat:2 }}%</td><td class="muted">{% if rolling_5y.bm_median %}{{ rolling_5y.bm_median|floatformat:2 }}%{% else %}—{% endif %}</td><td class="muted">—</td><td class="muted">—</td><td style="color:#d97706;">{% if rolling_5y.cat_median != None %}{{ rolling_5y.cat_median|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Mean</td><td>{{ rolling_5y.mean_pct|floatformat:2 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td style="color:#d97706;">{% if rolling_5y.cat_avg != None %}{{ rolling_5y.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>Win Rate (&gt;0%)</td><td class="positive">{{ rolling_5y.win_rate_0|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+        <tr><td>Win Rate (&gt;8%)</td><td>{{ rolling_5y.win_rate_8|floatformat:1 }}%</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="alert-blue">
+  <strong>Understanding Rolling Returns:</strong> Unlike trailing returns (measured from today),
+  rolling returns measure performance over every possible window of a given length.
+  A high win rate (&gt;0%) means investors who stayed invested for that window rarely lost money.
+  A tight Min–Max range indicates a more consistent, predictable fund.
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 11 — QUARTERLY PERFORMANCE & PEERS
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Quarterly Performance &amp; Peer Comparison</h2><p>Best and worst quarters for the fund, and how it stacks up against similar funds</p></div>
+
+<div class="research-box">
+  <div class="research-box-hdr">
+    <span>🏆 Peer Group Positioning &amp; Competitive Standing</span>
+    <span style="color:#64748b; font-weight:normal;">Category Comparison</span>
+  </div>
+  <p>{{ narratives.peer_text }}</p>
+</div>
+
+
+{% if quarterly_performance %}
+{% if charts.quarterly_perf %}
+<div class="card no-break" style="margin-bottom:8px;">
+  <div class="card-header">Best &amp; Worst Quarters — Fund Return (%)</div>
+  <div class="card-body" style="padding:6px;">
+    <img src="data:image/png;base64,{{ charts.quarterly_perf }}" class="chart-img" alt="Quarterly Performance">
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2" style="margin-bottom:10px;">
+  {% if quarterly_performance.upside %}
+  <div class="card no-break">
+    <div class="card-header" style="background:#f0fdf4; color:#166534;">🏆 Best Quarters</div>
+    <div class="card-body" style="padding:0;">
+      <table class="data">
+        <thead><tr><th>Quarter</th><th class="positive">Fund</th><th>Benchmark</th></tr></thead>
+        <tbody>
+          {% for q in quarterly_performance.upside|slice:":8" %}
+          <tr>
+            <td class="bold">{{ q.quarter }}</td>
+            <td class="positive">{{ q.fund_return|floatformat:2 }}%</td>
+            <td class="muted">{% if q.benchmark_return %}{{ q.benchmark_return|floatformat:2 }}%{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if quarterly_performance.downside %}
+  <div class="card no-break">
+    <div class="card-header" style="background:#fef2f2; color:#991b1b;">📉 Worst Quarters</div>
+    <div class="card-body" style="padding:0;">
+      <table class="data">
+        <thead><tr><th>Quarter</th><th class="negative">Fund</th><th>Benchmark</th></tr></thead>
+        <tbody>
+          {% for q in quarterly_performance.downside|slice:":8" %}
+          <tr>
+            <td class="bold">{{ q.quarter }}</td>
+            <td class="negative">{{ q.fund_return|floatformat:2 }}%</td>
+            <td class="muted">{% if q.benchmark_return %}{{ q.benchmark_return|floatformat:2 }}%{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Peer Comparison Table -->
+{% if peers_data %}
+<div class="card no-break" style="margin-bottom:8px;">
+  <div class="card-header">Peer Fund Comparison — Similar Category Funds</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Fund Name</th><th>AMC</th>
+          <th>1Y</th><th>3Y</th><th>5Y</th>
+          <th>Sharpe</th><th>Vol</th><th>Alpha</th>
+          <th>Exp%</th><th>AUM (Cr)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Current fund row highlighted -->
+        <tr style="background:#f0f4ff; font-weight:700;">
+          <td class="bold" style="color:#6366f1;">{{ scheme.scheme_name|truncatechars:45 }}</td>
+          <td class="muted">{{ scheme.fund_house|truncatechars:20 }}</td>
+          {% for kpi in perf_kpis %}{% if kpi.period == "1Y" or kpi.label == "1Y" %}<td class="{% if kpi.fund >= 0 %}positive{% else %}negative{% endif %}">{% if kpi.fund != None %}{{ kpi.fund|floatformat:2 }}%{% else %}—{% endif %}</td>{% endif %}{% endfor %}
+          {% for kpi in perf_kpis %}{% if kpi.period == "3Y" or kpi.label == "3Y" %}<td class="{% if kpi.fund >= 0 %}positive{% else %}negative{% endif %}">{% if kpi.fund != None %}{{ kpi.fund|floatformat:2 }}%{% else %}—{% endif %}</td>{% endif %}{% endfor %}
+          {% for kpi in perf_kpis %}{% if kpi.period == "5Y" or kpi.label == "5Y" %}<td class="{% if kpi.fund >= 0 %}positive{% else %}negative{% endif %}">{% if kpi.fund != None %}{{ kpi.fund|floatformat:2 }}%{% else %}—{% endif %}</td>{% endif %}{% endfor %}
+          <td>{% if risk_3y.sharpe != None %}{{ risk_3y.sharpe|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{% if risk_3y.volatility != None %}{{ risk_3y.volatility|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{% if risk_3y.alpha != None %}{{ risk_3y.alpha|floatformat:2 }}{% elif meta.alpha_3y != None %}{{ meta.alpha_3y|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{% if meta.expense_ratio != None %}{{ meta.expense_ratio|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td>{% if meta.aum != None %}{{ meta.aum|floatformat:0 }}{% else %}—{% endif %}</td>
+        </tr>
+
+        {% for p in peers_data %}
+        <tr>
+          <td class="bold" style="font-size:8px;">{{ p.scheme_name|truncatechars:45 }}</td>
+          <td class="muted" style="font-size:7.5px;">{{ p.fund_house|truncatechars:20 }}</td>
+          <td class="{% if p.return_1y != None and p.return_1y >= 0 %}positive{% elif p.return_1y != None %}negative{% else %}muted{% endif %}">{% if p.return_1y != None %}{{ p.return_1y|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td class="{% if p.return_3y != None and p.return_3y >= 0 %}positive{% elif p.return_3y != None %}negative{% else %}muted{% endif %}">{% if p.return_3y != None %}{{ p.return_3y|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td class="{% if p.return_5y != None and p.return_5y >= 0 %}positive{% elif p.return_5y != None %}negative{% else %}muted{% endif %}">{% if p.return_5y != None %}{{ p.return_5y|floatformat:2 }}%{% else %}—{% endif %}</td>
+          <td>{% if p.sharpe_ratio != None %}{{ p.sharpe_ratio|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{% if p.volatility != None %}{{ p.volatility|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{% if p.alpha != None %}{{ p.alpha|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{% if p.expense_ratio != None %}{{ p.expense_ratio|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="muted">{% if p.aum != None %}{{ p.aum|floatformat:0 }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="alert-blue" style="margin-top:6px;">
+  📊 For an interactive side-by-side fund comparison, visit the <strong>Fund Compare Calculator</strong> on the website. Compare up to 5 funds across all metrics, timeframes, and portfolios in real time.
+</div>
+{% endif %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 12 — TECHNICAL INDICATORS
+══════════════════════════════════════════════════════════════════ -->
+{% if tech_indicators %}
+<div class="page-break">
+<div class="sec-hdr"><h2>Technical Indicators Summary</h2><p>Moving averages and oscillator signals computed from NAV series — Daily, Weekly, and Monthly timeframes</p></div>
+
+<div class="research-box">
+  <div class="research-box-hdr">
+    <span>⚡ Multi-Timeframe Technical Trend Commentary</span>
+    <span style="color:#64748b; font-weight:normal;">Momentum &amp; Trend Alignment</span>
+  </div>
+  <p>{{ narratives.tech_text }}</p>
+</div>
+
+<div class="alert-blue" style="margin-bottom:10px;">
+  <strong>Note:</strong> Technical indicators are computed from NAV price data using standard formulas (RSI, MACD, SMA, EMA, etc.).
+  Signals indicate Buy / Sell / Neutral based on the indicator's current level vs. its threshold.
+  These are quantitative signals only and should not be the sole basis for investment decisions.
+</div>
+
+
+
+
+{% with tf=tech_indicators.daily %}{% if tf %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header" style="background:#eff6ff; color:#1d4ed8;">📅 Daily Timeframe</div>
+  <div class="card-body">
+    <div class="grid-2" style="align-items:center; margin-bottom:8px;">
+      <!-- Signal Summary -->
+      <div>
+        <div style="font-size:9px;font-weight:700;margin-bottom:6px;color:#374151;">Signal Summary</div>
+        <table class="data" style="margin-bottom:0;">
+          <tr><td class="bold">Oscillators</td>
+            <td class="positive">{{ tf.osc_counts.buy }} Buy</td>
+            <td class="muted">{{ tf.osc_counts.neutral }} Neutral</td>
+            <td class="negative">{{ tf.osc_counts.sell }} Sell</td>
+            <td style="font-weight:700;color:{% if tf.osc_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.osc_counts.rating == 'Buy' %}#22c55e{% elif tf.osc_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.osc_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td>
+          </tr>
+          <tr><td class="bold">Moving Avg</td>
+            <td class="positive">{{ tf.ma_counts.buy }} Buy</td>
+            <td class="muted">{{ tf.ma_counts.neutral }} Neutral</td>
+            <td class="negative">{{ tf.ma_counts.sell }} Sell</td>
+            <td style="font-weight:700;color:{% if tf.ma_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.ma_counts.rating == 'Buy' %}#22c55e{% elif tf.ma_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.ma_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td>
+          </tr>
+          <tr style="background:#f8fafc;"><td class="bold">Overall</td>
+            <td class="positive">{{ tf.sum_counts.buy }} Buy</td>
+            <td class="muted">{{ tf.sum_counts.neutral }} Neutral</td>
+            <td class="negative">{{ tf.sum_counts.sell }} Sell</td>
+            <td style="font-weight:700;font-size:10px;color:{% if tf.sum_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.sum_counts.rating == 'Buy' %}#22c55e{% elif tf.sum_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.sum_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td>
+          </tr>
+        </table>
+      </div>
+      <!-- Riskometer Gauge -->
+      {% if tf.gauge_chart %}
+      <div style="text-align:center;">
+        <img src="data:image/png;base64,{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Daily Technical Meter">
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Oscillators Table -->
+    <div style="margin-top:6px;">
+      <div style="font-size:9px;font-weight:700;margin-bottom:4px;color:#374151;">Oscillators</div>
+      <table class="data" style="margin-bottom:0;">
+        {% for osc in tf.oscillators %}
+        <tr>
+          <td style="font-size:8px;">{{ osc.name }}</td>
+          <td class="muted" style="font-size:8px;">{{ osc.value }}</td>
+          <td style="font-weight:600;font-size:8px;color:{% if osc.action == 'Buy' %}#16a34a{% elif osc.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ osc.action }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <!-- Moving Averages -->
+    <div style="margin-top:8px;">
+      <div style="font-size:9px;font-weight:700;margin-bottom:4px;color:#374151;">Moving Averages</div>
+      <table class="data">
+        <thead><tr><th>Name</th><th>Value</th><th>Signal</th><th>Name</th><th>Value</th><th>Signal</th></tr></thead>
+        <tbody>
+          {% for ma in tf.moving_averages %}
+          {% if forloop.counter|divisibleby:2 %}
+          <td style="font-size:8px;">{{ ma.name }}</td>
+          <td class="muted" style="font-size:8px;">{{ ma.value }}</td>
+          <td style="font-weight:600;font-size:8px;color:{% if ma.action == 'Buy' %}#16a34a{% elif ma.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ ma.action }}</td>
+          </tr>
+          {% else %}
+          <tr>
+          <td style="font-size:8px;">{{ ma.name }}</td>
+          <td class="muted" style="font-size:8px;">{{ ma.value }}</td>
+          <td style="font-weight:600;font-size:8px;color:{% if ma.action == 'Buy' %}#16a34a{% elif ma.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ ma.action }}</td>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}{% endwith %}
+
+{% with tf=tech_indicators.weekly %}{% if tf %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header" style="background:#f0fdf4; color:#166534;">📆 Weekly Timeframe</div>
+  <div class="card-body">
+    <div class="grid-2" style="align-items:center; margin-bottom:8px;">
+      <div>
+        <div style="font-size:9px;font-weight:700;margin-bottom:6px;color:#374151;">Signal Summary</div>
+        <table class="data" style="margin-bottom:0;">
+          <tr><td class="bold">Oscillators</td><td class="positive">{{ tf.osc_counts.buy }} Buy</td><td class="muted">{{ tf.osc_counts.neutral }} Neutral</td><td class="negative">{{ tf.osc_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.osc_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.osc_counts.rating == 'Buy' %}#22c55e{% elif tf.osc_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.osc_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td></tr>
+          <tr><td class="bold">Moving Avg</td><td class="positive">{{ tf.ma_counts.buy }} Buy</td><td class="muted">{{ tf.ma_counts.neutral }} Neutral</td><td class="negative">{{ tf.ma_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.ma_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.ma_counts.rating == 'Buy' %}#22c55e{% elif tf.ma_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.ma_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td></tr>
+          <tr style="background:#f8fafc;"><td class="bold">Overall</td><td class="positive">{{ tf.sum_counts.buy }} Buy</td><td class="muted">{{ tf.sum_counts.neutral }} Neutral</td><td class="negative">{{ tf.sum_counts.sell }} Sell</td><td style="font-weight:700;font-size:10px;color:{% if tf.sum_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.sum_counts.rating == 'Buy' %}#22c55e{% elif tf.sum_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.sum_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td></tr>
+        </table>
+      </div>
+      {% if tf.gauge_chart %}
+      <div style="text-align:center;">
+        <img src="data:image/png;base64,{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Weekly Technical Meter">
+      </div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top:6px;">
+      <div style="font-size:9px;font-weight:700;margin-bottom:4px;color:#374151;">Oscillators</div>
+      <table class="data" style="margin-bottom:0;">
+        {% for osc in tf.oscillators %}<tr><td style="font-size:8px;">{{ osc.name }}</td><td class="muted" style="font-size:8px;">{{ osc.value }}</td><td style="font-weight:600;font-size:8px;color:{% if osc.action == 'Buy' %}#16a34a{% elif osc.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ osc.action }}</td></tr>{% endfor %}
+      </table>
+    </div>
+
+    <div style="margin-top:8px;">
+      <div style="font-size:9px;font-weight:700;margin-bottom:4px;">Moving Averages</div>
+      <table class="data">
+        <thead><tr><th>Name</th><th>Value</th><th>Signal</th><th>Name</th><th>Value</th><th>Signal</th></tr></thead>
+        <tbody>
+          {% for ma in tf.moving_averages %}{% if forloop.counter|divisibleby:2 %}<td style="font-size:8px;">{{ ma.name }}</td><td class="muted" style="font-size:8px;">{{ ma.value }}</td><td style="font-weight:600;font-size:8px;color:{% if ma.action == 'Buy' %}#16a34a{% elif ma.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ ma.action }}</td></tr>{% else %}<tr><td style="font-size:8px;">{{ ma.name }}</td><td class="muted" style="font-size:8px;">{{ ma.value }}</td><td style="font-weight:600;font-size:8px;color:{% if ma.action == 'Buy' %}#16a34a{% elif ma.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ ma.action }}</td>{% endif %}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}{% endwith %}
+
+{% with tf=tech_indicators.monthly %}{% if tf %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header" style="background:#faf5ff; color:#7c3aed;">🗓️ Monthly Timeframe</div>
+  <div class="card-body">
+    <div class="grid-2" style="align-items:center; margin-bottom:8px;">
+      <div>
+        <div style="font-size:9px;font-weight:700;margin-bottom:6px;color:#374151;">Signal Summary</div>
+        <table class="data" style="margin-bottom:0;">
+          <tr><td class="bold">Oscillators</td><td class="positive">{{ tf.osc_counts.buy }} Buy</td><td class="muted">{{ tf.osc_counts.neutral }} Neutral</td><td class="negative">{{ tf.osc_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.osc_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.osc_counts.rating == 'Buy' %}#22c55e{% elif tf.osc_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.osc_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td></tr>
+          <tr><td class="bold">Moving Avg</td><td class="positive">{{ tf.ma_counts.buy }} Buy</td><td class="muted">{{ tf.ma_counts.neutral }} Neutral</td><td class="negative">{{ tf.ma_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.ma_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.ma_counts.rating == 'Buy' %}#22c55e{% elif tf.ma_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.ma_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td></tr>
+          <tr style="background:#f8fafc;"><td class="bold">Overall</td><td class="positive">{{ tf.sum_counts.buy }} Buy</td><td class="muted">{{ tf.sum_counts.neutral }} Neutral</td><td class="negative">{{ tf.sum_counts.sell }} Sell</td><td style="font-weight:700;font-size:10px;color:{% if tf.sum_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.sum_counts.rating == 'Buy' %}#22c55e{% elif tf.sum_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.sum_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td></tr>
+        </table>
+      </div>
+      {% if tf.gauge_chart %}
+      <div style="text-align:center;">
+        <img src="data:image/png;base64,{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Monthly Technical Meter">
+      </div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top:6px;">
+      <div style="font-size:9px;font-weight:700;margin-bottom:4px;color:#374151;">Oscillators</div>
+      <table class="data" style="margin-bottom:0;">
+        {% for osc in tf.oscillators %}<tr><td style="font-size:8px;">{{ osc.name }}</td><td class="muted" style="font-size:8px;">{{ osc.value }}</td><td style="font-weight:600;font-size:8px;color:{% if osc.action == 'Buy' %}#16a34a{% elif osc.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ osc.action }}</td></tr>{% endfor %}
+      </table>
+    </div>
+
+    <div style="margin-top:8px;">
+      <div style="font-size:9px;font-weight:700;margin-bottom:4px;">Moving Averages</div>
+      <table class="data">
+        <thead><tr><th>Name</th><th>Value</th><th>Signal</th><th>Name</th><th>Value</th><th>Signal</th></tr></thead>
+        <tbody>
+          {% for ma in tf.moving_averages %}{% if forloop.counter|divisibleby:2 %}<td style="font-size:8px;">{{ ma.name }}</td><td class="muted" style="font-size:8px;">{{ ma.value }}</td><td style="font-weight:600;font-size:8px;color:{% if ma.action == 'Buy' %}#16a34a{% elif ma.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ ma.action }}</td></tr>{% else %}<tr><td style="font-size:8px;">{{ ma.name }}</td><td class="muted" style="font-size:8px;">{{ ma.value }}</td><td style="font-weight:600;font-size:8px;color:{% if ma.action == 'Buy' %}#16a34a{% elif ma.action == 'Sell' %}#dc2626{% else %}#64748b{% endif %};">{{ ma.action }}</td>{% endif %}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}{% endwith %}
+
+</div>
+{% endif %}
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 11 — FUND MANAGER & DISCLAIMER
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Fund Manager &amp; Data Sources</h2><p>Management team details and data provenance</p></div>
+
+{% if managers %}
+<div class="card no-break" style="margin-bottom:10px;">
+  <div class="card-header">Fund Manager(s)</div>
+  <div class="card-body">
+    {% for manager in managers %}
+    <div style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid #f1f5f9;">
+      <div style="width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:700; flex-shrink:0;">
+        {{ manager|first|upper }}
+      </div>
+      <div>
+        <div style="font-size:10px; font-weight:700; color:#1e293b;">{{ manager }}</div>
+        <div style="font-size:8px; color:#64748b;">Fund Manager · {{ scheme.fund_house|default:"" }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if manager_context.investment_objective %}
+    <div style="margin-top:8px; font-size:8.5px; color:#64748b;">
+      <strong>Investment Objective:</strong> {{ manager_context.investment_objective }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2">
+  <div class="card no-break">
+    <div class="card-header">Data Sources</div>
+    <div class="card-body" style="padding:0;">
+      <table class="info-table">
+        <tr><td>NAV Data</td><td>{{ sources.nav|default:"AMFI / mfapi.in" }}</td></tr>
+        <tr><td>Fund Metadata</td><td>{{ sources.meta|default:"—" }}</td></tr>
+        <tr><td>Portfolio & Holdings</td><td>{{ sources.portfolio|default:"—" }}</td></tr>
+        <tr><td>Benchmark Data</td><td>{{ sources.benchmark|default:"Yahoo Finance" }}</td></tr>
+        <tr><td>Category Averages</td><td>MutualFundAnalysis database</td></tr>
+        <tr><td>Report Generated</td><td>{{ report_date }}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card no-break">
+    <div class="card-header">Score Methodology Notes</div>
+    <div class="card-body">
+      <div style="font-size:8.5px; color:#374151; line-height:1.6;">
+        The v2 model score (0–100) is computed across 6 pillars:
+        <strong>Performance</strong> (30%), <strong>Risk/Stability</strong> (25%),
+        <strong>Cost</strong> (15%), <strong>Composition</strong> (15%),
+        <strong>Manager Quality</strong> (15%), and <strong>Debt Quality</strong> (10% for debt/hybrid).
+        Weights shift by fund type — index funds have no Manager pillar.
+        Up to 20 penalty points can be deducted for red flags such as high expense ratios,
+        excessive concentration, credit downgrades, or manager churn.
+        Score tiers: <strong>≥80</strong> Outstanding · <strong>65–79</strong> Strong ·
+        <strong>50–64</strong> Good · <strong>35–49</strong> Fair · <strong>&lt;35</strong> Weak.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card no-break" style="margin-top:10px;">
+  <div class="card-header">⚖️ Legal Disclaimer</div>
+  <div class="card-body">
+    <div style="font-size:8.5px; color:#374151; line-height:1.7;">
+      <p style="margin-bottom:6px;">
+        <strong>NOT INVESTMENT ADVICE:</strong> This report is generated entirely by automated algorithms
+        and is intended solely for informational and educational purposes. It does not constitute
+        investment advice, a recommendation to buy or sell any security, or a solicitation of any offer.
+      </p>
+      <p style="margin-bottom:6px;">
+        <strong>PAST PERFORMANCE:</strong> Past performance is not indicative of future results.
+        Mutual fund investments are subject to market risks. Read all scheme-related documents carefully
+        before investing.
+      </p>
+      <p style="margin-bottom:6px;">
+        <strong>DATA ACCURACY:</strong> Data is sourced from publicly available sources including AMFI,
+        mfapi.in, Yahoo Finance, and Morningstar. While we strive for accuracy, we cannot guarantee
+        the completeness or timeliness of the data. Category averages are computed from the funds
+        present in our database and may not represent the complete universe.
+      </p>
+      <p style="margin-bottom:6px;">
+        <strong>MODEL LIMITATIONS:</strong> The quantitative model score is a mathematical construct
+        based on historical data. It does not predict future performance and should not be the sole
+        basis for investment decisions. Qualitative factors such as fund house reputation, regulatory
+        changes, and macroeconomic conditions are not captured in the model.
+      </p>
+      <p>
+        <strong>TAX:</strong> Tax information provided is indicative based on general rules as of
+        the report date and may change. Consult a qualified tax professional for personal tax advice.
+        SEBI Registration: Refer to the AMC's registered details.
+      </p>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PAGE 13 — ANALYST SUMMARY & FINAL INVESTMENT VERDICT
+══════════════════════════════════════════════════════════════════ -->
+<div class="page-break">
+<div class="sec-hdr"><h2>Analyst Summary &amp; Final Investment Verdict</h2><p>Comprehensive portfolio role, allocation guidance, and final research takeaways</p></div>
+
+<div class="verdict-card">
+  <div class="verdict-header">
+    <span class="verdict-title">Final Analyst Investment Verdict</span>
+    <span class="verdict-badge-box" style="background: {{ narratives.verdict_color }}; font-size:10px; padding:4px 14px;">
+      {{ narratives.verdict_action }}
+    </span>
+  </div>
+  <div class="verdict-tagline">{{ narratives.verdict_tagline }}</div>
+
+  <div class="verdict-grid">
+    <div class="verdict-item">
+      <div class="verdict-lbl">Portfolio Role</div>
+      <div class="verdict-val">Core Equity Allocation</div>
+    </div>
+    <div class="verdict-item">
+      <div class="verdict-lbl">Target Holding Horizon</div>
+      <div class="verdict-val">{{ narratives.horizon }}</div>
+    </div>
+    <div class="verdict-item">
+      <div class="verdict-lbl">Deployment Strategy</div>
+      <div class="verdict-val">{{ narratives.strategy }}</div>
+    </div>
+  </div>
+
+  <div class="bullets-grid">
+    <div class="bullet-card green">
+      <div class="bullet-card-hdr">✓ Key Investment Strengths</div>
+      <ul>
+        {% for s in narratives.strengths %}
+        <li>{{ s }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="bullet-card amber">
+      <div class="bullet-card-hdr">⚠ Key Risk Considerations</div>
+      <ul>
+        {% for c in narratives.concerns %}
+        <li>{{ c }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="research-box">
+  <div class="research-box-hdr">
+    <span>📋 Strategic Allocation &amp; Rebalancing Rules</span>
+  </div>
+  <p style="margin-bottom:6px;">
+    <strong>Core vs. Satellite Allocation:</strong> Funds demonstrating consistent Alpha generation and high rolling return win-rates serve best as core portfolio holdings (target allocation: 20% to 35% of overall equity portfolio).
+  </p>
+  <p>
+    <strong>Rebalancing &amp; Exit Triggers:</strong> Investors should evaluate rebalancing if the fund's 3-year rolling return falls below category average for 4 consecutive quarters or if a change in lead fund manager alters the investment mandate.
+  </p>
+</div>
+
+<div class="alert-blue" style="margin-top:10px;">
+  <strong>Research Methodology Note:</strong> This quantitative mutual fund research report is automatically generated using proprietary multi-pillar scoring algorithms (Performance, Risk, Consistency, Cost, Composition, Manager). Quantitative scores are historical metrics and do not guarantee future returns.
+</div>
 </div>
 
 </body>
-</html>
+</html>

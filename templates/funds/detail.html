@@ -250,45 +250,43 @@
         </div>
         <div class="card-body-tight">
           {% if trailing_returns %}
-          <div class="table-wrapper">
+          <div class="table-wrapper" style="overflow-x:auto;">
           <table>
-            <thead><tr><th>Period</th><th>Fund
-              <button class="info-btn" aria-label="Fund CAGR" data-t-title="Fund CAGR" data-t-what="Compound Annual Growth Rate of this specific fund over the period." data-t-link-key="cagr">ⓘ</button>
-            </th><th>Benchmark
-              <button class="info-btn" aria-label="Benchmark Return" data-t-title="Benchmark Return" data-t-what="Return of the declared benchmark index over the same period.">ⓘ</button>
-            </th><th>Cat Avg
-              <button class="info-btn" aria-label="Category Average" data-t-title="Category Average Return" data-t-what="The average return of all funds in the same SEBI sub-category ({{ category_name }}). Min/Max shows the range from best to worst fund in category.">ⓘ</button>
-            </th><th>Excess
-              <button class="info-btn" aria-label="Excess Return" data-t-title="Excess Return" data-t-what="Fund return minus benchmark return.">ⓘ</button>
-            </th></tr></thead>
+            <thead><tr>
+              <th>Period</th>
+              <th>Fund
+                <button class="info-btn" aria-label="Fund CAGR" data-t-title="Fund CAGR" data-t-what="Compound Annual Growth Rate of this specific fund over the period." data-t-link-key="cagr">ⓘ</button>
+              </th>
+              <th>Benchmark
+                <button class="info-btn" aria-label="Benchmark Return" data-t-title="Benchmark Return" data-t-what="Return of the declared benchmark index over the same period.">ⓘ</button>
+              </th>
+              <th style="color:#ef4444;">Cat Min</th>
+              <th style="color:var(--amber-400);">Cat Avg
+                <button class="info-btn" aria-label="Category Average" data-t-title="Category Average Return" data-t-what="The average return of all funds in the same SEBI sub-category ({{ category_name }}).">ⓘ</button>
+              </th>
+              <th style="color:#10b981;">Cat Max</th>
+              <th>Excess vs BM
+                <button class="info-btn" aria-label="Excess Return vs BM" data-t-title="Excess Return vs Benchmark" data-t-what="Fund return minus benchmark return.">ⓘ</button>
+              </th>
+              <th style="color:var(--amber-400);">Excess vs Cat
+                <button class="info-btn" aria-label="Excess Return vs Cat" data-t-title="Excess Return vs Category Average" data-t-what="Fund return minus category average return.">ⓘ</button>
+              </th>
+            </tr></thead>
             <tbody>
               {% for r in trailing_returns %}
               <tr>
-                <td>{{ r.period }}</td>
+                <td style="font-weight:600">{{ r.period }}</td>
                 <td class="{% if r.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.cagr_pct|floatformat:2 }}%</td>
                 <td class="muted">{% if r.bm_cagr %}{{ r.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
-                <td class="muted">
-                  {% if r.period == '1Y' and category_snap.avg_return_1y %}
-                    <span title="Cat Range: Min {{ category_snap.min_return_1y|floatformat:1 }}% | Avg {{ category_snap.avg_return_1y|floatformat:1 }}% | Max {{ category_snap.max_return_1y|floatformat:1 }}%">{{ category_snap.avg_return_1y|floatformat:2 }}%</span>
-                    <div style="font-size:9px;color:var(--text-muted)">
-                      {% if category_snap.min_return_1y %}<span class="negative">↓{{ category_snap.min_return_1y|floatformat:1 }}%</span>{% endif %}
-                      {% if category_snap.max_return_1y %}&nbsp;<span class="positive">↑{{ category_snap.max_return_1y|floatformat:1 }}%</span>{% endif %}
-                    </div>
-                  {% elif r.period == '3Y' and category_snap.avg_return_3y %}
-                    <span title="Cat Range: Min {{ category_snap.min_return_3y|floatformat:1 }}% | Avg {{ category_snap.avg_return_3y|floatformat:1 }}% | Max {{ category_snap.max_return_3y|floatformat:1 }}%">{{ category_snap.avg_return_3y|floatformat:2 }}%</span>
-                    <div style="font-size:9px;color:var(--text-muted)">
-                      {% if category_snap.min_return_3y %}<span class="negative">↓{{ category_snap.min_return_3y|floatformat:1 }}%</span>{% endif %}
-                      {% if category_snap.max_return_3y %}&nbsp;<span class="positive">↑{{ category_snap.max_return_3y|floatformat:1 }}%</span>{% endif %}
-                    </div>
-                  {% elif r.period == '5Y' and category_snap.avg_return_5y %}
-                    <span title="Cat Range: Min {{ category_snap.min_return_5y|floatformat:1 }}% | Avg {{ category_snap.avg_return_5y|floatformat:1 }}% | Max {{ category_snap.max_return_5y|floatformat:1 }}%">{{ category_snap.avg_return_5y|floatformat:2 }}%</span>
-                    <div style="font-size:9px;color:var(--text-muted)">
-                      {% if category_snap.min_return_5y %}<span class="negative">↓{{ category_snap.min_return_5y|floatformat:1 }}%</span>{% endif %}
-                      {% if category_snap.max_return_5y %}&nbsp;<span class="positive">↑{{ category_snap.max_return_5y|floatformat:1 }}%</span>{% endif %}
-                    </div>
-                  {% else %}—{% endif %}
+                <td class="negative">{% if r.cat_min != None %}{{ r.cat_min|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td style="color:var(--amber-400);font-weight:600">{% if r.cat_avg != None %}{{ r.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="positive">{% if r.cat_max != None %}{{ r.cat_max|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="{% if r.excess_bm != None and r.excess_bm >= 0 %}positive{% elif r.excess_bm != None %}negative{% else %}muted{% endif %}">
+                  {% if r.excess_bm != None %}{{ r.excess_bm|floatformat:2 }}%{% else %}—{% endif %}
                 </td>
-                <td class="{% if r.excess and r.excess >= 0 %}positive{% else %}negative{% endif %}">{% if r.excess %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="{% if r.excess_cat != None and r.excess_cat >= 0 %}positive{% elif r.excess_cat != None %}negative{% else %}muted{% endif %}">
+                  {% if r.excess_cat != None %}{{ r.excess_cat|floatformat:2 }}%{% else %}—{% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -374,22 +372,33 @@
       </div></div>
       <div class="card-body-tight">
         {% if trailing_returns %}
-        <div class="table-wrapper">
+        <div class="table-wrapper" style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Period</th><th>Fund</th><th>Benchmark</th><th style="color:var(--amber-400)">Cat Avg</th><th>Excess</th></tr></thead>
+          <thead><tr>
+            <th>Period</th>
+            <th>Fund</th>
+            <th>Benchmark</th>
+            <th style="color:#ef4444;">Cat Min</th>
+            <th style="color:var(--amber-400);">Cat Avg</th>
+            <th style="color:#10b981;">Cat Max</th>
+            <th>Excess vs BM</th>
+            <th style="color:var(--amber-400);">Excess vs Cat</th>
+          </tr></thead>
           <tbody>
             {% for r in trailing_returns %}
             <tr>
               <td style="font-weight:600">{{ r.period }}</td>
               <td class="{% if r.cagr_pct >= 0 %}positive{% else %}negative{% endif %}">{{ r.cagr_pct|floatformat:2 }}%</td>
               <td class="muted">{% if r.bm_cagr %}{{ r.bm_cagr|floatformat:2 }}%{% else %}—{% endif %}</td>
-              <td class="muted" style="color:var(--amber-400)">
-                {% if r.period == '1Y' and category_snap.avg_return_1y %}<span title="Cat Range: Min {{ category_snap.min_return_1y|floatformat:1 }}% | Avg {{ category_snap.avg_return_1y|floatformat:1 }}% | Max {{ category_snap.max_return_1y|floatformat:1 }}%">{{ category_snap.avg_return_1y|floatformat:2 }}%</span>
-                {% elif r.period == '3Y' and category_snap.avg_return_3y %}<span title="Cat Range: Min {{ category_snap.min_return_3y|floatformat:1 }}% | Avg {{ category_snap.avg_return_3y|floatformat:1 }}% | Max {{ category_snap.max_return_3y|floatformat:1 }}%">{{ category_snap.avg_return_3y|floatformat:2 }}%</span>
-                {% elif r.period == '5Y' and category_snap.avg_return_5y %}<span title="Cat Range: Min {{ category_snap.min_return_5y|floatformat:1 }}% | Avg {{ category_snap.avg_return_5y|floatformat:1 }}% | Max {{ category_snap.max_return_5y|floatformat:1 }}%">{{ category_snap.avg_return_5y|floatformat:2 }}%</span>
-                {% else %}—{% endif %}
+              <td class="negative">{% if r.cat_min != None %}{{ r.cat_min|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td style="color:var(--amber-400);font-weight:600">{% if r.cat_avg != None %}{{ r.cat_avg|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="positive">{% if r.cat_max != None %}{{ r.cat_max|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="{% if r.excess_bm != None and r.excess_bm >= 0 %}positive{% elif r.excess_bm != None %}negative{% else %}muted{% endif %}">
+                {% if r.excess_bm != None %}{{ r.excess_bm|floatformat:2 }}%{% else %}—{% endif %}
               </td>
-              <td class="{% if r.excess and r.excess >= 0 %}positive{% else %}negative{% endif %}">{% if r.excess %}{{ r.excess|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="{% if r.excess_cat != None and r.excess_cat >= 0 %}positive{% elif r.excess_cat != None %}negative{% else %}muted{% endif %}">
+                {% if r.excess_cat != None %}{{ r.excess_cat|floatformat:2 }}%{% else %}—{% endif %}
+              </td>
             </tr>
             {% endfor %}
           </tbody>

@@ -890,7 +890,7 @@ class FundDetailView(DetailView):
             'nav_range_options': NAV_RANGE_OPTIONS,
         })
 
-        # ── Category Average lookup ────────────────────────────────────────────
+        # ── Category Average & Min/Max lookup ────────────────────────────────
         try:
             sub_cat = (
                 FundScreenerSnapshot.objects
@@ -915,6 +915,53 @@ class FundDetailView(DetailView):
             ctx['cat_rolling_json'] = '{}'
             ctx['cat_calendar_json'] = '{}'
             ctx['cat_trailing_json'] = '{}'
+
+        # Enrich trailing returns with category min, avg, max and excess metrics
+        class EnrichedTrailingReturn:
+            def __init__(self, original, cat_snap):
+                self._o = original
+                period = getattr(original, 'period', '')
+                cagr = _flt(getattr(original, 'cagr_pct', None))
+                bm_cagr = _flt(getattr(original, 'bm_cagr', None))
+                if bm_cagr is None:
+                    bm_cagr = _flt(getattr(original, 'bm_cagr_pct', None))
+                
+                cat_min = cat_avg = cat_max = None
+                if cat_snap:
+                    if period == '1Y':
+                        cat_min = _flt(getattr(cat_snap, 'min_return_1y', None))
+                        cat_avg = _flt(getattr(cat_snap, 'avg_return_1y', None))
+                        cat_max = _flt(getattr(cat_snap, 'max_return_1y', None))
+                    elif period == '3Y':
+                        cat_min = _flt(getattr(cat_snap, 'min_return_3y', None))
+                        cat_avg = _flt(getattr(cat_snap, 'avg_return_3y', None))
+                        cat_max = _flt(getattr(cat_snap, 'max_return_3y', None))
+                    elif period == '5Y':
+                        cat_min = _flt(getattr(cat_snap, 'min_return_5y', None))
+                        cat_avg = _flt(getattr(cat_snap, 'avg_return_5y', None))
+                        cat_max = _flt(getattr(cat_snap, 'max_return_5y', None))
+
+                self.cat_min = cat_min
+                self.cat_avg = cat_avg
+                self.cat_max = cat_max
+
+                orig_excess = _flt(getattr(original, 'excess', None))
+                if orig_excess is None:
+                    orig_excess = _flt(getattr(original, 'excess_cagr', None))
+
+                calc_excess = (cagr - bm_cagr) if (cagr is not None and bm_cagr is not None) else orig_excess
+                self.excess_bm = calc_excess
+                self.excess = calc_excess
+                self.excess_cat = (cagr - cat_avg) if (cagr is not None and cat_avg is not None) else None
+
+            def __getattr__(self, name):
+                return getattr(self._o, name)
+
+        if ctx.get('trailing_returns'):
+            cat_snap = ctx.get('category_snap')
+            ctx['trailing_returns'] = [
+                EnrichedTrailingReturn(r, cat_snap) for r in ctx['trailing_returns']
+            ]
 
         return ctx
 

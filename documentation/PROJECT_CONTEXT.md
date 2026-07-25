@@ -13,9 +13,10 @@ This document provides a comprehensive technical overview for developers and AI 
 - **Analytics:** Pandas, NumPy, SciPy, statsmodels, scikit-learn, xgboost
 - **Frontend:** Django Templates, Vanilla CSS, Vanilla JS, Plotly.js, HTMX
 - **Database:** SQLite (dev) / PostgreSQL (prod via `dj-database-url`)
-- **PDF Generation:** WeasyPrint (active in `apps/funds/report.py`)
+- **PDF Generation:** Chrome Headless CLI (`apps/funds/report.py` + `templates/funds/report_pdf.html`)
 - **Background Tasks:** django-q2 (ORM-backed, no Redis required)
 - **Deployment:** Render.com (`render.yaml`)
+
 
 ---
 
