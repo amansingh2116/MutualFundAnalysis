@@ -19,9 +19,11 @@ Most calculators support two modes:
 ### Backend
 
 All calculation APIs live in `apps/calculators/views.py`. The file exports:
-- **Page views** (render templates): `sip_view`, `lumpsum_view`, `swp_view`, etc.
+- **Page views** (render templates): `sip_view`, `lumpsum_view`, `swp_view`, `research_report_calc_view`, etc.
 - **API endpoints** (return JSON): `calc_sip_api`, `calc_lumpsum_api`, `calc_swp_api`, etc.
 - **NAV-based endpoints**: `calc_nav_sip_api`, `calc_nav_lumpsum_api`, `calc_nav_stp_api`, etc.
+- **Protected Tools**: `research_report_calc_view` requires user authentication (`@login_required`).
+
 
 ### Frontend
 
@@ -620,6 +622,24 @@ Dedicated peer matching & comparison engine that takes any target mutual fund (s
 
 ---
 
+## Calculator 18 — Institutional Research Report Generator
+
+**Route:** `/calculators/research-report/`  
+**Template:** `templates/calculators/research_report.html`  
+**Access Control:** `@login_required` (Authentication required)  
+**Query Params:** `?scheme=<amfi_code>&auto=1`  
+
+### Purpose
+Allows authenticated users to generate, view, and download a wall-street grade, multi-page institutional PDF research report for any Indian mutual fund scheme or ETF.
+
+### Key Capabilities
+- **Autocomplete Fund Search**: Instant scheme lookups with popular sample pills.
+- **Real-Time Async Pre-Fetching**: Progress bar animates through a 5-step analysis sequence while Chrome Headless compiles the PDF in the background. Zero 404 or page-reload delays.
+- **In-App PDF Canvas Viewer (`PDF.js`)**: Displays the compiled report inside an in-app viewer with zoom controls, fullscreen toggle, page jump input, and **dynamic scroll-based page number tracking** (`Page X of Y`).
+- **Instant Blob Download**: `📥 Download PDF Report` button delivers the pre-rendered PDF file instantly without triggering extra server renders.
+
+---
+
 ## URL Reference
 
 | Route | Calculator / Tool | Category |
@@ -632,6 +652,7 @@ Dedicated peer matching & comparison engine that takes any target mutual fund (s
 | `/calculators/stp/` | STP Calculator | 📈 Investment & Growth |
 | `/calculators/xirr/` | XIRR Calculator | 📈 Investment & Growth |
 | `/calculators/rolling/` | Rolling Returns Calculator | 📈 Investment & Growth |
+| `/calculators/research-report/` | Research Report Generator | 🔍 Research & Comparison |
 | `/calculators/peers/` | Peer Comparison Calculator | 🔍 Research & Comparison |
 | `/research/categories/compare/` | Category Comparison | 🔍 Research & Comparison |
 | `/research/amcs/compare/` | AMC Comparison | 🔍 Research & Comparison |
@@ -647,11 +668,13 @@ Dedicated peer matching & comparison engine that takes any target mutual fund (s
 
 ## Audit & Accuracy Notes
 
-All 17 financial calculators and tools were audited for calculation accuracy, input validation, and UI response:
+All 18 financial calculators and tools were audited for calculation accuracy, input validation, and UI response:
 
+- **Research Report Generator**: Async fetch stream converts binary PDF to in-memory Blob, rendering high-resolution PDF pages on Canvas via PDF.js with live scroll page tracking.
 - **Peer Comparison Calculator**: Fingerprint matching engine strictly enforces category and plan boundaries, returning 5 closest peer matches with side-by-side metrics.
 - **Child Education Planner**: 10% default inflation accurately reflects Indian education fee growth. Net gap calculation handles existing savings compound growth.
 - **Retirement Planner**: Uses 25x annual expense rule (4% Safe Withdrawal Rate) to compute inflation-adjusted corpus requirement.
 - **AMC & Category Compare**: Real-time searchable picker, URL state persistence, guarded API fetches, and side-by-side metric tables.
-- **Hub Navigation**: Filter pills and search input allow instant drill-down across all 17 calculators.
+- **Hub Navigation**: Filter pills and search input allow instant drill-down across all 18 calculators.
+
 

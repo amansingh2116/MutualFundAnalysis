@@ -21,7 +21,9 @@ urlpatterns = [
     path('child-education/', views.child_education_view, name='child_education'),
     path('retirement/', views.retirement_view, name='retirement'),
     path('peers/', views.peer_comparison_calc_view, name='peers'),
+    path('research-report/', views.research_report_calc_view, name='research_report'),
     # API endpoints
+
 
     path('api/sip/', views.calc_sip_api, name='api_sip'),
     path('api/lumpsum/', views.calc_lumpsum_api, name='api_lumpsum'),

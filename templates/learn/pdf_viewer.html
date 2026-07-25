@@ -277,8 +277,39 @@ async function loadPDF() {
   toolbarEl.classList.add('visible');
   refreshZoomUI();
   await renderAll();
+  setupScrollTracking();
 }
+
+function setupScrollTracking() {
+  let scrollTimer = null;
+  wrapEl.addEventListener('scroll', () => {
+    if (document.activeElement === pageInput) return;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const wrapRect = wrapEl.getBoundingClientRect();
+      const wrapCenter = wrapRect.top + wrapRect.height / 2;
+      let closestPage = 1;
+      let minDistance = Infinity;
+
+      pageWraps.forEach((wrap, index) => {
+        const rect = wrap.getBoundingClientRect();
+        const pageCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(pageCenter - wrapCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPage = index + 1;
+        }
+      });
+
+      if (pageInput.value != closestPage) {
+        pageInput.value = closestPage;
+      }
+    }, 50);
+  }, { passive: true });
+}
+
 loadPDF();
+
 
 wrapEl.addEventListener('contextmenu', e => e.preventDefault(), { passive: false });
 document.addEventListener('contextmenu', e => {

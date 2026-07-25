@@ -162,8 +162,9 @@
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <a href="{% url 'calculators:compare' %}?funds={{ scheme.amfi_code }}" class="btn btn-secondary btn-sm">⚖️ Compare</a>
-      <a href="{% url 'funds:export_pdf' scheme.amfi_code %}" class="btn btn-secondary btn-sm">📄 Export Report</a>
+      <a href="{% url 'calculators:research_report' %}?scheme={{ scheme.amfi_code }}&auto=1" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📄 Get Research Report</a>
     </div>
+
   </div>
 </div>
 

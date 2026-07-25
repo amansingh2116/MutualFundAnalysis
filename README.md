@@ -13,7 +13,8 @@
 ## 🚀 Key Platform Features
 
 ### 1. 📄 Institutional PDF Research Report System
-- **Dynamic 13-Page PDF Report**: Automated Chrome-headless PDF generator creating wall-street style research documents for any Indian mutual fund scheme or ETF.
+- **Comprehensive Institutional PDF Report**: Automated Chrome-headless PDF generator creating wall-street style research documents for any Indian mutual fund scheme or ETF.
+
 - **Dynamic Analyst Narrative Generator**: Synthesizes scorecards, 3Y CAGR, Jensen's Alpha, Beta, Sharpe Ratios, Rolling Return Win-Rates, and Technical Signals into structured research commentaries.
 - **Executive Analyst Verdict Cards**: Assigns quantitative ratings (`STRONG BUY`, `BUY / ACCUMULATE`, `HOLD`, `REBALANCE`) with target holding horizons, investor profiles, deployment strategies, key strengths, and monitorable risks.
 - **In-Line Metric Definitions**: Educational explainer cards for Jensen's Alpha, Sharpe & Sortino Ratios, Beta, and Maximum Drawdown.
@@ -65,12 +66,13 @@
 
 ---
 
-### 6. 🧮 Financial Calculators Suite (17 Calculators)
+### 6. 🧮 Financial Calculators & Research Suite (18 Tools)
 - **Growth & Wealth**: SIP, Lumpsum, SWP, Step-Up SIP, STP, XIRR, and Rolling Returns.
-- **Peer & AMC Comparison**: Peer Comparison (SEBI fingerprint matching), Fund Comparison, Overlap Checker, AMC Comparison, and Category Comparison.
+- **Research & Peer Comparison**: **Research Report Generator** (`/calculators/research-report/` - in-app PDF.js canvas viewer with dynamic scroll page tracking & instant blob download), **Peer Comparison Calculator** (`/calculators/peers/` - multi-factor SEBI fingerprint matching), Fund Comparison, Overlap Checker, AMC Comparison, and Category Comparison.
 - **Life Event Planning**: Goal Planner, Retirement Planner (25x FIRE rule & 4% SWR), Child Education Planner, and SWP Pension Longevity.
 - **Tax & Wealth**: Capital Gains Tax Calculator (FY 2025-26 rules) and Net Worth Tracker.
 - *See [CALCULATORS.md](documentation/CALCULATORS.md).*
+
 
 ---
 

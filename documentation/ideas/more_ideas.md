@@ -132,10 +132,10 @@ The individual fund analysis pages will be significantly upgraded with specializ
 - **Market-Regime Analysis:** Evaluate portfolio and fund performance across different economic cycles, including bull markets, bear markets, sideways markets, high-inflation periods, and rate-cut cycles.
 
 some fix/improvements left to implement in future:
-- backtester testing
+- backtester and application testing
 - recommendation and portfolio analysis improvement
 - UI improvement
+- saved websites/tools implementation
 - application testing (security, login, performance, etc.)
 - deploy
-- report
 - AI

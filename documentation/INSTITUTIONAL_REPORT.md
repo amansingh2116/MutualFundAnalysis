@@ -61,7 +61,8 @@ Unlike traditional static PDF reports, this report synthesizes **quantitative me
 
 ---
 
-## 2. 13-Page Report Structure Breakdown
+## 2. Institutional Report Structure Breakdown
+
 
 | Page # | Section Title | Key Visuals & Analytical Components |
 |---|---|---|
@@ -155,3 +156,19 @@ pdf_bytes = _chrome_html_to_pdf(html)
 with open("Parag_Parikh_Research_Report.pdf", "wb") as f:
     f.write(pdf_bytes)
 ```
+
+---
+
+## 6. Calculator Hub Integration & In-App Canvas Viewer
+
+### Route & Access Control
+- **URL Route**: `/calculators/research-report/`
+- **Access Control**: `@login_required` decorator ensures only authenticated users can access the report generator tool.
+- **Query State**: Accepts `?scheme=<amfi_code>&auto=1` for auto-triggering report generation directly from the Fund Detail Page (`/funds/<amfi_code>/`).
+
+### Pre-Fetch & In-Memory Blob Rendering
+1. **Async Fetch**: The client performs a background `fetch('/funds/<amfi_code>/report/')` while animating a 5-step progress loader.
+2. **PDF.js Canvas Engine**: Once the server returns the PDF binary stream, it is converted into an in-memory `ArrayBuffer` and passed directly to `pdfjsLib.getDocument({ data: arrayBuffer })`.
+3. **Zero Disk Footprint**: The document is rendered dynamically in browser memory without writing temporary PDF files to server disk.
+4. **Dynamic Scroll Page Tracking**: A bounding-box scroll listener calculates the active page in view as the user scrolls up and down, updating the toolbar's `Page X of Y` indicator in real time.
+

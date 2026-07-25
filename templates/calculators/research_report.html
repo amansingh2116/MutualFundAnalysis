@@ -1,0 +1,1045 @@
+{% extends "base.html" %}
+{% block title %}Institutional Research Report Generator | Calculators{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Research Report Generator Custom Styles ── */
+.report-hero-card {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.95));
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 16px;
+  padding: 28px;
+  color: #ffffff;
+  margin-bottom: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.report-hero-card::before {
+  content: "";
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.report-hero-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.report-hero-sub {
+  font-size: 13px;
+  color: #94a3b8;
+  max-width: 780px;
+  line-height: 1.6;
+}
+
+/* ── Search & Selection ── */
+.report-search-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.report-search-wrap {
+  position: relative;
+  max-width: 680px;
+  margin-bottom: 16px;
+}
+
+.report-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 14px;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.report-search-input:focus {
+  outline: none;
+  border-color: var(--indigo-400);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.report-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.report-search-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 50;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  margin-top: 6px;
+}
+
+.report-search-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s;
+}
+
+.report-search-item:hover {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.sample-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Selected Fund Snapshot Card ── */
+.fund-snapshot-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* ── Loading Card ── */
+.report-loading-card {
+  display: none;
+  background: var(--surface-2);
+  border: 1px solid var(--indigo-400);
+  border-radius: 16px;
+  padding: 36px 24px;
+  text-align: center;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+}
+
+.loading-spinner-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px auto;
+}
+
+.loading-spinner-ring {
+  width: 100%;
+  height: 100%;
+  border: 4px solid rgba(99, 102, 241, 0.15);
+  border-top-color: var(--indigo-400);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+.loading-progress-bar {
+  width: 100%;
+  max-width: 480px;
+  height: 8px;
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 4px;
+  margin: 16px auto;
+  overflow: hidden;
+}
+
+.loading-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #6366f1, #38bdf8);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.loading-steps-list {
+  max-width: 520px;
+  margin: 20px auto 0 auto;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.loading-step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.loading-step-item.active {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--indigo-400);
+}
+
+.loading-step-item.completed {
+  opacity: 1;
+  color: var(--green-400, #22c55e);
+}
+
+/* ── Report Ready Card ── */
+.report-ready-card {
+  display: none;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(99, 102, 241, 0.08));
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.ready-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.ready-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+/* ── In-App PDF Viewer Canvas Shell (Matching Learn Section) ── */
+.pv-shell {
+  display: flex;
+  flex-direction: column;
+  height: 820px;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  background: var(--bg-card);
+}
+
+.pv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 20px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pv-title {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pv-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 7px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.18s;
+}
+
+.btn-download:hover {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #a7f3d0;
+}
+
+.pv-toolbar {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pv-toolbar.visible {
+  display: flex;
+}
+
+.tb-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.tb-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: var(--indigo-300);
+}
+
+.tb-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tb-zoom-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 44px;
+  text-align: center;
+  padding: 0 4px;
+  user-select: none;
+}
+
+.tb-page-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tb-page-input {
+  width: 48px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.tb-page-input:focus {
+  outline: none;
+  border-color: var(--indigo-400);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.tb-go {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 750;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.10);
+  color: var(--indigo-300);
+  cursor: pointer;
+}
+
+.tb-go:hover {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.55);
+}
+
+.pv-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pv-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: var(--indigo-400);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.pv-canvas-wrap {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  background: #0f172a;
+  display: none;
+  padding: 24px 0;
+  position: relative;
+}
+
+.pv-canvas-wrap.loaded {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.pv-page-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pv-page-canvas {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  max-width: calc(100% - 40px);
+  display: block;
+}
+
+.pv-page-num {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 2px 0 8px;
+  user-select: none;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+  <a href="{% url 'funds:home' %}">Home</a>
+  <span class="breadcrumb-sep">›</span>
+  <a href="{% url 'calculators:hub' %}">Calculators</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>Research Report Generator</span>
+</div>
+
+<!-- Hero Card -->
+<div class="report-hero-card">
+  <div class="report-hero-title">
+    <span>📜 Institutional PDF Research Report Generator</span>
+    <span class="pill pill-indigo" style="font-size:11px">PDF Engine 2.0</span>
+  </div>
+  <div class="report-hero-sub">
+    Generate and view wall-street grade, comprehensive mutual fund research reports featuring quantitative 6-pillar scorecards, dynamic analyst research narratives, riskometer gauge meters, side-by-side rolling return box plots, and executive recommendation verdicts.
+  </div>
+</div>
+
+<!-- Search & Selection Card -->
+<div class="report-search-card">
+  <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">
+    🔍 Select a Mutual Fund Scheme
+  </div>
+
+  <div class="report-search-wrap">
+    <span class="report-search-icon">🔍</span>
+    <input type="text" id="report-search-input" class="report-search-input" placeholder="Search by scheme name or AMFI code (e.g. Parag Parikh, HDFC Small Cap, 122639)..." autocomplete="off">
+    <div id="report-search-dropdown" class="report-search-dropdown"></div>
+  </div>
+
+  <!-- Popular Samples -->
+  <div class="sample-pills">
+    <span style="font-size: 11px; font-weight: 600; color: var(--text-muted);">Popular Schemes:</span>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="selectScheme('122639')">Parag Parikh Flexi Cap</button>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="selectScheme('119598')">HDFC Small Cap Fund</button>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="selectScheme('125354')">Nippon India Small Cap</button>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="selectScheme('103004')">SBI Bluechip Fund</button>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="selectScheme('107578')">Mirae Asset Large Cap</button>
+  </div>
+
+  <!-- Selected Fund Snapshot -->
+  <div id="selected-fund-card" class="fund-snapshot-card" style="{% if not initial_scheme %}display: none;{% endif %}">
+    <div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <span id="sf-category" class="pill pill-indigo">{% if initial_scheme %}{{ initial_scheme.scheme_category }}{% endif %}</span>
+        <span id="sf-amfi" class="pill pill-gray">AMFI: {% if initial_scheme %}{{ initial_scheme.amfi_code }}{% endif %}</span>
+      </div>
+      <div id="sf-name" style="font-size: 16px; font-weight: 700; color: var(--text-primary);">
+        {% if initial_scheme %}{{ initial_scheme.scheme_name }}{% endif %}
+      </div>
+      <div id="sf-amc" style="font-size: 12px; color: var(--text-muted);">
+        {% if initial_scheme %}{{ initial_scheme.fund_house }}{% endif %}
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <button id="btn-generate-report" class="btn btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); font-weight: 700; padding: 10px 20px;" onclick="startReportGeneration()">
+        🚀 Generate Research Report
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Card -->
+<div id="report-loading-card" class="report-loading-card">
+  <div class="loading-spinner-wrap">
+    <div class="loading-spinner-ring"></div>
+    <div class="loading-spinner-icon">📊</div>
+  </div>
+
+  <h3 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">
+    Generating Research Report...
+  </h3>
+  <div style="font-size: 13px; color: var(--text-muted);">
+    Compiling institutional research report for <strong id="loading-fund-name">this fund</strong>
+  </div>
+
+  <div class="loading-progress-bar">
+    <div id="loading-progress-fill" class="loading-progress-fill"></div>
+  </div>
+
+  <!-- Loading Steps -->
+  <div class="loading-steps-list">
+    <div id="step-1" class="loading-step-item active">
+      <span>⚙️</span> <span>Step 1: Fetching historical NAV series &amp; benchmark data...</span>
+    </div>
+    <div id="step-2" class="loading-step-item">
+      <span>📊</span> <span>Step 2: Computing 6-pillar quantitative score &amp; category rank...</span>
+    </div>
+    <div id="step-3" class="loading-step-item">
+      <span>🧠</span> <span>Step 3: Synthesizing dynamic analyst research narratives &amp; verdict...</span>
+    </div>
+    <div id="step-4" class="loading-step-item">
+      <span>📈</span> <span>Step 4: Rendering Plotly timeseries charts &amp; riskometer gauges...</span>
+    </div>
+    <div id="step-5" class="loading-step-item">
+      <span>📄</span> <span>Step 5: Compiling PDF document via Chrome engine...</span>
+    </div>
+  </div>
+</div>
+
+<!-- Report Ready Card -->
+<div id="report-ready-card" class="report-ready-card">
+  <div class="ready-badge">
+    <span>✓</span> Institutional Report Ready!
+  </div>
+
+  <h2 style="font-size: 20px; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">
+    Research Report Generated Successfully
+  </h2>
+  <div style="font-size: 13px; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
+    The institutional PDF research report for <strong id="ready-fund-name">Selected Scheme</strong> is ready. You can view the full PDF report below in our canvas viewer or download the PDF file directly.
+  </div>
+
+  <div class="ready-actions">
+    <button type="button" id="btn-toggle-viewer" class="btn btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); font-weight: 700; padding: 12px 24px; font-size: 14px;" onclick="scrollToViewer()">
+      👁️ View PDF Report
+    </button>
+    <a id="btn-download-pdf" href="#" download="" class="btn-download" style="padding: 12px 24px; font-size: 14px;">
+      📥 Download PDF Report
+    </a>
+    <a id="btn-view-fund" href="#" class="btn btn-secondary" style="padding: 12px 20px; font-size: 14px;">
+      🔍 View Fund Analysis Page
+    </a>
+    <button type="button" class="btn btn-secondary" onclick="resetReportGenerator()" style="padding: 12px 20px; font-size: 14px;">
+      🔄 Select Another Fund
+    </button>
+  </div>
+</div>
+
+<!-- In-App PDF Viewer Container (PDF.js Canvas Viewer) -->
+<div id="report-pdf-viewer-shell" class="pv-shell" style="display: none; margin-bottom: 32px;">
+  <div class="pv-header">
+    <div class="pv-title" id="pv-doc-title">📄 Institutional Mutual Fund Research Report</div>
+    <div class="pv-actions">
+      <a id="pv-header-download-btn" class="btn-download" href="#" download>
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;stroke:currentColor;fill:none;">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg> Download PDF
+      </a>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFullscreenViewer()">
+        ⛶ Fullscreen
+      </button>
+    </div>
+  </div>
+
+  <div class="pv-toolbar" id="pv-toolbar">
+    <button class="tb-btn" id="tb-zoom-out" title="Zoom out">&#8722;</button>
+    <span class="tb-zoom-pct" id="tb-zoom-pct">100%</span>
+    <button class="tb-btn" id="tb-zoom-in" title="Zoom in">&#43;</button>
+    <div class="tb-sep"></div>
+    <span class="tb-page-label">Page</span>
+    <input id="tb-page-input" class="tb-page-input" type="number" min="1" value="1" title="Go to page">
+    <span class="tb-page-label" id="tb-page-total">of &mdash;</span>
+    <button class="tb-go" id="tb-go-btn">Go</button>
+  </div>
+
+  <div class="pv-status" id="pv-status">
+    <div class="pv-spinner"></div>
+    <span>Rendering document in viewer...</span>
+  </div>
+
+  <div class="pv-canvas-wrap" id="pv-canvas-wrap"></div>
+</div>
+
+<!-- PDF.js Module Script -->
+<script type="module">
+import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+const ZOOM_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+const statusEl    = document.getElementById('pv-status');
+const wrapEl      = document.getElementById('pv-canvas-wrap');
+const toolbarEl   = document.getElementById('pv-toolbar');
+const zoomOutBtn  = document.getElementById('tb-zoom-out');
+const zoomInBtn   = document.getElementById('tb-zoom-in');
+const zoomPctEl   = document.getElementById('tb-zoom-pct');
+const pageInput   = document.getElementById('tb-page-input');
+const pageTotalEl = document.getElementById('tb-page-total');
+const goBtn       = document.getElementById('tb-go-btn');
+
+let pdfDoc     = null;
+let baseScale  = 1;
+let zoomFactor = 1.0;
+let totalPages = 0;
+let rendering  = false;
+const pageWraps = [];
+
+async function calcBaseScale(page) {
+  const vp1 = page.getViewport({ scale: 1 });
+  return Math.min(wrapEl.clientWidth - 40, 960) / vp1.width;
+}
+
+async function renderPage(p) {
+  const page     = await pdfDoc.getPage(p);
+  const viewport = page.getViewport({ scale: baseScale * zoomFactor });
+  const wrap     = pageWraps[p - 1];
+  const old      = wrap.querySelector('canvas');
+  if (old) old.remove();
+  const canvas   = document.createElement('canvas');
+  canvas.className = 'pv-page-canvas';
+  canvas.width   = Math.floor(viewport.width);
+  canvas.height  = Math.floor(viewport.height);
+  wrap.insertBefore(canvas, wrap.firstChild);
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+}
+
+async function renderAllPages() {
+  if (!pdfDoc) return;
+  rendering = true;
+  wrapEl.innerHTML = '';
+  pageWraps.length = 0;
+  for (let p = 1; p <= totalPages; p++) {
+    const wrap  = document.createElement('div');
+    wrap.className = 'pv-page-wrap';
+    wrap.dataset.page = p;
+    const badge = document.createElement('div');
+    badge.className = 'pv-page-num';
+    badge.textContent = `Page ${p} of ${totalPages}`;
+    wrapEl.appendChild(wrap);
+    wrap.appendChild(badge);
+    pageWraps.push(wrap);
+  }
+  const pg1 = await pdfDoc.getPage(1);
+  baseScale = await calcBaseScale(pg1);
+  for (let p = 1; p <= totalPages; p++) await renderPage(p);
+  rendering = false;
+}
+
+async function rerender() {
+  if (rendering || !pdfDoc) return;
+  rendering = true;
+  for (let p = 1; p <= totalPages; p++) await renderPage(p);
+  rendering = false;
+}
+
+function refreshZoomUI() {
+  zoomPctEl.textContent = Math.round(zoomFactor * 100) + '%';
+  zoomOutBtn.disabled   = zoomFactor <= 0.5;
+  zoomInBtn.disabled    = zoomFactor >= 3.0;
+}
+
+function zoomOut() {
+  const next = ZOOM_STEPS.filter(s => s < zoomFactor - 0.01).pop();
+  if (next === undefined) return;
+  zoomFactor = next; refreshZoomUI(); rerender();
+}
+
+function zoomIn() {
+  const next = ZOOM_STEPS.find(s => s > zoomFactor + 0.01);
+  if (next === undefined) return;
+  zoomFactor = next; refreshZoomUI(); rerender();
+}
+
+zoomOutBtn.addEventListener('click', zoomOut);
+zoomInBtn.addEventListener('click', zoomIn);
+
+function goToPage() {
+  const n = parseInt(pageInput.value, 10);
+  if (!n || n < 1 || n > totalPages) { pageInput.value = ''; pageInput.focus(); return; }
+  if (pageWraps[n - 1]) {
+    pageWraps[n - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+goBtn.addEventListener('click', goToPage);
+pageInput.addEventListener('keydown', e => { if (e.key === 'Enter') goToPage(); });
+
+// Global render method called when PDF ArrayBuffer is ready
+window.renderPdfViewerBuffer = async function(arrayBuffer, fundName) {
+  document.getElementById('report-pdf-viewer-shell').style.display = 'flex';
+  document.getElementById('pv-doc-title').innerText = `📄 ${fundName} — Institutional Research Report`;
+  
+  statusEl.style.display = 'flex';
+  wrapEl.classList.remove('loaded');
+  toolbarEl.classList.remove('visible');
+
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    pdfDoc = pdf;
+    totalPages = pdf.numPages;
+    pageInput.max = totalPages;
+    pageInput.value = 1;
+    pageTotalEl.textContent = `of ${totalPages}`;
+
+    statusEl.style.display = 'none';
+    wrapEl.classList.add('loaded');
+    toolbarEl.classList.add('visible');
+    refreshZoomUI();
+    await renderAllPages();
+    setupScrollTracking();
+  } catch (err) {
+    console.error('PDF.js render error:', err);
+    statusEl.innerHTML = '<span style="font-size:24px">⚠️</span><span>Failed to render PDF document. Please download directly.</span>';
+  }
+};
+
+function setupScrollTracking() {
+  let scrollTimer = null;
+  wrapEl.addEventListener('scroll', () => {
+    if (document.activeElement === pageInput) return;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const wrapRect = wrapEl.getBoundingClientRect();
+      const wrapCenter = wrapRect.top + wrapRect.height / 2;
+      let closestPage = 1;
+      let minDistance = Infinity;
+
+      pageWraps.forEach((wrap, index) => {
+        const rect = wrap.getBoundingClientRect();
+        const pageCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(pageCenter - wrapCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPage = index + 1;
+        }
+      });
+
+      if (pageInput.value != closestPage) {
+        pageInput.value = closestPage;
+      }
+    }, 50);
+  }, { passive: true });
+}
+</script>
+
+
+<script>
+let currentSchemeCode = "{{ scheme_code|default:'' }}";
+const autoGenerate = {{ auto_generate|yesno:"true,false" }};
+let stepInterval = null;
+let currentBlobUrl = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  initSearchAutocomplete();
+  if (currentSchemeCode && autoGenerate) {
+    selectScheme(currentSchemeCode, true);
+  }
+});
+
+function initSearchAutocomplete() {
+  const input = document.getElementById('report-search-input');
+  const dropdown = document.getElementById('report-search-dropdown');
+  let debounceTimer;
+
+  input.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) {
+      dropdown.style.display = 'none';
+      return;
+    }
+
+    debounceTimer = setTimeout(() => {
+      fetch(`/funds/search/?q=${encodeURIComponent(q)}`)
+        .then(res => res.json())
+        .then(data => {
+          dropdown.innerHTML = '';
+          const results = data.results || data.schemes || [];
+          if (!results.length) {
+            dropdown.innerHTML = '<div class="report-search-item" style="color:var(--text-muted)">No matching schemes found</div>';
+          } else {
+            results.slice(0, 10).forEach(item => {
+              const div = document.createElement('div');
+              div.className = 'report-search-item';
+              div.innerHTML = `
+                <div style="font-weight:600;font-size:13px;color:var(--text-primary)">${item.scheme_name}</div>
+                <div style="font-size:11px;color:var(--text-muted)">${item.fund_house || ''} · AMFI: ${item.amfi_code} · ${item.scheme_category || ''}</div>
+              `;
+              div.addEventListener('click', () => {
+                input.value = item.scheme_name;
+                dropdown.style.display = 'none';
+                populateSelectedFund(item);
+              });
+              dropdown.appendChild(div);
+            });
+          }
+          dropdown.style.display = 'block';
+        })
+        .catch(err => console.error(err));
+    }, 250);
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
+}
+
+function selectScheme(amfiCode, autoRun = false) {
+  fetch(`/funds/search/?q=${encodeURIComponent(amfiCode)}`)
+    .then(res => res.json())
+    .then(data => {
+      const results = data.results || data.schemes || [];
+      if (results.length) {
+        populateSelectedFund(results[0]);
+        if (autoRun) {
+          startReportGeneration();
+        }
+      }
+    })
+    .catch(err => console.error(err));
+}
+
+function populateSelectedFund(fund) {
+  currentSchemeCode = fund.amfi_code;
+  document.getElementById('sf-name').innerText = fund.scheme_name;
+  document.getElementById('sf-amc').innerText = fund.fund_house || 'Mutual Fund';
+  document.getElementById('sf-category').innerText = fund.scheme_category || 'Equity';
+  document.getElementById('sf-amfi').innerText = `AMFI: ${fund.amfi_code}`;
+  
+  document.getElementById('selected-fund-card').style.display = 'flex';
+  document.getElementById('report-ready-card').style.display = 'none';
+  document.getElementById('report-loading-card').style.display = 'none';
+  document.getElementById('report-pdf-viewer-shell').style.display = 'none';
+}
+
+function startReportGeneration() {
+  if (!currentSchemeCode) return;
+
+  const fundName = document.getElementById('sf-name').innerText || 'Selected Scheme';
+  document.getElementById('loading-fund-name').innerText = fundName;
+  
+  // Hide selection, show loading card
+  document.getElementById('selected-fund-card').style.display = 'none';
+  document.getElementById('report-loading-card').style.display = 'block';
+  document.getElementById('report-ready-card').style.display = 'none';
+  document.getElementById('report-pdf-viewer-shell').style.display = 'none';
+  
+  const fill = document.getElementById('loading-progress-fill');
+  fill.style.width = '10%';
+  setStep(1);
+
+  // Smooth progress animation while fetch is pending
+  let currentPct = 10;
+  if (stepInterval) clearInterval(stepInterval);
+  stepInterval = setInterval(() => {
+    if (currentPct < 90) {
+      currentPct += Math.floor(Math.random() * 8) + 3;
+      if (currentPct > 90) currentPct = 90;
+      fill.style.width = currentPct + '%';
+
+      if (currentPct > 75) {
+        setStep(5);
+      } else if (currentPct > 55) {
+        setStep(4);
+      } else if (currentPct > 35) {
+        setStep(3);
+      } else if (currentPct > 20) {
+        setStep(2);
+      }
+    }
+  }, 700);
+
+  // Perform REAL async fetch to generate & receive the PDF Blob
+  fetch(`/funds/${currentSchemeCode}/report/`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.blob();
+    })
+    .then(async blob => {
+      clearInterval(stepInterval);
+      fill.style.width = '100%';
+      setStep(5);
+
+      const arrayBuffer = await blob.arrayBuffer();
+
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+      currentBlobUrl = URL.createObjectURL(blob);
+
+      const downloadBtn = document.getElementById('btn-download-pdf');
+      downloadBtn.href = currentBlobUrl;
+      downloadBtn.download = `FundReport_${currentSchemeCode}.pdf`;
+
+      const headerDownloadBtn = document.getElementById('pv-header-download-btn');
+      if (headerDownloadBtn) {
+        headerDownloadBtn.href = currentBlobUrl;
+        headerDownloadBtn.download = `FundReport_${currentSchemeCode}.pdf`;
+      }
+
+      document.getElementById('ready-fund-name').innerText = fundName;
+      document.getElementById('btn-view-fund').href = `/funds/${currentSchemeCode}/`;
+
+      // Transition smoothly to ready card & render PDF in-app viewer
+      setTimeout(async () => {
+        document.getElementById('report-loading-card').style.display = 'none';
+        document.getElementById('report-ready-card').style.display = 'block';
+        
+        // Render in PDF.js Canvas Viewer automatically
+        if (window.renderPdfViewerBuffer) {
+          await window.renderPdfViewerBuffer(arrayBuffer, fundName);
+        }
+      }, 400);
+    })
+    .catch(err => {
+      clearInterval(stepInterval);
+      console.error('Report generation error:', err);
+      alert('Failed to generate report. Please try again.');
+      document.getElementById('report-loading-card').style.display = 'none';
+      document.getElementById('selected-fund-card').style.display = 'flex';
+    });
+}
+
+function setStep(stepNum) {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById(`step-${i}`);
+    if (!el) continue;
+    if (i < stepNum) {
+      el.className = 'loading-step-item completed';
+    } else if (i === stepNum) {
+      el.className = 'loading-step-item active';
+    } else {
+      el.className = 'loading-step-item';
+    }
+  }
+}
+
+function scrollToViewer() {
+  const viewerShell = document.getElementById('report-pdf-viewer-shell');
+  if (viewerShell) {
+    viewerShell.style.display = 'flex';
+    viewerShell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function toggleFullscreenViewer() {
+  const viewerShell = document.getElementById('report-pdf-viewer-shell');
+  if (!document.fullscreenElement) {
+    viewerShell.requestFullscreen().catch(err => console.error(err));
+  } else {
+    document.exitFullscreen().catch(err => console.error(err));
+  }
+}
+
+function resetReportGenerator() {
+  document.getElementById('report-search-input').value = '';
+  document.getElementById('selected-fund-card').style.display = 'none';
+  document.getElementById('report-loading-card').style.display = 'none';
+  document.getElementById('report-ready-card').style.display = 'none';
+  document.getElementById('report-pdf-viewer-shell').style.display = 'none';
+  if (currentBlobUrl) {
+    URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = null;
+  }
+  currentSchemeCode = '';
+}
+</script>
+{% endblock %}

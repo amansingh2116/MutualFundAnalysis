@@ -82,7 +82,27 @@ def compare_view(request):
     })
 
 
+@login_required
+def research_report_calc_view(request):
+    """
+    Renders the Institutional PDF Research Report Generator Tool page inside Calculators.
+    Requires user login. Supports optional ?scheme=<amfi_code> query parameter.
+    """
+    from apps.funds.models import Scheme
+    scheme_code = request.GET.get('scheme') or request.GET.get('amfi_code') or request.GET.get('fund') or ''
+    initial_scheme = None
+    if scheme_code:
+        initial_scheme = Scheme.objects.filter(amfi_code=scheme_code).first()
+
+    return render(request, 'calculators/research_report.html', {
+        'initial_scheme': initial_scheme,
+        'scheme_code': scheme_code,
+        'auto_generate': bool(request.GET.get('auto') == '1' or scheme_code),
+    })
+
+
 # ── Calculator API Endpoints ──────────────────────────────────
+
 
 def _parse_body(request):
     try:

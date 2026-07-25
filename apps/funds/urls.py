@@ -12,6 +12,8 @@ urlpatterns = [
     path('funds/search/', views.fund_search_api, name='search'),
     path('funds/<str:amfi_code>/', views.FundDetailView.as_view(), name='detail'),
     path('funds/<str:amfi_code>/export/', views.export_pdf_view, name='export_pdf'),
+    path('funds/<str:amfi_code>/report/', views.export_pdf_view, name='fund_report_pdf'),
+
 
     # ── Research Hub ────────────────────────────────────────────────────────
     path('research/benchmarks/', views.ResearchBenchmarksView.as_view(), name='research_benchmarks'),
