@@ -131,11 +131,59 @@ The individual fund analysis pages will be significantly upgraded with specializ
 - **Macro Stress Testing:** Simulate portfolio and fund performance under historical and hypothetical extreme scenarios (e.g., 2008 Financial Crisis, COVID-19 crash, interest rate shocks, inflation spikes, and sector concentration shocks).
 - **Market-Regime Analysis:** Evaluate portfolio and fund performance across different economic cycles, including bull markets, bear markets, sideways markets, high-inflation periods, and rate-cut cycles.
 
-some fix/improvements left to implement in future:
-- backtester and application testing
-- recommendation and portfolio analysis improvement
-- UI improvement
-- saved websites/tools implementation
-- application testing (security, login, performance, etc.)
-- deploy
-- AI
+### 6.3 Future Engineering Roadmap & Enhancements
+- **Backtester & Application Testing:** Comprehensive end-to-end testing suite for backtest strategies and core application workflows.
+- **Recommendation & Portfolio Analysis Engine:** Enhancements to risk scoring algorithms, recommendation logic, and multi-asset portfolio diagnostics.
+- **UI & UX Modernization:** Responsive UI enhancements, dynamic charts, glassmorphic layout updates, and interactive data visualization. (Inspiration: https://mfanalyser.com/try.html)
+- **Third-Party Data Integrations & Tools:** Implementation of external reference tools, automated scraper pipelines, and API integrations.
+- **Production Hardening & Deployment:** Security auditing, user authentication hardening, performance profiling, and seamless automated deployment pipelines.
+- **Deep AI Integration:** Incorporating LLM powered conversational analytics, natural language screeners, and automated portfolio health summaries.
+
+---
+
+## 7. Industry Data, AMC Analytics & Extended Feature Ideas
+
+### 7.1 Asset Management Company (AMC) Analytics
+- **AMC Top Stock Holdings:** Track top stock choices, major holdings, and overall equity allocation patterns across different AMCs (![AMC Top Stocks](images/image-9.png)).
+- **Fund & AMC AUM Trends:** Monitor historical AUM changes, growth trajectory, and net asset fluctuations over time for individual funds and fund houses (![AMC AUM Trend 1](images/image-12.png) ![AMC AUM Trend 2](images/image-13.png) ![AUM Growth](images/image-8.png)).
+- **AMC Trade Disinvestments & Exits:** Track stock reduction trends, complete sell-offs, and portfolio adjustment actions taken by AMCs ("AMC mistakes / sells") (![AMC Sells](images/image-10.png)).
+- **AMC Sector Allocations:** Analyze sector-wise concentration, favorite sectors, and thematic sector biases per AMC (![AMC Favorite Sectors](images/image-11.png)).
+
+### 7.2 Stock-Level & Mutual Fund Holdings Intelligence
+- **Stock-Level Mutual Fund Holding Changes:** Deep dive into stock-specific mutual fund holding variations over time, tracking institutional accumulation and distribution (inspired by [RAEN Analytics Stock Details](https://raenanalytics.com/stocks/INE040A16IU7)) (![Stock MF Holdings 1](images/image-21.png) ![Stock MF Holdings 2](images/image-22.png)).
+- **Top & Bottom Stocks by MF Ownership:** Identify stocks with the highest and lowest overall mutual fund holding percentages and ownership changes (![Top/Bottom MF Stocks 1](images/image-23.png) ![Top/Bottom MF Stocks 2](images/image-24.png)).
+- **"Which Funds Hold Your Stock?":** Interactive reverse-lookup tool displaying all mutual fund schemes holding a specific stock along with scheme weights and holding values (![Fund Holdings Lookup 1](images/image-4.png) ![Fund Holdings Lookup 2](images/image-5.png) ![Fund Holdings Breakdown 1](images/image-6.png) ![Fund Holdings Breakdown 2](images/image-7.png)).
+
+### 7.3 Industry Inflows, Sector Flows & Portfolio Disclosures
+- **Cap-Wise Portfolio Breakdown:** Track allocation shifts across Large-Cap, Mid-Cap, and Small-Cap stocks over time within fund portfolios.
+- **Monthly Portfolio Disclosures Database:** Save historical monthly portfolio disclosures (stocks, sectors, weights) into DB to enable point-in-time portfolio evolution tracking (![Portfolio DB Disclosures 1](images/image-25.png) ![Portfolio DB Disclosures 2](images/image-26.png)).
+- **Sector-Wise Top Stock Breakdown:** Identify top stock holdings grouped by specific industry sectors across mutual fund portfolios (![Sector Top Stocks](images/image-3.png)).
+- **Mutual Fund Industry Overall Inflows & Outflows:** Monitor macro-level net capital inflows and outflows across the mutual fund industry (![Industry Overall Flows](images/image-1.png)).
+- **Sector-Wise Capital Flows:** Granular tracking of net buying and selling capital flows across specific market sectors (![Sector Flows](images/image-2.png)).
+
+### 7.4 Technical Signals, Breakout Tracking & Reports
+- **Comprehensive Data Report Generator:** Generate and export publication-ready data reports summarizing fund analytics, portfolio health, and market trends (![Data Report](images/image.png)).
+- **Multi-Platform One-Click Social Sharing:** Native sharing integrations for WhatsApp, LinkedIn, Instagram, and direct copy-to-clipboard shareable links.
+- **Mutual Fund 52-Week High / Low Tracker:** Monitor funds trading at or near their 52-week high and 52-week low bounds (![52-Week High/Low Tracker](images/image-14.png)).
+- **Mutual Fund All-Time High / Low Tracker:** Historical tracking of schemes hitting all-time high (ATH) or all-time low NAV levels (![All-Time High/Low Tracker](images/image-15.png)).
+- **Category-Wise Technical Breakout Engine:** Screen and detect technical price breakouts aggregated by mutual fund categories (![Category Breakout Tracker](images/image-16.png)).
+
+### 7.5 Advanced Backtester, Stress Testing & Risk Analytics
+- **Market Regime & Crisis Testing:** Evaluate portfolio and backtest strategy resilience across distinct economic regimes (![Regime Testing](images/image-17.png)) and historical crisis events (e.g., 2008 Financial Crisis, COVID-19 Crash) (![Crisis Period Behavior](images/image-18.png)).
+- **Periodic Rebalancing Study:** Comparative backtest analysis evaluating Yearly vs. Half-Yearly vs. Quarterly rebalancing against a Buy-and-Hold strategy (![Rebalancing Study](images/image-19.png)).
+- **Monthly Return Distribution Analytics:** Analyze return dispersion, monthly return histograms, and volatility distributions within the backtester (![Monthly Return Distribution](images/image-20.png)).
+
+### 7.6 Portfolio Import Tools & CAS Statement Parser
+- **Consolidated Account Statement (CAS) Parser:** Integration of automated CAS statement parsing for CAMS, Karvy, and KFintech statements via [casparser](https://github.com/codereverser/casparser).
+
+### 7.7 Industry Research Sources, Regulatory References & Knowledge Base
+- **Primary Data Sources & Portals:**
+  - [AMFI India Research & Information](https://www.amfiindia.com/research-information)
+  - [Nifty Indices Official Portal](https://niftyindices.com/)
+  - [AMFI Monthly Portfolio Disclosure Center](https://www.amfiindia.com/online-center/portfolio-disclosure)
+  - [RAEN Analytics - Stock & MF Holdings](https://raenanalytics.com/)
+  - [RightAdvise Financial Analytics](https://rightadvise.com/)
+- **Regulatory History & Market Insights (Blogs & Educational Resources):**
+  - Blog: [SEBI Stock Category Changes India — Complete Story from 2018 to January-June 2026](https://rightadvise.com/sebi-india-market-cap-story.php)
+  - Blog: [SEBI Market Cap Category Changes — January-June 2026 Update](https://rightadvise.com/sebi-market-cap-update.php)
+  - Knowledge Base: [History of Mutual Funds in India (AMFI)](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=HistoryOfMutualFundsInIndia)
