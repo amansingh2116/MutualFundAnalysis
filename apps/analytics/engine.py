@@ -30,16 +30,18 @@ logger = logging.getLogger('mfanalysis.analytics')
 
 
 def _sn(value) -> "float | None":
-    """Safe-number: return None for NaN / Inf, otherwise return the float.
+    """Safe-number: return None for NaN / Inf / values exceeding DecimalField limits,
+    otherwise return the float.
     
     Django DecimalFields raise decimal.InvalidOperation when given float('nan')
-    or float('inf'), so we sanitize every computed metric before the ORM save.
+    or float('inf') or numbers out of max_digits range [-9999.9999, 9999.9999],
+    so we sanitize every computed metric before the ORM save.
     """
     if value is None:
         return None
     try:
         f = float(value)
-        if math.isfinite(f):
+        if math.isfinite(f) and -9999.0 <= f <= 9999.0:
             return f
         return None
     except (TypeError, ValueError):
@@ -198,6 +200,10 @@ def _compute_trailing_returns(scheme, nav: pd.Series, bm: Optional[pd.Series]) -
     today = nav.index[-1]
     rows  = []
 
+    # Ensure benchmark is truncated to fund's last NAV date (`today`)
+    # to avoid comparing historical fund dates to today's benchmark value.
+    bm_clipped = bm[bm.index <= today] if bm is not None else None
+
     for label, days in TRAILING_PERIODS.items():
         cutoff = today - pd.Timedelta(days=days)
         # Skip this period if fund hasn't been active this long
@@ -210,15 +216,15 @@ def _compute_trailing_returns(scheme, nav: pd.Series, bm: Optional[pd.Series]) -
         years     = days / 365.25
         fund_cagr = _cagr(sub.iloc[0], sub.iloc[-1], years)
         bm_cagr   = None
-        if bm is not None:
-            bm_sub = bm[bm.index >= cutoff]
-            if len(bm_sub) > 5:
+        if bm_clipped is not None:
+            bm_sub = bm_clipped[bm_clipped.index >= cutoff]
+            if len(bm_sub) > 5 and (bm_sub.index[-1] - bm_sub.index[0]).days >= int(days * 0.7):
                 bm_cagr = _cagr(bm_sub.iloc[0], bm_sub.iloc[-1], years)
 
         excess = (fund_cagr - bm_cagr) if (fund_cagr is not None and bm_cagr is not None) else None
         rows.append(TrailingReturn(
             scheme=scheme, period=label, years=round(years, 2),
-            cagr_pct=fund_cagr, bm_cagr=bm_cagr, excess=excess,
+            cagr_pct=_sn(fund_cagr), bm_cagr=_sn(bm_cagr), excess=_sn(excess),
             as_of=today.date(),
         ))
 
@@ -228,7 +234,7 @@ def _compute_trailing_returns(scheme, nav: pd.Series, bm: Optional[pd.Series]) -
     si_cagr = _cagr(nav.iloc[0], nav.iloc[-1], si_yrs)
     rows.append(TrailingReturn(
         scheme=scheme, period='SI', years=round(si_yrs, 2),
-        cagr_pct=si_cagr, bm_cagr=None, excess=None,
+        cagr_pct=_sn(si_cagr), bm_cagr=None, excess=None,
         as_of=today.date(),
     ))
 
@@ -249,14 +255,17 @@ def _compute_calendar_returns(scheme, nav: pd.Series, bm: Optional[pd.Series]) -
     start_year = nav.index[0].year
     end_year   = nav.index[-1].year
 
+    # Clip benchmark to fund's own last NAV date
+    bm_clipped = bm[bm.index <= nav.index[-1]] if bm is not None else None
+
     for year in range(start_year, end_year + 1):
         year_nav = nav[nav.index.year == year]
         if len(year_nav) < 50:  # need meaningful trading days
             continue
         ret_pct = _simple_return(year_nav.iloc[0], year_nav.iloc[-1])
         bm_ret  = None
-        if bm is not None:
-            year_bm = bm[bm.index.year == year]
+        if bm_clipped is not None:
+            year_bm = bm_clipped[bm_clipped.index.year == year]
             if len(year_bm) > 10:
                 bm_ret = _simple_return(year_bm.iloc[0], year_bm.iloc[-1])
 
@@ -265,8 +274,8 @@ def _compute_calendar_returns(scheme, nav: pd.Series, bm: Optional[pd.Series]) -
             outperformed = ret_pct > bm_ret
 
         rows.append(CalendarReturn(
-            scheme=scheme, year=year, return_pct=ret_pct,
-            bm_return=bm_ret, outperformed=outperformed,
+            scheme=scheme, year=year, return_pct=_sn(ret_pct),
+            bm_return=_sn(bm_ret), outperformed=outperformed,
         ))
 
     # Upsert by year
@@ -304,18 +313,20 @@ def _compute_rolling_returns(scheme, nav: pd.Series) -> None:
         rolling_start.index = rolling_end.index  # align
 
         cagrs = ((rolling_end.values / rolling_start.values) ** (1 / years) - 1) * 100
-        cagrs = cagrs[np.isfinite(cagrs)]
+        # Filter out extreme CAGRs (e.g. from price discontinuities in older funds)
+        # max_digits=8, decimal_places=4 → max value is 9999.9999
+        cagrs = cagrs[np.abs(cagrs) <= 9999.0]
 
         if len(cagrs) < 10:
             continue
 
         rows.append(RollingReturn(
             scheme=scheme, window=label, window_days=window_days,
-            min_pct  = float(np.min(cagrs)),
-            max_pct  = float(np.max(cagrs)),
-            mean_pct = float(np.mean(cagrs)),
-            median_pct = float(np.median(cagrs)),
-            std_dev  = float(np.std(cagrs)),
+            min_pct  = _sn(float(np.min(cagrs))),
+            max_pct  = _sn(float(np.max(cagrs))),
+            mean_pct = _sn(float(np.mean(cagrs))),
+            median_pct = _sn(float(np.median(cagrs))),
+            std_dev  = _sn(float(np.std(cagrs))),
             win_rate_0  = float(np.mean(cagrs > 0) * 100),
             win_rate_12 = float(np.mean(cagrs > 12) * 100),
             as_of    = today,
@@ -668,12 +679,15 @@ def simulate_swp(
 # ── Helper functions ───────────────────────────────────────────────────────────
 
 def _cagr(start_val, end_val, years: float) -> Optional[float]:
-    """Compute CAGR. Returns None on invalid inputs."""
+    """Compute CAGR. Returns None on invalid inputs or out-of-range values."""
     try:
         sv, ev = float(start_val), float(end_val)
         if years <= 0 or sv <= 0 or not math.isfinite(sv) or not math.isfinite(ev):
             return None
-        return round(((ev / sv) ** (1.0 / years) - 1) * 100, 4)
+        res = round(((ev / sv) ** (1.0 / years) - 1) * 100, 4)
+        if not math.isfinite(res) or res > 9999.0 or res < -9999.0:
+            return None
+        return res
     except (TypeError, ValueError, ZeroDivisionError, OverflowError):
         return None
 
@@ -682,10 +696,13 @@ def _simple_return(start_val, end_val) -> Optional[float]:
     """Compute simple return %."""
     try:
         sv, ev = float(start_val), float(end_val)
-        if sv <= 0:
+        if sv <= 0 or not math.isfinite(sv) or not math.isfinite(ev):
             return None
-        return round((ev / sv - 1) * 100, 4)
-    except (TypeError, ValueError):
+        res = round((ev / sv - 1) * 100, 4)
+        if not math.isfinite(res) or res > 9999.0 or res < -9999.0:
+            return None
+        return res
+    except (TypeError, ValueError, ZeroDivisionError, OverflowError):
         return None
 
 

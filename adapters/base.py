@@ -79,6 +79,26 @@ class BaseAdapter(ABC):
                     f"[{self.SOURCE_NAME}] Attempt {attempt}/{max_retries} failed "
                     f"(HTTP {status}): {url}"
                 )
+            except (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ConnectTimeout,
+            ) as e:
+                # Connection refused / DNS failure / server dropped connection.
+                # These are not transient — retrying immediately won't help.
+                # Log and raise right away so callers can move to the next fallback.
+                logger.warning(
+                    f"[{self.SOURCE_NAME}] Attempt {attempt}/{max_retries} failed "
+                    f"(HTTP 0): {url}"
+                )
+                if attempt >= max_retries:
+                    raise AdapterError(
+                        f"[{self.SOURCE_NAME}] All {max_retries} retries failed for {url}"
+                    ) from e
+                # One brief pause before the next attempt (server may be briefly busy)
+                logger.debug(f"[{self.SOURCE_NAME}] Retrying in {min(delay, 2.0):.1f}s...")
+                time.sleep(min(delay, 2.0))  # cap at 2s; no point in long waits
+                delay *= backoff_factor
+                continue
             except requests.exceptions.RequestException as e:
                 logger.warning(
                     f"[{self.SOURCE_NAME}] Attempt {attempt}/{max_retries} failed: {e} | {url}"

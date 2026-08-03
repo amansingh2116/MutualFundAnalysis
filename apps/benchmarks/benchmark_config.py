@@ -1,4 +1,4 @@
-﻿"""
+"""
 Benchmark configuration: the single source of truth for which benchmark
 indices this application ingests and displays.
 
@@ -135,9 +135,47 @@ BENCHMARK_CONFIG: dict[str, BenchmarkConfig] = {
         nse_name="NIFTY ALL DURATION G-SEC INDEX",
         description="All-duration government securities index",
     ),
-    "NIFTY LIQUID INDEX": BenchmarkConfig(
-        nse_name="NIFTY LIQUID INDEX",
-        description="Liquid fund benchmark — overnight/T+1 instruments",
+
+    # ── Debt / Bond / Duration (used by analytics for debt fund risk metrics) ────
+    "NIFTY COMPOSITE DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY COMPOSITE DEBT INDEX",
+        description="Composite debt benchmark across all durations",
+    ),
+    "NIFTY BANKING & PSU DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY BANKING & PSU DEBT INDEX",
+        description="Banking and PSU bond index",
+    ),
+    "NIFTY CORPORATE BOND INDEX": BenchmarkConfig(
+        nse_name="NIFTY CORPORATE BOND INDEX",
+        description="Corporate bond index",
+    ),
+    "NIFTY CREDIT RISK BOND INDEX": BenchmarkConfig(
+        nse_name="NIFTY CREDIT RISK BOND INDEX",
+        description="Credit risk bond index",
+    ),
+    "NIFTY LONG DURATION DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY LONG DURATION DEBT INDEX",
+        description="Long duration debt index",
+    ),
+    "NIFTY LOW DURATION DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY LOW DURATION DEBT INDEX",
+        description="Low duration debt index",
+    ),
+    "NIFTY MEDIUM DURATION DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY MEDIUM DURATION DEBT INDEX",
+        description="Medium duration debt index",
+    ),
+    "NIFTY MEDIUM TO LONG DURATION DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY MEDIUM TO LONG DURATION DEBT INDEX",
+        description="Medium to long duration debt index",
+    ),
+    "NIFTY SHORT DURATION DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY SHORT DURATION DEBT INDEX",
+        description="Short duration debt index",
+    ),
+    "NIFTY ULTRA SHORT DURATION DEBT INDEX": BenchmarkConfig(
+        nse_name="NIFTY ULTRA SHORT DURATION DEBT INDEX",
+        description="Ultra short duration debt index",
     ),
 }
 

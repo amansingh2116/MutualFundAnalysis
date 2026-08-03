@@ -271,7 +271,7 @@ class Command(BaseCommand):
             # ── Source 2: Yahoo Finance ───────────────────────────────────────
             if best_ticker:
                 try:
-                    yf_rows = adapter.fetch_yfinance_history(best_ticker, date(start_year, 1, 1))
+                    yf_rows = adapter.fetch_yfinance_history(best_ticker, start)
                 except Exception as exc:
                     logger.warning("yfinance failed %s (%s): %s", bench.name, best_ticker, exc)
                     yf_rows = []

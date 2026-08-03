@@ -54,7 +54,9 @@ class CaptnemoAdapter(BaseAdapter):
         """
         url = f'{CAPTNEMO_BASE}/kuvera/{isin}'
         try:
-            response = self._get_with_retry(url, max_retries=5)
+            # max_retries=1: a connection drop (HTTP 0) means captnemo doesn't
+            # know this ISIN. Retrying won't help — move to AMFI fallback fast.
+            response = self._get_with_retry(url, max_retries=1)
             raw = response.json()
         except Exception as e:
             logger.warning(f"[captnemo] Failed for ISIN {isin}: {e}")
@@ -97,7 +99,7 @@ class CaptnemoAdapter(BaseAdapter):
         """
         url = f'{CAPTNEMO_BASE}/kuvera/mf/{amfi_code}'
         try:
-            response = self._get_with_retry(url, max_retries=5)
+            response = self._get_with_retry(url, max_retries=2)
             raw = response.json()
             return self._normalise_response(raw, amfi_code)
         except Exception as e:

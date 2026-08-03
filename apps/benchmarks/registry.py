@@ -33,6 +33,12 @@ BENCHMARK_TTL = 60 * 60 * 6
 NIFTYINDICES_BASE = "https://www.niftyindices.com"
 NIFTYINDICES_ASSET_BASE = "https://iislliveblob.niftyindices.com"
 
+# Module-level reachability cache for the CDN subdomain.
+# None = not tested yet; True = reachable; False = unreachable (DNS/network failure).
+# After the first DNS failure this is set to False and all subsequent calls
+# skip the 15s timeout, returning the index_name unchanged immediately.
+_NIFTY_ASSET_CDN_OK: bool | None = None
+
 # ── Universal fallback ────────────────────────────────────────────────────────
 NIFTY50_FALLBACK = "NIFTY 50"
 NIFTY50_FALLBACK_NOTE = (
@@ -1273,9 +1279,17 @@ def _make_niftyindices_session() -> requests.Session:
 
 
 def _niftyindices_trading_name(session: requests.Session, index_name: str) -> str:
+    global _NIFTY_ASSET_CDN_OK
+    # Skip immediately if the CDN is known to be unreachable (DNS failure on first call)
+    if _NIFTY_ASSET_CDN_OK is False:
+        return index_name
     try:
-        response = session.get(f"{NIFTYINDICES_ASSET_BASE}/assets/json/IndexMapping.json", timeout=15)
+        response = session.get(
+            f"{NIFTYINDICES_ASSET_BASE}/assets/json/IndexMapping.json",
+            timeout=3,  # short timeout; on DNS failure this will fail fast
+        )
         response.raise_for_status()
+        _NIFTY_ASSET_CDN_OK = True
         data = json.loads(response.content.decode("utf-8-sig"))
         target = _compact_index_name(index_name)
         for row in data:
@@ -1284,6 +1298,8 @@ def _niftyindices_trading_name(session: requests.Session, index_name: str) -> st
             if target in {long_name, trading_name}:
                 return str(row.get("Trading_Index_Name") or index_name)
     except Exception as exc:
+        if _NIFTY_ASSET_CDN_OK is None:  # first failure — mark as unreachable
+            _NIFTY_ASSET_CDN_OK = False
         logger.info("Nifty Indices mapping fetch failed for %s: %s", index_name, exc)
     return index_name
 

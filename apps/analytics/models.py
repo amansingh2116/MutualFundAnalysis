@@ -34,11 +34,11 @@ class TrailingReturn(BaseModel):
                                  related_name='trailing_returns')
     period   = models.CharField(max_length=5, choices=PERIOD_CHOICES)
     years    = models.DecimalField(max_digits=5, decimal_places=2)
-    cagr_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    cagr_pct = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                    help_text="Fund CAGR in %")
-    bm_cagr  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    bm_cagr  = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                    help_text="Benchmark CAGR for same period in %")
-    excess   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    excess   = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                    help_text="fund_cagr - bm_cagr (alpha proxy)")
     as_of    = models.DateField(help_text="Date of last NAV used for computation")
 
@@ -56,8 +56,8 @@ class CalendarReturn(BaseModel):
     scheme       = models.ForeignKey('funds.Scheme', on_delete=models.CASCADE,
                                      related_name='calendar_returns')
     year         = models.IntegerField()
-    return_pct   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    bm_return    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    return_pct   = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    bm_return    = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     outperformed = models.BooleanField(null=True, blank=True)
 
     class Meta:
@@ -77,11 +77,11 @@ class RollingReturn(BaseModel):
                                     related_name='rolling_returns')
     window      = models.CharField(max_length=5, choices=WINDOW_CHOICES)
     window_days = models.IntegerField(help_text="252 for 1Y, 756 for 3Y, 1260 for 5Y")
-    min_pct     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    max_pct     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    mean_pct    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    median_pct  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    std_dev     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    min_pct     = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    max_pct     = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    mean_pct    = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    median_pct  = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    std_dev     = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     win_rate_0  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
                                       help_text="% of rolling periods with return > 0%")
     win_rate_12 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
@@ -113,28 +113,28 @@ class RiskMetrics(BaseModel):
     period_days      = models.IntegerField()
 
     # ── Volatility ─────────────────────────────────────────────────────────────
-    std_dev_ann      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    std_dev_ann      = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="Annualised std dev of daily returns (%)")
 
     # ── Risk-adjusted return ratios ────────────────────────────────────────────
-    sharpe_ratio     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    sortino_ratio    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    max_drawdown     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    sharpe_ratio     = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    sortino_ratio    = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    max_drawdown     = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="Maximum peak-to-trough decline (%)")
 
     # ── Benchmark-relative metrics ─────────────────────────────────────────────
-    beta             = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    alpha_ann        = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    beta             = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    alpha_ann        = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="Annualised Jensen's alpha (%)")
-    r_squared        = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    r_squared        = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="R² vs benchmark (%)")
-    upside_capture   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    upside_capture   = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="Upside capture ratio (%)")
-    downside_capture = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    downside_capture = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="Downside capture ratio (%)")
-    tracking_error   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    tracking_error   = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="Annualised tracking error (%)")
-    info_ratio       = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True,
+    info_ratio       = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True,
                                            help_text="Information ratio")
 
     # ── Computation parameters ─────────────────────────────────────────────────
@@ -145,10 +145,10 @@ class RiskMetrics(BaseModel):
     as_of            = models.DateField()
 
     # ── Morningstar supplement (if mstarpy data available) ─────────────────────
-    ms_std_dev_3y    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    ms_sharpe_3y     = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    ms_beta_3y       = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
-    ms_alpha_3y      = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    ms_std_dev_3y    = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    ms_sharpe_3y     = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    ms_beta_3y       = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    ms_alpha_3y      = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
 
     class Meta:
         unique_together = ('scheme', 'period', 'as_of')

@@ -104,44 +104,58 @@ class BenchmarkAdapter(BaseAdapter):
         to_date: datetime.date,
     ) -> list[dict]:
         """
-        Fetch historical daily close for a NSE index.
+        Fetch historical daily close for a NSE index using nselib.
 
         Args:
-            index_name: Plain string e.g. 'NIFTY 50' (URL-encoded internally)
+            index_name: Plain string e.g. 'NIFTY 50'
             from_date:  Start date (inclusive)
             to_date:    End date (inclusive)
 
         Returns:
             List of {'date': datetime.date, 'close': float}
 
-        Response date format:
-            EOD_TIMESTAMP: 'DD-MMM-YYYY' e.g. '01-Jan-2024'
-        Response close field:
-            EOD_CLOSE_INDEX_VAL: float
+        Note on nselib HI_TIMESTAMP bug:
+            nselib unconditionally calls df.drop(columns='HI_TIMESTAMP') but debt
+            indices don't have that column. We temporarily patch DataFrame.drop to use
+            errors='ignore' so both equity and debt indices work correctly.
         """
-        s = self._make_nse_session()
-        url = (
-            f'{NSE_BASE}/api/historical/indicesHistory'
-            f'?indexType={urllib.parse.quote(index_name)}'
-            f'&from={from_date.strftime("%d-%m-%Y")}'
-            f'&to={to_date.strftime("%d-%m-%Y")}'
-        )
+        import nselib.capital_market as nse_cm
+        import pandas as pd
+
+        # Workaround: nselib's get_index_data unconditionally drops 'HI_TIMESTAMP',
+        # which does not exist in debt index responses, causing a KeyError.
+        # Patch DataFrame.drop to silently ignore missing columns for this call only.
+        _original_drop = pd.DataFrame.drop
+
+        def _safe_drop(self, *args, **kwargs):
+            kwargs.setdefault('errors', 'ignore')
+            return _original_drop(self, *args, **kwargs)
+
+        pd.DataFrame.drop = _safe_drop
         try:
-            r = s.get(url, headers=NSE_HEADERS, timeout=20)
-            r.raise_for_status()
-            raw_rows = r.json().get('data', {}).get('indexCloseOnlineRecords', [])
+            df = nse_cm.index_data(
+                index=index_name,
+                from_date=from_date.strftime('%d-%m-%Y'),
+                to_date=to_date.strftime('%d-%m-%Y'),
+            )
         except Exception as e:
+            pd.DataFrame.drop = _original_drop
             logger.warning(f"[nse] Historical fetch failed for '{index_name}': {e}")
             raise AdapterError(str(e)) from e
+        finally:
+            pd.DataFrame.drop = _original_drop
+
+        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+            return []
 
         results = []
-        for row in raw_rows:
+        for _, row in df.iterrows():
             try:
-                # ⚠️ Date format: 'DD-MMM-YYYY' e.g. '01-Jan-2024'
+                # Date format: 'DD-MMM-YYYY' e.g. '01-Jan-2024'
                 parsed_date = datetime.datetime.strptime(
-                    row['EOD_TIMESTAMP'], '%d-%b-%Y'
+                    row['TIMESTAMP'], '%d-%b-%Y'
                 ).date()
-                parsed_close = float(row['EOD_CLOSE_INDEX_VAL'])
+                parsed_close = float(row['CLOSE_INDEX_VAL'])
                 results.append({'date': parsed_date, 'close': parsed_close})
             except (KeyError, ValueError, TypeError):
                 continue
@@ -222,23 +236,23 @@ class BenchmarkAdapter(BaseAdapter):
 
         try:
             ticker = yf.Ticker(yahoo_ticker)
-
-            # First try period='max' (works for most tickers)
+            
+            # Use explicit date range since from_date is provided, to avoid downloading full history unnecessarily
+            end_date_exclusive = end_date + _dt.timedelta(days=1)
             try:
+                hist = ticker.history(start=str(effective_start), end=str(end_date_exclusive))
+                rows = _normalise(hist)
+                if rows:
+                    logger.debug(f"[yfinance] {yahoo_ticker}: {len(rows)} rows (date range)")
+                    return rows
+            except Exception as e_range:
+                logger.debug(f"[yfinance] {yahoo_ticker}: date range failed ({e_range}), trying period=max")
+                # Fallback to max if date range somehow fails
                 hist = ticker.history(period='max')
                 rows = _normalise(hist)
                 if rows:
                     logger.debug(f"[yfinance] {yahoo_ticker}: {len(rows)} rows (period=max)")
-                    return rows
-            except Exception as e_max:
-                logger.debug(f"[yfinance] {yahoo_ticker}: period=max failed ({e_max}), trying date range")
-
-            # Fallback: explicit date range (required for some BSE .BO tickers)
-            hist = ticker.history(start=str(effective_start), end=str(end_date))
-            rows = _normalise(hist)
-            if rows:
-                logger.debug(f"[yfinance] {yahoo_ticker}: {len(rows)} rows (date range)")
-            return rows
+                return rows
 
         except Exception as e:
             logger.warning(f"[yfinance] fetch failed for {yahoo_ticker}: {e}")

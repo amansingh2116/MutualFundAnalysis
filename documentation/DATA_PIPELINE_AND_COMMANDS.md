@@ -35,9 +35,12 @@ python manage.py build_scheme_master
 ```
 
 ### 2. `ingest_benchmarks`
-**Purpose:** Fetches metadata and historical daily NAV values for the exact whitelist of 42 required benchmark indices defined in `benchmark_config.py`.
+**Purpose:** Fetches metadata and historical daily NAV values for the exact whitelist of **51** required benchmark indices defined in `benchmark_config.py` (41 equity/hybrid + 10 debt/bond duration indices).
 **When to run:** Daily, before updating fund snapshots.
-**Action:** Tries the **NSE Direct API** first, and immediately falls back to **Yahoo Finance** on failure. Updates `BenchmarkIndex` and `BenchmarkNAV`. Features SQLite lock resilience.
+**Action:** Uses **nselib** (which manages NSE session/cookie handling) to fetch equity indices, and immediately falls back to **Yahoo Finance** on failure. Updates `BenchmarkIndex` and `BenchmarkNAV`. Features SQLite lock resilience and incremental date-range fetching (only new rows since last DB date).
+
+> [!NOTE]
+> Debt/bond indices (NIFTY COMPOSITE DEBT INDEX, NIFTY CORPORATE BOND INDEX, etc.) are defined in the config but cannot be fetched via nselib because the NSE API returns empty data for them. These indices fall back to NIFTY 50 as a proxy in analytics, which is shown with a UI note to the user.
 
 ```bash
 python manage.py ingest_benchmarks
@@ -55,6 +58,12 @@ python manage.py populate_benchmark_returns
 ### 4. `populate_screener` (The Master Pipeline)
 **Purpose:** This is the heaviest and most important command. It loops through all ~3,000 Direct Growth + ETF funds, downloads their NAVs from `mfapi.in`, fetches their metadata (AUM, expense ratio) from `captnemo.in`, computes all risk and return metrics (trailing, rolling, max drawdown, Sharpe, Sortino), scores the fund out of 100, and saves a `FundScreenerSnapshot` and `FundModelScore`.
 
+**Incremental NAV Ingestion (key feature):**  
+The pipeline is smart about NAV downloads:
+- **Existing fund** (has NAV history in DB): calls `GET /mf/{code}?startDate=<last_date+1>&endDate=<today>` — only new rows are downloaded. On a daily re-run this is typically 1-2 rows per fund.
+- **New fund** (no history in DB) or `--force-nav`: downloads full history.
+- **Empty incremental response** (no new trading days since last date): counted as success, not an error.
+
 **Features:**
 - **Retry Phase:** At the end of the main loop, any fund that failed NAV or Metadata fetching during the run is automatically retried once more with a short pause between retries.
 - **Failure Report:** After the retry phase, any funds that still failed are written to `media/reports/failed_funds_report.json` with the AMFI code, fund name, and specific error reason — giving you full visibility over data gaps.
@@ -69,9 +78,9 @@ python manage.py populate_benchmark_returns
 - `--skip-analytics`: Skip computing the heavy math metrics.
 - `--skip-model-score`: Skip calculating the 100-point fund score.
 - `--skip-home-dashboard`: By default, this command triggers the home dashboard update at the end. Use this flag to prevent that.
-- `--force-nav`: Force re-download of NAVs even if local DB is recent.
+- `--force-nav`: Force re-download of **full** NAV history (ignores incremental logic). Useful after DB reset.
 - `--force-metadata`: Force re-download of metadata even if recent.
-- **`--resume`**: ✅ **Skip funds already processed.** Checks `FundScreenerSnapshot.updated_at`; skips any fund whose snapshot is newer than `--resume-hours` (default 24h). **Use this when you restart after a Ctrl+C interruption.** Funds are always processed in `amfi_code` order so this is deterministic.
+- **`--resume`**: Skip funds already processed. Checks `FundScreenerSnapshot.updated_at`; skips any fund whose snapshot is newer than `--resume-hours` (default 24h). **Use this when you restart after a Ctrl+C interruption.** Funds are always processed in `amfi_code` order so this is deterministic.
 - **`--resume-hours=N`**: Window in hours for resume detection (default 24). Set to 48 if the run spans multiple days.
 - **`--start-from=CODE`**: Skip all funds with `amfi_code < CODE`. Use when you know exactly which AMFI code was interrupted on (check the last log line before interruption).
 
@@ -90,6 +99,9 @@ python manage.py populate_screener --start-from=153000
 
 # Run only analytics (re-use existing NAV + metadata)
 python manage.py populate_screener --skip-nav --skip-metadata
+
+# Re-fetch full NAV history for all funds (e.g. after DB reset)
+python manage.py populate_screener --force-nav
 ```
 
 ### 5. `populate_home_dashboard`
@@ -139,16 +151,50 @@ See `documentation/LEARN_CONTENT.md` for the full metadata format.
 
 ## Daily Operations Workflow
 
-For a production environment, set up a cron job or background scheduler to run these commands every night at ~11:00 PM IST (when AMFI and mfapi update):
+For a production environment the nightly pipeline runs automatically via **django-q2** as a single unified task (`daily_full_pipeline`). The scheduled task in `config/settings/dev.py` runs at **02:00 IST daily** (AMFI and mfapi.in publish NAV by ~01:30 IST).
 
-1. `python manage.py ingest_benchmarks`
-2. `python manage.py populate_benchmark_returns`
-3. `python manage.py populate_screener`
-4. `python manage.py sync_content` — only when Learn resources or blog files change
+**Automated flow (via `daily_pipeline_task.py`):**
+1. `populate_screener` — incremental NAV + metadata + analytics + home dashboard (the master pipeline)
+2. `ingest_benchmarks` — incremental benchmark NAV sync
+3. `populate_benchmark_returns` — benchmark trailing/rolling stats
+
+**Manual one-time execution** (run once per the order below):
+```bash
+# Step 1 — Fund pipeline (NAV, metadata, analytics, dashboard)
+python manage.py populate_screener
+
+# Step 2 — Benchmark data
+python manage.py ingest_benchmarks
+
+# Step 3 — Benchmark computed returns
+python manage.py populate_benchmark_returns
+
+# Optionally re-sync Learn content when files change
+python manage.py sync_content
+```
 
 *Because `populate_screener` handles its own orchestration, it will automatically compute the analytics, build the scores, and cascade into `populate_home_dashboard` at the very end.*
 
+> [!TIP]
+> On daily runs, `populate_screener` typically completes much faster than the initial full run because the incremental NAV logic only downloads 1-2 new NAV rows per fund instead of thousands of historical rows.
+
 ---
+
+## Data Integrity Guardrails
+
+The pipeline implements strict arithmetic overflow protection to prevent `decimal.InvalidOperation` errors when saving to Django `DecimalField` columns:
+
+| Location | Protection |
+|---|---|
+| `apps/analytics/engine.py` — `_sn()` | All metrics passed through this guard before ORM save. Returns `None` for NaN, Inf, or values outside `[-9999, 9999]`. |
+| `apps/analytics/engine.py` — `_compute_rolling_returns` | NumPy mask clips CAGRs to `[-9999, 9999]` before statistics are computed. |
+| `apps/analytics/engine.py` — `_compute_calendar_returns` | Benchmark series is clipped to fund's last NAV date to prevent spurious future-date returns. |
+| `apps/analytics/engine.py` — `_compute_trailing_returns` | Benchmark clipped to `today` (fund's last NAV date) before CAGR calculation. |
+| `apps/funds/screener.py` — `_decimal()` | Dynamic bounds based on field's `max_digits/decimal_places`. Large fields (AUM Cr, NAV, lump_min, sip_min) use `max_digits=12` — not the default 8. |
+| `apps/benchmarks/management/commands/populate_benchmark_returns.py` — `_decimal()` | `math.isfinite()` check before Decimal conversion. |
+
+> [!IMPORTANT]
+> **Large-value decimal fields** — `aum_cr`, `nav_latest`, `sip_min`, and `lump_min` — have `max_digits=12` in the model. The `_decimal()` helper **must** be called with explicit `max_digits=12, decimal_places=2` for these fields, not the default `max_digits=8`. This is already done correctly in `screener.py` as of the v2.0 precision audit.
 
 ## Data Pipeline Diagram
 
@@ -203,15 +249,14 @@ When running `populate_screener`, you will see various WARNING/INFO messages. He
 |---|---|---|---|
 | `Nifty Indices chunk skipped for X ... Expecting value: line 1 column 2` | INFO | The NiftyIndices.com API returned non-JSON (HTML error page) for that historical date range. Typically happens for debt indices before ~2015 which didn't exist yet. | ❌ None — aborts after 3 consecutive failures |
 | `Nifty Indices deadline exceeded for X, aborting chunk loop` | INFO | The per-benchmark fetch time limit was hit. Falls back to Yahoo Finance. | ❌ None — expected fallback |
-| `[captnemo] Attempt N/5 failed (HTTP 0): ...` | WARNING | captnemo.in returned no HTTP response (connection reset / rate limit). Already retrying up to 5× with backoff. | ❌ None — analytics proceeds from existing DB NAV |
-| `[captnemo] All 5 retries failed` | WARNING | captnemo.in fully failed for this fund. Will be queued for end-of-run retry phase. | ❌ None — retry phase handles it |
-| `[AMFI] snapshot error: [<class 'decimal.InvalidOperation'>]` | ERROR | **FIXED** — was caused by `float('nan')` passed to a Django DecimalField. Now all float values are sanitised via `_sn()` before save. | ✅ Fixed in engine.py |
-| `[AMFI] model score compute failed: [<class 'decimal.InvalidOperation'>]` | WARNING | Same root cause as above. | ✅ Fixed in engine.py |
-| `risk_metrics failed: ['"nan" value must be a decimal number.']` | ERROR | Same root cause — `std_dev_ann` was NaN when std() of a single-value series was undefined. | ✅ Fixed in engine.py |
-| `[AMFI] mfapi.in fetch failed: Read timed out` | WARNING | mfapi.in API timed out (15s). Automatically falls back to mftool for NAV. Also queued for end-of-run retry. | ❌ None — retry phase handles it |
-| `Fund has short history (N days) — computing partial analytics` | INFO | Fund is too new (<252 trading days of NAV). Partial analytics computed; unsupported periods stored as null. | ❌ None — expected for new funds |
+| `[captnemo] Attempt 1/1 failed (HTTP 0): ...` | WARNING | captnemo.in dropped the connection (ISIN not in their platform). Already trying AMFI-code fallback. | ❌ None — 1 retry by design; AMFI fallback runs next |
+| `[captnemo] All 2 retries failed` | WARNING | captnemo.in fully failed for this fund via AMFI-code endpoint too. Will be queued for end-of-run retry phase. | ❌ None — retry phase handles it |
+| `[AMFI] snapshot error: database is locked` | ERROR | Two processes writing to SQLite simultaneously. Transient — retried automatically. | ❌ None — run commands sequentially to prevent |
+| `[AMFI] mfapi.in full fetch failed: Read timed out` | WARNING | mfapi.in API timed out (15s). Automatically falls back to mftool for NAV. Also queued for end-of-run retry. | ❌ None — retry phase handles it |
+| `Fund has short history (N days) — computing partial analytics` | INFO | Fund is too new (<252 trading days of NAV). Partial analytics computed; unsupported periods stored as null. | ❌ None — expected for new/interval funds |
 | `Retrying N failed funds...` | WARNING | End-of-run retry phase starting. | ❌ None — automatic |
 | `Final failed funds: N → Saved to media/reports/failed_funds_report.json` | ERROR | N funds could not be fetched even after retry. Check the JSON report to see which funds and why. | ⚠️ Review report if N is large |
+| `Nifty Indices mapping fetch failed for X: getaddrinfo failed` | INFO | CDN subdomain `iislliveblob.niftyindices.com` not resolving. Non-critical — index name lookup only. All subsequent calls skip immediately (CDN cache). | ❌ None — cached after first failure |
 
 ---
 
@@ -245,8 +290,9 @@ Use this file to:
 
 ## Troubleshooting
 
-- **Rate Limits (mfapi / captnemo):** The pipeline has 5-retry exponential backoff for Captnemo. If you get persistent 429 errors, run during off-peak hours or increase `--resume-hours`.
-- **Missing Benchmarks in Rolling Charts:** If an index (e.g., `NIFTYGSCOMPOSITE.NS`) is missing data on Yahoo Finance, the `ingest_benchmarks` script skips it. The platform frontend automatically falls back to proxy benchmarks (like Nifty 50 or NIFTY COMPOSITE DEBT INDEX) with UI alerts.
+- **Rate Limits (mfapi / captnemo):** The pipeline has exponential backoff for Captnemo (1 retry for ISIN lookups, 2 for AMFI-code lookups). Connection drops (HTTP 0) are handled with a 2-second retry cap instead of long exponential waits. If you get persistent failures, run during off-peak hours.
+- **Missing Benchmarks in Rolling Charts:** If an index is missing data on Yahoo Finance and nselib, the `ingest_benchmarks` script skips it. The platform frontend automatically falls back to proxy benchmarks (like Nifty 50 or NIFTY COMPOSITE DEBT INDEX) with UI alerts. This is expected for all 10 debt duration indices.
+- **Debt Index Benchmarks:** NIFTY CORPORATE BOND INDEX and other debt indices cannot be fetched via nselib (NSE API returns empty data for these). Analytics falls back to NIFTY 50 proxy with a UI note. This is documented, expected behaviour.
 - **SQLite Database Locks:** If you run multiple heavy pipelines simultaneously on SQLite, you may encounter `database is locked` errors. Run commands sequentially. Use PostgreSQL for production.
 - **OneDrive-backed SQLite files:** If `db.sqlite3` is inside OneDrive and a migration leaves a hot `db.sqlite3-journal`, Django may show `sqlite3.OperationalError: disk I/O error`. Close runserver/Python processes and allow OneDrive to finish syncing before retrying `migrate`; do not delete the journal unless you have a database backup or are comfortable rebuilding the local DB.
 - **Interrupted `populate_screener` run:** Use `--resume` flag on the next run to skip already-processed funds. Alternatively use `--start-from=<last_amfi_code>` from the last log line.

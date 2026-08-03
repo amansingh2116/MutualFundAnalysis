@@ -2,9 +2,14 @@
 Management command: populate_screener
 ======================================
 All-in-one pipeline command that:
-  1. Fetches full NAV history from mfapi.in AND saves scheme_category from meta block
+  1. Fetches INCREMENTAL NAV history from mfapi.in (only new rows since last DB date)
+       - Existing funds: uses ?startDate=<last_db_date+1>&endDate=<today> endpoint
+       - New funds (no history): fetches full history + meta block for category/ISIN
+       - This means on subsequent runs only a few new rows are downloaded per fund,
+         not thousands of historical rows re-downloaded and then discarded.
   2. Runs ingest_metadata (captnemo.in) for expense_ratio, AUM, fund_manager, start_date
-     with rate limiting and automatic fallback to mftool if captnemo fails
+     with rate limiting and automatic fallback to mftool if captnemo fails.
+     Metadata staleness is checked per-fund (re-fetched if older than METADATA_STALE_DAYS).
   3. Computes all analytics (trailing returns, rolling returns, risk metrics) from NAV
   4. Builds/refreshes the FundScreenerSnapshot
   5. Computes and saves the full model score (FundModelScore) using DB-only portfolio data
@@ -20,7 +25,7 @@ Usage:
     python manage.py populate_screener --skip-analytics       (skip compute_all_metrics)
     python manage.py populate_screener --skip-model-score     (skip FundModelScore compute)
     python manage.py populate_screener --skip-home-dashboard  (skip populate_home_dashboard)
-    python manage.py populate_screener --force-nav            (re-fetch NAV even if up to date)
+    python manage.py populate_screener --force-nav            (re-fetch full NAV history)
     python manage.py populate_screener --force-metadata       (re-fetch metadata even if fresh)
     python manage.py populate_screener --resume               (skip already-processed funds)
     python manage.py populate_screener --resume-hours=24      (resume window in hours, default 24)
@@ -158,7 +163,7 @@ class Command(BaseCommand):
                     self.stdout.write(f"  [{index}/{total}] resuming — {len(already_done)} skipped so far")
                 continue
 
-            # ── 1. NAV ingestion ──────────────────────────────────────────────
+            # ── 1. NAV ingestion (incremental) ────────────────────────────────
             if not skip_nav:
                 try:
                     latest_date = (
@@ -166,13 +171,25 @@ class Command(BaseCommand):
                         .aggregate(Max("date"))["date__max"]
                     )
                     if force_nav or not latest_date or latest_date < today:
-                        history, meta_block = _fetch_nav_and_meta(amfi_adapter, scheme.amfi_code)
+                        # Determine fetch mode:
+                        #   - New fund (no history) or --force-nav → full history + meta block
+                        #   - Existing fund → incremental: only rows after latest_date
+                        is_full_fetch = force_nav or not latest_date
+                        since_date = None if is_full_fetch else latest_date
+
+                        history, meta_block = _fetch_nav_incremental(
+                            amfi_adapter, scheme.amfi_code, since_date=since_date
+                        )
+
                         if history:
-                            cutoff = latest_date if (latest_date and not force_nav) else date(1990, 1, 1)
                             new_rows = []
                             for entry in history:
                                 entry_date = parse_amfi_date(entry.get("date", ""))
-                                if not entry_date or entry_date <= cutoff:
+                                if not entry_date:
+                                    continue
+                                # On a full fetch, skip any row on-or-before the latest_date
+                                # (safety guard; shouldn't be needed for incremental)
+                                if not is_full_fetch and latest_date and entry_date <= latest_date:
                                     continue
                                 try:
                                     nav_val = float(entry["nav"])
@@ -193,17 +210,22 @@ class Command(BaseCommand):
                             # Refresh in-memory for downstream steps
                             scheme.refresh_from_db()
 
-                        # Save scheme_category from mfapi meta if currently blank
+                        # Save scheme_category/ISIN from mfapi meta block.
+                        # meta_block is only populated on full-history fetches
+                        # (date-range requests don't return the meta block).
                         if meta_block:
                             _update_scheme_from_mfapi_meta(scheme, meta_block)
-                            
-                        if not history:
+
+                        # For incremental fetches: empty result means no new trading days
+                        # since last DB date — this is perfectly valid (weekend/holiday).
+                        # Only flag as error on a full fetch (new fund) that returns nothing.
+                        if not history and is_full_fetch:
                             failed_nav_amfis.add(scheme.amfi_code)
                             nav_err += 1
                         else:
-                            nav_ok += 1
+                            nav_ok += 1  # incremental empty = already up-to-date
                     else:
-                        nav_ok += 1  # already up to date
+                        nav_ok += 1  # latest_date >= today, nothing to do
                 except Exception as exc:
                     failed_nav_amfis.add(scheme.amfi_code)
                     nav_err += 1
@@ -300,17 +322,24 @@ class Command(BaseCommand):
                 scheme = Scheme.objects.get(amfi_code=amfi_code)
                 error_reasons = []
                 
-                # Retry NAV
+                # Retry NAV — use incremental if we have partial history, full if not
                 if amfi_code in failed_nav_amfis:
                     try:
-                        history, _ = _fetch_nav_and_meta(amfi_adapter, amfi_code)
+                        latest_date = (
+                            NAVHistory.objects.filter(scheme=scheme)
+                            .aggregate(Max("date"))["date__max"]
+                        )
+                        history, meta_block = _fetch_nav_incremental(
+                            amfi_adapter, amfi_code, since_date=latest_date
+                        )
                         if history:
-                            # We just fetch. Since it failed completely before, we don't have to worry about partial cutoff matching as heavily here, 
-                            # but let's do a simple bulk create.
                             new_rows = []
                             for entry in history:
                                 entry_date = parse_amfi_date(entry.get("date", ""))
-                                if not entry_date: continue
+                                if not entry_date:
+                                    continue
+                                if latest_date and entry_date <= latest_date:
+                                    continue
                                 try:
                                     nav_val = float(entry["nav"])
                                     if nav_val > 0:
@@ -321,6 +350,8 @@ class Command(BaseCommand):
                                 NAVHistory.objects.bulk_create(new_rows, ignore_conflicts=True)
                                 latest_entry = sorted(new_rows, key=lambda r: r.date)[-1]
                                 Scheme.objects.filter(pk=scheme.pk).update(nav_latest=latest_entry.nav, nav_date=latest_entry.date)
+                            if meta_block:
+                                _update_scheme_from_mfapi_meta(scheme, meta_block)
                             failed_nav_amfis.remove(amfi_code)
                         else:
                             error_reasons.append("NAV fetch returned empty")
@@ -392,23 +423,58 @@ class Command(BaseCommand):
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def _fetch_nav_and_meta(adapter: AMFIAdapter, amfi_code: str):
+def _fetch_nav_incremental(adapter: AMFIAdapter, amfi_code: str, since_date=None):
     """
-    Fetch NAV history + meta block from mfapi.in in one request.
-    Returns (history_list, meta_dict).
+    Fetch NAV history from mfapi.in, incrementally when possible.
+
+    Args:
+        adapter:    AMFIAdapter instance (used for mftool fallback).
+        amfi_code:  AMFI scheme code.
+        since_date: If provided (a date object), fetches only rows AFTER this date
+                    using the mfapi date-range endpoint:
+                    GET /mf/{code}?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+                    Note: the date-range endpoint does NOT return a meta block.
+                    If None, fetches full history (returns meta block too).
+
+    Returns:
+        (history_list, meta_dict)
+        history_list: list of {'date': 'DD-MM-YYYY', 'nav': '...'}
+        meta_dict:    dict from mfapi meta block, or {} for incremental fetches.
     """
     import requests
-    url = f"https://api.mfapi.in/mf/{amfi_code}"
-    try:
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("data", []), data.get("meta", {})
-    except Exception as exc:
-        logger.warning(f"[{amfi_code}] mfapi.in fetch failed: {exc}")
-        # Fallback to mftool for NAV only
-        history = adapter.fetch_nav_history_mftool(amfi_code)
-        return history, {}
+    from datetime import date as _date, timedelta
+
+    today_str = _date.today().strftime("%Y-%m-%d")
+
+    if since_date is not None:
+        # Incremental: request only rows from (since_date + 1) to today
+        start_str = (since_date + timedelta(days=1)).strftime("%Y-%m-%d")
+        url = f"https://api.mfapi.in/mf/{amfi_code}?startDate={start_str}&endDate={today_str}"
+        try:
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            history = data.get("data", [])
+            # Date-range endpoint does not return meta block — return empty dict
+            return history, {}
+        except Exception as exc:
+            logger.warning(f"[{amfi_code}] mfapi.in incremental fetch failed: {exc}")
+            # Fallback: full mftool fetch; caller will filter by since_date
+            history = adapter.fetch_nav_history_mftool(amfi_code)
+            return history, {}
+    else:
+        # Full fetch: returns both NAV history and meta block
+        url = f"https://api.mfapi.in/mf/{amfi_code}"
+        try:
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("data", []), data.get("meta", {})
+        except Exception as exc:
+            logger.warning(f"[{amfi_code}] mfapi.in full fetch failed: {exc}")
+            # Fallback to mftool for NAV only
+            history = adapter.fetch_nav_history_mftool(amfi_code)
+            return history, {}
 
 
 def _update_scheme_from_mfapi_meta(scheme, meta_block: dict):

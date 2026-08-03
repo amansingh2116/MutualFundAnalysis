@@ -38,12 +38,12 @@
 ---
 
 ### 3. 🔍 Fund Research, Screener & Analytics
-- **Complete Indian Universe**: Browse and evaluate **2,000+ Direct Growth Mutual Funds** and **300+ ETFs** with real-time AMFI cache fallbacks.
-- **6-Pillar Quantitative Scoring Engine (0–100)**: Evaluates Performance (30%), Risk & Stability (25%), Cost Efficiency (15%), Portfolio Composition (15%), Manager Quality (15%), and Debt Quality (10% for hybrid/debt).
-- **Macro Stress Testing**: Simulates fund behavior across 6 major historical market crashes (2024–25 Tariff Shock, COVID-19 Crash, 2022 Rate Hikes, 2018 IL&FS, 2015 China Slowdown, 2008 GFC).
-- **Market-Regime Analysis**: Evaluates performance across 5 economic cycles (Bull, Bear, Sideways, High Inflation, Rate Cut).
-- **Quartile & Peer Rankings**: Dynamic sub-category peer ranking computed on-the-fly.
-- **Advanced Quant Suite**: 9 technical indicators, 5 pivot systems, 500-path Monte Carlo simulations, VaR/CVaR risk matrices, Ensemble & ARIMA/XGBoost/LSTM return forecasting, and GARCH volatility models.
+- **Complete Indian Universe:** Browse and evaluate **~2,000+ Direct Growth Mutual Funds** and **~300+ ETFs** with real-time AMFI cache fallbacks. All data is scoped strictly to Direct Growth + ETF plans — regular, IDCW, and dividend options are excluded platform-wide.
+- **6-Pillar Quantitative Scoring Engine (0–100):** Evaluates Performance (30%), Risk & Stability (25%), Cost Efficiency (15%), Portfolio Composition (15%), Manager Quality (15%), and Debt Quality (10% for hybrid/debt).
+- **Macro Stress Testing:** Simulates fund behavior across 6 major historical market crashes (2024–25 Tariff Shock, COVID-19 Crash, 2022 Rate Hikes, 2018 IL&FS, 2015 China Slowdown, 2008 GFC).
+- **Market-Regime Analysis:** Evaluates performance across 5 economic cycles (Bull, Bear, Sideways, High Inflation, Rate Cut).
+- **Quartile & Peer Rankings:** Dynamic sub-category peer ranking computed on-the-fly.
+- **Advanced Quant Suite:** 9 technical indicators, 5 pivot systems, 500-path Monte Carlo simulations, VaR/CVaR risk matrices, Ensemble & ARIMA/XGBoost/LSTM return forecasting, and GARCH volatility models.
 - *See [SCREENER.md](documentation/SCREENER.md) and [ADVANCED_ANALYSIS.md](documentation/ADVANCED_ANALYSIS.md).*
 
 ---
@@ -86,7 +86,7 @@
 | **PDF Generation** | Google Chrome Headless (`--no-pdf-header-footer` CLI), Django HTML/CSS Paged Media |
 | **Frontend UI** | Django Templates, Vanilla CSS (Custom Design System), Vanilla JS, HTMX |
 | **Database** | SQLite (Development) / PostgreSQL (Production) |
-| **External APIs** | yfinance, FRED API, mfapi.in, Morningstar, AMFI |
+| **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), nselib (benchmark index data), yfinance (equity benchmarks), FRED API (macro), AMFI NAVAll.txt |
 
 ---
 
@@ -145,24 +145,33 @@
 
 ## 🔄 Data Ingestion & Sync Commands
 
-The platform features automated management commands to fetch and calculate data:
+The platform uses management commands to fetch and compute all data. **All commands support incremental updates** — re-running them only downloads/computes what has changed since the last run.
 
 ```bash
-# Sync NAV price series for all funds from mfapi.in
-python manage.py sync_nav
+# 1. Sync benchmark index NAVs (51 equity + debt indices, incremental)
+python manage.py ingest_benchmarks
 
-# Update AMFI fund universe metadata & scheme listings
-python manage.py sync_amfi
+# 2. Compute benchmark trailing/rolling returns (powers Home Dashboard)
+python manage.py populate_benchmark_returns
 
-# Recompute screener snapshots and quantitative scorecards
-python manage.py recompute_screener_snapshots
+# 3. Full fund pipeline: incremental NAV + metadata + analytics + home dashboard
+#    (~minutes per day after the initial full run)
+python manage.py populate_screener
 
-# Update category benchmark snapshots & peer averages
-python manage.py sync_category_snapshots
+# Resume after an interrupted run (skips already-processed funds)
+python manage.py populate_screener --resume
 
-# Fetch macroeconomic metrics from FRED & RBI
-python manage.py sync_macro_fred
+# Start from a specific AMFI code (use last log line after interruption)
+python manage.py populate_screener --start-from=153000
+
+# Rebuild the home page category dashboard manually
+python manage.py populate_home_dashboard
+
+# Sync Learn section content (blogs, PDF guides)
+python manage.py sync_content
 ```
+
+See [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md) for full details, all flags, and daily maintenance workflow.
 
 ---
 

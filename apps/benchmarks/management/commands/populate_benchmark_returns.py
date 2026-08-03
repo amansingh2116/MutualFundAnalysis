@@ -60,7 +60,11 @@ def _decimal(val: float | None) -> Decimal | None:
     if val is None:
         return None
     try:
-        return Decimal(f"{val:.4f}")
+        f = float(val)
+        import math
+        if not math.isfinite(f) or f > 9999.0 or f < -9999.0:
+            return None
+        return Decimal(f"{f:.4f}")
     except Exception:
         return None
 

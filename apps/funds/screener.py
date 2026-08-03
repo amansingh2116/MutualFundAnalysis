@@ -124,6 +124,7 @@ def refresh_snapshot_for_scheme(scheme):
     trailing_si  = latest_trailing.get("SI")
     rolling_3y = latest_rolling.get("3Y")
     rolling_5y = latest_rolling.get("5Y")
+    rolling_7y = latest_rolling.get("7Y")
 
     rolling_returns_json = {}
     for period in ("1Y", "3Y", "5Y", "7Y"):
@@ -277,8 +278,8 @@ def refresh_snapshot_for_scheme(scheme):
     fund_manager_str   = getattr(meta, "fund_manager",       "") or ""
     crisil_rating_str  = getattr(meta, "crisil_rating",      "") or ""
     lock_in_days_val   = getattr(meta, "lock_in_period",     None)
-    sip_min_val        = _decimal(getattr(meta, "sip_min",   None))
-    lump_min_val       = _decimal(getattr(meta, "lump_min",  None))
+    sip_min_val        = _decimal(getattr(meta, "sip_min",   None), max_digits=12, decimal_places=2)
+    lump_min_val       = _decimal(getattr(meta, "lump_min",  None), max_digits=12, decimal_places=2)
     pturnover_val      = _decimal(getattr(meta, "portfolio_turnover", None))
     sip_available_val  = getattr(meta, "sip_available", None)
 
@@ -315,9 +316,9 @@ def refresh_snapshot_for_scheme(scheme):
             "benchmark_type":      benchmark_type,
             "benchmark_name":      benchmark_name,
             "risk_label":          risk_label(volatility),
-            "aum_cr":              _decimal(scheme.aum_cr or getattr(meta, "aum", None)),
-            "expense_ratio":       _decimal(scheme.expense_ratio or getattr(meta, "expense_ratio", None)),
-            "fund_age_years":      fund_age_years,
+            "aum_cr":              _decimal(scheme.aum_cr or getattr(meta, "aum", None), max_digits=12, decimal_places=2),
+            "expense_ratio":       _decimal(scheme.expense_ratio or getattr(meta, "expense_ratio", None), max_digits=5, decimal_places=2),
+            "fund_age_years":      _decimal(fund_age_years, max_digits=5, decimal_places=1),
             # ── Returns ──────────────────────────────────────────────────────
             "returns_1y_pct":      _decimal(getattr(trailing_1y, "cagr_pct", None) or getattr(meta, "returns_1y", None)),
             "returns_3y_pct":      _decimal(getattr(trailing_3y, "cagr_pct", None) or getattr(meta, "returns_3y", None)),
@@ -382,6 +383,11 @@ def refresh_snapshot_for_scheme(scheme):
             "port_top5_concentration": port_top5,
             "port_top10_concentration":port_top10,
             "category_st_dev":         category_st_dev,
+            # ── Rolling return min values (worst rolling window) ───────────────
+            "rolling_return_7y_pct":   _decimal(getattr(rolling_7y, "mean_pct", None)),
+            "rolling_min_3y_pct":      _decimal(getattr(rolling_3y, "min_pct", None)),
+            "rolling_min_5y_pct":      _decimal(getattr(rolling_5y, "min_pct", None)),
+            "rolling_min_7y_pct":      _decimal(getattr(rolling_7y, "min_pct", None)),
             # ── Short-period returns from SchemeMeta ──────────────────────────
             "returns_1w_pct":      _decimal(getattr(meta, "returns_1w", None)),
             "returns_1m_pct":      _decimal(getattr(meta, "returns_1m", None)),
@@ -397,7 +403,7 @@ def refresh_snapshot_for_scheme(scheme):
             "lump_min":            lump_min_val,
             "portfolio_turnover":  pturnover_val,
             "sip_available":       sip_available_val,
-            "nav_latest":          _decimal(scheme.nav_latest),
+            "nav_latest":          _decimal(scheme.nav_latest, max_digits=12, decimal_places=4),
             # ── Model score ───────────────────────────────────────────────────
             "model_score":         model_score_val,
             "model_score_badge":   model_badge_val,
@@ -433,7 +439,13 @@ def classify_scheme(category: str, scheme_name: str) -> tuple[str, str]:
     inferred = infer_category(scheme_name)
     if inferred:
         return classify_scheme(inferred, "")
-    return "Other", _clean_sub_category(category, "Other") or "Other"
+    # Only store a sub_category we actually recognise; otherwise leave it blank
+    # so funds don't pollute the screener with junk categories like "1194 DAYS"
+    cleaned = _clean_sub_category(category, "Other")
+    known_labels = {label for label, _, _ in SUB_CATEGORY_PATTERNS}
+    if cleaned in known_labels:
+        return "Other", cleaned
+    return "Other", ""
 
 
 def classify_benchmark(benchmark_name: str) -> str:
@@ -550,12 +562,19 @@ def _compute_current_drawdown(scheme) -> Decimal | None:
     return _decimal((float(latest) - float(peak)) / float(peak) * 100)
 
 
-def _decimal(value) -> Decimal | None:
+def _decimal(value, max_digits=8, decimal_places=4) -> Decimal | None:
     if value in ("", None):
         return None
     try:
         val = Decimal(str(value))
         if val.is_nan() or val.is_infinite():
+            return None
+        max_int_digits = max_digits - decimal_places
+        if max_int_digits <= 0:
+            limit = Decimal("0.9999")
+        else:
+            limit = Decimal(10 ** max_int_digits) - Decimal("0." + "0" * max(0, decimal_places - 1) + "1")
+        if val > limit or val < -limit:
             return None
         return val
     except (InvalidOperation, TypeError, ValueError):
@@ -721,12 +740,23 @@ def compute_quartile_ranks_for_category(sub_category: str) -> int:
         clean = [v for v in vals if v is not None]
         return float(np.mean(clean)) if clean else None
 
-    def _safe_decimal(v):
+    def _safe_decimal(v, max_digits=8, decimal_places=4):
         if v is None:
             return None
         try:
             from decimal import Decimal
-            return Decimal(f"{float(v):.4f}")
+            f = float(v)
+            if not math.isfinite(f):
+                return None
+            val = Decimal(f"{f:.4f}")
+            max_int_digits = max_digits - decimal_places
+            if max_int_digits <= 0:
+                limit = Decimal("0.9999")
+            else:
+                limit = Decimal(10 ** max_int_digits) - Decimal("0." + "0" * max(0, decimal_places - 1) + "1")
+            if val > limit or val < -limit:
+                return None
+            return val
         except Exception:
             return None
 
@@ -809,7 +839,7 @@ def compute_quartile_ranks_for_category(sub_category: str) -> int:
         # Category peer metrics stamped on each fund
         snap.category_alpha_3y      = _safe_decimal(cat_alpha)
         snap.category_beta_3y       = _safe_decimal(cat_beta)
-        snap.category_expense_ratio = _safe_decimal(cat_expense)
+        snap.category_expense_ratio = _safe_decimal(cat_expense, max_digits=5, decimal_places=2)
         snap.category_turnover      = _safe_decimal(cat_turn)
         to_update.append(snap)
 

@@ -31,36 +31,32 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE
 # INTERNAL_IPS = ['127.0.0.1']
 
+
 # ── django-q2 scheduled tasks ────────────────────────────────────────────────
 # These are registered programmatically; run `python manage.py qcluster` to
 # start the worker that picks them up.
+#
+# Daily pipeline covers: NAV ingestion + metadata + analytics + screener +
+#   home dashboard + benchmark ingestion + benchmark returns
 Q_SCHEDULE = [
     {
-        'name': 'daily_nav_ingest',
-        'func': 'apps.tasks.ingest_nav_task.ingest_nav_task',
+        # Full daily data pipeline (all-in-one)
+        # Runs at 02:00 IST daily (NAV is published by ~01:30 IST)
+        'name': 'daily_full_pipeline',
+        'func': 'apps.tasks.daily_pipeline_task.daily_pipeline_task',
         'schedule_type': 'C',
         'cron': '0 2 * * *',      # 02:00 IST daily
         'repeats': -1,
     },
     {
-        'name': 'weekly_metadata_ingest',
+        # Weekly metadata refresh (captnemo.in for expense_ratio, AUM etc.)
+        # populate_screener already refreshes staleness > 7 days, but this
+        # is a dedicated refresh to catch any funds missed during daily run.
+        'name': 'weekly_metadata_refresh',
         'func': 'apps.tasks.ingest_metadata_task.ingest_metadata_task',
         'schedule_type': 'C',
         'cron': '0 3 * * 1',      # 03:00 IST Monday
         'repeats': -1,
     },
-    {
-        'name': 'weekly_benchmarks_ingest',
-        'func': 'apps.tasks.ingest_benchmarks_task.ingest_benchmarks_task',
-        'schedule_type': 'C',
-        'cron': '0 4 * * 0',      # 04:00 IST Sunday
-        'repeats': -1,
-    },
-    {
-        'name': 'nightly_analytics_compute',
-        'func': 'apps.tasks.compute_analytics_task.compute_analytics_task',
-        'schedule_type': 'C',
-        'cron': '0 5 * * *',      # 05:00 IST daily (after NAV ingest)
-        'repeats': -1,
-    },
 ]
+

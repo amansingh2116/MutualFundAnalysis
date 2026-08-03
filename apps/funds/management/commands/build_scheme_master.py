@@ -131,7 +131,12 @@ class Command(BaseCommand):
             if i % 1000 == 0:
                 self.stdout.write(f"  Processed {i}/{len(raw_schemes)}...")
 
+        # Clean up legacy schemes that no longer match the filter
+        valid_amfi_codes = [raw['amfi_code'] for raw in raw_schemes]
+        deleted_count, _ = Scheme.objects.exclude(amfi_code__in=valid_amfi_codes).delete()
+        self.stdout.write(f"  Cleaned up {deleted_count} legacy schemes not matching criteria.")
+
         self.stdout.write(self.style.SUCCESS(
-            f"\nDone! Created: {created_count} | Updated: {updated_count} | Errors: {error_count}"
+            f"\nDone! Created: {created_count} | Updated: {updated_count} | Errors: {error_count} | Deleted: {deleted_count}"
         ))
         self.stdout.write(f"Total schemes in DB: {Scheme.objects.count()}")
