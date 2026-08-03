@@ -23,7 +23,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from adapters.amfi_adapter import AMFIAdapter
 from apps.funds.models import Scheme
-from apps.core.utils import parse_amfi_date, is_direct_scheme, is_growth_scheme, is_etf_scheme
+from apps.core.utils import parse_amfi_date, is_direct_scheme, is_growth_scheme, is_etf_scheme, is_open_ended_scheme
 
 logger = logging.getLogger('mfanalysis')
 
@@ -58,15 +58,16 @@ class Command(BaseCommand):
 
         self.stdout.write(f"  Fetched {len(raw_schemes)} raw scheme rows from AMFI")
 
-        # Strictly filter for Direct Growth OR ETFs (User Request)
+        # Strictly filter for Open-Ended Direct Growth OR ETFs (User Request)
         filtered_schemes = []
         for s in raw_schemes:
             name = s['scheme_name']
-            if is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name)):
+            stype = s.get('scheme_type', '')
+            if is_open_ended_scheme(stype, name) and (is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name))):
                 filtered_schemes.append(s)
         
         raw_schemes = filtered_schemes
-        self.stdout.write(f"  After Direct Growth / ETF filter: {len(raw_schemes)} schemes")
+        self.stdout.write(f"  After Open-Ended Direct Growth / ETF filter: {len(raw_schemes)} schemes")
 
         if limit:
             raw_schemes = raw_schemes[:limit]

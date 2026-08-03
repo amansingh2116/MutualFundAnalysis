@@ -1253,11 +1253,10 @@ def _slug_to_sub_category(slug: str) -> str:
     return ''
 
 
-class ResearchCategoryDetailView(LoginRequiredMixin, TemplateView):
+class ResearchCategoryDetailView(TemplateView):
     """
     Research > Category Deep Dive: Full tabbed analysis for a specific category.
     Tabs: Snapshot (all funds), Returns, Risk, Portfolio (composition), Fees.
-    Requires login.
     """
 
     template_name = 'research/category_detail.html'
@@ -1332,7 +1331,6 @@ class ResearchCategoryDetailView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
-@login_required
 def category_detail_funds_api(request, slug):
     """
     AJAX: GET /research/categories/<slug>/funds/?tab=returns

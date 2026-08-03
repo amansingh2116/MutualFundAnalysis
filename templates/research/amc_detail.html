@@ -183,7 +183,6 @@
   <button class="amc-tab active" onclick="switchTab('funds')">📋 All Funds</button>
   <button class="amc-tab" onclick="switchTab('intel')">🧠 Portfolio Intelligence</button>
   <button class="amc-tab" onclick="switchTab('philosophy')">📐 Philosophy</button>
-  <button class="amc-tab" onclick="switchTab('managers')">👤 Fund Managers</button>
   <button class="amc-tab" onclick="switchTab('categories')">📂 Categories</button>
 </div>
 
@@ -312,19 +311,6 @@
   {% endif %}
 </div>
 
-{# ── Fund Managers Tab ── #}
-<div class="tab-panel" id="panel-managers">
-  <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
-    <h3 style="font-size:15px;font-weight:700;margin:0">{{ metrics.unique_manager_count }} Fund Managers</h3>
-    <input id="mgr-search" type="text" placeholder="Search manager…" oninput="filterManagers(this.value)"
-           style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px;margin-left:auto">
-  </div>
-  <div id="manager-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
-    {# rendered by JS #}
-  </div>
-  <div id="mgr-empty" style="display:none;padding:40px;text-align:center;color:var(--text-muted)">No managers found.</div>
-</div>
-
 {# ── Categories Tab ── #}
 <div class="tab-panel" id="panel-categories">
   <div id="cat-groups-container">
@@ -405,14 +391,13 @@ let activeTab = 'funds';
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.amc-tab').forEach((btn, i) => {
-    const tabs = ['funds','intel','philosophy','managers','categories'];
+    const tabs = ['funds','intel','philosophy','categories'];
     btn.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
 
   if (tab === 'intel') renderPortfolioIntel();
-  if (tab === 'managers') renderManagers('');
   if (tab === 'funds' && !fundsLoaded) loadFundsTab('returns');
 }
 
@@ -650,41 +635,6 @@ function renderPortfolioIntel() {
   }
 }
 
-// ── Managers ──
-function renderManagers(q) {
-  const grid = document.getElementById('manager-grid');
-  const empty = document.getElementById('mgr-empty');
-  const managers = Object.keys(MANAGER_FUNDS).sort();
-  const filtered = q ? managers.filter(m => m.toLowerCase().includes(q.toLowerCase())) : managers;
-
-  if (!filtered.length) {
-    grid.innerHTML = '';
-    empty.style.display = '';
-    return;
-  }
-  empty.style.display = 'none';
-  grid.innerHTML = filtered.map(mgr => {
-    const funds = MANAGER_FUNDS[mgr] || [];
-    return `
-    <div class="manager-card">
-      <div class="manager-avatar">${mgr.charAt(0)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">${mgr}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${funds.length} fund${funds.length!==1?'s':''}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px">
-          ${funds.slice(0,5).map(f => `
-            <a href="/funds/${f.amfi}/" style="font-size:10px;padding:2px 8px;border-radius:12px;background:var(--surface-3);color:var(--text-secondary);text-decoration:none;border:1px solid var(--border)" title="${f.name}">${f.name.replace(/Mutual Fund|Direct|Growth|IDCW/gi,'').trim().slice(0,30)}</a>
-          `).join('')}
-          ${funds.length > 5 ? `<span style="font-size:10px;color:var(--text-muted);padding:2px 4px">+${funds.length-5} more</span>` : ''}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function filterManagers(q) {
-  renderManagers(q);
-}
 
 // ── Initialise ──
 loadFundsTab('returns');

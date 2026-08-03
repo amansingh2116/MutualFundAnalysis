@@ -62,6 +62,7 @@ ROLLING_WINDOWS = {
 
 # Trailing period definitions (label → calendar days)
 TRAILING_PERIODS = {
+    '1W':  7,
     '1M':  30,
     '3M':  91,
     '6M':  182,
@@ -146,7 +147,21 @@ def _load_nav_series(scheme) -> pd.Series:
     df['nav']  = pd.to_numeric(df['nav'], errors='coerce')
     series = df.set_index('date')['nav'].dropna()
     series = series[~series.index.duplicated(keep='last')]
-    return series.sort_index()
+    series = series.sort_index()
+
+    # Detect face value splits (NAV jumping/dropping significantly in a single day)
+    # A single day change > 50% or < -33% is almost certainly a structural change (split/consolidation)
+    # We retroactively scale previous NAVs to match the new face value so returns are unaffected.
+    pct = series.pct_change()
+    jumps = pct[(pct > 0.5) | (pct < -0.33)]
+    for jump_date in jumps.index:
+        idx = series.index.get_loc(jump_date)
+        if idx > 0:
+            ratio = series.iloc[idx] / series.iloc[idx - 1]
+            # Scale all previous NAVs by this ratio
+            series.iloc[:idx] *= ratio
+
+    return series
 
 
 def _load_benchmark_series(scheme, nav: Optional[pd.Series] = None) -> Optional[pd.Series]:
@@ -214,12 +229,12 @@ def _compute_trailing_returns(scheme, nav: pd.Series, bm: Optional[pd.Series]) -
         if len(sub) < 5:
             continue
         years     = days / 365.25
-        fund_cagr = _cagr(sub.iloc[0], sub.iloc[-1], years)
+        fund_cagr = _simple_return(sub.iloc[0], sub.iloc[-1]) if years < 1.0 else _cagr(sub.iloc[0], sub.iloc[-1], years)
         bm_cagr   = None
         if bm_clipped is not None:
             bm_sub = bm_clipped[bm_clipped.index >= cutoff]
             if len(bm_sub) > 5 and (bm_sub.index[-1] - bm_sub.index[0]).days >= int(days * 0.7):
-                bm_cagr = _cagr(bm_sub.iloc[0], bm_sub.iloc[-1], years)
+                bm_cagr = _simple_return(bm_sub.iloc[0], bm_sub.iloc[-1]) if years < 1.0 else _cagr(bm_sub.iloc[0], bm_sub.iloc[-1], years)
 
         excess = (fund_cagr - bm_cagr) if (fund_cagr is not None and bm_cagr is not None) else None
         rows.append(TrailingReturn(

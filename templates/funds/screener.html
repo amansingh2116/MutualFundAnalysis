@@ -34,9 +34,9 @@
         <span>💾 Save Screen</span>
       </button>
 
-      <div class="saved-screens-wrap" id="saved-screens-wrap">
-        <button type="button" class="toolbar-button" id="saved-screens-btn" title="Saved screens">
-          <span>📁 Screens</span>
+      <div class="saved-screens-dropdown">
+        <button type="button" class="toolbar-button saved-screens-trigger" id="saved-screens-btn">
+          🔖 Saved Screens
         </button>
         <div class="saved-screens-menu" id="saved-screens-menu" hidden>
           <div class="saved-screens-title">Saved Screens</div>
@@ -50,7 +50,9 @@
 
   <div class="screener-notice">
     <span class="notice-icon">💡</span>
-    <span>Showing <strong>Direct Growth</strong> mutual funds &amp; ETFs only — no Regular or IDCW plans.
+    <span>Showing <strong>Open-Ended Direct Growth</strong> mutual funds &amp; ETFs only — no Close-Ended, Interval, Regular, or IDCW plans.
+      <a href="{% url 'core:learn_blog_detail' 'open-ended-vs-closed-ended-vs-interval-mutual-funds' %}" target="_blank" rel="noopener">Why Open-Ended?</a>
+      &bull;
       <a href="/learn/resources/blog/direct-vs-regular-mutual-funds/" target="_blank" rel="noopener">Why Direct?</a>
       &bull;
       <a href="/learn/resources/blog/growth-vs-idcw/" target="_blank" rel="noopener">Why Growth?</a>

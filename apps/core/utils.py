@@ -126,6 +126,21 @@ def is_etf_scheme(scheme_name: str) -> bool:
     return 'etf' in scheme_name.lower()
 
 
+def is_open_ended_scheme(scheme_type: str = "", scheme_name: str = "") -> bool:
+    """
+    Detect if a scheme is Open Ended (not Close Ended or Interval).
+    """
+    st = (scheme_type or "").strip().lower()
+    sn = (scheme_name or "").strip().lower()
+    if "close" in st or "interval" in st:
+        return False
+    if "open ended" in st or "open-ended" in st:
+        return True
+    if "close ended" in sn or "closed ended" in sn or "interval" in sn or "fixed maturity plan" in sn or " fmp " in f" {sn} ":
+        return False
+    return True
+
+
 def latest_month_date() -> date:
     """Return the first day of the current month — used for holdings queries."""
     today = date.today()

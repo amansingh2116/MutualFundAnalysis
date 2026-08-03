@@ -4,15 +4,14 @@ This document details the data pipeline architecture for the **MutualFundAnalysi
 
 ## Fund Universe Scope
 
-The platform is strictly scoped to **Direct Growth mutual funds + all ETFs** only:
-- **~2,000+ Direct Growth schemes** — regular plans and IDCW/dividend plans are excluded
-- **~300+ ETFs** — all Exchange Traded Funds regardless of plan name
+The platform is strictly scoped to **Open-Ended Direct Growth mutual funds + all ETFs** only:
+- **~2,280+ Open-Ended Direct Growth schemes & ETFs** — Close-Ended schemes, Interval funds, regular plans, and IDCW/dividend plans are excluded platform-wide
 
 This is enforced at **two layers**:
-1. **`build_scheme_master`** — Only imports schemes matching `is_direct_scheme(name) AND is_growth_scheme(name)` OR `is_etf_scheme(name)` from AMFI's NAVAll.txt. Any scheme that doesn't match is immediately discarded.
-2. **`populate_screener`** — Filters `Q(is_direct=True, plan="GROWTH") | Q(is_etf=True)` before iterating, providing a second hard gate.
+1. **`build_scheme_master`** — Only imports schemes matching `is_open_ended_scheme(stype, name) AND (is_etf_scheme(name) OR (is_direct_scheme(name) AND is_growth_scheme(name)))` from AMFI's NAVAll.txt. Any scheme that doesn't match is immediately discarded.
+2. **`populate_screener`** — Filters `Q(is_direct=True, plan="GROWTH") | Q(is_etf=True)` and excludes `Close Ended` & `Interval` schemes before iterating, providing a second hard gate.
 
-Search, browse, screener, category analysis, calculators, and all tools apply the same filter — **no regular, dividend, or IDCW options are ever shown.**
+Search, browse, screener, category analysis, calculators, and all tools apply the same filter — **no Close-Ended, Interval, regular, dividend, or IDCW options are ever shown.**
 
 ---
 

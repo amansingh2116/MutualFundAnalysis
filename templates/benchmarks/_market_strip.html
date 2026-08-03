@@ -46,9 +46,11 @@
 {# ── Manage / Settings gear ──────────────────── #}
 {% if is_authenticated %}
 <button type="button" class="market-manage-btn" id="market-manage-btn"
-        onclick="openMarketManageModal()" title="Manage metrics in this strip">⚙ Edit</button>
+        onclick="openMarketManageModal()" title="Manage metrics in this strip"
+        style="position:sticky;right:0;z-index:10;background:var(--bg-surface,#0f172a);box-shadow:-16px 0 20px 8px var(--bg-surface,#0f172a);margin-left:auto;border:1px solid rgba(129,140,248,0.4);padding:4px 10px;">⚙ Edit</button>
 {% else %}
-<a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="market-manage-btn" style="text-decoration:none;font-weight:500;"
+<a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="market-manage-btn"
+   style="text-decoration:none;font-weight:500;position:sticky;right:0;z-index:10;background:var(--bg-surface,#0f172a);box-shadow:-16px 0 20px 8px var(--bg-surface,#0f172a);margin-left:auto;border:1px solid rgba(129,140,248,0.4);padding:4px 10px;"
    title="Log in to edit metrics and customize your market strip">⚙ Sign in to edit strip</a>
 {% endif %}
 

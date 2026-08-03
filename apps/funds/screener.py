@@ -47,6 +47,7 @@ SUB_CATEGORY_PATTERNS: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("Overnight Fund", ("overnight",), "Debt"),
     ("Short Duration Fund", ("short duration", "short term"), "Debt"),
     ("Ultra Short Duration Fund", ("ultra short", "ultrashort"), "Debt"),
+    ("Fixed Maturity Plan", ("fixed term", "fixed tenure", "days", "interval", "fmp"), "Debt"),
     ("Contra Fund", ("contra fund",), "Equity"),
     ("Dividend Yield Fund", ("dividend yield",), "Equity"),
     ("ELSS", ("elss", "tax saver", "tax saving"), "Equity"),
@@ -60,6 +61,7 @@ SUB_CATEGORY_PATTERNS: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("Small Cap Fund", ("small cap", "smallcap", "small-cap"), "Equity"),
     ("Value Fund", ("value fund", "value and contra"), "Equity"),
     ("Aggressive Hybrid Fund", ("aggressive hybrid", "equity hybrid"), "Hybrid"),
+    ("Balanced Hybrid Fund", ("balanced hybrid",), "Hybrid"),
     ("Arbitrage Fund", ("arbitrage",), "Hybrid"),
     ("Conservative Hybrid Fund", ("conservative hybrid",), "Hybrid"),
     ("Dynamic Asset Allocation or Balanced Advantage", ("balanced advantage", "dynamic asset allocation"), "Hybrid"),
@@ -389,12 +391,10 @@ def refresh_snapshot_for_scheme(scheme):
             "rolling_min_5y_pct":      _decimal(getattr(rolling_5y, "min_pct", None)),
             "rolling_min_7y_pct":      _decimal(getattr(rolling_7y, "min_pct", None)),
             # ── Short-period returns from SchemeMeta ──────────────────────────
-            "returns_1w_pct":      _decimal(getattr(meta, "returns_1w", None)),
-            "returns_1m_pct":      _decimal(getattr(meta, "returns_1m", None)),
-            "returns_3m_pct":      _decimal(getattr(meta, "returns_3m", None)),
-            "returns_6m_pct":      _decimal(
-                getattr(latest_trailing.get("6M"), "cagr_pct", None)
-            ),
+            "returns_1w_pct":      _decimal(getattr(meta, "returns_1w", None) or getattr(latest_trailing.get("1W"), "cagr_pct", None)),
+            "returns_1m_pct":      _decimal(getattr(meta, "returns_1m", None) or getattr(latest_trailing.get("1M"), "cagr_pct", None)),
+            "returns_3m_pct":      _decimal(getattr(meta, "returns_3m", None) or getattr(latest_trailing.get("3M"), "cagr_pct", None)),
+            "returns_6m_pct":      _decimal(getattr(latest_trailing.get("6M"), "cagr_pct", None)),
             # ── SchemeMeta fund details ───────────────────────────────────────
             "fund_manager":        fund_manager_str,
             "crisil_rating":       crisil_rating_str,
@@ -439,13 +439,8 @@ def classify_scheme(category: str, scheme_name: str) -> tuple[str, str]:
     inferred = infer_category(scheme_name)
     if inferred:
         return classify_scheme(inferred, "")
-    # Only store a sub_category we actually recognise; otherwise leave it blank
-    # so funds don't pollute the screener with junk categories like "1194 DAYS"
     cleaned = _clean_sub_category(category, "Other")
-    known_labels = {label for label, _, _ in SUB_CATEGORY_PATTERNS}
-    if cleaned in known_labels:
-        return "Other", cleaned
-    return "Other", ""
+    return "Other", cleaned
 
 
 def classify_benchmark(benchmark_name: str) -> str:

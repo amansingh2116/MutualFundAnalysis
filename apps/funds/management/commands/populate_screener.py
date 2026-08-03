@@ -110,6 +110,7 @@ class Command(BaseCommand):
         qs = Scheme.objects.filter(is_active=True).order_by("amfi_code")
         if direct_growth_only:
             qs = qs.filter(Q(is_direct=True, plan="GROWTH") | Q(is_etf=True))
+            qs = qs.exclude(Q(scheme_type__icontains="close") | Q(scheme_type__icontains="interval"))
         if amfi_code:
             qs = qs.filter(amfi_code=amfi_code)
         if start_from:

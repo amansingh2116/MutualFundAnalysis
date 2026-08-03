@@ -38,7 +38,7 @@
 ---
 
 ### 3. 🔍 Fund Research, Screener & Analytics
-- **Complete Indian Universe:** Browse and evaluate **~2,000+ Direct Growth Mutual Funds** and **~300+ ETFs** with real-time AMFI cache fallbacks. All data is scoped strictly to Direct Growth + ETF plans — regular, IDCW, and dividend options are excluded platform-wide.
+- **Complete Indian Universe:** Browse and evaluate **~2,280+ Open-Ended Direct Growth Mutual Funds and ETFs** with real-time AMFI cache fallbacks. All data is scoped strictly to Open-Ended Direct Growth + ETF plans — Close-Ended, Interval, Regular, IDCW, and dividend options are excluded platform-wide.
 - **6-Pillar Quantitative Scoring Engine (0–100):** Evaluates Performance (30%), Risk & Stability (25%), Cost Efficiency (15%), Portfolio Composition (15%), Manager Quality (15%), and Debt Quality (10% for hybrid/debt).
 - **Macro Stress Testing:** Simulates fund behavior across 6 major historical market crashes (2024–25 Tariff Shock, COVID-19 Crash, 2022 Rate Hikes, 2018 IL&FS, 2015 China Slowdown, 2008 GFC).
 - **Market-Regime Analysis:** Evaluates performance across 5 economic cycles (Bull, Bear, Sideways, High Inflation, Rate Cut).

@@ -1,6 +1,6 @@
 # Fund Screener — Feature Guide & Developer Reference
 
-The **Mutual Fund Screener** (`/funds/screener/`) is a login-required, full-featured fund discovery tool that lets users filter, sort, and evaluate the complete universe of **Direct Growth mutual funds and all ETFs** (~2,300+ active snapshots) across 30+ metrics.
+The **Mutual Fund Screener** (`/funds/screener/`) is a login-required, full-featured fund discovery tool that lets users filter, sort, and evaluate the complete universe of **Open-Ended Direct Growth mutual funds and all ETFs** (~2,280+ active snapshots) across 30+ metrics.
 
 ---
 

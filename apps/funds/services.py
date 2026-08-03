@@ -47,14 +47,15 @@ def get_amfi_scheme_list() -> list[dict]:
         from adapters.amfi_adapter import AMFIAdapter
         adapter = AMFIAdapter()
         schemes = adapter.fetch_scheme_universe()
-        from apps.core.utils import is_direct_scheme, is_growth_scheme, is_etf_scheme
-        # Keep only the fields we need for search and filter for Direct Growth / ETFs
+        from apps.core.utils import is_direct_scheme, is_growth_scheme, is_etf_scheme, is_open_ended_scheme
+        # Keep only the fields we need for search and filter for Open-Ended Direct Growth / ETFs
         slim = []
         for s in schemes:
             if not s.get('amfi_code'):
                 continue
             name = s['scheme_name']
-            if is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name)):
+            stype = s.get('scheme_type', '')
+            if is_open_ended_scheme(stype, name) and (is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name))):
                 slim.append({
                     'amfi_code':   s['amfi_code'],
                     'scheme_name': s['scheme_name'],

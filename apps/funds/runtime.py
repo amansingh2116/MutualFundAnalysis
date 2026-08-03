@@ -1178,7 +1178,7 @@ def build_meta(scheme: Scheme, mfapi_meta: dict, db_meta: dict, captnemo: dict, 
         data["fetch_source"] = (data.get("fetch_source") or "") + " + yahooquery"
 
     trailing_from_nav = compute_trailing_returns(nav_series, pd.Series(dtype=float))
-    for period, attr in {"1M": "returns_1m", "3M": "returns_3m", "1Y": "returns_1y", "3Y": "returns_3y", "5Y": "returns_5y", "SI": "returns_inception"}.items():
+    for period, attr in {"1W": "returns_1w", "1M": "returns_1m", "3M": "returns_3m", "1Y": "returns_1y", "3Y": "returns_3y", "5Y": "returns_5y", "SI": "returns_inception"}.items():
         if data.get(attr) is None:
             match = next((r for r in trailing_from_nav if r.period == period), None)
             if match:
@@ -1190,7 +1190,7 @@ def build_meta(scheme: Scheme, mfapi_meta: dict, db_meta: dict, captnemo: dict, 
 def compute_trailing_returns(nav: pd.Series, bm: pd.Series) -> list[SimpleNamespace]:
     if nav.empty:
         return []
-    specs = [("1M", 30), ("3M", 91), ("6M", 182), ("1Y", 365), ("2Y", 730), ("3Y", 1095), ("5Y", 1826), ("7Y", 2557), ("10Y", 3652), ("SI", None)]
+    specs = [("1W", 7), ("1M", 30), ("3M", 91), ("6M", 182), ("1Y", 365), ("2Y", 730), ("3Y", 1095), ("5Y", 1826), ("7Y", 2557), ("10Y", 3652), ("SI", None)]
     rows = []
     end_date = nav.index[-1]
     for period, days in specs:
