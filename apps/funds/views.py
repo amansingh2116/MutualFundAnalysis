@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import F, Q, Avg, Count, Sum
 """
 apps/funds/views.py — Core fund views
 """
@@ -1283,7 +1283,7 @@ class ResearchCategoryDetailView(TemplateView):
                 FundScreenerSnapshot.objects
                 .filter(Q(is_direct=True) | Q(is_etf=True), scheme_sub_category=sub_category)
                 .select_related('scheme')
-                .order_by('rank_return_1y', 'fund_name')
+                .order_by(F('rank_return_1y').asc(nulls_last=True), F('aum_cr').desc(nulls_last=True), 'fund_name')
             )
             ctx['funds'] = funds
             ctx['funds_count'] = len(funds)
@@ -1345,7 +1345,7 @@ def category_detail_funds_api(request, slug):
             FundScreenerSnapshot.objects
             .filter(Q(is_direct=True) | Q(is_etf=True), scheme_sub_category=sub_category)
             .select_related('scheme')
-            .order_by('rank_return_1y', 'fund_name')
+            .order_by(F('rank_return_1y').asc(nulls_last=True), F('aum_cr').desc(nulls_last=True), 'fund_name')
         )
         scheme_ids = [f.scheme_id for f in funds]
         score_map = dict(
@@ -1367,73 +1367,68 @@ def category_detail_funds_api(request, slug):
                 alloc_map.setdefault(a.scheme_id, {})[a.sector] = float(a.weight_pct) if a.weight_pct else 0.0
 
         data = []
+        total_funds = len(funds)
         for f in funds:
             score = score_map.get(f.scheme_id)
             badge = badge_map.get(f.scheme_id, '')
+            amfi = f.scheme.amfi_code if f.scheme else ''
             base = {
-                'amfi_code': f.amfi_code,
+                'amfi': amfi,
+                'amfi_code': amfi,
+                'name': f.fund_name,
                 'fund_name': f.fund_name,
+                'house': f.fund_house,
                 'fund_house': f.fund_house,
                 'is_etf': f.is_etf,
                 'score': score,
-                'badge': badge,
+                'badge': badge or f.model_score_badge or 'N/A',
+                'total': f.rank_count_in_cat or total_funds,
+                'rank_1y': f.rank_return_1y,
+                'rank_3y': f.rank_return_3y,
+                'rank_5y': f.rank_return_5y,
                 'returns_1y': _flt(f.returns_1y_pct),
                 'returns_3y': _flt(f.cagr_3y_pct),
                 'returns_5y': _flt(f.returns_5y_pct),
+                'ret_1y': _flt(f.returns_1y_pct),
+                'ret_3y': _flt(f.cagr_3y_pct),
+                'ret_5y': _flt(f.returns_5y_pct),
                 'sharpe': _flt(f.sharpe_ratio),
                 'sortino': _flt(f.sortino_ratio),
                 'alpha': _flt(f.alpha_3y),
                 'beta': _flt(f.beta_3y),
-                'volatility': _flt(f.volatility_1y_pct),
+                'volatility': _flt(f.volatility_3y_pct or f.volatility_1y_pct),
                 'max_drawdown': _flt(f.max_drawdown),
                 'aum': _flt(f.aum_cr),
                 'expense': _flt(f.expense_ratio),
                 'age': _flt(f.fund_age_years),
                 'risk_label': f.risk_label,
+                'info_ratio': _flt(f.info_ratio_3y),
+                'upside_capture': _flt(f.upside_capture_3y),
+                'downside_capture': _flt(f.downside_capture_3y),
+                'excess_cat_1y': _flt(f.excess_cat_1y),
+                'excess_cat_3y': _flt(f.excess_cat_3y),
+                'excess_cat_5y': _flt(f.excess_cat_5y),
+                'turnover': _flt(f.portfolio_turnover),
+                'benchmark': f.benchmark_name or '',
+                'manager': f.fund_manager or '',
             }
-            if tab == 'snapshot':
-                base.update({
-                    'info_ratio': _flt(f.info_ratio_3y),
-                    'upside_capture': _flt(f.upside_capture_3y),
-                    'downside_capture': _flt(f.downside_capture_3y),
-                    'excess_cat_1y': _flt(f.excess_cat_1y),
-                    'manager': f.fund_manager or '',
-                })
-            elif tab == 'returns':
+            if tab == 'returns':
                 base.update({
                     'ret_1w': _flt(f.returns_1w_pct),
                     'ret_1m': _flt(f.returns_1m_pct),
                     'ret_3m': _flt(f.returns_3m_pct),
                     'ret_6m': _flt(f.returns_6m_pct),
-                    'ret_1y': _flt(f.returns_1y_pct),
-                    'ret_2y': _flt(f.cagr_2y_pct),
-                    'ret_3y': _flt(f.cagr_3y_pct),
-                    'ret_5y': _flt(f.returns_5y_pct),
+                    'ret_2y': _flt(getattr(f, 'cagr_2y_pct', None)),
                     'ret_7y': _flt(f.cagr_7y_pct),
                     'ret_10y': _flt(f.cagr_10y_pct),
-                    'rank_1y': f.rank_return_1y,
-                    'rank_3y': f.rank_return_3y,
-                    'rank_5y': f.rank_return_5y,
                     'q_ret_1y': f.quartile_return_1y,
                     'q_ret_3y': f.quartile_return_3y,
                     'q_ret_5y': f.quartile_return_5y,
                     'rolling': f.rolling_returns_json,
                     'calendar': f.calendar_returns_json,
-                    'excess_cat_1y': _flt(f.excess_cat_1y),
-                    'excess_cat_3y': _flt(f.excess_cat_3y),
-                    'excess_cat_5y': _flt(f.excess_cat_5y),
                 })
             elif tab == 'risk':
                 base.update({
-                    'volatility': _flt(f.volatility_3y_pct),
-                    'sharpe': _flt(f.sharpe_ratio),
-                    'sortino': _flt(f.sortino_ratio),
-                    'max_drawdown': _flt(f.max_drawdown),
-                    'alpha': _flt(f.alpha_3y),
-                    'beta': _flt(f.beta_3y),
-                    'upside_capture': _flt(f.upside_capture_3y),
-                    'downside_capture': _flt(f.downside_capture_3y),
-                    'info_ratio': _flt(f.info_ratio_3y),
                     'tracking_error': _flt(f.tracking_error_3y),
                     'q_vol': f.quartile_volatility,
                     'q_sharpe': f.quartile_sharpe,
@@ -1441,41 +1436,18 @@ def category_detail_funds_api(request, slug):
                 })
             elif tab == 'fees':
                 base.update({
-                    'expense': _flt(f.expense_ratio),
-                    'aum': _flt(f.aum_cr),
-                    'age': _flt(f.fund_age_years),
-                    'benchmark': f.benchmark_name,
-                    'manager': f.fund_manager or '',
                     'sip_min': _flt(f.sip_min),
                     'lump_min': _flt(f.lump_min),
                 })
             elif tab == 'portfolio':
                 base.update({
                     'sectors': alloc_map.get(f.scheme_id, {}),
-                    'turnover': _flt(f.portfolio_turnover),
                     'top10_conc': _flt(f.port_top10_concentration),
                     'top5_conc': _flt(f.port_top5_concentration),
                 })
             elif tab == 'intelligence':
-                # For category intelligence tab — return full metrics for rankings
                 base.update({
-                    'sharpe': _flt(f.sharpe_ratio),
-                    'sortino': _flt(f.sortino_ratio),
-                    'alpha': _flt(f.alpha_3y),
-                    'info_ratio': _flt(f.info_ratio_3y),
-                    'upside_capture': _flt(f.upside_capture_3y),
-                    'downside_capture': _flt(f.downside_capture_3y),
-                    'max_drawdown': _flt(f.max_drawdown),
-                    'volatility': _flt(f.volatility_3y_pct),
-                    'expense': _flt(f.expense_ratio),
-                    'turnover': _flt(f.portfolio_turnover),
-                    'ret_1y': _flt(f.returns_1y_pct),
-                    'ret_3y': _flt(f.returns_3y_pct),
-                    'ret_5y': _flt(f.returns_5y_pct),
                     'rolling': f.rolling_returns_json,
-                    'excess_cat_1y': _flt(f.excess_cat_1y),
-                    'excess_cat_3y': _flt(f.excess_cat_3y),
-                    'manager': f.fund_manager or '',
                 })
             data.append(base)
 

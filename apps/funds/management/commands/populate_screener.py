@@ -320,7 +320,11 @@ class Command(BaseCommand):
             time.sleep(2)  # Pause before retry burst
             
             for amfi_code in retry_amfis:
-                scheme = Scheme.objects.get(amfi_code=amfi_code)
+                if not amfi_code:
+                    continue
+                scheme = Scheme.objects.filter(amfi_code=amfi_code).first()
+                if not scheme:
+                    continue
                 error_reasons = []
                 
                 # Retry NAV — use incremental if we have partial history, full if not
