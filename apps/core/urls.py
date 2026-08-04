@@ -6,6 +6,8 @@ app_name = 'core'
 
 urlpatterns = [
     path('register/', views.register_view, name='register'),
+    path('register/verify-email/', views.email_verification_sent_view, name='email_verification_sent'),
+    path('activate/<uidb64>/<token>/', views.activate_view, name='activate'),
     path('learn/resources/', views.learn_resources_view, name='learn_resources'),
     path('learn/resources/guides/', views.learn_pdf_guides_view, name='learn_pdf_guides'),
     path('learn/resources/blogs/', views.learn_blogs_view, name='learn_blogs'),

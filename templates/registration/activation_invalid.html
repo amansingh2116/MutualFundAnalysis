@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Invalid Activation Link — MF Analysis{% endblock %}
+{% block hide_layout %}True{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper" style="min-height: calc(100vh - 150px); background: transparent;">
+  <div class="auth-card" style="max-width:480px;text-align:center">
+    <div style="font-size:52px;margin-bottom:16px">⚠️</div>
+    <h1 class="auth-title" style="margin-bottom:10px">Link Expired or Invalid</h1>
+    <p style="color:var(--text-secondary);font-size:14px;line-height:1.6;margin-bottom:28px">
+      This activation link is no longer valid. It may have already been used,
+      or it may have expired (links are valid for 24 hours).
+    </p>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:24px">
+      Please register again to receive a fresh link.
+    </p>
+    <a href="{% url 'core:register' %}" class="btn btn-primary" style="display:inline-block;margin-bottom:16px">
+      Register Again →
+    </a><br>
+    <a href="{% url 'funds:home' %}" style="color:var(--text-secondary);font-size:12px;text-decoration:none">← Back to Home</a>
+  </div>
+</div>
+{% endblock %}

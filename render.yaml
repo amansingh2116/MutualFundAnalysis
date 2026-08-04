@@ -25,6 +25,21 @@ services:
         value: "False"
       - key: RF_ANNUAL_RATE
         value: "0.065"
+      # ── Email (fill values manually in Render dashboard) ──────────────────
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false   # set this manually — never commit the real password
+      - key: DEFAULT_FROM_EMAIL
+        sync: false   # e.g. noreply@yourdomain.com (must be verified in your SMTP provider)
+      - key: CONTACT_RECIPIENT_EMAIL
+        sync: false   # your personal inbox for contact-form messages
     autoDeploy: true
 
   - type: worker

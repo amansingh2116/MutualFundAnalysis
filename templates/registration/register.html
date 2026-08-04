@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Register{% endblock %}
+{% block title %}Create Account — MF Analysis{% endblock %}
 {% block hide_layout %}True{% endblock %}
 
 {% block content %}
@@ -10,6 +10,12 @@
     </div>
     <h1 class="auth-title">Create account</h1>
     <p class="auth-sub">Free forever. No credit card required.</p>
+
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}" style="margin-bottom:14px">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
 
     {% if form.errors %}
     <div class="alert alert-danger">❌ Please fix the errors below.</div>
@@ -23,8 +29,15 @@
         {% if form.username.errors %}<div class="form-error">{{ form.username.errors.0 }}</div>{% endif %}
       </div>
       <div class="form-group">
-        <label class="form-label">Email (optional)</label>
+        <label class="form-label">
+          Email address
+          <span style="color:var(--danger,#ef4444);margin-left:2px">*</span>
+        </label>
         {{ form.email }}
+        {% if form.email.errors %}<div class="form-error">{{ form.email.errors.0 }}</div>{% endif %}
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+          We'll send a verification link to this address.
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Password</label>
@@ -36,7 +49,9 @@
         {{ form.password2 }}
         {% if form.password2.errors %}<div class="form-error">{{ form.password2.errors.0 }}</div>{% endif %}
       </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">Create Account</button>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">
+        Create Account →
+      </button>
     </form>
 
     <p style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted)">
@@ -48,3 +63,4 @@
   </div>
 </div>
 {% endblock %}
+

@@ -1,0 +1,14 @@
+Activate your MF Analysis account
+===================================
+
+Hi {{ user.username }},
+
+Thanks for signing up for MF Analysis! Please activate your account by clicking the link below:
+
+{{ activate_url }}
+
+This link will expire in 24 hours for your security.
+
+If you did not create an account, you can safely ignore this email.
+
+— The MF Analysis Team

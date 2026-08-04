@@ -27,6 +27,9 @@
         <input class="form-control" type="password" id="id_password" name="password" required placeholder="••••••••">
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">Sign In</button>
+      <p style="text-align:right;margin-top:10px;font-size:12px">
+        <a href="{% url 'password_reset' %}" style="color:var(--text-muted);text-decoration:none">Forgot password?</a>
+      </p>
     </form>
 
     <p style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted)">

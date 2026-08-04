@@ -1,16 +1,22 @@
-"""apps/core/views.py - Shared views including registration."""
+"""apps/core/views.py - Shared views including registration, email verification, and contact."""
 import json
+import logging
 import mimetypes
 from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.db import DatabaseError
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.text import slugify
 
 from .content import (
@@ -32,31 +38,97 @@ from .content import (
     render_blog_markdown,
     resolve_resource_relative,
 )
+from .forms import ContactForm, RegistrationForm
 from .models import LearnBlogPost, LearnPDFGuide
 
+User = get_user_model()
+logger = logging.getLogger('mfanalysis')
 
-class RegisterView:
-    pass
+
+def _send_activation_email(request, user):
+    """Send an email-verification link to newly registered user."""
+    uid   = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    activate_url = request.build_absolute_uri(
+        reverse('core:activate', kwargs={'uidb64': uid, 'token': token})
+    )
+    ctx = {
+        'user':         user,
+        'activate_url': activate_url,
+        'site_name':    'MF Analysis',
+    }
+    subject    = 'Activate your MF Analysis account'
+    text_body  = render_to_string('registration/activation_email.txt',  ctx)
+    html_body  = render_to_string('registration/activation_email.html', ctx)
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user.email],
+    )
+    msg.attach_alternative(html_body, 'text/html')
+    msg.send(fail_silently=False)
 
 
 def register_view(request):
+    """Register a new user. Creates account as inactive; sends activation email."""
     if request.user.is_authenticated:
         return redirect('funds:home')
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, f'Welcome, {user.username}! Your account has been created.')
-            return redirect('funds:home')
-    else:
-        form = UserCreationForm()
 
-    # Style the form fields
+    if request.method == 'POST':
+        form = RegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()  # is_active=False set in form.save()
+            try:
+                _send_activation_email(request, user)
+                logger.info('Activation email sent to %s', user.email)
+            except Exception as exc:
+                logger.error('Failed to send activation email to %s: %s', user.email, exc)
+                # Don't leave a permanently-inactive account if email fails
+                user.delete()
+                messages.error(
+                    request,
+                    'We could not send a verification email. '  
+                    'Please check your email address or try again later.',
+                )
+                return render(request, 'registration/register.html', {'form': form})
+
+            return redirect('core:email_verification_sent')
+    else:
+        form = RegistrationForm()
+
+    # Apply consistent styling to all form widgets
     for field in form.fields.values():
         field.widget.attrs.setdefault('class', 'form-control')
 
     return render(request, 'registration/register.html', {'form': form})
+
+
+def email_verification_sent_view(request):
+    """Shown after registration — tells user to check inbox."""
+    return render(request, 'registration/email_verification_sent.html')
+
+
+def activate_view(request, uidb64, token):
+    """Validate the signed activation link, activate account, and log the user in."""
+    try:
+        uid  = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        login(request, user)
+        messages.success(
+            request,
+            f'Welcome, {user.username}! Your account is now active.',
+        )
+        return redirect('funds:home')
+
+    # Invalid or expired link
+    return render(request, 'registration/activation_invalid.html', status=400)
 
 
 def _asset_url(relative_path):
@@ -452,13 +524,53 @@ def privacy_view(request):
 
 
 def contact_view(request):
-    """Contact page with a simple message form."""
+    """Contact page — validates form and emails the message to the site admin inbox."""
+    form = ContactForm()
     submitted = False
+
     if request.method == 'POST':
-        # No external mail service required — just show success message.
-        submitted = True
-        messages.success(request, "Thanks for reaching out! We'll get back to you shortly.")
-    return render(request, 'legal/contact.html', {'submitted': submitted})
+        form = ContactForm(request.POST)
+        if form.is_valid():
+            name     = form.cleaned_data['name']
+            email    = form.cleaned_data.get('email') or 'not provided'
+            subject_key = form.cleaned_data['subject']
+            subject_labels = dict(ContactForm.SUBJECT_CHOICES)
+            subject_label  = subject_labels.get(subject_key, subject_key)
+            message  = form.cleaned_data['message']
+
+            recipient = getattr(settings, 'CONTACT_RECIPIENT_EMAIL', '')
+            if not recipient:
+                recipient = settings.DEFAULT_FROM_EMAIL
+
+            email_body = (
+                f"New contact message from MF Analysis\n"
+                f"{'=' * 48}\n"
+                f"Name:    {name}\n"
+                f"Email:   {email}\n"
+                f"Subject: {subject_label}\n"
+                f"{'=' * 48}\n\n"
+                f"{message}\n"
+            )
+            try:
+                send_mail(
+                    subject=f'[MF Analysis Contact] {subject_label} — {name}',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[recipient],
+                    fail_silently=False,
+                )
+                submitted = True
+                messages.success(request, "Thanks for reaching out! We'll get back to you shortly.")
+                logger.info('Contact form submitted by %s (%s) — subject: %s', name, email, subject_label)
+            except Exception as exc:
+                logger.error('Contact form email failed: %s', exc)
+                messages.error(
+                    request,
+                    'Sorry, we could not send your message right now. '
+                    'Please try again or email us directly.',
+                )
+
+    return render(request, 'legal/contact.html', {'submitted': submitted, 'form': form})
 
 
 @login_required

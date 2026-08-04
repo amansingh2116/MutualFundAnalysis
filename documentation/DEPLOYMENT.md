@@ -30,6 +30,8 @@ RF_ANNUAL_RATE=0.065
 
 > For `SECRET_KEY`, run this in Python: `import secrets; print(secrets.token_urlsafe(50))`
 
+> **Email in local dev:** Account verification emails, password reset emails, and contact form submissions are all printed to the terminal console (Django `console.EmailBackend`). No SMTP provider or internet connection is needed for local testing.
+
 ### Step 3 — Run database migrations
 
 ```powershell
@@ -109,6 +111,11 @@ In the Render dashboard → your web service → **Environment**:
 | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
 | `DEBUG` | `False` |
 | `ALLOWED_HOSTS` | `.onrender.com` |
+| `EMAIL_HOST` | SMTP host from your provider (e.g. `smtp.sender.net`) |
+| `EMAIL_HOST_USER` | SMTP username from your provider |
+| `EMAIL_HOST_PASSWORD` | SMTP password / API key — **never commit this** |
+| `DEFAULT_FROM_EMAIL` | Verified sender address (e.g. `noreply@yourdomain.com`) |
+| `CONTACT_RECIPIENT_EMAIL` | Your personal inbox for contact-form messages |
 
 > `DATABASE_URL` is automatically set by Render from the linked database.
 
@@ -194,7 +201,11 @@ For the platform to be fast, it computes data in the background rather than when
 
 | Feature | Status |
 |---------|--------|
-| User registration / login | ✅ Working |
+| User registration (email required) | ✅ Working |
+| Email verification on sign-up | ✅ Working (console in dev, SMTP in prod) |
+| User login | ✅ Working |
+| Forgot password / password reset | ✅ Working (console in dev, SMTP in prod) |
+| Contact form → email delivery | ✅ Working (console in dev, SMTP in prod) |
 | Fund search | ✅ Working |
 | Fund detail page (6 tabs) | ✅ Working (needs data) |
 | Fund screener with filters | ✅ Working |

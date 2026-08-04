@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Check Your Inbox — MF Analysis{% endblock %}
+{% block hide_layout %}True{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper" style="min-height: calc(100vh - 150px); background: transparent;">
+  <div class="auth-card" style="max-width:480px;text-align:center">
+    <div style="font-size:52px;margin-bottom:16px">📬</div>
+    <h1 class="auth-title" style="margin-bottom:10px">Check your inbox</h1>
+    <p style="color:var(--text-secondary);font-size:14px;line-height:1.6;margin-bottom:28px">
+      We've sent a verification link to your email address.<br>
+      Click the link to activate your account and get started.
+    </p>
+
+    <div class="card" style="padding:20px 24px;text-align:left;margin-bottom:24px">
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 8px;font-weight:600">
+        Didn't receive the email?
+      </p>
+      <ul style="font-size:13px;color:var(--text-muted);margin:0;padding-left:18px;line-height:1.8">
+        <li>Check your spam / junk folder</li>
+        <li>Make sure you entered the correct email</li>
+        <li>The link expires after 24 hours</li>
+      </ul>
+    </div>
+
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:20px">
+      Wrong email? <a href="{% url 'core:register' %}" style="color:var(--indigo-400);text-decoration:none">Register again →</a>
+    </p>
+    <a href="{% url 'funds:home' %}" style="color:var(--text-secondary);font-size:12px;text-decoration:none">← Back to Home</a>
+  </div>
+</div>
+{% endblock %}

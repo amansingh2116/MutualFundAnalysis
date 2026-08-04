@@ -12,6 +12,12 @@
     </p>
   </div>
 
+  {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}" style="margin-bottom:16px">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
   {% if submitted %}
   <div class="card" style="padding:32px;text-align:center">
     <div style="font-size:40px;margin-bottom:12px">✅</div>
@@ -26,12 +32,15 @@
       <div style="margin-bottom:16px">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px" for="contact-name">Your Name</label>
         <input type="text" id="contact-name" name="name" required
+               value="{{ form.name.value|default:'' }}"
                placeholder="Aman Singh"
                style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:10px 12px;font-size:13px;font-family:inherit;outline:none">
+        {% if form.name.errors %}<div style="color:#ef4444;font-size:12px;margin-top:4px">{{ form.name.errors.0 }}</div>{% endif %}
       </div>
       <div style="margin-bottom:16px">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px" for="contact-email">Email (optional)</label>
         <input type="email" id="contact-email" name="email"
+               value="{{ form.email.value|default:'' }}"
                placeholder="you@example.com"
                style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:10px 12px;font-size:13px;font-family:inherit;outline:none">
       </div>
@@ -39,18 +48,19 @@
         <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px" for="contact-subject">Subject</label>
         <select id="contact-subject" name="subject"
                 style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:10px 12px;font-size:13px;font-family:inherit;outline:none;cursor:pointer">
-          <option value="data_error">Data Error / Incorrect NAV</option>
-          <option value="feedback">General Feedback</option>
-          <option value="feature">Feature Request</option>
-          <option value="account">Account Issue</option>
-          <option value="other">Other</option>
+          <option value="data_error" {% if form.subject.value == 'data_error' %}selected{% endif %}>Data Error / Incorrect NAV</option>
+          <option value="feedback"   {% if form.subject.value == 'feedback'   %}selected{% endif %}>General Feedback</option>
+          <option value="feature"    {% if form.subject.value == 'feature'    %}selected{% endif %}>Feature Request</option>
+          <option value="account"    {% if form.subject.value == 'account'    %}selected{% endif %}>Account Issue</option>
+          <option value="other"      {% if form.subject.value == 'other'      %}selected{% endif %}>Other</option>
         </select>
       </div>
       <div style="margin-bottom:20px">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px" for="contact-message">Message</label>
         <textarea id="contact-message" name="message" required rows="5"
                   placeholder="Tell us what's on your mind…"
-                  style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:10px 12px;font-size:13px;font-family:inherit;outline:none;resize:vertical"></textarea>
+                  style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:10px 12px;font-size:13px;font-family:inherit;outline:none;resize:vertical">{{ form.message.value|default:'' }}</textarea>
+        {% if form.message.errors %}<div style="color:#ef4444;font-size:12px;margin-top:4px">{{ form.message.errors.0 }}</div>{% endif %}
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">
         Send Message →
@@ -61,3 +71,4 @@
 
 </div>
 {% endblock %}
+

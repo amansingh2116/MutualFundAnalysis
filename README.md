@@ -86,6 +86,7 @@
 | **PDF Generation** | Google Chrome Headless (`--no-pdf-header-footer` CLI), Django HTML/CSS Paged Media |
 | **Frontend UI** | Django Templates, Vanilla CSS (Custom Design System), Vanilla JS, HTMX |
 | **Database** | SQLite (Development) / PostgreSQL (Production) |
+| **Auth & Email** | Django built-in auth (register, login, password reset), Email verification via signed tokens, SMTP backend (Sender.net / Gmail) in production — console backend in development |
 | **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), nselib (benchmark index data), yfinance (equity benchmarks), FRED API (macro), AMFI NAVAll.txt |
 
 ---
@@ -122,8 +123,11 @@
 4. **Environment Configuration**:
    ```bash
    cp .env.example .env
-   # Edit .env to set your SECRET_KEY and optional FRED_API_KEY
+   # Edit .env — at minimum set DJANGO_SETTINGS_MODULE and SECRET_KEY
+   # DJANGO_SETTINGS_MODULE=config.settings.dev
+   # SECRET_KEY=<run: python -c "import secrets; print(secrets.token_urlsafe(50))">
    ```
+   > **Email in local dev:** Emails (account activation, password reset, contact form) are printed directly to the terminal console — no SMTP provider needed.
 
 5. **Run Database Migrations**:
    ```bash
