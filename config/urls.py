@@ -5,10 +5,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from apps.core.views import RateLimitedLoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include('django.contrib.auth.urls')),
+
+    # Login uses our rate-limited subclass; everything else comes from Django's auth URLs.
+    path('accounts/login/',  RateLimitedLoginView.as_view(), name='login'),
+    path('accounts/',        include('django.contrib.auth.urls')),
 
     # Core (register page)
     path('', include('apps.core.urls', namespace='core')),

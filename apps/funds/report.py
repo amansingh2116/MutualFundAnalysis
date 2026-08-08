@@ -1210,7 +1210,6 @@ def _build_research_narratives(ctx: dict) -> dict:
 # ── Main context builder ──────────────────────────────────────────────────────
 
 def build_report_context(request, scheme) -> dict:
-
     """Assembles the full context dict for the 10-page report template."""
     from apps.funds.runtime import get_runtime_snapshot
     from apps.analytics.scorer import score_fund, compute_category_rank
@@ -1773,25 +1772,35 @@ def build_report_context(request, scheme) -> dict:
 
 def _chrome_html_to_pdf(html_string: str) -> bytes:
     """
-    Convert an HTML string to PDF bytes using Chrome headless.
-    Chrome is available at the standard Windows install path and is already
-    used by kaleido for chart generation.
+    Convert an HTML string to PDF bytes using Chrome/Chromium headless.
+
+    Path resolution order:
+      1. CHROME_PATH environment variable (set this in Render dashboard if needed)
+      2. Standard Windows Chrome paths (local dev)
+      3. Standard Linux Chromium paths (Render / Ubuntu)
     """
+    import os
     import subprocess
     import tempfile
     import pathlib
 
     CHROME_PATHS = [
+        # Env override — highest priority
+        os.environ.get("CHROME_PATH", ""),
+        # Windows (local dev)
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        "/usr/bin/google-chrome",
+        # Linux / Render (installed via build.sh)
         "/usr/bin/chromium-browser",
         "/usr/bin/chromium",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
     ]
-    chrome_exe = next((p for p in CHROME_PATHS if pathlib.Path(p).exists()), None)
+    chrome_exe = next((p for p in CHROME_PATHS if p and pathlib.Path(p).exists()), None)
     if not chrome_exe:
         raise FileNotFoundError(
-            "Chrome/Chromium not found. Install Google Chrome or set CHROME_PATH."
+            "Chrome/Chromium not found. Install Google Chrome locally, or set the "
+            "CHROME_PATH environment variable in your Render dashboard."
         )
 
     with tempfile.TemporaryDirectory() as td:

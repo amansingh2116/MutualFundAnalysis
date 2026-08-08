@@ -103,6 +103,21 @@ LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/portfolio/'
 LOGOUT_REDIRECT_URL = '/'
 
+# ── Cache (used by django-ratelimit) ──────────────────────────────────────────
+# LocMemCache is per-process — sufficient for a single gunicorn worker.
+# Swap for a Redis cache backend if you scale to multiple workers.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'mfanalysis-ratelimit',
+    }
+}
+
+# ── Rate-limiting (django-ratelimit) ──────────────────────────────────────────
+# Don't silently pass requests when the cache is down — fail safe.
+RATELIMIT_DENY_ON_CACHE_MISS = False  # False = allow through if cache is unavailable
+RATELIMIT_USE_CACHE = 'default'
+
 # ── Analytics constants ───────────────────────────────────────────────────────
 # Risk-free rate for Sharpe/Sortino (Indian 91-day T-bill approximation).
 # Update this quarterly in .env — do NOT hardcode in model/engine code.

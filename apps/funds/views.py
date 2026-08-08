@@ -16,6 +16,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import DetailView, ListView, TemplateView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django_ratelimit.decorators import ratelimit
 
 
 from apps.funds.models import (
@@ -1036,8 +1037,9 @@ def fund_search_api(request):
     return JsonResponse({'results': results})
 
 
+@ratelimit(key='ip', rate='1/m', method='GET', block=True)
 def export_pdf_view(request, amfi_code):
-    """Generate WeasyPrint PDF fund report."""
+    """Generate Chrome-headless PDF fund report for the given AMFI scheme code."""
     from apps.funds.report import generate_fund_report_response
     scheme = get_object_or_404(Scheme, amfi_code=amfi_code)
     try:

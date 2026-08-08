@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.views import LoginView
 from django.core.mail import EmailMultiAlternatives, send_mail
 from django.db import DatabaseError
 from django.http import FileResponse, Http404
@@ -18,6 +19,7 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.text import slugify
+from django_ratelimit.decorators import ratelimit
 
 from .content import (
     BLOGS_DIR,
@@ -45,6 +47,17 @@ User = get_user_model()
 logger = logging.getLogger('mfanalysis')
 
 
+class RateLimitedLoginView(LoginView):
+    """
+    Django's built-in LoginView with IP-based rate limiting on POST requests.
+    Allows 5 login attempts per minute per IP; blocks after that with HTTP 429.
+    """
+
+    @ratelimit(key='ip', rate='5/m', method='POST', block=True)
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+
 def _send_activation_email(request, user):
     """Send an email-verification link to newly registered user."""
     uid   = urlsafe_base64_encode(force_bytes(user.pk))
@@ -70,6 +83,7 @@ def _send_activation_email(request, user):
     msg.send(fail_silently=False)
 
 
+@ratelimit(key='ip', rate='3/m', method='POST', block=True)
 def register_view(request):
     """Register a new user. Creates account as inactive; sends activation email."""
     if request.user.is_authenticated:
@@ -523,6 +537,7 @@ def privacy_view(request):
     return render(request, 'legal/privacy.html', {})
 
 
+@ratelimit(key='ip', rate='5/5m', method='POST', block=True)
 def contact_view(request):
     """Contact page — validates form and emails the message to the site admin inbox."""
     form = ContactForm()
