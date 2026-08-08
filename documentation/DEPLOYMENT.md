@@ -69,22 +69,23 @@ Open **http://127.0.0.1:8000/**
 ### Architecture Overview
 
 ```
-GitHub (code + Resources/)
+GitHub (code + Resources/ + Actions)
    │
    ├── Render Web Service (mfanalysis-web)
    │     ├── build.sh → installs Chromium + pip install
    │     ├── gunicorn → serves the Django app
    │     └── sleeps after 15 min inactivity (free tier)
    │
-   ├── Render Cron Job (mfanalysis-daily-pipeline)
-   │     ├── Runs at 1:30 AM IST every day (free on Render)
-   │     └── populate_screener + ingest_benchmarks + populate_benchmark_returns
+   ├── GitHub Actions (daily pipeline)
+   │     ├── Runs at 1:30 AM IST every day (free 2,000 mins/month)
+   │     └── Runs populate_screener + ingest_benchmarks directly on CockroachDB
    │
    └── CockroachDB Basic (database)
          ├── Free forever — 10 GB storage
          ├── PostgreSQL wire-compatible (psycopg2 works directly)
          └── Serverless — scales to zero when idle
 ```
+
 
 ---
 
@@ -197,19 +198,7 @@ Add each variable:
 
 > Leave `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` blank for now. The app works without them — emails will fail silently in prod until you configure an SMTP provider.
 
-**3.4 Set Environment Variables — Cron Job**
-
-Render dashboard → `mfanalysis-daily-pipeline` → **Environment** tab
-
-Add these two variables:
-
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | Same CockroachDB connection string as above |
-| `SECRET_KEY` | Same value as above |
-| `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
-
-**3.5 Trigger the first deploy**
+**3.4 Trigger the first deploy**
 
 Click **Manual Deploy** → **Deploy Latest Commit** on `mfanalysis-web`.
 
@@ -218,6 +207,7 @@ Wait for the build to complete (5–8 minutes — Chromium install + pip install
 After the deploy, Render's Procfile automatically runs:
 - `python manage.py migrate` — creates all database tables on CockroachDB
 - `python manage.py collectstatic` — bundles static files
+
 
 ---
 
