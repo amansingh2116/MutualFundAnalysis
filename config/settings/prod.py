@@ -1,10 +1,14 @@
-"""config/settings/prod.py — Production settings for Render.com / Railway."""
+"""config/settings/prod.py — Production settings (Render.com + CockroachDB)."""
 from .base import *
 import dj_database_url
 
 DEBUG = False
 
-# Parse DATABASE_URL from environment (set by Render)
+# ── Database (CockroachDB via DATABASE_URL) ───────────────────────────────────
+# CockroachDB is PostgreSQL wire-compatible; psycopg2 and the standard PostgreSQL
+# backend work without any adapter changes.
+# DATABASE_URL format from CockroachDB dashboard:
+#   postgresql://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
 DATABASES = {
     'default': dj_database_url.config(
         env='DATABASE_URL',
@@ -12,6 +16,11 @@ DATABASES = {
         ssl_require=True,
     )
 }
+# Ensure CockroachDB's required SSL mode is always applied even if not in the URL
+if DATABASES.get('default'):
+    DATABASES['default'].setdefault('OPTIONS', {})
+    DATABASES['default']['OPTIONS'].setdefault('sslmode', 'verify-full')
+
 
 # WhiteNoise for static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

@@ -1,13 +1,9 @@
-databases:
-  - name: mfanalysis-db
-    databaseName: mfanalysis
-    user: mfanalysis
-    plan: free
-
 services:
+  # ── Web Service ───────────────────────────────────────────────────────────────
   - type: web
     name: mfanalysis-web
     env: python
+    # build.sh installs Chromium (for PDF generation) then pip installs Python deps
     buildCommand: chmod +x build.sh && ./build.sh
     startCommand: gunicorn config.wsgi:application --workers 2 --bind 0.0.0.0:$PORT --timeout 120
     envVars:
@@ -16,9 +12,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: mfanalysis-db
-          property: connectionString
+        sync: false   # Paste CockroachDB connection string from cockroachlabs.cloud
       - key: ALLOWED_HOSTS
         value: .onrender.com
       - key: DEBUG
@@ -27,7 +21,7 @@ services:
         value: "0.065"
       # ── Email (fill values manually in Render dashboard) ──────────────────
       - key: EMAIL_HOST
-        sync: false
+        sync: false   # e.g. smtp.sender.net  or  smtp.gmail.com
       - key: EMAIL_PORT
         value: "587"
       - key: EMAIL_USE_TLS
@@ -35,24 +29,29 @@ services:
       - key: EMAIL_HOST_USER
         sync: false
       - key: EMAIL_HOST_PASSWORD
-        sync: false   # set this manually — never commit the real password
+        sync: false   # Set manually — never commit the real password
       - key: DEFAULT_FROM_EMAIL
-        sync: false   # e.g. noreply@yourdomain.com (must be verified in your SMTP provider)
+        sync: false   # e.g. noreply@yourdomain.com (verified in your SMTP provider)
       - key: CONTACT_RECIPIENT_EMAIL
-        sync: false   # your personal inbox for contact-form messages
+        sync: false   # Your personal inbox for contact-form messages
     autoDeploy: true
 
-  - type: worker
-    name: mfanalysis-worker
+  # ── Daily Data Pipeline Cron Job (free on Render) ─────────────────────────────
+  # Runs at 8:00 PM UTC = 1:30 AM IST, after AMFI publishes daily NAVs.
+  # Does NOT install Chromium (not needed for data pipeline — saves 2–3 min of build time).
+  - type: cron
+    name: mfanalysis-daily-pipeline
     env: python
-    buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: python manage.py qcluster
+    schedule: "0 20 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      python manage.py populate_screener &&
+      python manage.py ingest_benchmarks &&
+      python manage.py populate_benchmark_returns
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.prod
       - key: SECRET_KEY
-        sync: false
+        sync: false   # Same value as web service — set manually
       - key: DATABASE_URL
-        fromDatabase:
-          name: mfanalysis-db
-          property: connectionString
+        sync: false   # Same CockroachDB URL as web service — set manually

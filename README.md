@@ -85,7 +85,7 @@
 | **Visualization** | Plotly.js, Plotly Python, Kaleido, Canvas PDF.js |
 | **PDF Generation** | Google Chrome Headless (`--no-pdf-header-footer` CLI), Django HTML/CSS Paged Media |
 | **Frontend UI** | Django Templates, Vanilla CSS (Custom Design System), Vanilla JS, HTMX |
-| **Database** | SQLite (Development) / PostgreSQL (Production) |
+| **Database** | SQLite (Development) / CockroachDB — PostgreSQL-compatible (Production, free 10 GB) |
 | **Auth & Email** | Django built-in auth (register, login, password reset), Email verification via signed tokens, SMTP backend (Sender.net / Gmail) in production — console backend in development |
 | **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), nselib (benchmark index data), yfinance (equity benchmarks), FRED API (macro), AMFI NAVAll.txt |
 

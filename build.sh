@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# build.sh — Render.com build script
-# Runs before the app starts. Installs system dependencies that cannot be
-# satisfied by pip alone, then installs Python packages.
+# build.sh — Render.com build script for the WEB SERVICE only.
+# Used by: mfanalysis-web (needs Chromium for PDF generation)
+# NOT used by: mfanalysis-daily-pipeline cron job (uses plain pip install)
 set -o errexit   # exit immediately on any error
 
 # ── 1. System deps: Chromium (headless PDF generation) ────────────────────────
