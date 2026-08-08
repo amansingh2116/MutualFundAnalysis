@@ -40,8 +40,9 @@ ipykernel
 
 # ── Production ────────────────────────────────────────────────────────────────
 gunicorn
-psycopg2-binary               # PostgreSQL adapter
+psycopg2-binary               # PostgreSQL adapter (also works with CockroachDB)
 whitenoise>=6.6               # static file serving
 django-ratelimit>=4.1         # brute-force / abuse protection on auth + heavy endpoints
 dj-database-url>=2.1          # DATABASE_URL parsing for prod (Render.com)
 openpyxl>=3.1                 # Excel file reading (.xlsx) for portfolio upload
+playwright>=1.44.0             # Headless Chromium for PDF report generation (user-space install via build.sh)

@@ -1,7 +1,7 @@
 """
 apps/funds/report.py — Comprehensive PDF Fund Report Generator
 
-Stack: WeasyPrint (HTML→PDF) + Plotly + kaleido (chart PNG export)
+Stack: Playwright (headless Chromium) + Plotly + kaleido (chart PNG export)
 
 Report Sections:
   1. Cover Page
@@ -1772,68 +1772,31 @@ def build_report_context(request, scheme) -> dict:
 
 def _chrome_html_to_pdf(html_string: str) -> bytes:
     """
-    Convert an HTML string to PDF bytes using Chrome/Chromium headless.
+    Convert an HTML string to PDF bytes using Playwright's headless Chromium.
 
-    Path resolution order:
-      1. CHROME_PATH environment variable (set this in Render dashboard if needed)
-      2. Standard Windows Chrome paths (local dev)
-      3. Standard Linux Chromium paths (Render / Ubuntu)
+    Playwright downloads its own self-contained Chromium binary to
+    ~/.cache/ms-playwright during the build (via build.sh), so no apt-get or
+    system package installation is required. This works on Render's free tier.
     """
-    import os
-    import subprocess
-    import tempfile
-    import pathlib
+    from playwright.sync_api import sync_playwright
 
-    CHROME_PATHS = [
-        # Env override — highest priority
-        os.environ.get("CHROME_PATH", ""),
-        # Windows (local dev)
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        # Linux / Render (installed via build.sh)
-        "/usr/bin/chromium-browser",
-        "/usr/bin/chromium",
-        "/usr/bin/google-chrome",
-        "/usr/bin/google-chrome-stable",
-    ]
-    chrome_exe = next((p for p in CHROME_PATHS if p and pathlib.Path(p).exists()), None)
-    if not chrome_exe:
-        raise FileNotFoundError(
-            "Chrome/Chromium not found. Install Google Chrome locally, or set the "
-            "CHROME_PATH environment variable in your Render dashboard."
-        )
-
-    with tempfile.TemporaryDirectory() as td:
-        html_path = pathlib.Path(td) / "report.html"
-        pdf_path  = pathlib.Path(td) / "report.pdf"
-        html_path.write_text(html_string, encoding="utf-8")
-
-        result = subprocess.run(
-            [
-                chrome_exe,
-                "--headless=new",
-                "--disable-gpu",
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            args=[
                 "--no-sandbox",
-                "--disable-software-rasterizer",
+                "--disable-gpu",
                 "--disable-dev-shm-usage",
-                "--run-all-compositor-stages-before-draw",
-                "--print-to-pdf-no-header",
-                "--no-pdf-header-footer",
-                f"--print-to-pdf={pdf_path}",
-                f"file:///{html_path}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
+                "--disable-software-rasterizer",
+            ]
         )
-
-        if not pdf_path.exists():
-            raise RuntimeError(
-                f"Chrome PDF generation failed (rc={result.returncode}). "
-                f"stderr: {result.stderr[:500]}"
-            )
-
-        pdf_bytes = pdf_path.read_bytes()
+        page = browser.new_page()
+        page.set_content(html_string, wait_until="networkidle")
+        pdf_bytes = page.pdf(
+            format="A4",
+            print_background=True,
+            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+        )
+        browser.close()
 
     return pdf_bytes
 

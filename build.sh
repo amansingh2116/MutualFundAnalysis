@@ -4,21 +4,14 @@
 # NOT used by: mfanalysis-daily-pipeline cron job (uses plain pip install)
 set -o errexit   # exit immediately on any error
 
-# ── 1. System deps: Chromium (headless PDF generation) ────────────────────────
-# report.py uses Chrome/Chromium --print-to-pdf instead of WeasyPrint because
-# WeasyPrint requires GTK/Cairo native libs that are harder to install reliably.
-# Chromium is the lightest available option on Render's Ubuntu/Debian runners.
-echo "==> Installing Chromium and fonts..."
-apt-get update -qq
-apt-get install -y --no-install-recommends \
-    chromium-browser \
-    fonts-liberation \
-    fonts-noto \
-    libglib2.0-0 \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0
-
-# ── 2. Python packages ─────────────────────────────────────────────────────────
+# ── 1. Python packages ─────────────────────────────────────────────────────────
+# Install first so that the playwright CLI is available for step 2.
 echo "==> Installing Python dependencies..."
 pip install -r requirements.txt
+
+# ── 2. Playwright Chromium browser (headless PDF generation) ───────────────────
+# Playwright downloads a self-contained Chromium binary to ~/.cache/ms-playwright
+# (a user-writable directory). This bypasses the read-only system filesystem on
+# Render's free tier where apt-get is not available.
+echo "==> Downloading Playwright Chromium browser..."
+python -m playwright install chromium
