@@ -4,8 +4,9 @@ services:
     name: mfanalysis-web
     env: python
     plan: free
-    # build.sh installs Playwright Chromium then pip installs Python deps
-    buildCommand: chmod +x build.sh && ./build.sh
+    # build.sh installs Playwright Chromium + pip install
+    # Then we run migrate and collectstatic so CSS/JS is served correctly
+    buildCommand: chmod +x build.sh && ./build.sh && python manage.py migrate --no-input && python manage.py collectstatic --no-input
     startCommand: gunicorn config.wsgi:application --workers 2 --bind 0.0.0.0:$PORT --timeout 120
     envVars:
       - key: DJANGO_SETTINGS_MODULE
