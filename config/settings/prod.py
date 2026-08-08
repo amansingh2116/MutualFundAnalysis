@@ -5,21 +5,23 @@ import dj_database_url
 DEBUG = False
 
 # ── Database (CockroachDB via DATABASE_URL) ───────────────────────────────────
-# CockroachDB is PostgreSQL wire-compatible; psycopg2 and the standard PostgreSQL
-# backend work without any adapter changes.
+# CockroachDB is PostgreSQL wire-compatible but reports version 13.0.
+# Django 5.x requires PG14+ and rejects the connection without the
+# django-cockroachdb adapter, which patches the version check.
 # DATABASE_URL format from CockroachDB dashboard:
 #   postgresql://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
-DATABASES = {
-    'default': dj_database_url.config(
-        env='DATABASE_URL',
-        conn_max_age=600,
-        ssl_require=True,
-    )
-}
-# Ensure CockroachDB's required SSL mode is always applied even if not in the URL
-if DATABASES.get('default'):
-    DATABASES['default'].setdefault('OPTIONS', {})
-    DATABASES['default']['OPTIONS'].setdefault('sslmode', 'verify-full')
+_db_config = dj_database_url.config(
+    env='DATABASE_URL',
+    conn_max_age=600,
+    ssl_require=True,
+)
+# Override engine to django_cockroachdb to bypass Django's PG14 version check
+if _db_config:
+    _db_config['ENGINE'] = 'django_cockroachdb'
+    _db_config.setdefault('OPTIONS', {})
+    _db_config['OPTIONS'].setdefault('sslmode', 'verify-full')
+
+DATABASES = {'default': _db_config}
 
 
 # WhiteNoise for static files
