@@ -4,9 +4,10 @@ services:
     name: mfanalysis-web
     env: python
     plan: free
-    # build.sh installs Chromium (for PDF generation) then pip installs Python deps
+    # build.sh installs Playwright Chromium then pip installs Python deps
     buildCommand: chmod +x build.sh && ./build.sh
     startCommand: gunicorn config.wsgi:application --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+    releaseCommand: python manage.py migrate --no-input && python manage.py collectstatic --no-input
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.prod

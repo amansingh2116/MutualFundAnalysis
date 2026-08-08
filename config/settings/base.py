@@ -89,7 +89,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# NOTE: STATICFILES_STORAGE is intentionally NOT set here.
+# prod.py sets it to WhiteNoise's CompressedManifestStaticFilesStorage.
+# dev.py uses Django's default (no collectstatic required).
 
 # ── Media files ───────────────────────────────────────────────────────────────
 MEDIA_URL = '/media/'
