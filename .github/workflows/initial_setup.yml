@@ -1,0 +1,95 @@
+name: Initial Setup (Run Once)
+
+# Trigger this manually from GitHub Actions UI:
+# GitHub repo → Actions tab → "Initial Setup" → Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      superuser_username:
+        description: 'Admin username'
+        required: true
+        default: 'admin'
+      superuser_email:
+        description: 'Admin email'
+        required: true
+      superuser_password:
+        description: 'Admin password (min 8 chars)'
+        required: true
+      limit:
+        description: 'Fund limit for populate_screener (use 300 for quick demo, 0 for all ~2300 funds)'
+        required: true
+        default: '300'
+
+jobs:
+  initial-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 720   # 12 hour max (full data load can take 6–12 hrs)
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run database migrations
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: python manage.py migrate --no-input
+
+      - name: Create admin superuser
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DJANGO_SUPERUSER_USERNAME: ${{ github.event.inputs.superuser_username }}
+          DJANGO_SUPERUSER_EMAIL: ${{ github.event.inputs.superuser_email }}
+          DJANGO_SUPERUSER_PASSWORD: ${{ github.event.inputs.superuser_password }}
+        run: python manage.py createsuperuser --noinput || echo "Superuser already exists, skipping."
+
+      - name: Load fund universe (~2,300 schemes)
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: python manage.py build_scheme_master
+
+      - name: Sync Learn section content (PDF guides + blogs)
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: python manage.py sync_content
+
+      - name: Load benchmark data
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          python manage.py ingest_benchmarks
+          python manage.py populate_benchmark_returns
+
+      - name: Run fund data pipeline
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          RF_ANNUAL_RATE: "0.065"
+        run: |
+          LIMIT="${{ github.event.inputs.limit }}"
+          if [ "$LIMIT" = "0" ]; then
+            echo "Running full populate_screener for all funds (6-12 hours)..."
+            python manage.py populate_screener
+          else
+            echo "Running populate_screener with --limit=$LIMIT..."
+            python manage.py populate_screener --limit=$LIMIT
+          fi
