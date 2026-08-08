@@ -6,8 +6,8 @@ DEBUG = False
 
 # ── Database (CockroachDB via DATABASE_URL) ───────────────────────────────────
 # CockroachDB is PostgreSQL wire-compatible but reports version 13.0.
-# Django 5.x requires PG14+ and rejects the connection without the
-# django-cockroachdb adapter, which patches the version check.
+# Django 5.x requires PG14+ and would reject the connection without our
+# custom backend (config.backends.cockroachdb) which patches the version check.
 # DATABASE_URL format from CockroachDB dashboard:
 #   postgresql://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
 _db_config = dj_database_url.config(
@@ -15,13 +15,21 @@ _db_config = dj_database_url.config(
     conn_max_age=600,
     ssl_require=True,
 )
-# Override engine to django_cockroachdb to bypass Django's PG14 version check
+# Override ENGINE to our custom CockroachDB-compatible backend
 if _db_config:
-    _db_config['ENGINE'] = 'django_cockroachdb'
+    _db_config['ENGINE'] = 'config.backends.cockroachdb'
     _db_config.setdefault('OPTIONS', {})
     _db_config['OPTIONS'].setdefault('sslmode', 'verify-full')
 
 DATABASES = {'default': _db_config}
+
+# django_q migration 0003 is incompatible with CockroachDB (it tries to DROP
+# the integer primary-key column, which CockroachDB blocks). Using None tells
+# Django to skip the migration files and create these tables via syncdb from
+# the final model definition instead — which CockroachDB handles correctly.
+MIGRATION_MODULES = {
+    'django_q': None,
+}
 
 
 # WhiteNoise for static files
