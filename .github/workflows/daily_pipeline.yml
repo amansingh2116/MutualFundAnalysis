@@ -9,7 +9,13 @@ on:
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      RF_ANNUAL_RATE: "0.065"
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -24,11 +30,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run daily pipeline commands
-        env:
-          DJANGO_SETTINGS_MODULE: config.settings.prod
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          python manage.py populate_screener
-          python manage.py ingest_benchmarks
-          python manage.py populate_benchmark_returns
+          python manage.py --settings=config.settings.prod populate_screener
+          python manage.py --settings=config.settings.prod ingest_benchmarks
+          python manage.py --settings=config.settings.prod populate_benchmark_returns

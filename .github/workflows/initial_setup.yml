@@ -64,7 +64,7 @@ jobs:
           "
 
       - name: Run database migrations
-        run: python manage.py --settings=config.settings.prod migrate --no-input
+        run: python manage.py --settings=config.settings.prod migrate --fake-initial --no-input
 
       - name: Create admin superuser
         env:
