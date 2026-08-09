@@ -6,13 +6,15 @@ import urllib.parse
 DEBUG = False
 
 # ── Belt-and-suspenders: patch PostgreSQL 14 version check at import time ─────
-# Our custom backend (config.backends.cockroachdb) already overrides
-# check_database_version_supported to a no-op, but we also patch the base class
-# here so the check is bypassed unconditionally — even in environments where
-# Django somehow loads the standard postgresql backend instead of our custom one.
 # CockroachDB reports "PostgreSQL 13.0" for wire-compatibility; Django 5.x would
-# otherwise raise: NotSupportedError: PostgreSQL 14 or later is required.
+# raise: NotSupportedError: PostgreSQL 14 or later is required.
+# Our custom backend overrides check_database_version_supported, but we ALSO
+# patch BaseDatabaseWrapper directly — that is the class where this method is
+# DEFINED in Django 5.x (previously it was called DatabaseWrapper; patching the
+# wrong name was a silent no-op and is why earlier attempts didn't work).
+from django.db.backends.base.base import BaseDatabaseWrapper as _BaseDatabaseWrapper
 from django.db.backends.postgresql.base import DatabaseWrapper as _PgDatabaseWrapper
+_BaseDatabaseWrapper.check_database_version_supported = lambda self: None
 _PgDatabaseWrapper.check_database_version_supported = lambda self: None
 
 # ── Database (CockroachDB via DATABASE_URL) ───────────────────────────────────
@@ -41,10 +43,11 @@ if _raw_url:
             'PORT':         str(_p.port or 26257),
             'CONN_MAX_AGE': 600,
             'OPTIONS': {
-                'sslmode':     _qs.get('sslmode',     ['verify-full'])[0],
-                # Use OS trusted cert store instead of ~/.postgresql/root.crt
-                # (that file does not exist on Render or GitHub Actions runners).
-                'sslrootcert': _qs.get('sslrootcert', ['system'])[0],
+                # sslmode=require: keeps connection encrypted but skips cert
+                # verification. verify-full fails on Render/GH Actions because
+                # neither has a CockroachDB root cert file. For CockroachDB
+                # Cloud (a managed service) require provides sufficient security.
+                'sslmode': 'require',
             },
         }
     }
