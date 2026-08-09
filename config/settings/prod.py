@@ -5,12 +5,19 @@ import urllib.parse
 
 DEBUG = False
 
+# ── Belt-and-suspenders: patch PostgreSQL 14 version check at import time ─────
+# Our custom backend (config.backends.cockroachdb) already overrides
+# check_database_version_supported to a no-op, but we also patch the base class
+# here so the check is bypassed unconditionally — even in environments where
+# Django somehow loads the standard postgresql backend instead of our custom one.
+# CockroachDB reports "PostgreSQL 13.0" for wire-compatibility; Django 5.x would
+# otherwise raise: NotSupportedError: PostgreSQL 14 or later is required.
+from django.db.backends.postgresql.base import DatabaseWrapper as _PgDatabaseWrapper
+_PgDatabaseWrapper.check_database_version_supported = lambda self: None
+
 # ── Database (CockroachDB via DATABASE_URL) ───────────────────────────────────
-# We parse DATABASE_URL ourselves with urllib.parse instead of dj_database_url
-# so that ENGINE is set to 'config.backends.cockroachdb' unconditionally.
-# dj_database_url's `if _db_config:` guard was silently skipped when the URL
-# scheme wasn't recognized, leaving ENGINE as the standard postgresql backend
-# (which fails Django 5.x's PG14 version check against CockroachDB).
+# We parse DATABASE_URL ourselves with urllib.parse so ENGINE is set to
+# 'config.backends.cockroachdb' unconditionally (no conditional branch to miss).
 #
 # Supported URL formats:
 #   postgresql://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
@@ -34,13 +41,15 @@ if _raw_url:
             'PORT':         str(_p.port or 26257),
             'CONN_MAX_AGE': 600,
             'OPTIONS': {
-                'sslmode': _qs.get('sslmode', ['verify-full'])[0],
+                'sslmode':     _qs.get('sslmode',     ['verify-full'])[0],
+                # Use OS trusted cert store instead of ~/.postgresql/root.crt
+                # (that file does not exist on Render or GitHub Actions runners).
+                'sslrootcert': _qs.get('sslrootcert', ['system'])[0],
             },
         }
     }
 else:
     # DATABASE_URL not set — app will fail on first DB access with a clear error.
-    # Set DATABASE_URL as an environment variable / secret.
     DATABASES = {'default': {'ENGINE': 'config.backends.cockroachdb'}}
 
 
