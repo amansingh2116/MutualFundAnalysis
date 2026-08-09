@@ -1,31 +1,33 @@
-﻿"""
-Migration 0003: Drop and recreate portfolio_savedstrategy with the correct schema.
+"""
+Migration 0003 — no-op on PostgreSQL / CockroachDB.
 
-The table was created by an old migration with columns (payload, metrics, etc.)
-but the model now uses (plan_json, last_result_json). Since the migration was
-faked, the table was never updated. This migration fixes that.
+HISTORY
+-------
+This migration was originally written as a local SQLite hotfix: migration 0002
+had been ``--fake``d on the developer's machine so the portfolio_savedstrategy
+table was created with old columns (payload, metrics, …).  The raw SQL here
+dropped and re-created the table with the current schema.
+
+WHY THIS IS A NO-OP NOW
+------------------------
+The raw SQL used SQLite-specific syntax:
+  • ``integer NOT NULL PRIMARY KEY AUTOINCREMENT`` — valid only in SQLite
+  • ``DEFERRABLE INITIALLY DEFERRED``              — not implemented in CockroachDB
+
+On a fresh CockroachDB (or PostgreSQL) deployment migration 0002 runs normally
+and already creates the table with the correct schema (plan_json JSONField,
+last_result_json JSONField).  There is nothing to fix.
+
+LOCAL DEV
+---------
+If your local SQLite database still has the old columns, run::
+
+    python manage.py migrate --run-syncdb
+
+or delete the SQLite file and migrate from scratch.
 """
 from django.conf import settings
 from django.db import migrations
-
-
-RECREATE_SQL = """
-DROP TABLE IF EXISTS portfolio_savedstrategy;
-
-CREATE TABLE "portfolio_savedstrategy" (
-    "id"               integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "created_at"       datetime NOT NULL,
-    "updated_at"       datetime NOT NULL,
-    "name"             varchar(200) NOT NULL,
-    "description"      text NOT NULL DEFAULT '',
-    "plan_json"        text NOT NULL DEFAULT '{}',
-    "last_result_json" text NULL,
-    "user_id"          integer NOT NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED
-);
-
-CREATE INDEX "portfolio_savedstrategy_user_id_idx"
-    ON "portfolio_savedstrategy" ("user_id");
-"""
 
 
 class Migration(migrations.Migration):
@@ -36,8 +38,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql=RECREATE_SQL,
-            reverse_sql=migrations.RunSQL.noop,
-        ),
+        # No database operations required.
+        # 0002 already created portfolio_savedstrategy with the correct schema
+        # on any fresh PostgreSQL / CockroachDB deployment.
     ]

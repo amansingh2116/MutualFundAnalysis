@@ -1,27 +1,48 @@
 """config/settings/prod.py — Production settings (Render.com + CockroachDB)."""
 from .base import *
-import dj_database_url
+import os
+import urllib.parse
 
 DEBUG = False
 
 # ── Database (CockroachDB via DATABASE_URL) ───────────────────────────────────
-# CockroachDB is PostgreSQL wire-compatible but reports version 13.0.
-# Django 5.x requires PG14+ and would reject the connection without our
-# custom backend (config.backends.cockroachdb) which patches the version check.
-# DATABASE_URL format from CockroachDB dashboard:
+# We parse DATABASE_URL ourselves with urllib.parse instead of dj_database_url
+# so that ENGINE is set to 'config.backends.cockroachdb' unconditionally.
+# dj_database_url's `if _db_config:` guard was silently skipped when the URL
+# scheme wasn't recognized, leaving ENGINE as the standard postgresql backend
+# (which fails Django 5.x's PG14 version check against CockroachDB).
+#
+# Supported URL formats:
 #   postgresql://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
-_db_config = dj_database_url.config(
-    env='DATABASE_URL',
-    conn_max_age=600,
-    ssl_require=True,
-)
-# Override ENGINE to our custom CockroachDB-compatible backend
-if _db_config:
-    _db_config['ENGINE'] = 'config.backends.cockroachdb'
-    _db_config.setdefault('OPTIONS', {})
-    _db_config['OPTIONS'].setdefault('sslmode', 'verify-full')
+#   cockroachdb://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
+_raw_url = os.environ.get('DATABASE_URL', '')
+if _raw_url:
+    _url = (
+        _raw_url
+        .replace('cockroachdb://', 'postgresql://', 1)
+        .replace('cockroach://', 'postgresql://', 1)
+    )
+    _p = urllib.parse.urlparse(_url)
+    _qs = urllib.parse.parse_qs(_p.query)
+    DATABASES = {
+        'default': {
+            'ENGINE':       'config.backends.cockroachdb',  # our CockroachDB-compatible backend
+            'NAME':         _p.path.lstrip('/') or 'defaultdb',
+            'USER':         urllib.parse.unquote(_p.username or ''),
+            'PASSWORD':     urllib.parse.unquote(_p.password or ''),
+            'HOST':         _p.hostname or 'localhost',
+            'PORT':         str(_p.port or 26257),
+            'CONN_MAX_AGE': 600,
+            'OPTIONS': {
+                'sslmode': _qs.get('sslmode', ['verify-full'])[0],
+            },
+        }
+    }
+else:
+    # DATABASE_URL not set — app will fail on first DB access with a clear error.
+    # Set DATABASE_URL as an environment variable / secret.
+    DATABASES = {'default': {'ENGINE': 'config.backends.cockroachdb'}}
 
-DATABASES = {'default': _db_config}
 
 # django_q migration 0003 is incompatible with CockroachDB (it tries to DROP
 # the integer primary-key column, which CockroachDB blocks). Using None tells
