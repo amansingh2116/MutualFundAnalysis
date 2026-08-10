@@ -72,13 +72,6 @@ MIGRATION_MODULES = {
 # WhiteNoise for static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# ── Session backend ───────────────────────────────────────────────────────────
-# Use signed-cookie sessions so that login() does NOT write to the database.
-# Without this, every login does an INSERT/UPDATE to django_session on
-# CockroachDB, which can fail on stale connections or transaction retries.
-# Signed cookies are cryptographically signed with SECRET_KEY (safe) and
-# never stored server-side. Size limit: 4 KB (enough for Django auth).
-SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
 # ── Security headers ─────────────────────────────────────────────────────────
 # SECURE_PROXY_SSL_HEADER: Render.com terminates TLS at its load balancer and
@@ -110,9 +103,13 @@ EMAIL_HOST_USER     = config('EMAIL_HOST_USER',     default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 if EMAIL_HOST_USER:
     EMAIL_BACKEND   = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST      = config('EMAIL_HOST',   default='smtp.gmail.com')
+    EMAIL_HOST      = config('EMAIL_HOST',   default='smtp.sender.net')
     EMAIL_PORT      = config('EMAIL_PORT',   default=587, cast=int)
     EMAIL_USE_TLS   = config('EMAIL_USE_TLS', default=True, cast=bool)
+    # Fail fast if SMTP is unreachable (e.g. port blocked on cloud host).
+    # Without a timeout, smtplib blocks the gunicorn worker indefinitely,
+    # causing a 500 after 120 s when gunicorn kills the hung worker.
+    EMAIL_TIMEOUT   = 10  # seconds
 else:
     # No SMTP credentials — print emails to stdout/Render logs.
     # Set EMAIL_HOST_USER + EMAIL_HOST_PASSWORD in the Render dashboard
