@@ -58,8 +58,42 @@ class RateLimitedLoginView(LoginView):
     a method decorator) because class methods receive `self` as args[0], but
     the ratelimit decorator expects `request` as args[0]. method_decorator
     properly handles this translation.
+
+    form_invalid override: if the credentials are correct but the account is
+    inactive (stuck from old SMTP-failure-delete bug), auto-activate and log in.
     """
-    pass
+
+    def form_invalid(self, form):
+        """Handle failed login — auto-recover inactive accounts with correct password."""
+        username = form.data.get('username', '').strip()
+        password = form.data.get('password', '')
+
+        if username and password:
+            try:
+                user = User.objects.get(username=username)
+                if not user.is_active and user.check_password(password):
+                    # Account exists, password is correct, but stuck inactive
+                    # (e.g. email verification was never completed because SMTP failed)
+                    user.is_active = True
+                    user.save(update_fields=['is_active'])
+                    login(
+                        self.request,
+                        user,
+                        backend='django.contrib.auth.backends.ModelBackend',
+                    )
+                    messages.success(
+                        self.request,
+                        f'Welcome back, {user.username}! '
+                        'Your account has been activated.',
+                    )
+                    logger.info(
+                        'Auto-activated stuck inactive account for user %s', user.username
+                    )
+                    return redirect(self.get_success_url())
+            except User.DoesNotExist:
+                pass
+
+        return super().form_invalid(form)
 
 
 def _send_activation_email(request, user):
@@ -113,15 +147,27 @@ def register_view(request):
                     logger.info('Activation email sent to %s', user.email)
                     return redirect('core:email_verification_sent')
                 except Exception as exc:
-                    logger.error('Failed to send activation email to %s: %s', user.email, exc)
-                    # Don't leave a permanently-inactive account if email fails
-                    user.delete()
-                    messages.error(
-                        request,
-                        'We could not send a verification email. '
-                        'Please check your email address or try again later.',
+                    logger.warning(
+                        'Activation email failed for %s (%s) — auto-activating instead.',
+                        user.email, exc,
                     )
-                    return render(request, 'registration/register.html', {'form': form})
+                    # Do NOT delete the account — activate immediately and log in.
+                    # Deleting the user on SMTP failure means the visitor can never
+                    # register (the form just says "try again later" indefinitely).
+                    user.is_active = True
+                    user.save(update_fields=['is_active'])
+                    login(
+                        request,
+                        user,
+                        backend='django.contrib.auth.backends.ModelBackend',
+                    )
+                    messages.warning(
+                        request,
+                        'Your account has been created! '
+                        '(We could not send a verification email — '
+                        'you have been logged in directly.)',
+                    )
+                    return redirect('funds:home')
             else:
                 # No SMTP configured — activate immediately and log in
                 user.is_active = True

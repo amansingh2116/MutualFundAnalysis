@@ -90,6 +90,24 @@ class Command(BaseCommand):
             dest="start_from",
             help="Skip all schemes with amfi_code < this value (lexicographic). Useful for resuming from a specific point.",
         )
+        parser.add_argument(
+            "--shard",
+            type=int,
+            default=None,
+            help=(
+                "0-indexed shard number. Process only funds where "
+                "fund_list_index %% --num-shards == shard. "
+                "Use with --num-shards=7 and the day-of-week (0=Sun…6=Sat) "
+                "for the weekday-split daily pipeline strategy."
+            ),
+        )
+        parser.add_argument(
+            "--num-shards",
+            type=int,
+            default=7,
+            dest="num_shards",
+            help="Total number of shards (default 7, one per weekday).",
+        )
 
     def handle(self, *args, **options):
         limit = options["limit"]
@@ -105,8 +123,10 @@ class Command(BaseCommand):
         do_resume = options["resume"]
         resume_hours = options["resume_hours"]
         start_from = options.get("start_from")
+        shard = options.get("shard")          # None = no sharding
+        num_shards = options.get("num_shards", 7)
 
-        # Build queryset — always ordered by amfi_code for deterministic resume
+        # Build queryset — always ordered by amfi_code for deterministic processing
         qs = Scheme.objects.filter(is_active=True).order_by("amfi_code")
         if direct_growth_only:
             qs = qs.filter(Q(is_direct=True, plan="GROWTH") | Q(is_etf=True))
@@ -115,6 +135,19 @@ class Command(BaseCommand):
             qs = qs.filter(amfi_code=amfi_code)
         if start_from:
             qs = qs.filter(amfi_code__gte=start_from)
+
+        # ── Shard filter (for weekday-split pipeline) ─────────────────────────
+        # Select every N-th fund by position so each shard covers an equal
+        # fraction regardless of AMFI code distribution.
+        # Example: --shard=1 --num-shards=7 processes funds at index 1, 8, 15, …
+        if shard is not None and num_shards > 1:
+            all_pks = list(qs.values_list('pk', flat=True))
+            shard_pks = [pk for i, pk in enumerate(all_pks) if i % num_shards == shard]
+            qs = Scheme.objects.filter(pk__in=shard_pks).order_by("amfi_code")
+            self.stdout.write(
+                f"Shard {shard}/{num_shards}: {len(shard_pks)} of {len(all_pks)} funds"
+            )
+
         if limit:
             qs = qs[:limit]
 

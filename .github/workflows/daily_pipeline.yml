@@ -1,27 +1,42 @@
 name: Daily Data Pipeline
 
 # ─── Schedule ────────────────────────────────────────────────────────────────
-# Runs at 8:30 PM UTC every day (~2:00 AM IST) — after AMFI NAV updates
-# (AMFI publishes NAVs by ~8 PM IST; we add a 30-min buffer).
-# Can also be triggered manually from the Actions tab at any time.
+# Runs at 8:30 PM UTC every day (~2:00 AM IST) — after AMFI NAV updates.
+# (AMFI publishes NAVs by ~8 PM IST; we add a 30-min buffer.)
+#
+# WEEKDAY-SPLIT STRATEGY (solves the GitHub Actions 6-hour job limit)
+# ─────────────────────────────────────────────────────────────────────────────
+# Analytics takes ~50s/fund.  2,300 funds × 50s = 32 hours — way over the
+# 6-hour limit.  We split into 7 equal shards (one per weekday) so each daily
+# job processes only ~330 funds in ~4.5 hours — well within the limit.
+# Every fund is refreshed once per week.
+#
+# --shard N --num-shards 7 selects every 7th fund starting at position N,
+# ensuring perfectly equal slices regardless of AMFI code distribution.
 on:
   schedule:
     - cron: '30 20 * * *'
   workflow_dispatch:
     inputs:
-      limit:
-        description: 'Fund limit for populate_screener (0 = all ~2300 funds, 300 for a quick run)'
+      shard:
+        description: 'Shard index to process (0-6). Leave blank to use today''s day-of-week automatically.'
         required: false
-        default: '0'
+        default: ''
+      num_shards:
+        description: 'Total number of shards (default 7 = weekly cycle)'
+        required: false
+        default: '7'
+      limit:
+        description: 'Optional fund limit per shard (0 or blank = no limit). Useful for quick tests.'
+        required: false
+        default: ''
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 420   # 7-hour cap — full 2300-fund pass can take 4–6 hrs
+    timeout-minutes: 360   # 6-hour hard cap — one weekday shard fits comfortably
 
     # ── Env vars shared across ALL steps ────────────────────────────────────
-    # Set DJANGO_SETTINGS_MODULE here so every manage.py call uses prod
-    # settings automatically — no need for a --settings flag anywhere.
     env:
       DJANGO_SETTINGS_MODULE: config.settings.prod
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -43,47 +58,53 @@ jobs:
         run: pip install -r requirements.txt
 
       # ── 2. DB migrations ─────────────────────────────────────────────────
-      # Always run first — applies any schema changes deployed since the last
-      # pipeline run.  Safe to call even when nothing is pending.
+      # Always run first — applies any schema changes since the last pipeline.
       - name: Apply pending database migrations
         run: python manage.py migrate --no-input
 
       # ── 3. Fund universe ──────────────────────────────────────────────────
-      # Syncs the ~2,300-scheme master list from AMFI (new/renamed funds, status
-      # changes).  Fast: ~2–3 min.
+      # Syncs the ~2,300-scheme master list from AMFI. Fast: ~2–3 min.
       - name: Update fund universe
         run: python manage.py build_scheme_master
 
       # ── 4. Benchmark data ─────────────────────────────────────────────────
-      # Incremental fetch: only downloads trading days not yet in DB.
-      # With bulk-insert this takes ~1–3 min for all benchmarks combined.
+      # Incremental fetch — only new trading days. With bulk-insert: ~1–3 min.
       - name: Ingest benchmark data (incremental)
         run: python manage.py ingest_benchmarks
 
       - name: Recompute benchmark return snapshots
         run: python manage.py populate_benchmark_returns
 
-      # ── 5. Fund screener pipeline ─────────────────────────────────────────
-      # Fetches only new NAV rows (incremental — uses ?startDate=<last_db_date>).
-      # Re-fetches metadata if older than 7 days (built-in staleness check).
-      # Recomputes all analytics + FundScreenerSnapshot + FundModelScore.
-      #
-      # --resume skips any fund whose snapshot was updated in the last 24 h
-      # (safe guard if the pipeline is re-run on the same day).
-      - name: Run fund data pipeline
+      # ── 5. Fund screener pipeline (weekday shard) ─────────────────────────
+      # --shard N --num-shards 7: process every 7th fund starting at position N.
+      # This gives ~330 funds per shard with perfectly even distribution.
+      # --resume: skip funds already processed today (safe if re-run manually).
+      - name: Run fund data pipeline (today's shard)
         run: |
-          LIMIT="${{ github.event.inputs.limit }}"
-          LIMIT="${LIMIT:-0}"
-          if [ "$LIMIT" = "0" ]; then
-            echo "Running full populate_screener for all funds..."
-            python manage.py populate_screener --resume
-          else
-            echo "Running populate_screener with --limit=$LIMIT..."
-            python manage.py populate_screener --limit="$LIMIT" --resume
+          # Resolve shard: use manual input if provided, else today's day-of-week
+          # date +%w returns 0=Sun, 1=Mon, 2=Tue, ..., 6=Sat
+          INPUT_SHARD="${{ github.event.inputs.shard }}"
+          NUM_SHARDS="${{ github.event.inputs.num_shards }}"
+          NUM_SHARDS="${NUM_SHARDS:-7}"
+          LIMIT_ARG=""
+          if [ -n "${{ github.event.inputs.limit }}" ] && [ "${{ github.event.inputs.limit }}" != "0" ]; then
+            LIMIT_ARG="--limit=${{ github.event.inputs.limit }}"
           fi
 
+          if [ -n "$INPUT_SHARD" ]; then
+            SHARD="$INPUT_SHARD"
+          else
+            SHARD=$(date +%w)   # 0–6, matches Mon–Sun when num_shards=7
+          fi
+
+          echo "Running shard $SHARD of $NUM_SHARDS (day-of-week=$(date +%A))"
+          python manage.py populate_screener \
+            --shard="$SHARD" \
+            --num-shards="$NUM_SHARDS" \
+            $LIMIT_ARG \
+            --resume --resume-hours=20
+
       # ── 6. Learn content sync ─────────────────────────────────────────────
-      # Syncs PDF guide and blog metadata from the Resources/ folder.
-      # Fast: <10 s.  Safe to run daily (idempotent).
+      # Fast (<10 s) and idempotent — syncs PDF guides and blog metadata.
       - name: Sync Learn section content
         run: python manage.py sync_content
