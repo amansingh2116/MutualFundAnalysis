@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.views import LoginView
+from django.utils.decorators import method_decorator
 from django.core.mail import EmailMultiAlternatives, send_mail
 from django.db import DatabaseError
 from django.http import FileResponse, Http404
@@ -47,15 +48,18 @@ User = get_user_model()
 logger = logging.getLogger('mfanalysis')
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 class RateLimitedLoginView(LoginView):
     """
     Django's built-in LoginView with IP-based rate limiting on POST requests.
     Allows 5 login attempts per minute per IP; blocks after that with HTTP 429.
-    """
 
-    @ratelimit(key='ip', rate='5/m', method='POST', block=True)
-    def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+    NOTE: @ratelimit must be applied via method_decorator (not directly as
+    a method decorator) because class methods receive `self` as args[0], but
+    the ratelimit decorator expects `request` as args[0]. method_decorator
+    properly handles this translation.
+    """
+    pass
 
 
 def _send_activation_email(request, user):
