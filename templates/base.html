@@ -97,6 +97,10 @@
       <a href="{% url 'funds:research_quartiles' %}" class="nav-item {% if request.resolver_match.url_name == 'research_quartiles' %}active{% endif %}">
         <span class="nav-icon">🎯</span> Quartile Rankings
       </a>
+      <a href="{% url 'core:data_monitor' %}" class="nav-item {% if request.resolver_match.url_name == 'data_monitor' %}active{% endif %}" title="Data quality, pipeline cycles and freshness">
+        <span class="nav-icon">🛡️</span> Data Status
+        <span style="margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--green,#22c55e);display:inline-block;flex-shrink:0;animation:pulse-dot 2s ease-in-out infinite;"></span>
+      </a>
 
         </div>
       </div>

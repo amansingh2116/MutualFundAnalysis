@@ -32,5 +32,8 @@ urlpatterns = [
     # ── User Account / Dashboard ───────────────────────────────────────────────
     path('user/dashboard/', views.user_dashboard_view, name='user_dashboard'),
     path('user/settings/',  views.user_settings_view,  name='user_settings'),
+
+    # ── Data Quality & Pipeline Monitor ───────────────────────────────────────
+    path('data-status/', views.data_monitor_view, name='data_monitor'),
 ]
 

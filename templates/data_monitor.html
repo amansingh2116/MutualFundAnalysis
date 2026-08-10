@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Data Status & Pipeline Monitor{% endblock %}
+{% block meta_description %}Transparency dashboard showing MF Analysis data freshness, pipeline cycles, analytics coverage, and benchmark status.{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ─── Page layout ──────────────────────────────────────────────────────── */
+.dm-page { max-width: 1200px; margin: 0 auto; padding: 0 4px; }
+
+.dm-hero {
+  background: linear-gradient(135deg, hsl(230 60% 12%) 0%, hsl(260 50% 14%) 100%);
+  border: 1px solid hsl(230 40% 22%);
+  border-radius: 16px;
+  padding: 32px 36px;
+  margin-bottom: 28px;
+  display: flex; align-items: flex-start; gap: 20px;
+  position: relative; overflow: hidden;
+}
+.dm-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 70% 50%, hsl(270 60% 20% / 0.4), transparent 60%);
+  pointer-events: none;
+}
+.dm-hero-icon { font-size: 44px; flex-shrink: 0; }
+.dm-hero-text { flex: 1; position: relative; }
+.dm-hero-title { font-size: 26px; font-weight: 700; color: #fff; margin: 0 0 6px; }
+.dm-hero-sub { font-size: 13px; color: hsl(220 30% 70%); line-height: 1.5; margin: 0; }
+.dm-live-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: hsl(145 60% 12%); border: 1px solid hsl(145 60% 28%);
+  color: hsl(145 70% 60%); font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  padding: 4px 10px; border-radius: 20px; text-transform: uppercase;
+  margin-top: 12px;
+}
+.dm-live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: hsl(145 70% 60%); animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .5; transform: scale(1.3); }
+}
+
+/* ─── Grid helpers ─────────────────────────────────────────────────────── */
+.dm-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+.dm-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 24px; }
+.dm-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+@media (max-width: 900px) { .dm-grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 680px) { .dm-grid-4,.dm-grid-3,.dm-grid-2 { grid-template-columns: 1fr; } }
+
+/* ─── Stat cards ───────────────────────────────────────────────────────── */
+.dm-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s, box-shadow .2s;
+}
+.dm-card:hover {
+  border-color: hsl(230 50% 38%);
+  box-shadow: 0 0 0 1px hsl(230 50% 38% / .3);
+}
+.dm-card-accent {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  border-radius: 12px 12px 0 0;
+}
+.dm-card-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--text-muted); margin-bottom: 8px;
+}
+.dm-card-value { font-size: 28px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.dm-card-sub { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+.dm-card-pct {
+  font-size: 13px; font-weight: 600; margin-top: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ─── Section headers ──────────────────────────────────────────────────── */
+.dm-section { margin-bottom: 28px; }
+.dm-section-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.dm-section-head h2 {
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
+  text-transform: uppercase; letter-spacing: .6px; margin: 0;
+}
+.dm-section-head .dm-badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 20px;
+  background: hsl(230 40% 18%); color: hsl(220 60% 70%);
+  border: 1px solid hsl(230 40% 28%);
+}
+
+/* ─── Progress bars ────────────────────────────────────────────────────── */
+.dm-bar-row { display: flex; flex-direction: column; gap: 10px; }
+.dm-bar-item { display: flex; flex-direction: column; gap: 4px; }
+.dm-bar-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.dm-bar-label { color: var(--text-muted); }
+.dm-bar-val { font-weight: 600; color: var(--text-primary); }
+.dm-bar-track {
+  height: 7px; background: hsl(230 30% 18%); border-radius: 99px; overflow: hidden;
+}
+.dm-bar-fill { height: 100%; border-radius: 99px; transition: width .6s ease; }
+
+/* ─── Activity chart ───────────────────────────────────────────────────── */
+.dm-activity-chart {
+  display: flex; align-items: flex-end; gap: 8px;
+  height: 100px; padding: 0;
+}
+.dm-act-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.dm-act-bar-wrap {
+  flex: 1; width: 100%; display: flex; align-items: flex-end;
+  min-height: 4px;
+}
+.dm-act-bar {
+  width: 100%; border-radius: 5px 5px 0 0;
+  background: hsl(230 60% 40%);
+  min-height: 4px;
+  transition: height .5s ease;
+}
+.dm-act-bar.today { background: hsl(270 70% 60%); }
+.dm-act-label { font-size: 10px; color: var(--text-muted); text-align: center; white-space: nowrap; }
+.dm-act-count { font-size: 10px; font-weight: 600; color: var(--text-primary); }
+
+/* ─── Shard cycle ──────────────────────────────────────────────────────── */
+.dm-shards {
+  display: grid; grid-template-columns: repeat(7,1fr); gap: 8px;
+}
+@media (max-width: 680px) { .dm-shards { grid-template-columns: repeat(4,1fr); } }
+.dm-shard {
+  background: hsl(230 30% 13%);
+  border: 1px solid hsl(230 30% 22%);
+  border-radius: 10px; padding: 14px 8px;
+  text-align: center; position: relative;
+  transition: border-color .2s;
+}
+.dm-shard.done {
+  background: hsl(230 40% 16%);
+  border-color: hsl(260 60% 40%);
+}
+.dm-shard.today-shard {
+  border-color: hsl(270 70% 60%);
+  box-shadow: 0 0 12px hsl(270 70% 60% / .25);
+}
+.dm-shard-day { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.dm-shard-date { font-size: 10px; color: var(--text-muted); margin: 2px 0 6px; }
+.dm-shard-count { font-size: 11px; font-weight: 600; }
+.dm-shard-count.done { color: hsl(145 70% 55%); }
+.dm-shard-count.pending { color: hsl(230 40% 50%); }
+.dm-shard-icon { font-size: 16px; }
+.dm-today-tag {
+  position: absolute; top: -1px; right: -1px;
+  background: hsl(270 70% 55%); color: #fff;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  padding: 2px 6px; border-radius: 0 9px 0 8px;
+}
+
+/* ─── Benchmark table ──────────────────────────────────────────────────── */
+.dm-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.dm-table th {
+  text-align: left; padding: 9px 12px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--text-muted); border-bottom: 1px solid var(--border);
+  background: hsl(230 30% 11%);
+}
+.dm-table td {
+  padding: 10px 12px; border-bottom: 1px solid hsl(230 30% 16%);
+  color: var(--text-primary); vertical-align: middle;
+}
+.dm-table tr:last-child td { border-bottom: none; }
+.dm-table tr:hover td { background: hsl(230 30% 13%); }
+.dm-freshness {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.dm-freshness.fresh  { background: hsl(145 50% 12%); color: hsl(145 65% 55%); border: 1px solid hsl(145 50% 25%); }
+.dm-freshness.stale  { background: hsl(45  50% 12%); color: hsl(45  70% 60%); border: 1px solid hsl(45  50% 25%); }
+.dm-freshness.old    { background: hsl(0   50% 12%); color: hsl(0   65% 65%); border: 1px solid hsl(0   50% 25%); }
+.dm-freshness.none   { background: hsl(230 30% 14%); color: var(--text-muted); border: 1px solid var(--border); }
+
+/* ─── Computation checklist ────────────────────────────────────────────── */
+.dm-checklist { display: flex; flex-direction: column; gap: 10px; }
+.dm-check-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: hsl(230 30% 12%);
+  border: 1px solid hsl(230 30% 20%);
+  border-radius: 9px;
+}
+.dm-check-icon { font-size: 18px; flex-shrink: 0; }
+.dm-check-main { flex: 1; }
+.dm-check-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.dm-check-ts { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.dm-check-badge {
+  font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 600;
+}
+.dm-check-badge.ok   { background: hsl(145 50% 12%); color: hsl(145 65% 55%); }
+.dm-check-badge.warn { background: hsl(45  50% 12%); color: hsl(45  70% 60%); }
+.dm-check-badge.none { background: hsl(230 30% 16%); color: var(--text-muted); }
+
+/* color tokens */
+:root {
+  --c-blue:   hsl(218 80% 60%);
+  --c-violet: hsl(260 70% 65%);
+  --c-green:  hsl(145 65% 50%);
+  --c-amber:  hsl(45  80% 55%);
+  --c-rose:   hsl(350 70% 60%);
+  --c-cyan:   hsl(190 80% 55%);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dm-page">
+
+  <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+  <div class="dm-hero">
+    <div class="dm-hero-icon">🛡️</div>
+    <div class="dm-hero-text">
+      <h1 class="dm-hero-title">Data Status & Pipeline Monitor</h1>
+      <p class="dm-hero-sub">
+        Live transparency view of what data we have, how fresh it is, and what computations
+        have been done. Updated every time the daily pipeline runs (8:30 PM UTC ≈ 2:00 AM IST).
+      </p>
+      <span class="dm-live-badge"><span class="dm-live-dot"></span> Live Data</span>
+    </div>
+  </div>
+
+  <!-- ── Fund Universe ─────────────────────────────────────────────────────── -->
+  <div class="dm-section">
+    <div class="dm-section-head">
+      <h2>📊 Fund Universe</h2>
+      <span class="dm-badge">AMFI Registry</span>
+    </div>
+    <div class="dm-grid-4">
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-blue),var(--c-violet))"></div>
+        <div class="dm-card-label">Total Active Schemes</div>
+        <div class="dm-card-value">{{ total_schemes|default:"—" }}</div>
+        <div class="dm-card-sub">All open-ended AMFI schemes</div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-violet),var(--c-cyan))"></div>
+        <div class="dm-card-label">Direct Growth + ETF</div>
+        <div class="dm-card-value">{{ total_dg|default:"—" }}</div>
+        <div class="dm-card-sub">Primary analysis universe</div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-green),var(--c-cyan))"></div>
+        <div class="dm-card-label">With NAV History</div>
+        <div class="dm-card-value">{{ with_nav|default:"—" }}</div>
+        <div class="dm-card-pct">
+          <span style="color:var(--c-green)">{{ coverage.nav }}%</span>
+          <span style="color:var(--text-muted);font-weight:400">coverage</span>
+        </div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-amber),var(--c-rose))"></div>
+        <div class="dm-card-label">Total NAV Rows</div>
+        <div class="dm-card-value">{{ total_nav_rows|default:"—" }}</div>
+        <div class="dm-card-sub">Across all funds & dates</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NAV Freshness ─────────────────────────────────────────────────────── -->
+  <div class="dm-section">
+    <div class="dm-section-head">
+      <h2>📅 NAV Data Freshness</h2>
+      <span class="dm-badge">{% if latest_nav_date %}As of {{ latest_nav_date|date:"d M Y" }}{% else %}No data{% endif %}</span>
+    </div>
+    <div class="dm-grid-2">
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-green),var(--c-blue))"></div>
+        <div class="dm-card-label">Latest NAV Date</div>
+        <div class="dm-card-value" style="font-size:22px">
+          {% if latest_nav_date %}{{ latest_nav_date|date:"d M Y" }}{% else %}—{% endif %}
+        </div>
+        <div class="dm-card-sub">
+          {% if latest_nav_date %}
+            {{ nav_today }} funds have today's NAV &nbsp;·&nbsp; {{ nav_this_week }} this week
+          {% else %}No NAV data loaded yet{% endif %}
+        </div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-cyan),var(--c-violet))"></div>
+        <div class="dm-card-label">Coverage Breakdown</div>
+        <div class="dm-bar-row" style="margin-top:8px">
+          <div class="dm-bar-item">
+            <div class="dm-bar-head">
+              <span class="dm-bar-label">Has any NAV</span>
+              <span class="dm-bar-val">{{ with_nav }}/{{ total_dg }} ({{ coverage.nav }}%)</span>
+            </div>
+            <div class="dm-bar-track">
+              <div class="dm-bar-fill" style="width:{{ coverage.nav }}%;background:var(--c-green)"></div>
+            </div>
+          </div>
+          <div class="dm-bar-item">
+            <div class="dm-bar-head">
+              <span class="dm-bar-label">Today's NAV</span>
+              <span class="dm-bar-val">{{ nav_today }}/{{ total_dg }} ({{ coverage.nav_today }}%)</span>
+            </div>
+            <div class="dm-bar-track">
+              <div class="dm-bar-fill" style="width:{{ coverage.nav_today }}%;background:var(--c-blue)"></div>
+            </div>
+          </div>
+          <div class="dm-bar-item">
+            <div class="dm-bar-head">
+              <span class="dm-bar-label">This week's NAV</span>
+              <span class="dm-bar-val">{{ nav_this_week }}</span>
+            </div>
+            <div class="dm-bar-track">
+              {% with pct_week=nav_this_week|default:0 %}
+              <div class="dm-bar-fill" style="width:{% widthratio nav_this_week total_dg 100 %}%;background:var(--c-violet)"></div>
+              {% endwith %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Analytics Computations ────────────────────────────────────────────── -->
+  <div class="dm-section">
+    <div class="dm-section-head">
+      <h2>⚙️ Computations Done</h2>
+      <span class="dm-badge">What we've calculated</span>
+    </div>
+    <div class="dm-checklist">
+
+      <div class="dm-check-row">
+        <span class="dm-check-icon">{% if with_snapshot > 0 %}✅{% else %}⏳{% endif %}</span>
+        <div class="dm-check-main">
+          <div class="dm-check-title">Screener Snapshots <span style="color:var(--text-muted);font-weight:400">(Trailing returns · Risk metrics · Quartile ranks)</span></div>
+          <div class="dm-check-ts">
+            {{ with_snapshot }}/{{ total_dg }} funds ({{ coverage.snapshot }}% coverage)
+            {% if latest_snapshot_ts %}&nbsp;·&nbsp; Last updated: {{ latest_snapshot_ts|date:"d M Y H:i" }} UTC{% endif %}
+          </div>
+        </div>
+        <span class="dm-check-badge {% if coverage.snapshot >= 80 %}ok{% elif coverage.snapshot > 0 %}warn{% else %}none{% endif %}">
+          {{ coverage.snapshot }}%
+        </span>
+      </div>
+
+      <div class="dm-check-row">
+        <span class="dm-check-icon">{% if with_model_score > 0 %}✅{% else %}⏳{% endif %}</span>
+        <div class="dm-check-main">
+          <div class="dm-check-title">Model Scores <span style="color:var(--text-muted);font-weight:400">(Performance · Risk · Cost · Composition pillars, 0–100)</span></div>
+          <div class="dm-check-ts">
+            {{ with_model_score }}/{{ total_dg }} funds ({{ coverage.model }}% coverage)
+            {% if latest_score_ts %}&nbsp;·&nbsp; Last computed: {{ latest_score_ts|date:"d M Y H:i" }} UTC{% endif %}
+          </div>
+        </div>
+        <span class="dm-check-badge {% if coverage.model >= 80 %}ok{% elif coverage.model > 0 %}warn{% else %}none{% endif %}">
+          {{ coverage.model }}%
+        </span>
+      </div>
+
+      <div class="dm-check-row">
+        <span class="dm-check-icon">{% if with_trailing > 0 %}✅{% else %}⏳{% endif %}</span>
+        <div class="dm-check-main">
+          <div class="dm-check-title">Trailing Returns <span style="color:var(--text-muted);font-weight:400">(1M · 3M · 6M · 1Y · 3Y · 5Y · 7Y · 10Y CAGR)</span></div>
+          <div class="dm-check-ts">
+            {{ with_trailing }}/{{ total_dg }} funds ({{ coverage.trailing }}% coverage)
+            {% if latest_trailing_ts %}&nbsp;·&nbsp; Last updated: {{ latest_trailing_ts|date:"d M Y H:i" }} UTC{% endif %}
+          </div>
+        </div>
+        <span class="dm-check-badge {% if coverage.trailing >= 80 %}ok{% elif coverage.trailing > 0 %}warn{% else %}none{% endif %}">
+          {{ coverage.trailing }}%
+        </span>
+      </div>
+
+      <div class="dm-check-row">
+        <span class="dm-check-icon">{% if with_metadata > 0 %}✅{% else %}⏳{% endif %}</span>
+        <div class="dm-check-main">
+          <div class="dm-check-title">Fund Metadata <span style="color:var(--text-muted);font-weight:400">(Expense ratio · AUM · Manager · Min SIP · Inception date)</span></div>
+          <div class="dm-check-ts">
+            {{ with_metadata }}/{{ total_dg }} funds ({{ coverage.metadata }}% coverage)
+            &nbsp;·&nbsp; Refreshed every 7 days
+          </div>
+        </div>
+        <span class="dm-check-badge {% if coverage.metadata >= 80 %}ok{% elif coverage.metadata > 0 %}warn{% else %}none{% endif %}">
+          {{ coverage.metadata }}%
+        </span>
+      </div>
+
+      <div class="dm-check-row">
+        <span class="dm-check-icon">{% if cat_snapshot_count > 0 %}✅{% else %}⏳{% endif %}</span>
+        <div class="dm-check-main">
+          <div class="dm-check-title">Category Snapshots <span style="color:var(--text-muted);font-weight:400">(Avg returns · Risk stats · Score distribution per SEBI category)</span></div>
+          <div class="dm-check-ts">
+            {{ cat_snapshot_count }} categories computed
+            {% if latest_cat_ts %}&nbsp;·&nbsp; Last updated: {{ latest_cat_ts|date:"d M Y H:i" }} UTC{% endif %}
+          </div>
+        </div>
+        <span class="dm-check-badge {% if cat_snapshot_count >= 30 %}ok{% elif cat_snapshot_count > 0 %}warn{% else %}none{% endif %}">
+          {{ cat_snapshot_count }} cats
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Weekly Shard Cycle + 7-Day Activity ──────────────────────────────── -->
+  <div class="dm-section">
+    <div class="dm-section-head">
+      <h2>🔄 Weekly Pipeline Cycle</h2>
+      <span class="dm-badge">7 shards · ~330 funds/day</span>
+    </div>
+
+    <!-- Shard status boxes -->
+    <div class="dm-shards" style="margin-bottom:20px">
+      {% for s in shard_days %}
+      <div class="dm-shard {% if s.done %}done{% endif %} {% if s.is_today %}today-shard{% endif %}">
+        {% if s.is_today %}<span class="dm-today-tag">Today</span>{% endif %}
+        <div class="dm-shard-icon">{% if s.done %}✅{% elif s.is_today %}🔄{% else %}⏳{% endif %}</div>
+        <div class="dm-shard-day">{{ s.label }}</div>
+        <div class="dm-shard-date">{{ s.target_date|date:"d M" }}</div>
+        <div class="dm-shard-count {% if s.done %}done{% else %}pending{% endif %}">
+          {% if s.done %}{{ s.count }} funds{% else %}Pending{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- 7-day activity bar chart -->
+    <div class="dm-card" style="margin-bottom:0">
+      <div class="dm-card-label" style="margin-bottom:12px">📈 Funds refreshed last 7 days</div>
+      <div class="dm-activity-chart">
+        {% for day in daily_activity reversed %}
+        <div class="dm-act-col">
+          <div class="dm-act-count">{{ day.count }}</div>
+          <div class="dm-act-bar-wrap">
+            <div class="dm-act-bar {% if day.is_today %}today{% endif %}"
+                 style="height:{% if max_daily > 0 %}{% widthratio day.count max_daily 84 %}px{% else %}4px{% endif %}"></div>
+          </div>
+          <div class="dm-act-label">{{ day.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:10px">
+        Purple bar = today's run. Each shard processes ~330 funds (1/7 of the ~2,300-fund universe).
+        Complete weekly cycle = all funds refreshed once.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Benchmark Status ───────────────────────────────────────────────────── -->
+  <div class="dm-section">
+    <div class="dm-section-head">
+      <h2>📡 Benchmark Data Status</h2>
+      <span class="dm-badge">{{ benchmarks|length }} indices</span>
+    </div>
+    <div class="dm-card" style="padding:0;overflow:hidden">
+      <table class="dm-table">
+        <thead>
+          <tr>
+            <th>Index Name</th>
+            <th>Yahoo Ticker</th>
+            <th>Latest Data</th>
+            <th>Total Rows</th>
+            <th>Freshness</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bm in benchmarks %}
+          {% with days_old=bm.latest_date|timesince:today %}
+          <tr>
+            <td style="font-weight:600">{{ bm.name }}</td>
+            <td style="font-family:monospace;font-size:12px;color:var(--text-muted)">{{ bm.yahoo_ticker|default:"—" }}</td>
+            <td>
+              {% if bm.latest_date %}
+                {{ bm.latest_date|date:"d M Y" }}
+              {% else %}
+                <span style="color:var(--text-muted)">No data</span>
+              {% endif %}
+            </td>
+            <td>{{ bm.row_count|default:"0" }}</td>
+            <td>
+              {% if not bm.latest_date %}
+                <span class="dm-freshness none">No data</span>
+              {% elif bm.latest_date >= today %}
+                <span class="dm-freshness fresh">● Today</span>
+              {% else %}
+                {% now "Y-m-d" as today_str %}
+                <span class="dm-freshness {% if bm.row_count > 100 %}stale{% else %}old{% endif %}">
+                  ● {{ bm.latest_date|date:"d M Y" }}
+                </span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">
+              No benchmark data loaded yet. Run: <code>python manage.py ingest_benchmarks</code>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Data Sources & Pipeline Explanation ───────────────────────────────── -->
+  <div class="dm-section">
+    <div class="dm-section-head">
+      <h2>ℹ️ How the Pipeline Works</h2>
+    </div>
+    <div class="dm-grid-3">
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-blue),var(--c-cyan))"></div>
+        <div style="font-size:20px;margin-bottom:8px">🏛️</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px">NAV Data Source</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          Daily NAVs are fetched from <strong style="color:var(--text-primary)">mfapi.in</strong> (AMFI mirror). 
+          Published by AMFI at ~8 PM IST, ingested at 2 AM IST daily. Incremental fetch — only new rows are added.
+        </div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-violet),var(--c-rose))"></div>
+        <div style="font-size:20px;margin-bottom:8px">⚙️</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Analytics Engine</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          After NAV ingestion, rolling returns (1Y/3Y/5Y), Sharpe, Sortino, Beta, Alpha, drawdowns are 
+          computed per fund. Skipped automatically on weekends when no new NAV arrives.
+        </div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-green),var(--c-blue))"></div>
+        <div style="font-size:20px;margin-bottom:8px">🔄</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Weekly Refresh Cycle</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          ~2,300 funds are split into 7 equal shards. Each shard runs on a different weekday (~330 funds, 4–5h).
+          All funds are refreshed within 7 days. Metadata (AUM, ER, manager) refreshed every 7 days.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

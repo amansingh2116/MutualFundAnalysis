@@ -724,3 +724,148 @@ def user_settings_view(request):
         'form': form,
     })
 
+
+def data_monitor_view(request):
+    """
+    Data Quality & Pipeline Monitor — shows what data we have, when it was last
+    updated, how complete the analytics coverage is, and the weekday-shard cycle.
+    Publicly accessible (uses demo_user for anonymous visitors too).
+    """
+    from datetime import date, timedelta
+    from django.db.models import Count, Max, Min, Q
+    from django.utils import timezone
+
+    from apps.funds.models import (
+        Scheme, NAVHistory, FundScreenerSnapshot, FundModelScore, SchemeMeta,
+        CategorySnapshot,
+    )
+    from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV, BenchmarkReturns
+    from apps.analytics.models import TrailingReturn
+
+    today = date.today()
+    seven_days_ago = today - timedelta(days=7)
+    now = timezone.now()
+
+    # ── Fund universe ────────────────────────────────────────────────────────
+    total_schemes    = Scheme.objects.filter(is_active=True).count()
+    dg_filter = Q(is_direct=True, plan='GROWTH') | Q(is_etf=True)
+    dg_schemes = Scheme.objects.filter(is_active=True).filter(dg_filter)
+    total_dg   = dg_schemes.count()
+
+    # ── NAV freshness ─────────────────────────────────────────────────────────
+    # Schemes that have at least one NAV row
+    with_nav       = Scheme.objects.filter(is_active=True, nav_date__isnull=False).count()
+    nav_today      = Scheme.objects.filter(is_active=True, nav_date=today).count()
+    nav_this_week  = Scheme.objects.filter(is_active=True, nav_date__gte=seven_days_ago).count()
+    latest_nav_date = Scheme.objects.filter(is_active=True, nav_date__isnull=False) \
+                           .aggregate(m=Max('nav_date'))['m']
+
+    total_nav_rows = NAVHistory.objects.count()
+
+    # ── Analytics coverage ────────────────────────────────────────────────────
+    with_snapshot    = FundScreenerSnapshot.objects.count()
+    with_model_score = FundModelScore.objects.count()
+    with_trailing    = TrailingReturn.objects.values('scheme').distinct().count()
+    with_metadata    = SchemeMeta.objects.count()
+
+    latest_snapshot_ts  = FundScreenerSnapshot.objects.aggregate(m=Max('updated_at'))['m']
+    latest_score_ts     = FundModelScore.objects.aggregate(m=Max('computed_at'))['m']
+    latest_trailing_ts  = TrailingReturn.objects.aggregate(m=Max('updated_at'))['m']
+
+    # ── Category snapshots ────────────────────────────────────────────────────
+    cat_snapshot_count  = CategorySnapshot.objects.count()
+    latest_cat_ts       = CategorySnapshot.objects.aggregate(m=Max('updated_at'))['m']
+
+    # ── Benchmark freshness ───────────────────────────────────────────────────
+    benchmarks = (
+        BenchmarkIndex.objects
+        .filter(is_active=True)
+        .annotate(
+            latest_date=Max('nav_history__date'),
+            row_count=Count('nav_history'),
+        )
+        .values('name', 'yahoo_ticker', 'latest_date', 'row_count')
+        .order_by('name')
+    )
+
+    # ── 7-day pipeline activity ───────────────────────────────────────────────
+    daily_activity = []
+    for i in range(7):
+        d = today - timedelta(days=i)
+        count = FundScreenerSnapshot.objects.filter(updated_at__date=d).count()
+        daily_activity.append({
+            'date': d,
+            'label': d.strftime('%a %d %b'),
+            'count': count,
+            'is_today': d == today,
+        })
+    max_daily = max((r['count'] for r in daily_activity), default=1) or 1
+
+    # ── Coverage percentages ──────────────────────────────────────────────────
+    def pct(n, d):
+        return round(100 * n / d, 1) if d else 0
+
+    coverage = {
+        'nav':       pct(with_nav,         total_dg),
+        'nav_today': pct(nav_today,         total_dg),
+        'snapshot':  pct(with_snapshot,    total_dg),
+        'model':     pct(with_model_score, total_dg),
+        'trailing':  pct(with_trailing,    total_dg),
+        'metadata':  pct(with_metadata,    total_dg),
+    }
+
+    # ── Weekday shard status ──────────────────────────────────────────────────
+    # Each shard processes funds where index % 7 == shard.
+    # Estimate which shard was refreshed each day based on snapshot activity.
+    import datetime
+    current_dow = today.weekday()   # 0=Mon, 6=Sun (Python) vs 0=Sun in bash date +%w
+    # bash date +%w: 0=Sun, 1=Mon, ..., 6=Sat — convert: bash_dow = (python_dow+1)%7
+    shard_days = []
+    for shard in range(7):
+        bash_dow = shard                         # shard 0=Sun, 1=Mon, …6=Sat
+        py_dow   = (bash_dow - 1) % 7           # Python: 0=Mon, 6=Sun
+        days_ago = (current_dow - py_dow) % 7
+        target_date = today - timedelta(days=days_ago)
+        count = FundScreenerSnapshot.objects.filter(updated_at__date=target_date).count()
+        shard_days.append({
+            'shard':       shard,
+            'label':       ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][shard],
+            'target_date': target_date,
+            'count':       count,
+            'is_today':    target_date == today,
+            'done':        count > 0,
+        })
+
+    context = {
+        # Universe
+        'total_schemes':   total_schemes,
+        'total_dg':        total_dg,
+        # NAV
+        'with_nav':        with_nav,
+        'nav_today':       nav_today,
+        'nav_this_week':   nav_this_week,
+        'latest_nav_date': latest_nav_date,
+        'total_nav_rows':  total_nav_rows,
+        # Analytics
+        'with_snapshot':    with_snapshot,
+        'with_model_score': with_model_score,
+        'with_trailing':    with_trailing,
+        'with_metadata':    with_metadata,
+        'latest_snapshot_ts': latest_snapshot_ts,
+        'latest_score_ts':    latest_score_ts,
+        'latest_trailing_ts': latest_trailing_ts,
+        # Categories
+        'cat_snapshot_count': cat_snapshot_count,
+        'latest_cat_ts':      latest_cat_ts,
+        # Benchmarks
+        'benchmarks':  benchmarks,
+        # Activity
+        'daily_activity': daily_activity,
+        'max_daily':      max_daily,
+        # Coverage %
+        'coverage': coverage,
+        # Shard cycle
+        'shard_days': shard_days,
+        'today': today,
+    }
+    return render(request, 'data_monitor.html', context)

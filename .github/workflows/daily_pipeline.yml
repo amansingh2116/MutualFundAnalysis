@@ -102,6 +102,7 @@ jobs:
             --shard="$SHARD" \
             --num-shards="$NUM_SHARDS" \
             $LIMIT_ARG \
+            --skip-analytics-if-no-new-nav \
             --resume --resume-hours=20
 
       # ── 6. Learn content sync ─────────────────────────────────────────────

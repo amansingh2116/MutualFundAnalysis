@@ -108,6 +108,16 @@ class Command(BaseCommand):
             dest="num_shards",
             help="Total number of shards (default 7, one per weekday).",
         )
+        parser.add_argument(
+            "--skip-analytics-if-no-new-nav",
+            action="store_true",
+            dest="skip_analytics_if_no_new_nav",
+            help=(
+                "Skip analytics computation for funds that received no new NAV rows. "
+                "On weekends/holidays when markets are closed, this reduces a "
+                "34-hour analytics pass to ~10 minutes because no fund has new data."
+            ),
+        )
 
     def handle(self, *args, **options):
         limit = options["limit"]
@@ -125,6 +135,7 @@ class Command(BaseCommand):
         start_from = options.get("start_from")
         shard = options.get("shard")          # None = no sharding
         num_shards = options.get("num_shards", 7)
+        skip_if_no_new_nav = options.get("skip_analytics_if_no_new_nav", False)
 
         # Build queryset — always ordered by amfi_code for deterministic processing
         qs = Scheme.objects.filter(is_active=True).order_by("amfi_code")
@@ -175,6 +186,7 @@ class Command(BaseCommand):
             f"meta={'SKIP' if skip_metadata else 'YES'} "
             f"analytics={'SKIP' if skip_analytics else 'YES'} "
             f"score={'SKIP' if skip_model_score else 'YES'}"
+            + (" | skip-analytics-if-no-new-nav=ON" if skip_if_no_new_nav else "")
             + (f" | RESUME ({len(already_done)} skip)" if do_resume else "")
             + (f" | start-from={start_from}" if start_from else "")
         ))
@@ -196,6 +208,10 @@ class Command(BaseCommand):
                 if index % 200 == 0:
                     self.stdout.write(f"  [{index}/{total}] resuming — {len(already_done)} skipped so far")
                 continue
+
+            # Track whether this fund received any new NAV rows this cycle.
+            # Used by --skip-analytics-if-no-new-nav.
+            had_new_nav: bool = False
 
             # ── 1. NAV ingestion (incremental) ────────────────────────────────
             if not skip_nav:
@@ -241,6 +257,7 @@ class Command(BaseCommand):
                                     nav_latest=latest_entry.nav,
                                     nav_date=latest_entry.date,
                                 )
+                                had_new_nav = True   # ← new rows saved
                             # Refresh in-memory for downstream steps
                             scheme.refresh_from_db()
 
@@ -308,14 +325,21 @@ class Command(BaseCommand):
 
                 time.sleep(cap_adapter.RATE_LIMIT_DELAY)
 
-            # ── 3. Analytics ──────────────────────────────────────────────────
+            # ── 3. Analytics ───────────────────────────────────────────
             if not skip_analytics:
-                try:
-                    compute_all_metrics(scheme)
-                    analytics_ok += 1
-                except Exception as exc:
-                    analytics_err += 1
-                    logger.error(f"[{scheme.amfi_code}] analytics error: {exc}")
+                # On weekends/holidays, no new NAV data arrives for any fund.
+                # If the caller passed --skip-analytics-if-no-new-nav, skip the
+                # ~50-second analytics computation for this fund since it would
+                # produce identical results to yesterday's run.
+                if skip_if_no_new_nav and not had_new_nav:
+                    analytics_ok += 1   # count as OK — data is still valid
+                else:
+                    try:
+                        compute_all_metrics(scheme)
+                        analytics_ok += 1
+                    except Exception as exc:
+                        analytics_err += 1
+                        logger.error(f"[{scheme.amfi_code}] analytics error: {exc}")
 
             # ── 4. Screener snapshot ──────────────────────────────────────────
             try:
