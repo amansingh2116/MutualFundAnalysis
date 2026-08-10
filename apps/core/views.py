@@ -85,7 +85,13 @@ def _send_activation_email(request, user):
 
 @ratelimit(key='ip', rate='3/m', method='POST', block=True)
 def register_view(request):
-    """Register a new user. Creates account as inactive; sends activation email."""
+    """Register a new user.
+
+    If SMTP is configured (EMAIL_HOST_USER is set), creates an inactive account
+    and sends an activation email.
+    If SMTP is NOT configured (console backend), activates the account immediately
+    and logs the user in — so the site is usable without email setup.
+    """
     if request.user.is_authenticated:
         return redirect('funds:home')
 
@@ -93,21 +99,39 @@ def register_view(request):
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()  # is_active=False set in form.save()
-            try:
-                _send_activation_email(request, user)
-                logger.info('Activation email sent to %s', user.email)
-            except Exception as exc:
-                logger.error('Failed to send activation email to %s: %s', user.email, exc)
-                # Don't leave a permanently-inactive account if email fails
-                user.delete()
-                messages.error(
-                    request,
-                    'We could not send a verification email. '  
-                    'Please check your email address or try again later.',
-                )
-                return render(request, 'registration/register.html', {'form': form})
 
-            return redirect('core:email_verification_sent')
+            email_configured = bool(settings.EMAIL_HOST_USER)
+
+            if email_configured:
+                # Full email-verification flow
+                try:
+                    _send_activation_email(request, user)
+                    logger.info('Activation email sent to %s', user.email)
+                    return redirect('core:email_verification_sent')
+                except Exception as exc:
+                    logger.error('Failed to send activation email to %s: %s', user.email, exc)
+                    # Don't leave a permanently-inactive account if email fails
+                    user.delete()
+                    messages.error(
+                        request,
+                        'We could not send a verification email. '
+                        'Please check your email address or try again later.',
+                    )
+                    return render(request, 'registration/register.html', {'form': form})
+            else:
+                # No SMTP configured — activate immediately and log in
+                user.is_active = True
+                user.save(update_fields=['is_active'])
+                login(request, user)
+                logger.info(
+                    'User %s registered and auto-activated (no SMTP configured)',
+                    user.username,
+                )
+                messages.success(
+                    request,
+                    f'Welcome, {user.username}! Your account is ready.',
+                )
+                return redirect('funds:home')
     else:
         form = RegistrationForm()
 

@@ -31,6 +31,6 @@ jobs:
 
       - name: Run daily pipeline commands
         run: |
-          python manage.py --settings=config.settings.prod populate_screener
-          python manage.py --settings=config.settings.prod ingest_benchmarks
-          python manage.py --settings=config.settings.prod populate_benchmark_returns
+          python manage.py populate_screener
+          python manage.py ingest_benchmarks
+          python manage.py populate_benchmark_returns

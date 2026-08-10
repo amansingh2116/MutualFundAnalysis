@@ -1,7 +1,7 @@
 name: Initial Setup (Run Once)
 
 # Trigger this manually from GitHub Actions UI:
-# GitHub repo → Actions tab → "Initial Setup" → Run workflow
+# GitHub repo → Actions tab → "Initial Setup (Run Once)" → Run workflow
 on:
   workflow_dispatch:
     inputs:
@@ -23,12 +23,11 @@ on:
 jobs:
   initial-setup:
     runs-on: ubuntu-latest
-    timeout-minutes: 720   # 12 hour max (full data load can take 6–12 hrs)
+    timeout-minutes: 720   # 12 hour max (full data load can take 6-12 hrs)
 
     # ── Shared env vars for ALL steps ─────────────────────────────────────────
-    # Setting at the job level means they cannot be silently absent from any step.
-    # We also pass --settings=config.settings.prod explicitly on every manage.py
-    # call so the right settings module is guaranteed regardless of DJANGO_SETTINGS_MODULE.
+    # DJANGO_SETTINGS_MODULE is set here at the job level so every manage.py
+    # call automatically uses prod settings — no need for a --settings flag.
     env:
       DJANGO_SETTINGS_MODULE: config.settings.prod
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -55,7 +54,6 @@ jobs:
           python -c "
           import os, sys
           sys.path.insert(0, '.')
-          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.prod')
           import django
           django.setup()
           from django.db import connection
@@ -64,34 +62,33 @@ jobs:
           "
 
       - name: Run database migrations
-        run: python manage.py --settings=config.settings.prod migrate --fake-initial --no-input
+        run: python manage.py migrate --fake-initial --no-input
 
       - name: Create admin superuser
         env:
           DJANGO_SUPERUSER_USERNAME: ${{ github.event.inputs.superuser_username }}
           DJANGO_SUPERUSER_EMAIL: ${{ github.event.inputs.superuser_email }}
           DJANGO_SUPERUSER_PASSWORD: ${{ github.event.inputs.superuser_password }}
-        run: python manage.py --settings=config.settings.prod createsuperuser --noinput || echo "Superuser already exists, skipping."
+        run: python manage.py createsuperuser --noinput || echo "Superuser already exists, skipping."
 
       - name: Load fund universe (~2,300 schemes)
-        run: python manage.py --settings=config.settings.prod build_scheme_master
+        run: python manage.py build_scheme_master
 
       - name: Sync Learn section content (PDF guides + blogs)
-        run: python manage.py --settings=config.settings.prod sync_content
+        run: python manage.py sync_content
 
       - name: Load benchmark data
         run: |
-          python manage.py --settings=config.settings.prod ingest_benchmarks
-          python manage.py --settings=config.settings.prod populate_benchmark_returns
+          python manage.py ingest_benchmarks
+          python manage.py populate_benchmark_returns
 
       - name: Run fund data pipeline
         run: |
           LIMIT="${{ github.event.inputs.limit }}"
           if [ "$LIMIT" = "0" ]; then
             echo "Running full populate_screener for all funds (6-12 hours)..."
-            python manage.py --settings=config.settings.prod populate_screener
+            python manage.py populate_screener
           else
             echo "Running populate_screener with --limit=$LIMIT..."
-            python manage.py --settings=config.settings.prod populate_screener --limit=$LIMIT
+            python manage.py populate_screener --limit=$LIMIT
           fi
-
