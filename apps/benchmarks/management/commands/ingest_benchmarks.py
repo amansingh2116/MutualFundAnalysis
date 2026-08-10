@@ -26,7 +26,6 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.db import OperationalError
 
 from adapters.benchmark_adapter import BenchmarkAdapter
 from apps.benchmarks.benchmark_config import BENCHMARK_CONFIG, BenchmarkConfig, REQUIRED_BENCHMARK_NAMES
@@ -35,23 +34,37 @@ from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV
 logger = logging.getLogger("mfanalysis")
 
 
-def _db_upsert(index, nav_date, close, source, max_retries=6):
-    """update_or_create with exponential-backoff retry on SQLite lock."""
-    for attempt in range(max_retries):
-        try:
-            BenchmarkNAV.objects.update_or_create(
-                index=index,
-                date=nav_date,
-                defaults={"close": float(close), "source": source},
-            )
-            return
-        except OperationalError as e:
-            if "database is locked" in str(e) and attempt < max_retries - 1:
-                wait = 2 ** attempt  # 1 s, 2 s, 4 s, 8 s, 16 s
-                logger.debug("DB locked, retry in %ss (attempt %d)", wait, attempt + 1)
-                time.sleep(wait)
-            else:
-                raise
+def _bulk_upsert(index, rows, source):
+    """
+    Bulk-upsert BenchmarkNAV rows using INSERT ... ON CONFLICT DO UPDATE.
+
+    Replaces the old row-by-row update_or_create (which caused 2-hour runtimes
+    on CockroachDB Cloud) with a single batched statement.  For 5 000 rows we
+    send 10 INSERT statements (batch_size=500) instead of 10 000 queries.
+
+    Returns the number of rows processed.
+    """
+    objs = [
+        BenchmarkNAV(
+            index=index,
+            date=row['date'],
+            close=float(row['close']),
+            source=source,
+        )
+        for row in rows
+        if row.get('date') and row.get('close') is not None
+    ]
+    if not objs:
+        return 0
+
+    BenchmarkNAV.objects.bulk_create(
+        objs,
+        batch_size=500,
+        update_conflicts=True,
+        unique_fields=['index', 'date'],
+        update_fields=['close', 'source'],
+    )
+    return len(objs)
 
 
 def _load_excel_tickers(base_dir) -> dict[str, str]:
@@ -111,6 +124,18 @@ class Command(BaseCommand):
             help="Only ingest a specific benchmark (partial name match, case-insensitive).",
         )
         parser.add_argument(
+            "--since",
+            type=str,
+            default=None,
+            help=(
+                "Earliest date to fetch when a benchmark has NO existing history "
+                "(format: YYYY-MM-DD). Defaults to 2000-01-01. "
+                "Use e.g. --since 2015-01-01 for a faster initial setup. "
+                "Ignored for benchmarks that already have data in DB "
+                "(incremental fetch always resumes from last stored date)."
+            ),
+        )
+        parser.add_argument(
             "--cleanup",
             action="store_true",
             help=(
@@ -123,6 +148,18 @@ class Command(BaseCommand):
         force = options.get("force", False)
         filter_name = options.get("index", None)
         do_cleanup = options.get("cleanup", False)
+
+        # Parse --since date (only used when a benchmark has no existing data)
+        since_str = options.get("since", None)
+        if since_str:
+            try:
+                from datetime import datetime as _dt
+                since_date = _dt.strptime(since_str, "%Y-%m-%d").date()
+            except ValueError:
+                self.stderr.write(f"Invalid --since date '{since_str}'. Use YYYY-MM-DD.")
+                return
+        else:
+            since_date = None  # will default to 2000-01-01 per start_year below
 
         base_dir = getattr(settings, "BASE_DIR", None)
 
@@ -237,34 +274,36 @@ class Command(BaseCommand):
             self.stdout.write(f"  FETCH {bench.name} (ticker={best_ticker or 'none'})")
 
             # ── Source 1: NSE Direct API ──────────────────────────────────────
-            nse_ok = False
             nse_name = (cfg.nse_name if cfg else "") or bench.nse_type_str or bench.name
 
             latest = bench.nav_history.order_by("-date").first()
-            start = (latest.date + timedelta(days=1)) if latest else date(start_year, 1, 1)
+            if latest:
+                start = latest.date + timedelta(days=1)
+            elif since_date:
+                start = since_date
+            else:
+                start = date(start_year, 1, 1)
 
-            nse_rows = 0
+            nse_rows_list = []
+            nse_ok = False
             while start < today:
                 end = min(date(start.year + 1, 1, 1) - timedelta(days=1), today)
                 try:
-                    rows = adapter.fetch_index_history(nse_name, start, end)
+                    chunk = adapter.fetch_index_history(nse_name, start, end)
                 except Exception as exc:
                     logger.debug("NSE error %s %s–%s: %s", bench.name, start, end, exc)
-                    rows = []
+                    chunk = []
 
-                if rows:
-                    for row in rows:
-                        d, c = row.get("date"), row.get("close")
-                        if d and c is not None:
-                            _db_upsert(bench, d, c, "nse")
-                            nse_rows += 1
+                if chunk:
+                    nse_rows_list.extend(chunk)
                     start = end + timedelta(days=1)
                     nse_ok = True
                 else:
-                    break  # NSE failed — try yfinance
+                    break  # NSE failed for this chunk — fall through to yfinance
 
-            if nse_ok and nse_rows > 0:
-                self.stdout.write(f"    NSE: {nse_rows} rows saved")
+            if nse_ok and nse_rows_list:
+                saved = _bulk_upsert(bench, nse_rows_list, "nse")
+                self.stdout.write(f"    NSE: {saved} rows saved")
                 fetched_nse += 1
                 continue
 
@@ -277,12 +316,7 @@ class Command(BaseCommand):
                     yf_rows = []
 
                 if yf_rows:
-                    saved = 0
-                    for row in yf_rows:
-                        d, c = row.get("date"), row.get("close")
-                        if d and c is not None:
-                            _db_upsert(bench, d, c, "yfinance")
-                            saved += 1
+                    saved = _bulk_upsert(bench, yf_rows, "yfinance")
                     if saved:
                         self.stdout.write(f"    yfinance ({best_ticker}): {saved} rows saved")
                         fetched_yf += 1
@@ -297,3 +331,4 @@ class Command(BaseCommand):
                 f"yfinance={fetched_yf}  no_data={failed}"
             )
         )
+

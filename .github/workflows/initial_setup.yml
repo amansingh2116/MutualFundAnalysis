@@ -19,6 +19,10 @@ on:
         description: 'Fund limit for populate_screener (use 300 for quick demo, 0 for all ~2300 funds)'
         required: true
         default: '300'
+      benchmark_since:
+        description: 'Fetch benchmark history from this date (YYYY-MM-DD). Use 2015-01-01 for fast setup, 2000-01-01 for full history.'
+        required: false
+        default: '2015-01-01'
 
 jobs:
   initial-setup:
@@ -79,7 +83,10 @@ jobs:
 
       - name: Load benchmark data
         run: |
-          python manage.py ingest_benchmarks
+          SINCE="${{ github.event.inputs.benchmark_since }}"
+          SINCE="${SINCE:-2015-01-01}"
+          echo "Fetching benchmark data from $SINCE onwards (bulk insert mode)..."
+          python manage.py ingest_benchmarks --since "$SINCE"
           python manage.py populate_benchmark_returns
 
       - name: Run fund data pipeline
