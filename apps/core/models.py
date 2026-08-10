@@ -57,7 +57,7 @@ class LearnPDFGuide(BaseModel):
     description = models.TextField(blank=True)
     pdf_path = models.CharField(max_length=500, unique=True)
     cover_image_path = models.CharField(max_length=500, blank=True)
-    accent = models.CharField(max_length=24, blank=True)
+    accent = models.CharField(max_length=100, blank=True)
     size_kb = models.PositiveIntegerField(default=0)
     sort_order = models.PositiveIntegerField(default=100)
     is_published = models.BooleanField(default=True)
@@ -65,7 +65,7 @@ class LearnPDFGuide(BaseModel):
     synced_at = models.DateTimeField(null=True, blank=True)
     # Category places the guide in a sub-section of the Resources page
     category = models.CharField(
-        max_length=24,
+        max_length=50,
         choices=CATEGORY_CHOICES,
         default=CATEGORY_OTHER,
     )
