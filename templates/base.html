@@ -147,13 +147,24 @@
 
     <div class="sidebar-footer">
       {% if user.is_authenticated %}
-      <a href="{% url 'core:user_settings' %}" class="sidebar-user" style="text-decoration:none" title="Account settings & logout">
-        <div class="user-avatar">{{ user.username|first|upper }}</div>
-        <div class="user-info">
-          <div class="user-name">{{ user.username }}</div>
-          <div class="user-role">{% if user.is_staff %}Admin{% else %}User{% endif %}</div>
-        </div>
-      </a>
+      <div class="sidebar-user" style="display:flex;align-items:center;gap:0">
+        <a href="{% url 'core:user_settings' %}" style="text-decoration:none;display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:8px 0">
+          <div class="user-avatar">{{ user.username|first|upper }}</div>
+          <div class="user-info">
+            <div class="user-name">{{ user.username }}</div>
+            <div class="user-role">{% if user.is_staff %}Admin{% else %}Investor{% endif %}</div>
+          </div>
+        </a>
+        {# Logout button — POST is required by Django 5.x LogoutView #}
+        <form action="{% url 'logout' %}" method="post" style="margin:0;flex-shrink:0">
+          {% csrf_token %}
+          <button type="submit" title="Sign out"
+            style="background:none;border:none;cursor:pointer;padding:7px 8px;color:var(--text-muted);font-size:16px;line-height:1;border-radius:6px;transition:all 0.15s"
+            onmouseover="this.style.color='#f87171';this.style.background='rgba(248,113,113,0.12)'"
+            onmouseout="this.style.color='var(--text-muted)';this.style.background='none'"
+            aria-label="Sign out">&#x23FB;</button>
+        </form>
+      </div>
       {% else %}
       <a href="{% url 'login' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center">Sign In</a>
       {% endif %}
@@ -195,7 +206,39 @@
 
       <!-- Actions -->
       <div class="topbar-actions">
-        {% if not user.is_authenticated %}
+        {% if user.is_authenticated %}
+        {# ── User avatar button + dropdown ── #}
+        <div style="position:relative">
+          <button id="topbar-user-btn" type="button"
+            style="display:flex;align-items:center;gap:8px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:5px 10px 5px 6px;cursor:pointer;color:var(--text-primary);font-size:13px;transition:border-color 0.15s"
+            aria-haspopup="true" aria-expanded="false" aria-controls="topbar-user-dropdown">
+            <span style="width:26px;height:26px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;flex-shrink:0">{{ user.username|first|upper }}</span>
+            <span style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ user.username }}</span>
+            <span style="color:var(--text-muted);font-size:10px;margin-left:2px">&#x25BE;</span>
+          </button>
+          <div id="topbar-user-dropdown"
+            style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;min-width:200px;padding:8px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,0.4)">
+            <div style="padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px">
+              <div style="font-size:13px;font-weight:700;color:var(--text-primary)">{{ user.username }}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">{{ user.email|default:"No email set" }}</div>
+              {% if user.is_staff %}<div style="font-size:10px;color:var(--accent);margin-top:4px;font-weight:600">&#9679; Admin</div>{% endif %}
+            </div>
+            <a href="{% url 'core:user_settings' %}"
+              style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;color:var(--text-secondary);text-decoration:none;font-size:13px;transition:background 0.15s"
+              onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='transparent'">
+              &#9881;&#65039; Account Settings
+            </a>
+            <form action="{% url 'logout' %}" method="post" style="margin:0">
+              {% csrf_token %}
+              <button type="submit"
+                style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;color:#f87171;background:none;border:none;cursor:pointer;width:100%;text-align:left;font-size:13px;transition:background 0.15s"
+                onmouseover="this.style.background='rgba(248,113,113,0.1)'" onmouseout="this.style.background='none'">
+                &#x23FB; Sign Out
+              </button>
+            </form>
+          </div>
+        </div>
+        {% else %}
         <a href="{% url 'login' %}" class="topbar-btn topbar-btn-secondary">Sign In</a>
         <a href="{% url 'core:register' %}" class="topbar-btn topbar-btn-primary">Get Started</a>
         {% endif %}
@@ -275,7 +318,26 @@
 .info-btn.active { background: rgba(129,140,248,0.35); border-color: #818cf8; }
 </style>
 
+<!-- Topbar user-menu dropdown toggle -->
+<script>
+(function(){
+  var btn = document.getElementById('topbar-user-btn');
+  var menu = document.getElementById('topbar-user-dropdown');
+  if (!btn || !menu) return;
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var open = menu.style.display !== 'none';
+    menu.style.display = open ? 'none' : 'block';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+  });
+  document.addEventListener('click', function(){
+    menu.style.display = 'none';
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  menu.addEventListener('click', function(e){ e.stopPropagation(); });
+})();
+</script>
+
 
 </body>
 </html>
-

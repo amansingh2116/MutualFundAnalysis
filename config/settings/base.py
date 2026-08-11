@@ -106,6 +106,18 @@ LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/portfolio/'
 LOGOUT_REDIRECT_URL = '/'
 
+# ── Sessions ──────────────────────────────────────────────────────────────────
+# Use signed-cookie sessions instead of DB sessions.
+# Why: DB sessions (the default) require a CockroachDB write on every
+# login/logout.  On the free tier, a momentary DB connection issue during
+# the session save → 500 on login.  Cookie sessions:
+#   • Are signed with SECRET_KEY (cannot be forged or tampered with)
+#   • Are HTTPS-only in prod (SESSION_COOKIE_SECURE = True in prod.py)
+#   • Store only the user ID (~50 bytes, far below the 4 KB cookie limit)
+#   • Require ZERO extra DB reads/writes — auth is free
+# Trade-off: sessions cannot be invalidated server-side (acceptable here).
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+
 # ── Cache (used by django-ratelimit) ──────────────────────────────────────────
 # LocMemCache is per-process — sufficient for a single gunicorn worker.
 # Swap for a Redis cache backend if you scale to multiple workers.

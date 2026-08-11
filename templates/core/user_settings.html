@@ -122,6 +122,10 @@
             <span class="info-val">{{ user.username }}</span>
           </div>
           <div class="info-row">
+            <span class="info-lbl">Email</span>
+            <span class="info-val">{{ user.email|default:"—" }}</span>
+          </div>
+          <div class="info-row">
             <span class="info-lbl">Role</span>
             <span class="info-val">{% if user.is_staff %}Admin / Staff{% else %}User / Investor{% endif %}</span>
           </div>
