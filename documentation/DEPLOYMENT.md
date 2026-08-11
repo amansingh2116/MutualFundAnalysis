@@ -1,11 +1,11 @@
 # MF Analysis — Deployment Guide
 
-> **Production Stack:** Render.com (web + cron) + CockroachDB Serverless (database)
-> **Cost:** $0 — no credit card required on either platform.
+> **Production Stack:** Render.com (web service, free tier) + CockroachDB Serverless (database, free 10 GB) + GitHub Actions (weekly data pipeline, **free for public repositories**)
+> **Cost:** $0 — no credit card required on any platform.
 
 ---
 
-## Local Development (Windows)
+## Local Development (Windows / macOS / Linux)
 
 ### Step 1 — Install Python dependencies
 
@@ -18,7 +18,8 @@ pip install -r requirements.txt
 ### Step 2 — Create your `.env` file
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.example .env    # Windows
+# cp .env.example .env          # Linux/macOS
 ```
 
 Edit `.env` and set at minimum:
@@ -44,10 +45,10 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### Step 5 — Load fund data
+### Step 5 — Load fund data (optional for local dev)
 
 ```powershell
-# Load ~2,300 fund scheme records (~1 minute)
+# Load ~2,300 fund scheme records (~2 minutes)
 python manage.py build_scheme_master
 
 # Sync PDF guides and blog posts from Resources/
@@ -64,21 +65,23 @@ Open **http://127.0.0.1:8000/**
 
 ---
 
-## Deploy to Production (Render + CockroachDB)
+## Deploy to Production (Render + CockroachDB + GitHub Actions)
 
 ### Architecture Overview
 
 ```
-GitHub (code + Resources/ + Actions)
+GitHub (public repository)
    │
    ├── Render Web Service (mfanalysis-web)
    │     ├── build.sh → installs Chromium + pip install
-   │     ├── gunicorn → serves the Django app
+   │     ├── gunicorn → serves the Django app (2 workers)
    │     └── sleeps after 15 min inactivity (free tier)
    │
-   ├── GitHub Actions (daily pipeline)
-   │     ├── Runs at 1:30 AM IST every day (free 2,000 mins/month)
-   │     └── Runs populate_screener + ingest_benchmarks directly on CockroachDB
+   ├── GitHub Actions (.github/workflows/daily_pipeline.yml)
+   │     ├── Runs Mon–Sat at 8:30 PM UTC (2 AM IST)
+   │     ├── Each day processes 1 of 6 batches (~384 funds)
+   │     ├── FREE for public repos (unlimited minutes)
+   │     └── Writes directly to CockroachDB
    │
    └── CockroachDB Basic (database)
          ├── Free forever — 10 GB storage
@@ -86,6 +89,7 @@ GitHub (code + Resources/ + Actions)
          └── Serverless — scales to zero when idle
 ```
 
+> ⚠️ **Public Repository Required:** The GitHub Actions pipeline uses ~1,860 min/month. Private repos are capped at 2,000 min/month (would be fine, but barely). Public repos have **unlimited free minutes**. The repository should be public.
 
 ---
 
@@ -112,7 +116,7 @@ When prompted after cluster creation:
 
 **1.4 Get the connection string**
 
-In the cluster dashboard → **Connect** → **Connection string**
+Cluster dashboard → **Connect** → **Connection string**
 
 It will look like:
 ```
@@ -123,41 +127,19 @@ Copy this entire string — you will paste it into Render as `DATABASE_URL`.
 
 ---
 
-### Phase 2 — Commit and Push to GitHub (5 minutes)
+### Phase 2 — Push to GitHub
 
-**2.1 Commit all pending code changes**
+**2.1 Ensure the repository is public**
 
-Run in PowerShell from the project folder:
+GitHub → Settings → Danger Zone → **Change repository visibility** → **Make public**
 
-```powershell
-git add apps/core/views.py `
-        apps/funds/report.py `
-        apps/funds/views.py `
-        config/settings/base.py `
-        config/settings/prod.py `
-        config/urls.py `
-        render.yaml `
-        requirements.txt `
-        build.sh `
-        .env.example `
-        README.md `
-        documentation/DEPLOYMENT.md
+This gives you **unlimited free GitHub Actions minutes**.
 
-git commit -m "feat: production deployment config — Render + CockroachDB, rate limiting, auth hardening"
-```
-
-**2.2 Commit the Resources folder**
-
-The `Resources/` folder (PDF guides + blog posts) is 17 MB and must be committed to Git so it is available on Render.
+**2.2 Push all code changes**
 
 ```powershell
-git add Resources/
-git commit -m "content: commit PDF guides and blog posts for production deployment"
-```
-
-**2.3 Push to GitHub**
-
-```powershell
+git add -A
+git commit -m "feat: production-ready deployment"
 git push origin main
 ```
 
@@ -174,9 +156,7 @@ Use the same GitHub account your repository is on.
 
 1. Render dashboard → **New** → **Blueprint**
 2. Connect your GitHub account → select the `MutualFundAnalysis` repository
-3. Render reads `render.yaml` automatically and shows what it will create:
-   - `mfanalysis-web` (web service) ✅
-   - `mfanalysis-daily-pipeline` (cron job) ✅
+3. Render reads `render.yaml` automatically
 4. Click **Apply**
 
 **3.3 Set Environment Variables — Web Service**
@@ -187,97 +167,102 @@ Add each variable:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | The full CockroachDB connection string from Step 1.4 |
-| `SECRET_KEY` | Run `python -c "import secrets; print(secrets.token_urlsafe(50))"` locally and paste the result |
+| `DATABASE_URL` | Full CockroachDB connection string from Phase 1 |
+| `SECRET_KEY` | Run `python -c "import secrets; print(secrets.token_urlsafe(50))"` locally |
 | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
 | `DEBUG` | `False` |
 | `ALLOWED_HOSTS` | `.onrender.com` |
 | `RF_ANNUAL_RATE` | `0.065` |
 | `DEFAULT_FROM_EMAIL` | your email address (e.g. `yourname@gmail.com`) |
-| `CONTACT_RECIPIENT_EMAIL` | your personal inbox for contact form messages |
+| `CONTACT_RECIPIENT_EMAIL` | your inbox for contact form messages |
 
-> Leave `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` blank for now. The app works without them — emails will fail silently in prod until you configure an SMTP provider.
+> Leave `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` blank for now. The app works without them — email delivery will fail silently until you configure SMTP (Phase 6).
 
 **3.4 Trigger the first deploy**
 
 Click **Manual Deploy** → **Deploy Latest Commit** on `mfanalysis-web`.
 
-Wait for the build to complete (5–8 minutes — Chromium install + pip install).
-
-After the deploy, Render's Procfile automatically runs:
-- `python manage.py migrate` — creates all database tables on CockroachDB
-- `python manage.py collectstatic` — bundles static files
-
+Wait 5–8 minutes (Chromium install + pip install). Build runs:
+```
+chmod +x build.sh && ./build.sh
+python manage.py migrate --fake-initial --no-input
+python manage.py collectstatic --no-input
+```
 
 ---
 
-### Phase 4 — First Data Load (from Render Shell)
+### Phase 4 — Add GitHub Actions Secrets
 
-> This is the most important step. Do it immediately after the first successful deploy.
+The pipeline writes directly to CockroachDB. It needs the same secrets.
 
-Render dashboard → `mfanalysis-web` → **Shell** tab
+GitHub → repository → **Settings** → **Secrets and variables** → **Actions**
 
-Run these commands **in order**:
+Add:
+
+| Secret name | Value |
+|---|---|
+| `DATABASE_URL` | Same CockroachDB connection string |
+| `SECRET_KEY` | Same secret key |
+
+---
+
+### Phase 5 — First Data Load (Initial Setup)
+
+> This runs the **initial setup pipeline** — a one-time operation that loads all ~2,300 funds and their complete NAV history. Takes 3–6 hours total via GitHub Actions.
+
+**Option A — Trigger via GitHub Actions (recommended)**
+
+GitHub → Actions → **Initial Setup Pipeline** → **Run workflow**
+
+The pipeline runs these steps automatically:
+1. `build_scheme_master` — loads ~2,300 fund records
+2. `ingest_benchmarks` — loads 51 benchmark indices  
+3. `populate_benchmark_returns` — computes benchmark analytics
+4. `populate_screener` — **THE BIG ONE:** downloads full NAV history for all funds (~4–6 hours on first run)
+5. `sync_content` — syncs PDF guides and blog posts
+
+**Option B — Render Shell (for quick testing)**
+
+Render dashboard → `mfanalysis-web` → **Shell** tab:
 
 ```bash
-# 1. Create your admin account
+# 1. Create admin account
 python manage.py createsuperuser
 
-# 2. Load fund universe (~2,300 schemes, ~1 minute)
+# 2. Load 50 funds for a quick demo (~3-5 min)
 python manage.py build_scheme_master
-
-# 3. Sync PDF guides and blog posts from Resources/
+python manage.py populate_screener --limit=50
 python manage.py sync_content
-
-# 4. Load benchmark data (~51 indices, ~5 minutes)
-python manage.py ingest_benchmarks
-python manage.py populate_benchmark_returns
-
-# 5. Full fund data pipeline — THE BIG ONE (~6-12 hours on first run)
-#    Close the shell after starting — it keeps running in the background
-python manage.py populate_screener
 ```
 
-> **⚠️ About `populate_screener`:** Downloads NAV history for all ~2,300 funds (5–10 million rows). Takes 6–12 hours on the first run. If interrupted, run `python manage.py populate_screener --resume` to continue from where it stopped.
->
-> **Tip:** Start it on a Friday evening and check Saturday morning. All 10 GB of CockroachDB's free storage easily fits your data.
-
-**For a quick demo while the full load runs:**
-
-```bash
-# Load only 300 funds (~20 minutes) to get a working screener immediately
-python manage.py populate_screener --limit=300
-```
+> To track progress, go to **Data Status** in the sidebar (`/data-status/`) — it shows coverage %, last update times, and the weekly batch schedule.
 
 ---
 
-### Phase 5 — Configure Anti-Sleep (5 minutes)
+### Phase 6 — Configure Anti-Sleep (5 minutes)
 
-Render free web services sleep after **15 minutes of inactivity** (30–60 second cold start on first request).
+Render free web services sleep after **15 minutes of inactivity** (30–60 second cold start on next request).
 
-To prevent this, use **UptimeRobot** (free, no credit card):
+**Use UptimeRobot (free):**
 
 1. Go to [uptimerobot.com](https://uptimerobot.com) → Create free account
 2. **Add New Monitor**:
    - Type: **HTTP(s)**
    - Friendly Name: `MF Analysis Keepalive`
-   - URL: `https://your-app-name.onrender.com/` (your actual Render URL)
+   - URL: `https://your-app-name.onrender.com/`
    - Monitoring Interval: **Every 14 minutes**
 3. Click **Create Monitor**
 
-UptimeRobot will ping your app every 14 minutes, keeping it awake. **Free plan covers up to 50 monitors.**
-
 ---
 
-### Phase 6 — Configure Email (Optional, when ready)
+### Phase 7 — Configure Email (Optional, when ready)
 
-> Skip this for launch. Set it up when you want real email delivery.
+> The app works without email — password resets go to Render logs. Set this up when you want real email delivery for users.
 
 **Using Sender.net (15,000 free emails/month):**
 
-1. [sender.net](https://sender.net) → Create free account → Verify email address
+1. [sender.net](https://sender.net) → Create free account → Verify sender email
 2. Dashboard → **SMTP Settings** → copy Host, Port, Username, Password
-3. Sender.net → **Senders** → verify your sender email address
 
 **Using Gmail App Password:**
 
@@ -285,72 +270,98 @@ UptimeRobot will ping your app every 14 minutes, keeping it awake. **Free plan c
 2. App Passwords → Generate new → name it "MF Analysis"
 3. Copy the 16-character password
 
-**Add to Render dashboard (both web service and cron job):**
+**Add to Render Environment (web service only):**
 
 | Variable | Sender.net | Gmail |
 |---|---|---|
 | `EMAIL_HOST` | `smtp.sender.net` | `smtp.gmail.com` |
-| `EMAIL_HOST_USER` | Your Sender.net SMTP username | Your Gmail address |
-| `EMAIL_HOST_PASSWORD` | Your Sender.net SMTP password | 16-char App Password |
+| `EMAIL_HOST_USER` | SMTP username | Gmail address |
+| `EMAIL_HOST_PASSWORD` | SMTP password | 16-char App Password |
 
 ---
 
 ## Verification Checklist
 
-After the full data load completes, check these URLs on your Render deployment:
+After deploy and data load, test these URLs:
 
 | URL | What to verify |
 |---|---|
-| `/` | Home dashboard loads, category cards visible |
-| `/funds/` | Screener shows funds with scores (0–100) |
-| `/funds/120503/` | Fund detail page, all 7 tabs work |
-| `/screener/` | Filter controls work |
-| `/register/` | Registration form submits, activation email appears in Render logs |
-| `/accounts/login/` | Login redirects to `/portfolio/` |
-| `/accounts/password_reset/` | Form loads and submits |
-| `/contact/` | Contact form submits |
+| `/` | Home dashboard loads, benchmark monitor shows data, data freshness bar visible |
+| `/funds/` | Category list with counts |
+| `/screener/` | Fund screener with scores (0–100) and filters working |
+| `/funds/120503/` | Fund detail page with all tabs loading |
+| `/register/` | Registration form submits, check Render logs for activation email |
+| `/accounts/login/` | Login redirects correctly |
+| `/accounts/password_reset/` | Branded password reset page (not Django admin) |
 | `/calculators/` | Calculator hub loads |
 | `/portfolio/` | Portfolio section accessible after login |
+| `/backtester/` | Strategy backtester loads |
 | `/learn/resources/` | PDF guides and blog posts appear |
-| `/admin/` | Admin panel accessible |
-
-**Check Render Logs** (dashboard → your service → **Logs** tab) for any errors.
+| `/data-status/` | Data Status dashboard shows coverage and batch cycle |
+| `/admin/` | Admin panel accessible (redirect from `/admin/password_reset/` goes to our page) |
 
 ---
 
-## Available Management Commands
+## Management Commands Reference
 
 | Command | What it does | When to Run |
 |---|---|---|
 | `build_scheme_master` | Loads ~2,300 AMFI direct growth / ETF schemes | Initial setup; monthly to pick up new funds |
-| `sync_content` | Syncs PDF guides and blogs from `Resources/` to the database | After adding new PDFs/blogs + on first deploy |
-| `ingest_benchmarks` | Incremental NAV sync for 51 benchmark indices | Daily (automated via cron) |
-| `populate_benchmark_returns` | Computes trailing/rolling returns for benchmarks | Daily (automated via cron) |
-| `populate_screener` | **Core pipeline:** NAV sync + metadata + analytics + 100-point scoring for all funds | Daily (automated via cron); use `--resume` after interruption |
-| `populate_home_dashboard` | Aggregates category stats and quartile rankings | Auto-runs after `populate_screener` |
+| `sync_content` | Syncs PDF guides and blogs from `Resources/` to the database | After adding new PDFs/blogs; daily pipeline |
+| `ingest_benchmarks` | Incremental NAV sync for 51 benchmark indices | Daily (automated via GitHub Actions) |
+| `populate_benchmark_returns` | Computes trailing/rolling returns for benchmarks | Daily (automated) |
+| `populate_screener` | **Core pipeline:** NAV sync + metadata + analytics + 100-point scoring | Weekly batches (Mon–Sat via GitHub Actions) |
+| `populate_home_dashboard` | Aggregates category stats and quartile rankings | Auto-runs inside `populate_screener` |
 | `createsuperuser` | Creates an admin account | Once, after first deploy |
+
+---
+
+## Weekly Pipeline — How It Works
+
+The pipeline runs **Monday–Saturday at 8:30 PM UTC (2:00 AM IST)**:
+
+| Day | Funds processed | Offset |
+|---|---|---|
+| Monday | funds 0 – 383 | `--offset=0 --limit=384` |
+| Tuesday | funds 384 – 767 | `--offset=384 --limit=384` |
+| Wednesday | funds 768 – 1151 | `--offset=768 --limit=384` |
+| Thursday | funds 1152 – 1535 | `--offset=1152 --limit=384` |
+| Friday | funds 1536 – 1919 | `--offset=1536 --limit=384` |
+| Saturday | funds 1920 – end | `--offset=1920 --limit=384` |
+| Sunday | benchmarks + content only | — |
+
+Each run exits gracefully at **5h 10min** (`--time-limit-minutes=310`) so `sync_content` always runs. The next Monday restarts the cycle from fund 0.
+
+**Manual run (bypass schedule):**  
+GitHub → Actions → **Weekly Data Pipeline** → **Run workflow** → set `day_override=1` for Monday's batch.
 
 ---
 
 ## Features Status
 
-| Feature | Status |
-|---|---|
-| User registration (email required) | ✅ Working |
-| Email verification on sign-up | ✅ Working (console in dev, SMTP in prod) |
-| Login with rate limiting (5/min) | ✅ Working |
-| Forgot password / password reset | ✅ Working (console in dev, SMTP in prod) |
-| Contact form → email delivery | ✅ Working (console in dev, SMTP in prod) |
-| Fund screener with 20+ filters | ✅ Working |
-| Fund detail page (7 tabs) | ✅ Working |
-| Fund comparison (up to 4) | ✅ Working |
-| PDF fund report (Chrome headless) | ✅ Working (Chromium installed via build.sh) |
-| 14+ Financial calculators | ✅ Working |
-| Portfolio upload (Excel/CSV/CAS) | ✅ Working |
-| Portfolio XIRR & analytics | ✅ Working |
-| Backtester V2 | ✅ Working |
-| Strategy comparison | ✅ Working |
-| Learn section (PDF guides + blogs) | ✅ Working |
-| Benchmark monitor | ✅ Working |
-| Fund recommendations | 🚧 Draft UI (logic in progress) |
-| Community feed | 🚧 Template only (backend coming) |
+| Feature | Status | Notes |
+|---|---|---|
+| User registration (email required) | ✅ Working | Email verification sent on sign-up |
+| Email verification on sign-up | ✅ Working | Console in dev, SMTP in prod |
+| Login with rate limiting (5/min) | ✅ Working | IP-based, 429 on excess |
+| Auto-activate stuck inactive accounts | ✅ Working | Recovers from prior SMTP failures |
+| Forgot password / password reset | ✅ Working | Uses branded page, not Django admin |
+| Change password in User Settings | ✅ Working | |
+| Logout | ✅ Working | POST-based (Django 5.x compatible) |
+| Personal API key storage (FRED) | ✅ Working | Stored in user settings |
+| Fund screener with 20+ filters | ✅ Working | |
+| Fund detail page (7 tabs) | ✅ Working | |
+| Fund comparison (up to 4) | ✅ Working | |
+| PDF fund report (Chrome headless) | ✅ Working | Chromium via build.sh |
+| 18 Financial calculators | ✅ Working | |
+| Portfolio upload (CAS PDF / manual) | ✅ Working | |
+| Portfolio XIRR & analytics | ✅ Working | |
+| Backtester V2 | ✅ Working | |
+| Strategy comparison | ✅ Working | |
+| Learn section (PDF guides + blogs) | ✅ Working | |
+| Benchmark monitor | ✅ Working | |
+| Data Status dashboard | ✅ Working | `/data-status/` |
+| Market ticker strip | ✅ Working | |
+| Fund recommendations | 🚧 Draft UI | Logic in progress |
+| Community feed | 🚧 Template only | Backend coming |
+| Email delivery (production) | ⚙️ Needs SMTP config | See Phase 7 |

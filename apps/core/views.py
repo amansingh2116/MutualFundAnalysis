@@ -814,26 +814,37 @@ def data_monitor_view(request):
         'metadata':  pct(with_metadata,    total_dg),
     }
 
-    # ── Weekday shard status ──────────────────────────────────────────────────
-    # Each shard processes funds where index % 7 == shard.
-    # Estimate which shard was refreshed each day based on snapshot activity.
-    import datetime
-    current_dow = today.weekday()   # 0=Mon, 6=Sun (Python) vs 0=Sun in bash date +%w
-    # bash date +%w: 0=Sun, 1=Mon, ..., 6=Sat — convert: bash_dow = (python_dow+1)%7
-    shard_days = []
-    for shard in range(7):
-        bash_dow = shard                         # shard 0=Sun, 1=Mon, …6=Sat
-        py_dow   = (bash_dow - 1) % 7           # Python: 0=Mon, 6=Sun
-        days_ago = (current_dow - py_dow) % 7
-        target_date = today - timedelta(days=days_ago)
-        count = FundScreenerSnapshot.objects.filter(updated_at__date=target_date).count()
-        shard_days.append({
-            'shard':       shard,
-            'label':       ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][shard],
-            'target_date': target_date,
+    # ── Weekly batch cycle status ───────────────────────────────────────────
+    # Mon–Sat each run a fixed contiguous block of 384 funds.
+    # Batch selected by ISO weekday (1=Mon … 6=Sat); Sunday is benchmark-only.
+    # Reconstruct expected batch dates for this calendar week and count snapshots.
+    BATCH_SIZE = 384
+    BATCH_LABELS = [
+        # (ISO weekday, short label, fund offset start)
+        (1, 'Mon', 0),
+        (2, 'Tue', 384),
+        (3, 'Wed', 768),
+        (4, 'Thu', 1152),
+        (5, 'Fri', 1536),
+        (6, 'Sat', 1920),
+    ]
+    current_dow = today.isoweekday()   # 1=Mon … 7=Sun
+    days_since_monday = current_dow - 1
+    monday_this_week = today - timedelta(days=days_since_monday)
+
+    batch_days = []
+    for iso_dow, label, offset in BATCH_LABELS:
+        batch_date = monday_this_week + timedelta(days=iso_dow - 1)
+        count = FundScreenerSnapshot.objects.filter(updated_at__date=batch_date).count()
+        batch_days.append({
+            'label':       label,
+            'iso_dow':     iso_dow,
+            'target_date': batch_date,
+            'offset':      offset,
             'count':       count,
-            'is_today':    target_date == today,
             'done':        count > 0,
+            'is_today':    batch_date == today,
+            'is_future':   batch_date > today,
         })
 
     context = {
@@ -859,13 +870,14 @@ def data_monitor_view(request):
         'latest_cat_ts':      latest_cat_ts,
         # Benchmarks
         'benchmarks':  benchmarks,
-        # Activity
+        # 7-day activity bar chart
         'daily_activity': daily_activity,
         'max_daily':      max_daily,
-        # Coverage %
+        # Coverage percentages
         'coverage': coverage,
-        # Shard cycle
-        'shard_days': shard_days,
+        # Weekly batch cycle (Mon–Sat contiguous batches)
+        'batch_days':  batch_days,
+        'batch_size':  BATCH_SIZE,
         'today': today,
     }
     return render(request, 'data_monitor.html', context)

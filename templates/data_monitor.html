@@ -410,24 +410,29 @@
     </div>
   </div>
 
-  <!-- ── Weekly Shard Cycle + 7-Day Activity ──────────────────────────────── -->
+  <!-- ── Weekly Batch Cycle + 7-Day Activity ──────────────────────── -->
   <div class="dm-section">
     <div class="dm-section-head">
       <h2>🔄 Weekly Pipeline Cycle</h2>
-      <span class="dm-badge">7 shards · ~330 funds/day</span>
+      <span class="dm-badge">6 batches · ~384 funds/day · Mon–Sat</span>
     </div>
 
-    <!-- Shard status boxes -->
+    <!-- Batch status boxes -->
     <div class="dm-shards" style="margin-bottom:20px">
-      {% for s in shard_days %}
-      <div class="dm-shard {% if s.done %}done{% endif %} {% if s.is_today %}today-shard{% endif %}">
-        {% if s.is_today %}<span class="dm-today-tag">Today</span>{% endif %}
-        <div class="dm-shard-icon">{% if s.done %}✅{% elif s.is_today %}🔄{% else %}⏳{% endif %}</div>
-        <div class="dm-shard-day">{{ s.label }}</div>
-        <div class="dm-shard-date">{{ s.target_date|date:"d M" }}</div>
-        <div class="dm-shard-count {% if s.done %}done{% else %}pending{% endif %}">
-          {% if s.done %}{{ s.count }} funds{% else %}Pending{% endif %}
+      {% for b in batch_days %}
+      <div class="dm-shard {% if b.done %}done{% endif %} {% if b.is_today %}today-shard{% endif %}">
+        {% if b.is_today %}<span class="dm-today-tag">Today</span>{% endif %}
+        <div class="dm-shard-icon">
+          {% if b.done %}✅{% elif b.is_future %}⏳{% elif b.is_today %}🔄{% else %}⚠️{% endif %}
         </div>
+        <div class="dm-shard-day">{{ b.label }}</div>
+        <div class="dm-shard-date">{{ b.target_date|date:"d M" }}</div>
+        <div class="dm-shard-count {% if b.done %}done{% else %}pending{% endif %}">
+          {% if b.done %}{{ b.count }} funds
+          {% elif b.is_future %}Scheduled
+          {% else %}Pending{% endif %}
+        </div>
+        <div style="font-size:9px;color:var(--text-muted);margin-top:3px">#{{ b.offset }}–{{ b.offset|add:batch_size }}</div>
       </div>
       {% endfor %}
     </div>
@@ -448,8 +453,8 @@
         {% endfor %}
       </div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:10px">
-        Purple bar = today's run. Each shard processes ~330 funds (1/7 of the ~2,300-fund universe).
-        Complete weekly cycle = all funds refreshed once.
+        Purple bar = today's run. Each daily batch covers a contiguous block of ~384 funds.
+        Mon–Sat covers all ~2,300 funds; Sunday is benchmark &amp; content sync only.
       </div>
     </div>
   </div>
@@ -540,8 +545,10 @@
         <div style="font-size:20px;margin-bottom:8px">🔄</div>
         <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Weekly Refresh Cycle</div>
         <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-          ~2,300 funds are split into 7 equal shards. Each shard runs on a different weekday (~330 funds, 4–5h).
-          All funds are refreshed within 7 days. Metadata (AUM, ER, manager) refreshed every 7 days.
+          ~2,300 funds split into 6 daily batches (Mon–Sat, ~384 funds each). Each batch covers
+          a <em>contiguous block</em> by AMFI code: Mon=0–383, Tue=384–767, … Sat=1920–end.
+          Sunday: benchmarks &amp; content sync only. All funds refreshed once per week.
+          Metadata (AUM, ER, manager) refreshed every 7 days.
         </div>
       </div>
     </div>

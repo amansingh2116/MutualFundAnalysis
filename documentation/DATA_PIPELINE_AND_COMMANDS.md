@@ -55,52 +55,66 @@ python manage.py populate_benchmark_returns
 ```
 
 ### 4. `populate_screener` (The Master Pipeline)
-**Purpose:** This is the heaviest and most important command. It loops through all ~3,000 Direct Growth + ETF funds, downloads their NAVs from `mfapi.in`, fetches their metadata (AUM, expense ratio) from `captnemo.in`, computes all risk and return metrics (trailing, rolling, max drawdown, Sharpe, Sortino), scores the fund out of 100, and saves a `FundScreenerSnapshot` and `FundModelScore`.
+**Purpose:** The heaviest and most important command. Loops through all ~2,300 Direct Growth + ETF funds, downloads NAVs from `mfapi.in`, fetches metadata (AUM, expense ratio) from `captnemo.in`, computes all risk and return metrics (trailing, rolling, max drawdown, Sharpe, Sortino), scores the fund out of 100, and saves a `FundScreenerSnapshot` and `FundModelScore`.
 
-**Incremental NAV Ingestion (key feature):**  
+**Incremental NAV Ingestion (key feature):**
 The pipeline is smart about NAV downloads:
-- **Existing fund** (has NAV history in DB): calls `GET /mf/{code}?startDate=<last_date+1>&endDate=<today>` — only new rows are downloaded. On a daily re-run this is typically 1-2 rows per fund.
+- **Existing fund** (has NAV history in DB): calls `GET /mf/{code}?startDate=<last_date+1>&endDate=<today>` — only new rows downloaded. Daily re-runs fetch 1–2 rows per fund.
 - **New fund** (no history in DB) or `--force-nav`: downloads full history.
 - **Empty incremental response** (no new trading days since last date): counted as success, not an error.
 
 **Features:**
-- **Retry Phase:** At the end of the main loop, any fund that failed NAV or Metadata fetching during the run is automatically retried once more with a short pause between retries.
-- **Failure Report:** After the retry phase, any funds that still failed are written to `media/reports/failed_funds_report.json` with the AMFI code, fund name, and specific error reason — giving you full visibility over data gaps.
+- **Retry Phase:** At the end of the main loop, funds that failed NAV or metadata fetching are automatically retried once.
+- **Failure Report:** Funds that still failed after retry are written to `media/reports/failed_funds_report.json`.
+- **Graceful time limit:** `--time-limit-minutes=N` exits cleanly at N minutes so downstream steps (like `sync_content`) always run.
 
-**When to run:** Daily (usually overnight).
+**When to run:** Weekly (automated via GitHub Actions Mon–Sat).
 
-**Command line arguments:**
+**Command-line arguments:**
 - `--limit=N`: Process only N funds (useful for testing).
+- `--offset=N`: Skip the first N funds in the ordered queryset. Combined with `--limit` gives a precise contiguous batch (e.g. `--offset=384 --limit=384` = Tuesday batch).
 - `--amfi=CODE`: Process one specific fund.
 - `--skip-nav`: Skip downloading new NAVs.
-- `--skip-metadata`: Skip downloading metadata (AUM/expense ratio) from Captnemo.
+- `--skip-metadata`: Skip downloading metadata (AUM/expense ratio).
 - `--skip-analytics`: Skip computing the heavy math metrics.
 - `--skip-model-score`: Skip calculating the 100-point fund score.
-- `--skip-home-dashboard`: By default, this command triggers the home dashboard update at the end. Use this flag to prevent that.
-- `--force-nav`: Force re-download of **full** NAV history (ignores incremental logic). Useful after DB reset.
+- `--skip-home-dashboard`: Skip home dashboard update at the end.
+- `--skip-analytics-if-no-new-nav`: Skip analytics for any fund that received no new NAV rows. Useful on weekends/holidays.
+- `--force-nav`: Force re-download of full NAV history (ignores incremental logic).
 - `--force-metadata`: Force re-download of metadata even if recent.
-- **`--resume`**: Skip funds already processed. Checks `FundScreenerSnapshot.updated_at`; skips any fund whose snapshot is newer than `--resume-hours` (default 24h). **Use this when you restart after a Ctrl+C interruption.** Funds are always processed in `amfi_code` order so this is deterministic.
-- **`--resume-hours=N`**: Window in hours for resume detection (default 24). Set to 48 if the run spans multiple days.
-- **`--start-from=CODE`**: Skip all funds with `amfi_code < CODE`. Use when you know exactly which AMFI code was interrupted on (check the last log line before interruption).
+- **`--resume`**: Skip funds already processed (checks `FundScreenerSnapshot.updated_at`).
+- **`--resume-hours=N`**: Window in hours for resume detection (default 24). Use 23 for same-day re-run safety.
+- **`--start-from=CODE`**: Skip all funds with `amfi_code < CODE`.
+- **`--time-limit-minutes=N`**: Stop gracefully after N minutes. Use `310` in GitHub Actions so post-processing always runs before the 6-hour hard job timeout.
+- `--shard=N --num-shards=M`: Interleaved shard filter (legacy — prefer `--offset`/`--limit` for weekly batching).
 
 ```bash
-# Typical full run
+# Typical full run (no limit)
 python manage.py populate_screener
 
-# Fast test run on 50 funds
+# Monday batch: funds 0–383
+python manage.py populate_screener --offset=0 --limit=384
+
+# Tuesday batch: funds 384–767
+python manage.py populate_screener --offset=384 --limit=384
+
+# Fast test on 50 funds
 python manage.py populate_screener --limit=50
 
 # Resume after Ctrl+C — skip already-done funds (safe restart)
-python manage.py populate_screener --resume
+python manage.py populate_screener --resume --resume-hours=23
 
-# Resume from a specific fund if you know the AMFI code
+# Resume from a specific AMFI code
 python manage.py populate_screener --start-from=153000
 
-# Run only analytics (re-use existing NAV + metadata)
-python manage.py populate_screener --skip-nav --skip-metadata
+# Run with graceful time limit (GitHub Actions safe)
+python manage.py populate_screener --time-limit-minutes=310
 
 # Re-fetch full NAV history for all funds (e.g. after DB reset)
 python manage.py populate_screener --force-nav
+
+# Skip analytics if no new NAV data (good for weekends)
+python manage.py populate_screener --skip-analytics-if-no-new-nav
 ```
 
 ### 5. `populate_home_dashboard`
@@ -294,5 +308,45 @@ Use this file to:
 - **Debt Index Benchmarks:** NIFTY CORPORATE BOND INDEX and other debt indices cannot be fetched via nselib (NSE API returns empty data for these). Analytics falls back to NIFTY 50 proxy with a UI note. This is documented, expected behaviour.
 - **SQLite Database Locks:** If you run multiple heavy pipelines simultaneously on SQLite, you may encounter `database is locked` errors. Run commands sequentially. Use PostgreSQL for production.
 - **OneDrive-backed SQLite files:** If `db.sqlite3` is inside OneDrive and a migration leaves a hot `db.sqlite3-journal`, Django may show `sqlite3.OperationalError: disk I/O error`. Close runserver/Python processes and allow OneDrive to finish syncing before retrying `migrate`; do not delete the journal unless you have a database backup or are comfortable rebuilding the local DB.
-- **Interrupted `populate_screener` run:** Use `--resume` flag on the next run to skip already-processed funds. Alternatively use `--start-from=<last_amfi_code>` from the last log line.
+- **Interrupted `populate_screener` run:** Use `--resume --resume-hours=23` on the next run to skip already-processed funds. Or use `--start-from=<last_amfi_code>` from the last log line.
 - **Category stats look wrong:** Re-run `populate_home_dashboard` after a fresh `populate_screener` to regenerate `CategorySnapshot` records. Category averages exclude funds < 1 year old.
+
+---
+
+## Weekly Automation via GitHub Actions
+
+The file `.github/workflows/daily_pipeline.yml` runs the full pipeline automatically **Monday–Saturday at 8:30 PM UTC (2:00 AM IST)**.
+
+### Weekly Batch Schedule
+
+| Day | Fund Batch | CLI equivalent |
+|---|---|---|
+| Monday | funds 0 – 383 | `--offset=0 --limit=384` |
+| Tuesday | funds 384 – 767 | `--offset=384 --limit=384` |
+| Wednesday | funds 768 – 1151 | `--offset=768 --limit=384` |
+| Thursday | funds 1152 – 1535 | `--offset=1152 --limit=384` |
+| Friday | funds 1536 – 1919 | `--offset=1536 --limit=384` |
+| Saturday | funds 1920 – end | `--offset=1920 --limit=384` |
+| Sunday | Benchmarks + content only | No fund pipeline |
+
+### What each run does (in order):
+1. Apply pending migrations
+2. `build_scheme_master` — refresh fund universe
+3. `ingest_benchmarks` — incremental benchmark NAV
+4. `populate_benchmark_returns` — benchmark analytics
+5. `populate_screener --offset=$OFFSET --limit=384 --resume --resume-hours=23 --time-limit-minutes=310`
+6. `sync_content` — sync PDF guides and blog posts
+
+### Triggering Manually
+Go to **GitHub → Actions → Weekly Data Pipeline → Run workflow**. Optional inputs:
+- `day_override`: Force a specific day (1=Mon … 6=Sat, 7=Sun-only-mode)
+- `limit`: Override batch size (default 384)
+- `time_limit_minutes`: Override time limit (default 310)
+
+### Required GitHub Secrets
+| Secret | Description |
+|---|---|
+| `DATABASE_URL` | Full CockroachDB connection string |
+| `SECRET_KEY` | Django secret key (same as Render) |
+
+> **Public repo = unlimited free Actions minutes.** Private repos are capped at 2,000 min/month. The pipeline consumes ~1,860 min/month, making a public repository essential for uninterrupted operation.
