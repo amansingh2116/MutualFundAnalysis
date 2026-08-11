@@ -93,7 +93,41 @@ BENCHMARK_CONFIG: dict[str, BenchmarkConfig] = {
         description="BSE Sensex — 30 large-cap companies on BSE",
     ),
 
-    # ── Sectoral ─────────────────────────────────────────────────────────────
+    # ── Total Return (TRI) variants — includes dividend reinvestment ──────────
+    # NSE provides these via its historical API using the exact names below.
+    "NIFTY 50 TRI": BenchmarkConfig(
+        nse_name="NIFTY 50 TRI",
+        description="NIFTY 50 Total Return Index (includes dividend reinvestment)",
+    ),
+    "NIFTY 100 TRI": BenchmarkConfig(
+        nse_name="NIFTY 100 TRI",
+        description="NIFTY 100 Total Return Index",
+    ),
+    "NIFTY 200 TRI": BenchmarkConfig(
+        nse_name="NIFTY 200 TRI",
+        description="NIFTY 200 Total Return Index",
+    ),
+    "NIFTY 500 TRI": BenchmarkConfig(
+        nse_name="NIFTY 500 TRI",
+        description="NIFTY 500 Total Return Index",
+    ),
+    "NIFTY NEXT 50 TRI": BenchmarkConfig(
+        nse_name="NIFTY NEXT 50 TRI",
+        description="NIFTY Next 50 Total Return Index",
+    ),
+    "NIFTY MIDCAP 150 TRI": BenchmarkConfig(
+        nse_name="NIFTY MIDCAP 150 TRI",
+        description="NIFTY Midcap 150 Total Return Index",
+    ),
+    "NIFTY SMALLCAP 250 TRI": BenchmarkConfig(
+        nse_name="NIFTY SMALLCAP 250 TRI",
+        description="NIFTY Smallcap 250 Total Return Index",
+    ),
+    "NIFTY LARGE MIDCAP 250 TRI": BenchmarkConfig(
+        nse_name="NIFTY LARGE MIDCAP 250 TRI",
+        description="NIFTY Large Midcap 250 Total Return Index",
+    ),
+
     "NIFTY AUTO": BenchmarkConfig(nse_name="NIFTY AUTO", description="Automobile and auto ancillary companies"),
     "NIFTY BANK": BenchmarkConfig(nse_name="NIFTY BANK", description="Most liquid and large-cap banking stocks"),
     "NIFTY COMMODITIES": BenchmarkConfig(nse_name="NIFTY COMMODITIES", description="Commodity-linked companies"),

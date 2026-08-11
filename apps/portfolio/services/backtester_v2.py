@@ -336,54 +336,118 @@ def _load_scheme_nav_series(amfi_code: str) -> pd.Series:
 
 
 def _load_index_price_series(index_name: str) -> pd.Series:
-    """Load index price series from BenchmarkNAV (with on-demand fetch fallback)."""
+    """Load index price series from BenchmarkNAV (with on-demand fetch fallback).
+
+    If the exact name is not found and the name ends with ' TRI', automatically
+    tries the equivalent price index (e.g. 'NIFTY 200 TRI' → 'NIFTY 200').
+    This keeps the backtester working even when TRI data hasn't been ingested yet.
+    """
     from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV
 
-    try:
-        idx = BenchmarkIndex.objects.get(name=index_name)
-    except BenchmarkIndex.DoesNotExist:
-        raise ValueError(
-            f"Index '{index_name}' not found in database. "
-            "Make sure it's in the Benchmarks registry."
-        )
+    # ── TRI → price-index fallback map ──────────────────────────────────────
+    # Used when a TRI name is requested but not yet in the DB.
+    _TRI_FALLBACK: dict[str, str] = {
+        "NIFTY 50 TRI":              "NIFTY 50",
+        "NIFTY 100 TRI":             "NIFTY 100",
+        "NIFTY 200 TRI":             "NIFTY 200",
+        "NIFTY 500 TRI":             "NIFTY 500",
+        "NIFTY TOTAL MARKET TRI":    "NIFTY 500",
+        "NIFTY LARGE MIDCAP 250 TRI":"NIFTY LARGE MIDCAP 250",
+        "NIFTY MIDCAP SELECT TRI":   "NIFTY MIDCAP 50",
+        "NIFTY Midcap 50 TRI":       "NIFTY MIDCAP 50",
+        "NIFTY MIDCAP 100 TRI":      "NIFTY MIDCAP 150",
+        "NIFTY MIDCAP 150 TRI":      "NIFTY MIDCAP 150",
+        "NIFTY MIDSMALLCAP 400 TRI": "NIFTY LARGE MIDCAP 250",
+        "NIFTY Next 50 TRI":         "NIFTY NEXT 50",
+        "NIFTY SMALLCAP 50 TRI":     "NIFTY SMALLCAP 50",
+        "NIFTY SMALLCAP 100 TRI":    "NIFTY SMALLCAP 250",
+        "NIFTY SMALLCAP 250 TRI":    "NIFTY SMALLCAP 250",
+        "NIFTY MICROCAP 250 TRI":    "NIFTY SMALLCAP 250",
+        "Nifty Metal TRI":           "NIFTY 500",
+        "Nifty PSU Bank TRI":        "NIFTY BANK",
+        "NIFTY COMMODITIES TRI":     "NIFTY COMMODITIES",
+        "NIFTY MNC TRI":             "NIFTY MNC",
+        "Nifty Energy TRI":          "NIFTY ENERGY",
+        "Nifty Pharma TRI":          "NIFTY PHARMA",
+        "Nifty Auto TRI":            "NIFTY AUTO",
+        "Nifty India Manufacturing TRI": "NIFTY INDIA MANUFACTURING",
+        "NIFTY Healthcare TRI":      "NIFTY HEALTHCARE",
+        "NIFTY CPSE Total Return Index": "NIFTY CPSE",
+        "Nifty Infrastructure TRI":  "NIFTY INFRASTRUCTURE",
+        "NIFTY PSE TRI":             "NIFTY 500",
+        "Nifty Financial Services TRI": "NIFTY FINANCIAL SERVICES",
+        "NIFTY OIL & GAS TRI":       "NIFTY ENERGY",
+        "Nifty Bank TRI":            "NIFTY BANK",
+        "Nifty Services Sector TRI": "NIFTY FINANCIAL SERVICES",
+        "Nifty India Consumption TRI":"NIFTY INDIA CONSUMPTION",
+        "Nifty FMCG TRI":            "NIFTY FMCG",
+        "Nifty Media TRI":           "NIFTY 500",
+        "Nifty Realty TRI":          "NIFTY REALTY",
+        "Nifty IT TRI":              "NIFTY IT",
+        "NASDAQ 100 TRI":            "NIFTY 500",   # no NASDAQ equivalent in DB
+        "MSCI ACWI TRI":             "NIFTY 500",
+    }
 
-    qs = (
-        BenchmarkNAV.objects
-        .filter(index=idx)
-        .values("date", "close")
-        .order_by("date")
-    )
-    df = pd.DataFrame(list(qs))
-    if df.empty or len(df) < 30:
+    def _try_load(name: str) -> "pd.Series | None":
+        """Try to load a BenchmarkIndex by name; return None if not found / empty."""
         try:
-            from apps.benchmarks.registry import fetch_yahoo_history_for_benchmark
-            series, _ = fetch_yahoo_history_for_benchmark(index_name)
-            if series is not None and not series.empty:
-                objs = [
-                    BenchmarkNAV(
-                        index=idx, date=d.date(),
-                        close=float(v), source="yfinance",
-                    )
-                    for d, v in series.items()
-                ]
-                BenchmarkNAV.objects.bulk_create(objs, ignore_conflicts=True)
-                df = pd.DataFrame(
-                    [{"date": d.date(), "close": float(v)} for d, v in series.items()]
-                )
-        except Exception as e:
-            logger.warning(f"[backtester_v2] On-demand fetch failed for '{index_name}': {e}")
-
-    if df.empty:
-        raise ValueError(
-            f"No price data available for index '{index_name}'. "
-            "Try fetching it from the Benchmarks page first."
+            idx = BenchmarkIndex.objects.get(name=name)
+        except BenchmarkIndex.DoesNotExist:
+            return None
+        qs = (
+            BenchmarkNAV.objects
+            .filter(index=idx)
+            .values("date", "close")
+            .order_by("date")
         )
+        df_inner = pd.DataFrame(list(qs))
+        if df_inner.empty or len(df_inner) < 30:
+            # Try on-demand yfinance fetch
+            try:
+                from apps.benchmarks.registry import fetch_yahoo_history_for_benchmark
+                fetched_series, _ = fetch_yahoo_history_for_benchmark(name)
+                if fetched_series is not None and not fetched_series.empty:
+                    objs = [
+                        BenchmarkNAV(
+                            index=idx, date=d.date(),
+                            close=float(v), source="yfinance",
+                        )
+                        for d, v in fetched_series.items()
+                    ]
+                    BenchmarkNAV.objects.bulk_create(objs, ignore_conflicts=True)
+                    df_inner = pd.DataFrame(
+                        [{"date": d.date(), "close": float(v)} for d, v in fetched_series.items()]
+                    )
+            except Exception as e:
+                logger.warning(f"[backtester_v2] On-demand fetch failed for '{name}': {e}")
+        if df_inner.empty:
+            return None
+        df_inner["date"] = pd.to_datetime(df_inner["date"])
+        df_inner["close"] = pd.to_numeric(df_inner["close"], errors="coerce")
+        s_inner = df_inner.set_index("date")["close"].dropna()
+        return s_inner[~s_inner.index.duplicated(keep="last")].sort_index()
 
-    df["date"] = pd.to_datetime(df["date"])
-    df["close"] = pd.to_numeric(df["close"], errors="coerce")
-    s = df.set_index("date")["close"].dropna()
-    s = s[~s.index.duplicated(keep="last")].sort_index()
-    return s
+    # ── Primary lookup ───────────────────────────────────────────────────────
+    result = _try_load(index_name)
+    if result is not None:
+        return result
+
+    # ── TRI fallback: try the equivalent price index ─────────────────────────
+    fallback_name = _TRI_FALLBACK.get(index_name)
+    if fallback_name:
+        logger.info(
+            f"[backtester_v2] '{index_name}' not in DB — "
+            f"falling back to '{fallback_name}' (price index)"
+        )
+        result = _try_load(fallback_name)
+        if result is not None:
+            return result
+
+    raise ValueError(
+        f"Index '{index_name}' not found in database. "
+        "Make sure it's in the Benchmarks registry "
+        "(run: python manage.py ingest_benchmarks)."
+    )
 
 
 def _load_price_series(source_type: str, source_id: str) -> pd.Series:
