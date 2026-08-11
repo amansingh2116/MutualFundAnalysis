@@ -1,21 +1,46 @@
-MIT License
+Copyright (c) 2025–2026 Aman Singh. All Rights Reserved.
 
-Copyright (c) 2025 amansingh2116
+MUTUAL FUND ANALYSIS — PROPRIETARY NON-COMMERCIAL LICENSE
+══════════════════════════════════════════════════════════
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+PERMITTED USES
+──────────────
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software ("the Software") for the following purposes ONLY:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  1. Personal, private, non-commercial use and study.
+  2. Educational research conducted by individuals (not commercial entities).
+  3. Open-source contributions submitted back to the original repository via
+     pull request, subject to review and acceptance by the copyright holder.
 
+RESTRICTIONS — the following are STRICTLY PROHIBITED without prior written
+permission from the copyright holder:
+
+  a. Commercial use of any kind, including but not limited to offering the
+     Software or a derivative work as a product, service, or SaaS platform.
+  b. Redistribution of the Software or substantial portions thereof, whether
+     in source or binary form, with or without modifications.
+  c. Reselling, sublicensing, or monetising access to the Software or its
+     outputs.
+  d. Training machine-learning models, large language models (LLMs), or any AI
+     system using the Software's source code, data pipelines, or generated data.
+  e. Scraping, systematic harvesting, or bulk downloading of the Software's data
+     outputs for commercial or AI-training purposes.
+  f. Claiming authorship or removing this copyright notice from any copy or
+     derivative work.
+
+ATTRIBUTION
+───────────
+Any permitted use must retain this copyright notice and a visible attribution
+to the original project: https://github.com/amansingh2116/MutualFundAnalysis
+
+NO WARRANTY
+───────────
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For commercial licensing enquiries, contact the copyright holder via GitHub.

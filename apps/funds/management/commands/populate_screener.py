@@ -129,6 +129,17 @@ class Command(BaseCommand):
                 "before the 6-hour job timeout kills the process hard."
             ),
         )
+        parser.add_argument(
+            "--offset",
+            type=int,
+            default=0,
+            dest="offset",
+            help=(
+                "Skip the first N funds in the ordered queryset (0-indexed). "
+                "Used for weekly batch positioning: Monday=0, Tuesday=385, etc. "
+                "Combined with --limit for clean contiguous blocks."
+            ),
+        )
 
     def handle(self, *args, **options):
         import time as _time
@@ -151,6 +162,7 @@ class Command(BaseCommand):
         num_shards = options.get("num_shards", 7)
         skip_if_no_new_nav = options.get("skip_analytics_if_no_new_nav", False)
         time_limit_sec = options.get("time_limit_minutes", 0) * 60  # 0 = no limit
+        offset = options.get("offset", 0)     # positional skip for weekly batching
 
         # Build queryset — always ordered by amfi_code for deterministic processing
         qs = Scheme.objects.filter(is_active=True).order_by("amfi_code")
@@ -174,7 +186,15 @@ class Command(BaseCommand):
                 f"Shard {shard}/{num_shards}: {len(shard_pks)} of {len(all_pks)} funds"
             )
 
-        if limit:
+        # ── Apply positional offset + limit ──────────────────────────────────
+        # --offset skips the first N funds; --limit caps the batch size.
+        # Together they define a clean contiguous slice of the fund universe.
+        # qs[offset:offset+limit] generates SQL: ... ORDER BY amfi_code LIMIT L OFFSET N
+        if offset and limit:
+            qs = qs[offset:offset + limit]
+        elif offset:
+            qs = qs[offset:]
+        elif limit:
             qs = qs[:limit]
 
         # Build resume set: amfi_codes already done within the past resume_hours
@@ -203,6 +223,7 @@ class Command(BaseCommand):
             f"score={'SKIP' if skip_model_score else 'YES'}"
             + (" | skip-analytics-if-no-new-nav=ON" if skip_if_no_new_nav else "")
             + (f" | RESUME ({len(already_done)} skip)" if do_resume else "")
+            + (f" | offset={offset}" if offset else "")
             + (f" | start-from={start_from}" if start_from else "")
         ))
 

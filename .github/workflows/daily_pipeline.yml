@@ -1,57 +1,68 @@
-name: Daily Data Pipeline
+name: Weekly Data Pipeline
 
-# ─── Schedule ────────────────────────────────────────────────────────────────
-# Runs at 8:30 PM UTC every day (~2:00 AM IST) — after AMFI NAV updates.
-# (AMFI publishes NAVs by ~8 PM IST; we add a 30-min buffer.)
+# ═══════════════════════════════════════════════════════════════════════════════
+# WEEKLY BATCH STRATEGY — how it works
+# ═══════════════════════════════════════════════════════════════════════════════
 #
-# 10-SHARD ROLLING STRATEGY (solves the GitHub Actions 6-hour job limit)
-# ─────────────────────────────────────────────────────────────────────────────
-# Analytics runs at ~60s/fund.  With 2,300 funds × 60s = 38 hours — way over
-# the 6-hour limit.  We split into 10 rolling shards so each daily job handles
-# only ~230 funds (~3.8 hours) — well within the limit.
+# GitHub Actions is FREE for PUBLIC repositories (unlimited minutes).
+# For private repos the limit is 2,000 min/month, which this pipeline exceeds.
+# → The repository should be public to run this pipeline without limits.
 #
-# Shard selection: day-of-year modulo 10. This gives a deterministic, evenly
-# distributed 10-day rolling cycle:  all funds processed once every ~10 days.
+# All ~2,300 funds are processed in 6 equal daily batches (Mon–Sat).
+# Each batch covers a contiguous slice of funds ordered by AMFI code:
 #
-# --time-limit-minutes=310: command stops gracefully at 5h 10m, leaving 50min
-# for fund universe sync, benchmark ingestion, content sync, and cleanup.
-# Any unprocessed shard remainder is handled by the next same-shard run.
+#   Mon  8:30 PM UTC  →  funds   0 – 383   (384 funds)
+#   Tue  8:30 PM UTC  →  funds 384 – 767   (384 funds)
+#   Wed  8:30 PM UTC  →  funds 768 – 1151  (384 funds)
+#   Thu  8:30 PM UTC  →  funds 1152 – 1535 (384 funds)
+#   Fri  8:30 PM UTC  →  funds 1536 – 1919 (384 funds)
+#   Sat  8:30 PM UTC  →  funds 1920 – end  (~380 funds)
+#   Sun  8:30 PM UTC  →  benchmarks + content ONLY (no fund pipeline)
+#
+# --offset=N skips the first N funds in the ordered queryset.
+# --limit=384 caps each batch.  Together they give a precise SQL OFFSET+LIMIT.
+# --time-limit-minutes=310 exits gracefully at 5h 10m so sync_content always runs.
+# --resume --resume-hours=23 allows safe same-day re-runs (skip already done).
+#
+# RESUMING: If a batch is killed before finishing, simply re-run the same
+# workflow_dispatch with the same day/offset — --resume skips completed funds.
+# The following day's batch starts fresh from its own offset regardless.
+#
+# WEEKLY RESTART: Monday always starts at offset=0.  All funds cycle once a week.
+# ═══════════════════════════════════════════════════════════════════════════════
+
 on:
   schedule:
-    - cron: '30 20 * * *'
+    - cron: '30 20 * * *'   # 8:30 PM UTC every day = 2:00 AM IST next morning
   workflow_dispatch:
     inputs:
-      shard:
-        description: 'Shard index to process (0-9). Leave blank to use rolling day-of-year calc.'
+      day_override:
+        description: >
+          Force a specific day (1=Mon … 6=Sat, 7=Sun). Leave blank to use today.
         required: false
         default: ''
-      num_shards:
-        description: 'Total number of shards (default 10 for 10-day rolling cycle)'
-        required: false
-        default: '10'
       limit:
-        description: 'Optional fund limit per shard (0 or blank = no limit). Useful for quick tests.'
+        description: 'Funds per batch (default 384). Set smaller for quick tests.'
         required: false
-        default: ''
+        default: '384'
       time_limit_minutes:
-        description: 'Stop fund pipeline after N minutes (default 310, set 0 to disable)'
+        description: 'Stop fund pipeline after N minutes (default 310, 0=no limit).'
         required: false
         default: '310'
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 370   # 6h 10m — gives 60min buffer beyond the 310-min fund limit
+    timeout-minutes: 375   # 6h 15m — fund limit is 310 min + overhead
 
-    # ── Env vars shared across ALL steps ────────────────────────────────────
     env:
       DJANGO_SETTINGS_MODULE: config.settings.prod
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      SECRET_KEY:   ${{ secrets.SECRET_KEY }}
       RF_ANNUAL_RATE: "0.065"
 
     steps:
-      # ── 1. Source & Python setup ─────────────────────────────────────────
+      # ── 1. Source & Python ────────────────────────────────────────────────
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -65,63 +76,64 @@ jobs:
         run: pip install -r requirements.txt
 
       # ── 2. DB migrations ─────────────────────────────────────────────────
-      # Always run first — applies any schema changes since the last pipeline.
       - name: Apply pending database migrations
         run: python manage.py migrate --no-input
 
       # ── 3. Fund universe ──────────────────────────────────────────────────
-      # Syncs the ~2,300-scheme master list from AMFI. Fast: ~2–3 min.
+      # ~2 min — syncs the AMFI scheme master list.
       - name: Update fund universe
         run: python manage.py build_scheme_master
 
       # ── 4. Benchmark data ─────────────────────────────────────────────────
-      # Incremental fetch — only new trading days. With bulk-insert: ~1–3 min.
+      # Incremental — fetches only new trading-day rows. ~1-3 min.
       - name: Ingest benchmark data (incremental)
         run: python manage.py ingest_benchmarks
 
       - name: Recompute benchmark return snapshots
         run: python manage.py populate_benchmark_returns
 
-      # ── 5. Fund screener pipeline (10-shard rolling cycle) ────────────────
-      # Uses day-of-year mod 10 for rolling shard selection.
-      # --time-limit-minutes=310 exits gracefully before the 6h GA cap.
-      # --resume --resume-hours=20 skips funds already done today (safe re-run).
-      - name: Run fund data pipeline (rolling shard)
+      # ── 5. Fund screener pipeline (weekly batch) ──────────────────────────
+      # Compute batch offset from the day of week.
+      # Sunday (DOW=7): skip fund pipeline — benchmarks + content only.
+      - name: Run fund data pipeline (weekly batch)
         run: |
-          # Resolve shard: use manual input if provided, else day-of-year mod 10.
-          # Day-of-year (1–366) gives a natural rolling 10-day cycle.
-          INPUT_SHARD="${{ github.event.inputs.shard }}"
-          NUM_SHARDS="${{ github.event.inputs.num_shards }}"
-          NUM_SHARDS="${NUM_SHARDS:-10}"
+          # ── Resolve day of week (1=Mon … 6=Sat, 7=Sun) ──────────────────
+          OVERRIDE="${{ github.event.inputs.day_override }}"
+          if [ -n "$OVERRIDE" ]; then
+            DOW="$OVERRIDE"
+          else
+            DOW=$(date +%u)    # ISO weekday: 1=Mon, 2=Tue, …, 7=Sun
+          fi
+
+          BATCH_SIZE="${{ github.event.inputs.limit }}"
+          BATCH_SIZE="${BATCH_SIZE:-384}"
+
           TIME_LIMIT="${{ github.event.inputs.time_limit_minutes }}"
           TIME_LIMIT="${TIME_LIMIT:-310}"
 
-          LIMIT_ARG=""
-          if [ -n "${{ github.event.inputs.limit }}" ] && [ "${{ github.event.inputs.limit }}" != "0" ]; then
-            LIMIT_ARG="--limit=${{ github.event.inputs.limit }}"
+          echo "=== Day of week: $DOW | Batch size: $BATCH_SIZE | Time limit: ${TIME_LIMIT}min ==="
+
+          # ── Sunday: skip fund pipeline ───────────────────────────────────
+          if [ "$DOW" = "7" ]; then
+            echo "Sunday — benchmark and content update only. No fund pipeline today."
+            exit 0
           fi
 
-          if [ -n "$INPUT_SHARD" ]; then
-            SHARD="$INPUT_SHARD"
-          else
-            # day-of-year mod num_shards gives a rolling cycle covering every shard
-            DOY=$(python3 -c "from datetime import date; print(date.today().timetuple().tm_yday)")
-            SHARD=$((DOY % NUM_SHARDS))
-          fi
+          # ── Calculate positional offset ─────────────────────────────────
+          # Mon=0, Tue=384, Wed=768, Thu=1152, Fri=1536, Sat=1920
+          OFFSET=$(( (DOW - 1) * BATCH_SIZE ))
 
-          echo "Running shard $SHARD of $NUM_SHARDS ($(date +%A), day-of-year=$(python3 -c 'from datetime import date; print(date.today().timetuple().tm_yday)'), time-limit=${TIME_LIMIT}min)"
+          echo "Processing batch: offset=$OFFSET, limit=$BATCH_SIZE (funds $OFFSET to $((OFFSET + BATCH_SIZE - 1)))"
 
           python manage.py populate_screener \
-            --shard="$SHARD" \
-            --num-shards="$NUM_SHARDS" \
-            $LIMIT_ARG \
-            --skip-analytics-if-no-new-nav \
-            --resume --resume-hours=20 \
+            --offset="$OFFSET" \
+            --limit="$BATCH_SIZE" \
+            --resume --resume-hours=23 \
             --time-limit-minutes="$TIME_LIMIT"
 
       # ── 6. Learn content sync ─────────────────────────────────────────────
-      # Fast (<10 s) and idempotent — syncs PDF guides and blog metadata.
-      # This step always runs (even if the fund pipeline hit its time limit)
-      # because the fund step exits gracefully via --time-limit-minutes.
+      # Fast (<10 s) — runs every day including Sunday.
+      # Always runs because the fund step exits gracefully via --time-limit-minutes
+      # (it never gets hard-killed by GitHub Actions).
       - name: Sync Learn section content
         run: python manage.py sync_content
