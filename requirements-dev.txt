@@ -1,0 +1,9 @@
+# ── Development-only dependencies ─────────────────────────────────────────────
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+# NOT installed on Render (production) — only needed for local notebooks.
+
+-r requirements.txt   # include all production deps
+
+# Jupyter / notebook tooling
+jupyter
+ipykernel
