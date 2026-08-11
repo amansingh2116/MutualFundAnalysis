@@ -314,6 +314,35 @@
   </div>
 </div>
 
+{# ── Data Freshness Snapshot ───────────────────────────────────────────── #}
+{% if data_status %}
+<div style="max-width:1180px;margin:0 auto 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;animation:pulse-dot 2s ease-in-out infinite"></span>
+    <span style="font-size:12px;font-weight:600;color:var(--text-secondary)">Data Freshness</span>
+  </div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;flex:1">
+    <div style="display:flex;align-items:baseline;gap:5px">
+      <span style="font-size:14px;font-weight:700;color:var(--text-primary)">{{ data_status.snap_pct|floatformat:0 }}%</span>
+      <span style="font-size:11px;color:var(--text-muted)">Screener Coverage</span>
+      <span style="font-size:10px;color:var(--text-muted)">({{ data_status.snap_count }} funds)</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:5px">
+      <span style="font-size:14px;font-weight:700;color:var(--text-primary)">{{ data_status.score_pct|floatformat:0 }}%</span>
+      <span style="font-size:11px;color:var(--text-muted)">Model Scores</span>
+      <span style="font-size:10px;color:var(--text-muted)">({{ data_status.score_count }} funds)</span>
+    </div>
+    {% if data_status.last_updated %}
+    <div style="display:flex;align-items:baseline;gap:5px">
+      <span style="font-size:11px;color:var(--text-muted)">Last pipeline:</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-secondary)">{{ data_status.last_updated|date:"d M Y, g:i A" }}</span>
+    </div>
+    {% endif %}
+  </div>
+  <a href="{% url 'core:data_monitor' %}" style="font-size:11px;color:var(--indigo-400);text-decoration:none;white-space:nowrap;flex-shrink:0">Full Report →</a>
+</div>
+{% endif %}
+
 {# ── Quick Features Row (moved just after stats strip) ──────────────────── #}
 <div class="features-grid">
   <a href="{% url 'calculators:hub' %}" class="fund-card" style="text-decoration:none;display:flex;flex-direction:column;justify-content:space-between;height:100%">

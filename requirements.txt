@@ -11,6 +11,7 @@ requests>=2.31
 nsepython>=0.1                # NSE index PE/PB/Div data via niftyindices.com (backtester v2)
 nsefin>=0.1.5                 # NSE OHLC candlestick data
 wbgapi>=1.0.14                # World Bank API — India CPI for inflation adjustment
+fredapi>=1.1                  # FRED (Federal Reserve) economic data API
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 pandas>=2.2

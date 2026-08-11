@@ -42,21 +42,39 @@ class HomeView(TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         try:
-            ctx['total_funds'] = Scheme.objects.filter(Q(is_direct=True, plan='GROWTH') | Q(is_etf=True), is_active=True).count() or None
+            dg_filter = Q(is_direct=True, plan='GROWTH') | Q(is_etf=True)
+            total_dg = Scheme.objects.filter(dg_filter, is_active=True).count() or 1
+            ctx['total_funds'] = total_dg or None
             ctx['fund_houses'] = Scheme.objects.values('fund_house').distinct().count() or None
             latest_nav = NAVHistory.objects.order_by('-date').first()
             ctx['last_nav_date'] = latest_nav.date.strftime('%d %b %Y') if latest_nav else None
             ctx['categories'] = (
-                Scheme.objects.filter(Q(is_direct=True, plan='GROWTH') | Q(is_etf=True), is_active=True)
+                Scheme.objects.filter(dg_filter, is_active=True)
                 .values('scheme_category')
                 .annotate(count=Count('id'))
                 .order_by('-count')[:18]
             )
+            # ── Data status snapshot (for home page widget) ───────────────────
+            try:
+                from django.db.models import Max
+                snap_count = FundScreenerSnapshot.objects.count()
+                score_count = FundModelScore.objects.count()
+                latest_snap_ts = FundScreenerSnapshot.objects.aggregate(m=Max('updated_at'))['m']
+                ctx['data_status'] = {
+                    'snap_count':    snap_count,
+                    'snap_pct':      round(100 * snap_count / total_dg, 0),
+                    'score_count':   score_count,
+                    'score_pct':     round(100 * score_count / total_dg, 0),
+                    'last_updated':  latest_snap_ts,
+                }
+            except Exception:
+                ctx['data_status'] = None
         except Exception:
             ctx['total_funds'] = None
             ctx['fund_houses'] = None
             ctx['last_nav_date'] = None
             ctx['categories'] = []
+            ctx['data_status'] = None
 
         # ── Section 1: Benchmark Returns Monitor ──────────────────────────────
         # Default 5 benchmarks for non-login & new users

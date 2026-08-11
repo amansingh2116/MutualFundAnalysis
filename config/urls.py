@@ -6,7 +6,7 @@ import logging
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.auth.views import LoginView, PasswordResetView
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -17,10 +17,17 @@ logger = logging.getLogger('mfanalysis')
 
 class SafePasswordResetView(PasswordResetView):
     """
-    Wraps Django's built-in PasswordResetView to catch email-sending errors.
-    Without this, any SMTP failure (blocked port, wrong credentials, timeout)
-    propagates as an unhandled exception → 500.
+    Wraps Django's built-in PasswordResetView to:
+      1. Use our custom template (registration/password_reset.html)
+         instead of Django's default registration/password_reset_form.html.
+         Without this override the GET request 500s because the default template
+         file does not exist in our templates directory.
+      2. Catch email-sending errors so SMTP failures don't propagate as 500.
     """
+    # Django's default is 'registration/password_reset_form.html'.
+    # Our custom file is 'registration/password_reset.html'.
+    template_name = 'registration/password_reset.html'
+
     def form_valid(self, form):
         try:
             response = super().form_valid(form)
@@ -42,7 +49,12 @@ class SafePasswordResetView(PasswordResetView):
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # Login uses our rate-limited subclass; everything else comes from Django's auth URLs.
+    # Redirect Django admin's built-in password-reset to our custom page.
+    # Without this, users who end up on /admin/login/ click "Forgot password?"
+    # and land on the bare Django admin UI instead of our branded page.
+    path('admin/password_reset/', lambda r: redirect('/accounts/password_reset/')),
+
+    # Login uses our rate-limited subclass; everything else comes from Django auth URLs.
     path('accounts/login/',          RateLimitedLoginView.as_view(), name='login'),
     # Override password_reset BEFORE including auth.urls so our safe version wins.
     path('accounts/password_reset/', SafePasswordResetView.as_view(), name='password_reset'),

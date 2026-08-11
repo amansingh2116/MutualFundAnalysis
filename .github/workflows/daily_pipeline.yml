@@ -4,37 +4,44 @@ name: Daily Data Pipeline
 # Runs at 8:30 PM UTC every day (~2:00 AM IST) — after AMFI NAV updates.
 # (AMFI publishes NAVs by ~8 PM IST; we add a 30-min buffer.)
 #
-# WEEKDAY-SPLIT STRATEGY (solves the GitHub Actions 6-hour job limit)
+# 10-SHARD ROLLING STRATEGY (solves the GitHub Actions 6-hour job limit)
 # ─────────────────────────────────────────────────────────────────────────────
-# Analytics takes ~50s/fund.  2,300 funds × 50s = 32 hours — way over the
-# 6-hour limit.  We split into 7 equal shards (one per weekday) so each daily
-# job processes only ~330 funds in ~4.5 hours — well within the limit.
-# Every fund is refreshed once per week.
+# Analytics runs at ~60s/fund.  With 2,300 funds × 60s = 38 hours — way over
+# the 6-hour limit.  We split into 10 rolling shards so each daily job handles
+# only ~230 funds (~3.8 hours) — well within the limit.
 #
-# --shard N --num-shards 7 selects every 7th fund starting at position N,
-# ensuring perfectly equal slices regardless of AMFI code distribution.
+# Shard selection: day-of-year modulo 10. This gives a deterministic, evenly
+# distributed 10-day rolling cycle:  all funds processed once every ~10 days.
+#
+# --time-limit-minutes=310: command stops gracefully at 5h 10m, leaving 50min
+# for fund universe sync, benchmark ingestion, content sync, and cleanup.
+# Any unprocessed shard remainder is handled by the next same-shard run.
 on:
   schedule:
     - cron: '30 20 * * *'
   workflow_dispatch:
     inputs:
       shard:
-        description: 'Shard index to process (0-6). Leave blank to use today''s day-of-week automatically.'
+        description: 'Shard index to process (0-9). Leave blank to use rolling day-of-year calc.'
         required: false
         default: ''
       num_shards:
-        description: 'Total number of shards (default 7 = weekly cycle)'
+        description: 'Total number of shards (default 10 for 10-day rolling cycle)'
         required: false
-        default: '7'
+        default: '10'
       limit:
         description: 'Optional fund limit per shard (0 or blank = no limit). Useful for quick tests.'
         required: false
         default: ''
+      time_limit_minutes:
+        description: 'Stop fund pipeline after N minutes (default 310, set 0 to disable)'
+        required: false
+        default: '310'
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 360   # 6-hour hard cap — one weekday shard fits comfortably
+    timeout-minutes: 370   # 6h 10m — gives 60min buffer beyond the 310-min fund limit
 
     # ── Env vars shared across ALL steps ────────────────────────────────────
     env:
@@ -75,17 +82,20 @@ jobs:
       - name: Recompute benchmark return snapshots
         run: python manage.py populate_benchmark_returns
 
-      # ── 5. Fund screener pipeline (weekday shard) ─────────────────────────
-      # --shard N --num-shards 7: process every 7th fund starting at position N.
-      # This gives ~330 funds per shard with perfectly even distribution.
-      # --resume: skip funds already processed today (safe if re-run manually).
-      - name: Run fund data pipeline (today's shard)
+      # ── 5. Fund screener pipeline (10-shard rolling cycle) ────────────────
+      # Uses day-of-year mod 10 for rolling shard selection.
+      # --time-limit-minutes=310 exits gracefully before the 6h GA cap.
+      # --resume --resume-hours=20 skips funds already done today (safe re-run).
+      - name: Run fund data pipeline (rolling shard)
         run: |
-          # Resolve shard: use manual input if provided, else today's day-of-week
-          # date +%w returns 0=Sun, 1=Mon, 2=Tue, ..., 6=Sat
+          # Resolve shard: use manual input if provided, else day-of-year mod 10.
+          # Day-of-year (1–366) gives a natural rolling 10-day cycle.
           INPUT_SHARD="${{ github.event.inputs.shard }}"
           NUM_SHARDS="${{ github.event.inputs.num_shards }}"
-          NUM_SHARDS="${NUM_SHARDS:-7}"
+          NUM_SHARDS="${NUM_SHARDS:-10}"
+          TIME_LIMIT="${{ github.event.inputs.time_limit_minutes }}"
+          TIME_LIMIT="${TIME_LIMIT:-310}"
+
           LIMIT_ARG=""
           if [ -n "${{ github.event.inputs.limit }}" ] && [ "${{ github.event.inputs.limit }}" != "0" ]; then
             LIMIT_ARG="--limit=${{ github.event.inputs.limit }}"
@@ -94,18 +104,24 @@ jobs:
           if [ -n "$INPUT_SHARD" ]; then
             SHARD="$INPUT_SHARD"
           else
-            SHARD=$(date +%w)   # 0–6, matches Mon–Sun when num_shards=7
+            # day-of-year mod num_shards gives a rolling cycle covering every shard
+            DOY=$(python3 -c "from datetime import date; print(date.today().timetuple().tm_yday)")
+            SHARD=$((DOY % NUM_SHARDS))
           fi
 
-          echo "Running shard $SHARD of $NUM_SHARDS (day-of-week=$(date +%A))"
+          echo "Running shard $SHARD of $NUM_SHARDS ($(date +%A), day-of-year=$(python3 -c 'from datetime import date; print(date.today().timetuple().tm_yday)'), time-limit=${TIME_LIMIT}min)"
+
           python manage.py populate_screener \
             --shard="$SHARD" \
             --num-shards="$NUM_SHARDS" \
             $LIMIT_ARG \
             --skip-analytics-if-no-new-nav \
-            --resume --resume-hours=20
+            --resume --resume-hours=20 \
+            --time-limit-minutes="$TIME_LIMIT"
 
       # ── 6. Learn content sync ─────────────────────────────────────────────
       # Fast (<10 s) and idempotent — syncs PDF guides and blog metadata.
+      # This step always runs (even if the fund pipeline hit its time limit)
+      # because the fund step exits gracefully via --time-limit-minutes.
       - name: Sync Learn section content
         run: python manage.py sync_content

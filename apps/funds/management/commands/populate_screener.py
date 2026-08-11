@@ -118,8 +118,22 @@ class Command(BaseCommand):
                 "34-hour analytics pass to ~10 minutes because no fund has new data."
             ),
         )
+        parser.add_argument(
+            "--time-limit-minutes",
+            type=int,
+            default=0,
+            dest="time_limit_minutes",
+            help=(
+                "Stop gracefully after this many minutes (default 0 = no limit). "
+                "Use 310 in GitHub Actions so sync_content always has time to run "
+                "before the 6-hour job timeout kills the process hard."
+            ),
+        )
 
     def handle(self, *args, **options):
+        import time as _time
+        _run_start = _time.monotonic()
+
         limit = options["limit"]
         amfi_code = options["amfi"]
         direct_growth_only = options["direct_growth_only"]
@@ -136,6 +150,7 @@ class Command(BaseCommand):
         shard = options.get("shard")          # None = no sharding
         num_shards = options.get("num_shards", 7)
         skip_if_no_new_nav = options.get("skip_analytics_if_no_new_nav", False)
+        time_limit_sec = options.get("time_limit_minutes", 0) * 60  # 0 = no limit
 
         # Build queryset — always ordered by amfi_code for deterministic processing
         qs = Scheme.objects.filter(is_active=True).order_by("amfi_code")
@@ -203,6 +218,20 @@ class Command(BaseCommand):
 
 
         for index, scheme in enumerate(qs, 1):
+            # ── Time-limit check — exit gracefully before GitHub Actions kills us ──
+            if time_limit_sec and index % 5 == 0:   # check every 5 funds to reduce overhead
+                elapsed = _time.monotonic() - _run_start
+                remaining = time_limit_sec - elapsed
+                if remaining < 180:   # < 3 minutes left → stop now
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"  ⏱  Time limit reached after {elapsed/60:.1f} min. "
+                            f"Processed {index-1}/{total} funds. "
+                            f"{total - index + 1} remaining — will continue next run."
+                        )
+                    )
+                    break
+
             # ── Resume: skip if already processed ────────────────────────────
             if do_resume and scheme.amfi_code in already_done:
                 if index % 200 == 0:

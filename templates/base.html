@@ -52,6 +52,10 @@
       <a href="{% url 'funds:screener' %}" class="nav-item {% if request.resolver_match.url_name == 'screener' %}active{% endif %}">
         <span class="nav-icon">S</span> Fund Screener
       </a>
+      <a href="{% url 'core:data_monitor' %}" class="nav-item {% if request.resolver_match.url_name == 'data_monitor' %}active{% endif %}" title="Data quality, pipeline cycles and freshness">
+        <span class="nav-icon">🛡️</span> Data Status
+        <span style="margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--green,#22c55e);display:inline-block;flex-shrink:0;animation:pulse-dot 2s ease-in-out infinite;"></span>
+      </a>
         </div>
       </div>
       <div class="nav-section" data-nav-section="tools">
@@ -96,10 +100,6 @@
       </a>
       <a href="{% url 'funds:research_quartiles' %}" class="nav-item {% if request.resolver_match.url_name == 'research_quartiles' %}active{% endif %}">
         <span class="nav-icon">🎯</span> Quartile Rankings
-      </a>
-      <a href="{% url 'core:data_monitor' %}" class="nav-item {% if request.resolver_match.url_name == 'data_monitor' %}active{% endif %}" title="Data quality, pipeline cycles and freshness">
-        <span class="nav-icon">🛡️</span> Data Status
-        <span style="margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--green,#22c55e);display:inline-block;flex-shrink:0;animation:pulse-dot 2s ease-in-out infinite;"></span>
       </a>
 
         </div>
@@ -159,10 +159,12 @@
         <form action="{% url 'logout' %}" method="post" style="margin:0;flex-shrink:0">
           {% csrf_token %}
           <button type="submit" title="Sign out"
-            style="background:none;border:none;cursor:pointer;padding:7px 8px;color:var(--text-muted);font-size:16px;line-height:1;border-radius:6px;transition:all 0.15s"
+            style="background:none;border:none;cursor:pointer;padding:7px 8px;color:var(--text-muted);line-height:1;border-radius:6px;transition:all 0.15s"
             onmouseover="this.style.color='#f87171';this.style.background='rgba(248,113,113,0.12)'"
             onmouseout="this.style.color='var(--text-muted)';this.style.background='none'"
-            aria-label="Sign out">&#x23FB;</button>
+            aria-label="Sign out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </form>
       </div>
       {% else %}
@@ -214,7 +216,7 @@
             aria-haspopup="true" aria-expanded="false" aria-controls="topbar-user-dropdown">
             <span style="width:26px;height:26px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;flex-shrink:0">{{ user.username|first|upper }}</span>
             <span style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ user.username }}</span>
-            <span style="color:var(--text-muted);font-size:10px;margin-left:2px">&#x25BE;</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style="color:var(--text-muted);flex-shrink:0"><path d="M1 3l4 4 4-4"/></svg>
           </button>
           <div id="topbar-user-dropdown"
             style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;min-width:200px;padding:8px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,0.4)">
@@ -233,7 +235,8 @@
               <button type="submit"
                 style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;color:#f87171;background:none;border:none;cursor:pointer;width:100%;text-align:left;font-size:13px;transition:background 0.15s"
                 onmouseover="this.style.background='rgba(248,113,113,0.1)'" onmouseout="this.style.background='none'">
-                &#x23FB; Sign Out
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Sign Out
               </button>
             </form>
           </div>
