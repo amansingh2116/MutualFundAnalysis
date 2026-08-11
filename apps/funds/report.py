@@ -1772,8 +1772,10 @@ def build_report_context(request, scheme) -> dict:
 
 def _system_chrome_html_to_pdf(html_string: str) -> bytes:
     """
-    Fallback PDF renderer using system-installed Google Chrome or Microsoft Edge CLI.
+    Fallback PDF renderer using system-installed Google Chrome, Microsoft Edge,
+    or Playwright's Chromium CLI.
     """
+    import glob
     import os
     import shutil
     import subprocess
@@ -1790,6 +1792,14 @@ def _system_chrome_html_to_pdf(html_string: str) -> bytes:
         shutil.which("chromium"),
         shutil.which("msedge"),
     ]
+
+    for ms_dir in [os.path.expanduser("~/.cache/ms-playwright"), os.path.expanduser("~/AppData/Local/ms-playwright")]:
+        if os.path.exists(ms_dir):
+            candidates.extend(glob.glob(os.path.join(ms_dir, "chromium-*", "chrome-linux", "chrome")))
+            candidates.extend(glob.glob(os.path.join(ms_dir, "chromium-*", "chrome-win*", "chrome.exe")))
+            candidates.extend(glob.glob(os.path.join(ms_dir, "chromium_headless_shell-*", "chrome-headless-shell-linux", "chrome-headless-shell")))
+            candidates.extend(glob.glob(os.path.join(ms_dir, "chromium_headless_shell-*", "chrome-headless-shell-win*", "chrome-headless-shell.exe")))
+
     binary = next((c for c in candidates if c and os.path.exists(c)), None)
     if not binary:
         raise FileNotFoundError("No system Chrome or Edge binary found.")
@@ -1841,7 +1851,7 @@ def _chrome_html_to_pdf(html_string: str) -> bytes:
                 ]
             )
             page = browser.new_page()
-            page.set_content(html_string, wait_until="networkidle")
+            page.set_content(html_string, wait_until="load", timeout=20000)
             pdf_bytes = page.pdf(
                 format="A4",
                 print_background=True,
