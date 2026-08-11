@@ -1,59 +1,56 @@
 name: Weekly Data Pipeline
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# WEEKLY BATCH STRATEGY — how it works
+# HOW THE PIPELINE WORKS
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# GitHub Actions is FREE for PUBLIC repositories (unlimited minutes).
-# For private repos the limit is 2,000 min/month, which this pipeline exceeds.
-# → The repository should be public to run this pipeline without limits.
+# The pipeline runs every 6 hours (4 times per day) — FREE for public repos.
+# Each run processes as many funds as it can within 5h 10min, then stops.
+# Funds are skipped once updated (--resume --resume-hours=167 = 7-day window).
 #
-# All ~2,300 funds are processed in 6 equal daily batches (Mon–Sat).
-# Each batch covers a contiguous slice of funds ordered by AMFI code:
+# SELF-COMPLETING WEEKLY CYCLE:
+#   Run 1  (Day 1, +0h):    ~250–350 funds updated, then time-limit hit
+#   Run 2  (Day 1, +6h):    next ~250–350 funds (resume skips done funds)
+#   Run 3  (Day 2, +12h):   continues...
+#   ...
+#   Run 7–9 (Day 2–3):      ALL ~2,300 funds updated ✅
+#   Run 10+ (Days 3–7):     finds 0 stale funds, completes in < 5 minutes 💤
+#   Next week (Day 8):      7-day window expires → full automatic restart 🔄
 #
-#   Mon  8:30 PM UTC  →  funds   0 – 383   (384 funds)
-#   Tue  8:30 PM UTC  →  funds 384 – 767   (384 funds)
-#   Wed  8:30 PM UTC  →  funds 768 – 1151  (384 funds)
-#   Thu  8:30 PM UTC  →  funds 1152 – 1535 (384 funds)
-#   Fri  8:30 PM UTC  →  funds 1536 – 1919 (384 funds)
-#   Sat  8:30 PM UTC  →  funds 1920 – end  (~380 funds)
-#   Sun  8:30 PM UTC  →  benchmarks + content ONLY (no fund pipeline)
+# GUARANTEES:
+#   - All ~2,300 funds refreshed within 2–3 days of each week
+#   - Self-healing: a failed run is retried automatically 6 hours later
+#   - Zero manual intervention needed week-to-week
+#   - Benchmarks and content sync run on EVERY invocation (they're fast)
 #
-# --offset=N skips the first N funds in the ordered queryset.
-# --limit=384 caps each batch.  Together they give a precise SQL OFFSET+LIMIT.
-# --time-limit-minutes=310 exits gracefully at 5h 10m so sync_content always runs.
-# --resume --resume-hours=23 allows safe same-day re-runs (skip already done).
+# REQUIREMENTS:
+#   - Repository must be PUBLIC (GitHub Actions is free for public repos)
+#   - GitHub Secrets: DATABASE_URL and SECRET_KEY must be set
 #
-# RESUMING: If a batch is killed before finishing, simply re-run the same
-# workflow_dispatch with the same day/offset — --resume skips completed funds.
-# The following day's batch starts fresh from its own offset regardless.
-#
-# WEEKLY RESTART: Monday always starts at offset=0.  All funds cycle once a week.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 on:
   schedule:
-    - cron: '30 20 * * *'   # 8:30 PM UTC every day = 2:00 AM IST next morning
+    - cron: '30 */6 * * *'  # Every 6 hours: 12:30 AM, 6:30 AM, 12:30 PM, 6:30 PM UTC
   workflow_dispatch:
     inputs:
-      day_override:
-        description: >
-          Force a specific day (1=Mon … 6=Sat, 7=Sun). Leave blank to use today.
-        required: false
-        default: ''
-      limit:
-        description: 'Funds per batch (default 384). Set smaller for quick tests.'
-        required: false
-        default: '384'
       time_limit_minutes:
-        description: 'Stop fund pipeline after N minutes (default 310, 0=no limit).'
+        description: 'Stop fund pipeline after N minutes (default 310, 0 = no limit)'
         required: false
         default: '310'
+      resume_hours:
+        description: 'Skip funds updated within the last N hours (default 167 = 7 days)'
+        required: false
+        default: '167'
+      limit:
+        description: 'Cap total funds processed this run (default 0 = no cap)'
+        required: false
+        default: '0'
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 375   # 6h 15m — fund limit is 310 min + overhead
+    timeout-minutes: 375   # 6h 15m hard cap; fund pipeline soft-exits at 310min
 
     env:
       DJANGO_SETTINGS_MODULE: config.settings.prod
@@ -80,60 +77,53 @@ jobs:
         run: python manage.py migrate --no-input
 
       # ── 3. Fund universe ──────────────────────────────────────────────────
-      # ~2 min — syncs the AMFI scheme master list.
-      - name: Update fund universe
+      # ~1–2 min — incremental AMFI scheme list sync.
+      - name: Sync fund universe (AMFI master list)
         run: python manage.py build_scheme_master
 
       # ── 4. Benchmark data ─────────────────────────────────────────────────
-      # Incremental — fetches only new trading-day rows. ~1-3 min.
-      - name: Ingest benchmark data (incremental)
+      # Incremental — fetches only new trading-day rows. ~1–3 min.
+      - name: Ingest benchmark NAVs (incremental)
         run: python manage.py ingest_benchmarks
 
       - name: Recompute benchmark return snapshots
         run: python manage.py populate_benchmark_returns
 
-      # ── 5. Fund screener pipeline (weekly batch) ──────────────────────────
-      # Compute batch offset from the day of week.
-      # Sunday (DOW=7): skip fund pipeline — benchmarks + content only.
-      - name: Run fund data pipeline (weekly batch)
+      # ── 5. Fund screener pipeline (resume-based, self-completing) ─────────
+      # --resume --resume-hours=167: skips funds updated in the last 7 days.
+      # --time-limit-minutes=310:    exits gracefully before the 6h job timeout.
+      # No offset/limit needed: resume mode automatically picks up where the
+      # last run stopped, ordered by amfi_code.
+      # When all funds are up-to-date, this step completes in < 5 minutes.
+      - name: Run fund data pipeline (resume-based weekly cycle)
         run: |
-          # ── Resolve day of week (1=Mon … 6=Sat, 7=Sun) ──────────────────
-          OVERRIDE="${{ github.event.inputs.day_override }}"
-          if [ -n "$OVERRIDE" ]; then
-            DOW="$OVERRIDE"
-          else
-            DOW=$(date +%u)    # ISO weekday: 1=Mon, 2=Tue, …, 7=Sun
-          fi
-
-          BATCH_SIZE="${{ github.event.inputs.limit }}"
-          BATCH_SIZE="${BATCH_SIZE:-384}"
-
           TIME_LIMIT="${{ github.event.inputs.time_limit_minutes }}"
           TIME_LIMIT="${TIME_LIMIT:-310}"
 
-          echo "=== Day of week: $DOW | Batch size: $BATCH_SIZE | Time limit: ${TIME_LIMIT}min ==="
+          RESUME_HOURS="${{ github.event.inputs.resume_hours }}"
+          RESUME_HOURS="${RESUME_HOURS:-167}"
 
-          # ── Sunday: skip fund pipeline ───────────────────────────────────
-          if [ "$DOW" = "7" ]; then
-            echo "Sunday — benchmark and content update only. No fund pipeline today."
-            exit 0
+          LIMIT_ARG=""
+          RAW_LIMIT="${{ github.event.inputs.limit }}"
+          RAW_LIMIT="${RAW_LIMIT:-0}"
+          if [ "$RAW_LIMIT" != "0" ]; then
+            LIMIT_ARG="--limit=$RAW_LIMIT"
           fi
 
-          # ── Calculate positional offset ─────────────────────────────────
-          # Mon=0, Tue=384, Wed=768, Thu=1152, Fri=1536, Sat=1920
-          OFFSET=$(( (DOW - 1) * BATCH_SIZE ))
-
-          echo "Processing batch: offset=$OFFSET, limit=$BATCH_SIZE (funds $OFFSET to $((OFFSET + BATCH_SIZE - 1)))"
+          echo "=== Pipeline run ==="
+          echo "  Resume window : ${RESUME_HOURS}h (skip funds updated in last ${RESUME_HOURS}h)"
+          echo "  Time limit    : ${TIME_LIMIT}min (exits gracefully before 6h job cap)"
+          echo "  Limit         : ${RAW_LIMIT:-none} (0 = no cap)"
+          echo "  Time          : $(date -u '+%Y-%m-%d %H:%M UTC')"
+          echo "===================="
 
           python manage.py populate_screener \
-            --offset="$OFFSET" \
-            --limit="$BATCH_SIZE" \
-            --resume --resume-hours=23 \
-            --time-limit-minutes="$TIME_LIMIT"
+            --resume \
+            --resume-hours="$RESUME_HOURS" \
+            --time-limit-minutes="$TIME_LIMIT" \
+            $LIMIT_ARG
 
       # ── 6. Learn content sync ─────────────────────────────────────────────
-      # Fast (<10 s) — runs every day including Sunday.
-      # Always runs because the fund step exits gracefully via --time-limit-minutes
-      # (it never gets hard-killed by GitHub Actions).
+      # Fast (< 10 s) — always runs. Safe because fund pipeline exits gracefully.
       - name: Sync Learn section content
         run: python manage.py sync_content

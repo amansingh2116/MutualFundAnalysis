@@ -728,8 +728,15 @@ def user_settings_view(request):
 def data_monitor_view(request):
     """
     Data Quality & Pipeline Monitor — shows what data we have, when it was last
-    updated, how complete the analytics coverage is, and the weekday-shard cycle.
-    Publicly accessible (uses demo_user for anonymous visitors too).
+    updated, analytics coverage, and the self-completing weekly pipeline cycle.
+
+    Pipeline: runs every 6 hours via GitHub Actions (--resume --resume-hours=167).
+    Each run processes stale funds until the 5h 10min time limit is hit.
+    After ~8 runs (2–3 days) all ~2,300 funds are refreshed; remaining runs
+    that week complete in < 5 minutes (nothing stale left).
+    Next Monday: 7-day window expires → automatic full restart.
+
+    Publicly accessible (no login required).
     """
     from datetime import date, timedelta
     from django.db.models import Count, Max, Min, Q
@@ -814,38 +821,63 @@ def data_monitor_view(request):
         'metadata':  pct(with_metadata,    total_dg),
     }
 
-    # ── Weekly batch cycle status ───────────────────────────────────────────
-    # Mon–Sat each run a fixed contiguous block of 384 funds.
-    # Batch selected by ISO weekday (1=Mon … 6=Sat); Sunday is benchmark-only.
-    # Reconstruct expected batch dates for this calendar week and count snapshots.
-    BATCH_SIZE = 384
-    BATCH_LABELS = [
-        # (ISO weekday, short label, fund offset start)
-        (1, 'Mon', 0),
-        (2, 'Tue', 384),
-        (3, 'Wed', 768),
-        (4, 'Thu', 1152),
-        (5, 'Fri', 1536),
-        (6, 'Sat', 1920),
-    ]
+    # ── Weekly progress (resume-based cycle) ─────────────────────────────────
+    # The pipeline runs every 6 hours with --resume --resume-hours=167.
+    # "This week" = updated since the most recent Monday 00:00 UTC.
     current_dow = today.isoweekday()   # 1=Mon … 7=Sun
-    days_since_monday = current_dow - 1
-    monday_this_week = today - timedelta(days=days_since_monday)
+    monday_this_week = today - timedelta(days=current_dow - 1)
+    week_start_dt = timezone.make_aware(
+        __import__('datetime').datetime.combine(monday_this_week, __import__('datetime').time.min)
+    )
 
-    batch_days = []
-    for iso_dow, label, offset in BATCH_LABELS:
-        batch_date = monday_this_week + timedelta(days=iso_dow - 1)
-        count = FundScreenerSnapshot.objects.filter(updated_at__date=batch_date).count()
-        batch_days.append({
-            'label':       label,
-            'iso_dow':     iso_dow,
-            'target_date': batch_date,
-            'offset':      offset,
-            'count':       count,
-            'done':        count > 0,
-            'is_today':    batch_date == today,
-            'is_future':   batch_date > today,
-        })
+    weekly_updated = FundScreenerSnapshot.objects.filter(updated_at__gte=week_start_dt).count()
+    weekly_pct     = round(100 * weekly_updated / total_dg, 1) if total_dg else 0
+    weekly_complete = weekly_updated >= total_dg
+
+    # ── Pipeline run history (last 7 days, grouped into 6-hour slots) ────────
+    # Each 6-hour slot = one scheduled pipeline invocation.
+    # We group snapshots by their update hour and bucket into 6-hour windows.
+    # A slot with count > 0 = a real pipeline run happened.
+    from django.db.models.functions import TruncHour
+
+    hourly_buckets = (
+        FundScreenerSnapshot.objects
+        .filter(updated_at__gte=now - timedelta(days=7))
+        .annotate(hr=TruncHour('updated_at'))
+        .values('hr')
+        .annotate(count=Count('pk'))
+        .order_by('-hr')
+    )
+
+    # Merge consecutive hours into "runs" (a run ends when there's a 2+ hour gap)
+    pipeline_runs = []
+    current_run = None
+    for bucket in hourly_buckets:
+        if current_run is None:
+            current_run = {'start': bucket['hr'], 'end': bucket['hr'], 'count': bucket['count']}
+        else:
+            gap_hours = (current_run['start'] - bucket['hr']).total_seconds() / 3600
+            if gap_hours <= 2:
+                current_run['count'] += bucket['count']
+                current_run['start'] = bucket['hr']  # extend back
+            else:
+                pipeline_runs.append(current_run)
+                current_run = {'start': bucket['hr'], 'end': bucket['hr'], 'count': bucket['count']}
+    if current_run:
+        pipeline_runs.append(current_run)
+
+    # Add cumulative weekly count to each run (running total newest→oldest)
+    cumulative = 0
+    for run in pipeline_runs:
+        cumulative += run['count']
+        run['cumulative'] = cumulative
+
+    # ── Estimated runs remaining this week ───────────────────────────────────
+    remaining_funds = max(0, total_dg - weekly_updated)
+    # Estimate: average funds per run from last 3 runs (or default 280)
+    recent_counts = [r['count'] for r in pipeline_runs[:3]]
+    avg_per_run = int(sum(recent_counts) / len(recent_counts)) if recent_counts else 280
+    runs_remaining = max(0, -(-remaining_funds // max(avg_per_run, 1)))  # ceiling div
 
     context = {
         # Universe
@@ -875,9 +907,16 @@ def data_monitor_view(request):
         'max_daily':      max_daily,
         # Coverage percentages
         'coverage': coverage,
-        # Weekly batch cycle (Mon–Sat contiguous batches)
-        'batch_days':  batch_days,
-        'batch_size':  BATCH_SIZE,
+        # Weekly progress — resume-based cycle
+        'weekly_updated':  weekly_updated,
+        'weekly_pct':      weekly_pct,
+        'weekly_complete': weekly_complete,
+        'remaining_funds': remaining_funds,
+        'runs_remaining':  runs_remaining,
+        'avg_per_run':     avg_per_run,
+        # Pipeline run history (last 7 days, merged hourly buckets)
+        'pipeline_runs':   pipeline_runs,
         'today': today,
+        'monday_this_week': monday_this_week,
     }
     return render(request, 'data_monitor.html', context)

@@ -129,37 +129,69 @@
 .dm-act-label { font-size: 10px; color: var(--text-muted); text-align: center; white-space: nowrap; }
 .dm-act-count { font-size: 10px; font-weight: 600; color: var(--text-primary); }
 
-/* ─── Shard cycle ──────────────────────────────────────────────────────── */
-.dm-shards {
-  display: grid; grid-template-columns: repeat(7,1fr); gap: 8px;
-}
-@media (max-width: 680px) { .dm-shards { grid-template-columns: repeat(4,1fr); } }
-.dm-shard {
+/* --- Weekly progress bar ------------------------------------------ */
+.dm-week-progress {
   background: hsl(230 30% 13%);
   border: 1px solid hsl(230 30% 22%);
-  border-radius: 10px; padding: 14px 8px;
-  text-align: center; position: relative;
-  transition: border-color .2s;
+  border-radius: 14px; padding: 24px 28px; margin-bottom: 16px;
 }
-.dm-shard.done {
-  background: hsl(230 40% 16%);
-  border-color: hsl(260 60% 40%);
+.dm-week-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
 }
-.dm-shard.today-shard {
-  border-color: hsl(270 70% 60%);
-  box-shadow: 0 0 12px hsl(270 70% 60% / .25);
+.dm-week-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.dm-week-pct {
+  font-size: 28px; font-weight: 900;
+  background: linear-gradient(135deg, hsl(270 70% 70%), hsl(200 80% 60%));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
-.dm-shard-day { font-size: 12px; font-weight: 700; color: var(--text-primary); }
-.dm-shard-date { font-size: 10px; color: var(--text-muted); margin: 2px 0 6px; }
-.dm-shard-count { font-size: 11px; font-weight: 600; }
-.dm-shard-count.done { color: hsl(145 70% 55%); }
-.dm-shard-count.pending { color: hsl(230 40% 50%); }
-.dm-shard-icon { font-size: 16px; }
-.dm-today-tag {
-  position: absolute; top: -1px; right: -1px;
-  background: hsl(270 70% 55%); color: #fff;
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
-  padding: 2px 6px; border-radius: 0 9px 0 8px;
+.dm-progress-track {
+  height: 14px; background: hsl(230 30% 20%);
+  border-radius: 999px; overflow: hidden; margin-bottom: 12px;
+}
+.dm-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(270 70% 60%), hsl(200 80% 55%));
+  border-radius: 999px;
+  transition: width 1s ease;
+}
+.dm-progress-fill.complete { background: linear-gradient(90deg, hsl(145 65% 50%), hsl(180 60% 45%)); }
+.dm-week-stats {
+  display: flex; gap: 24px; flex-wrap: wrap; margin-top: 10px;
+  font-size: 12px; color: var(--text-muted);
+}
+.dm-week-stats strong { color: var(--text-primary); }
+
+/* --- Pipeline run history table ----------------------------------- */
+.dm-runs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dm-runs-table th {
+  text-align: left; padding: 8px 12px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--text-muted);
+  border-bottom: 1px solid hsl(230 30% 22%);
+}
+.dm-runs-table td { padding: 9px 12px; border-bottom: 1px solid hsl(230 30% 18%); }
+.dm-runs-table tr:last-child td { border-bottom: none; }
+.dm-runs-table tr:hover td { background: hsl(230 30% 15%); }
+.dm-run-mini-bar {
+  height: 6px; background: hsl(230 30% 20%); border-radius: 999px; overflow: hidden;
+  min-width: 80px;
+}
+.dm-run-mini-fill {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(270 70% 60%), hsl(200 80% 55%));
+  border-radius: 999px;
+}
+.dm-run-complete-badge {
+  display: inline-block;
+  background: hsl(145 65% 15%); color: hsl(145 65% 55%);
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; letter-spacing: .4px;
+}
+.dm-run-active-badge {
+  display: inline-block;
+  background: hsl(270 70% 20%); color: hsl(270 70% 70%);
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; letter-spacing: .4px;
 }
 
 /* ─── Benchmark table ──────────────────────────────────────────────────── */
@@ -410,36 +442,107 @@
     </div>
   </div>
 
-  <!-- ── Weekly Batch Cycle + 7-Day Activity ──────────────────────── -->
+  <!-- Weekly Pipeline Progress ------------------------------------------- -->
   <div class="dm-section">
     <div class="dm-section-head">
-      <h2>🔄 Weekly Pipeline Cycle</h2>
-      <span class="dm-badge">6 batches · ~384 funds/day · Mon–Sat</span>
+      <h2>&#x1F504; Weekly Pipeline Progress</h2>
+      <span class="dm-badge">runs every 6h &middot; self-completing cycle</span>
     </div>
 
-    <!-- Batch status boxes -->
-    <div class="dm-shards" style="margin-bottom:20px">
-      {% for b in batch_days %}
-      <div class="dm-shard {% if b.done %}done{% endif %} {% if b.is_today %}today-shard{% endif %}">
-        {% if b.is_today %}<span class="dm-today-tag">Today</span>{% endif %}
-        <div class="dm-shard-icon">
-          {% if b.done %}✅{% elif b.is_future %}⏳{% elif b.is_today %}🔄{% else %}⚠️{% endif %}
+    <!-- Big progress bar -->
+    <div class="dm-week-progress">
+      <div class="dm-week-header">
+        <div>
+          <div class="dm-week-title">
+            {% if weekly_complete %}
+              &#x2705; All funds refreshed this week!
+            {% else %}
+              This week's refresh progress
+            {% endif %}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+            Week of {{ monday_this_week|date:"d M Y" }}
+          </div>
         </div>
-        <div class="dm-shard-day">{{ b.label }}</div>
-        <div class="dm-shard-date">{{ b.target_date|date:"d M" }}</div>
-        <div class="dm-shard-count {% if b.done %}done{% else %}pending{% endif %}">
-          {% if b.done %}{{ b.count }} funds
-          {% elif b.is_future %}Scheduled
-          {% else %}Pending{% endif %}
-        </div>
-        <div style="font-size:9px;color:var(--text-muted);margin-top:3px">#{{ b.offset }}–{{ b.offset|add:batch_size }}</div>
+        <div class="dm-week-pct">{{ weekly_pct }}%</div>
       </div>
-      {% endfor %}
+
+      <div class="dm-progress-track">
+        <div class="dm-progress-fill {% if weekly_complete %}complete{% endif %}"
+             style="width:{{ weekly_pct }}%"></div>
+      </div>
+
+      <div class="dm-week-stats">
+        <span><strong>{{ weekly_updated }}</strong> / {{ total_dg }} funds updated</span>
+        <span>&middot;</span>
+        <span><strong>{{ remaining_funds }}</strong> remaining</span>
+        {% if not weekly_complete %}
+        <span>&middot;</span>
+        <span>~<strong>{{ runs_remaining }}</strong> more run{{ runs_remaining|pluralize }} needed</span>
+        <span>&middot;</span>
+        <span>~<strong>{{ avg_per_run }}</strong> funds/run (recent avg)</span>
+        {% endif %}
+        <span>&middot;</span>
+        <span>Auto-resets next Monday</span>
+      </div>
     </div>
+
+    <!-- Pipeline run history -->
+    {% if pipeline_runs %}
+    <div class="dm-card" style="padding:0;overflow:hidden;margin-bottom:16px">
+      <div style="padding:14px 18px 10px;font-size:12px;font-weight:700;color:var(--text-muted);
+                  text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid hsl(230 30% 18%)">
+        Pipeline Batch History &mdash; Last 7 Days
+      </div>
+      <table class="dm-runs-table">
+        <thead>
+          <tr>
+            <th>Run Started (UTC)</th>
+            <th>Funds Updated</th>
+            <th>Cumulative</th>
+            <th style="min-width:100px">Weekly Progress</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in pipeline_runs %}
+          <tr>
+            <td style="color:var(--text-primary);font-weight:600">
+              {{ run.end|date:"D d M, H:i" }}
+            </td>
+            <td style="color:hsl(270 70% 70%);font-weight:700">
+              +{{ run.count }} funds
+            </td>
+            <td style="color:var(--text-muted)">
+              {{ run.cumulative }} / {{ total_dg }}
+            </td>
+            <td>
+              <div class="dm-run-mini-bar">
+                <div class="dm-run-mini-fill"
+                     style="width:{% widthratio run.cumulative total_dg 100 %}%"></div>
+              </div>
+            </td>
+            <td>
+              {% if forloop.first and not weekly_complete %}
+                <span class="dm-run-active-badge">&#x1F504; Latest</span>
+              {% else %}
+                <span class="dm-run-complete-badge">&#x2705; Done</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dm-card" style="text-align:center;padding:28px;color:var(--text-muted)">
+      No pipeline runs recorded yet this week. The pipeline runs every 6 hours automatically.
+    </div>
+    {% endif %}
 
     <!-- 7-day activity bar chart -->
     <div class="dm-card" style="margin-bottom:0">
-      <div class="dm-card-label" style="margin-bottom:12px">📈 Funds refreshed last 7 days</div>
+      <div class="dm-card-label" style="margin-bottom:12px">&#x1F4C8; Funds refreshed &mdash; last 7 days</div>
       <div class="dm-activity-chart">
         {% for day in daily_activity reversed %}
         <div class="dm-act-col">
@@ -453,8 +556,8 @@
         {% endfor %}
       </div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:10px">
-        Purple bar = today's run. Each daily batch covers a contiguous block of ~384 funds.
-        Mon–Sat covers all ~2,300 funds; Sunday is benchmark &amp; content sync only.
+        Each bar = total funds refreshed that calendar day across all pipeline runs.
+        Multiple runs per day are summed. Purple = today.
       </div>
     </div>
   </div>
@@ -542,13 +645,14 @@
       </div>
       <div class="dm-card">
         <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-green),var(--c-blue))"></div>
-        <div style="font-size:20px;margin-bottom:8px">🔄</div>
-        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Weekly Refresh Cycle</div>
+        <div style="font-size:20px;margin-bottom:8px">&#x1F504;</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Self-Completing Weekly Cycle</div>
         <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-          ~2,300 funds split into 6 daily batches (Mon–Sat, ~384 funds each). Each batch covers
-          a <em>contiguous block</em> by AMFI code: Mon=0–383, Tue=384–767, … Sat=1920–end.
-          Sunday: benchmarks &amp; content sync only. All funds refreshed once per week.
-          Metadata (AUM, ER, manager) refreshed every 7 days.
+          Pipeline runs every <strong>6 hours</strong> via GitHub Actions (free for public repos).
+          Each run processes stale funds in AMFI-code order using <em>--resume --resume-hours=167</em>
+          (7-day window). After ~7&ndash;9 runs (~2&ndash;3 days), all ~2,300 funds are refreshed.
+          Remaining runs that week find 0 stale funds and complete in under 5 minutes.
+          Next Monday: the 7-day window expires and the full cycle restarts automatically.
         </div>
       </div>
     </div>

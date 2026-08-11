@@ -173,21 +173,19 @@
 
 ---
 
-## 🔄 Data Pipeline — Weekly Batch System
+## 🔄 Data Pipeline — Self-Completing Weekly Cycle
 
-All ~2,300 funds are processed in **6 daily batches (Monday–Saturday)**, each covering a contiguous block of ~384 funds. Sunday runs benchmark & content sync only.
+The pipeline runs **every 6 hours** via GitHub Actions (free for public repos). Each run uses `--resume --resume-hours=167` to skip funds already updated in the last 7 days.
 
 ```
-Monday    8:30 PM UTC  →  funds   0 –  383  (batch 1/6)
-Tuesday   8:30 PM UTC  →  funds 384 –  767  (batch 2/6)
-Wednesday 8:30 PM UTC  →  funds 768 – 1151  (batch 3/6)
-Thursday  8:30 PM UTC  →  funds 1152 – 1535 (batch 4/6)
-Friday    8:30 PM UTC  →  funds 1536 – 1919 (batch 5/6)
-Saturday  8:30 PM UTC  →  funds 1920 – end  (batch 6/6)
-Sunday    8:30 PM UTC  →  benchmarks + content sync only
+Run 1  (~Day 1, +0h):   Processes 250–350 stale funds → hits 5h 10min limit → exits
+Run 2  (~Day 1, +6h):   Resumes from next stale fund → processes another 250–350
+Run 3–7 (~Day 2–3):     Continues until ALL ~2,300 funds are refreshed ✅
+Runs 8+  (Day 3–7):     Finds 0 stale funds → completes in < 5 minutes 💤
+Next Monday:            7-day window expires → automatic full restart 🔄
 ```
 
-> **Public repo = FREE unlimited GitHub Actions minutes.** The weekly pipeline uses ~1,860 minutes/month; making the repo public eliminates this concern entirely.
+> **Public repo = FREE unlimited GitHub Actions minutes.** 4 runs/day × 7 days × 52 weeks = 1,456 invocations/year; completely free for public repositories.
 
 ### Key management commands:
 
@@ -204,14 +202,14 @@ python manage.py populate_benchmark_returns
 # 4. Full fund pipeline — NAV + metadata + analytics + scoring
 python manage.py populate_screener
 
-# Resume a run that was interrupted (skips recently processed funds)
-python manage.py populate_screener --resume --resume-hours=23
+# Resume a run (skips funds updated in the last 7 days — same as pipeline uses)
+python manage.py populate_screener --resume --resume-hours=167
 
-# Process a specific weekly batch (e.g. Monday batch: funds 0–383)
-python manage.py populate_screener --offset=0 --limit=384
-
-# Run with a time limit (exits gracefully before GitHub Actions timeout)
+# Run with time limit (exits gracefully before GitHub Actions 6h hard cap)
 python manage.py populate_screener --time-limit-minutes=310
+
+# Force re-process all funds regardless of when they were last updated
+python manage.py populate_screener --resume-hours=0
 
 # Sync Learn section (PDF guides and blog posts from Resources/)
 python manage.py sync_content

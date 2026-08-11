@@ -315,33 +315,44 @@ Use this file to:
 
 ## Weekly Automation via GitHub Actions
 
-The file `.github/workflows/daily_pipeline.yml` runs the full pipeline automatically **Monday–Saturday at 8:30 PM UTC (2:00 AM IST)**.
+The file `.github/workflows/daily_pipeline.yml` runs **every 6 hours** (4 times per day), 365 days a year. No day-of-week logic — every run is identical.
 
-### Weekly Batch Schedule
+### How it self-completes
 
-| Day | Fund Batch | CLI equivalent |
+| Run # | When | What happens |
 |---|---|---|
-| Monday | funds 0 – 383 | `--offset=0 --limit=384` |
-| Tuesday | funds 384 – 767 | `--offset=384 --limit=384` |
-| Wednesday | funds 768 – 1151 | `--offset=768 --limit=384` |
-| Thursday | funds 1152 – 1535 | `--offset=1152 --limit=384` |
-| Friday | funds 1536 – 1919 | `--offset=1536 --limit=384` |
-| Saturday | funds 1920 – end | `--offset=1920 --limit=384` |
-| Sunday | Benchmarks + content only | No fund pipeline |
+| Run 1 | Week start, ~0h | Processes ~250–350 funds, hits 310-min limit, exits gracefully |
+| Run 2 | +6h | Resumes from next stale fund, processes another ~250–350 |
+| Run 3–7 | +12h to +36h | Continues until all ~2,300 funds are refreshed |
+| Runs 8+ | +42h to end of week | Finds 0 stale funds (all fresh), completes in < 5 minutes 💤 |
+| Next week | Monday | 7-day resume window expires → automatic full restart 🔄 |
+
+The key mechanism: `--resume --resume-hours=167` skips any fund whose `FundScreenerSnapshot.updated_at` is newer than 167 hours (7 days). Once all funds are refreshed, every subsequent run processes 0 funds and exits immediately.
 
 ### What each run does (in order):
-1. Apply pending migrations
-2. `build_scheme_master` — refresh fund universe
-3. `ingest_benchmarks` — incremental benchmark NAV
+1. Apply pending database migrations
+2. `build_scheme_master` — refresh AMFI fund universe
+3. `ingest_benchmarks` — incremental benchmark NAV sync
 4. `populate_benchmark_returns` — benchmark analytics
-5. `populate_screener --offset=$OFFSET --limit=384 --resume --resume-hours=23 --time-limit-minutes=310`
+5. `populate_screener --resume --resume-hours=167 --time-limit-minutes=310`
 6. `sync_content` — sync PDF guides and blog posts
+
+### Self-healing properties
+- **If a run fails** (network error, API timeout): next run 6 hours later picks up automatically
+- **If a run is delayed** (GitHub Actions queue): no problem — next run processes all pending funds
+- **If data is added mid-week**: new funds get processed in the next run (not yet in the 7-day window)
+- **No manual intervention ever needed** week to week
 
 ### Triggering Manually
 Go to **GitHub → Actions → Weekly Data Pipeline → Run workflow**. Optional inputs:
-- `day_override`: Force a specific day (1=Mon … 6=Sat, 7=Sun-only-mode)
-- `limit`: Override batch size (default 384)
-- `time_limit_minutes`: Override time limit (default 310)
+
+| Input | Default | Description |
+|---|---|---|
+| `time_limit_minutes` | `310` | Stop fund pipeline after N minutes (0 = no limit) |
+| `resume_hours` | `167` | Skip funds updated in last N hours (0 = reprocess all) |
+| `limit` | `0` | Cap funds per run (0 = no cap; useful for quick tests) |
+
+> **Force full re-run of all funds:** Set `resume_hours=0` to ignore the resume window and reprocess every fund. Useful after a DB reset or analytics model change.
 
 ### Required GitHub Secrets
 | Secret | Description |
@@ -349,4 +360,4 @@ Go to **GitHub → Actions → Weekly Data Pipeline → Run workflow**. Optional
 | `DATABASE_URL` | Full CockroachDB connection string |
 | `SECRET_KEY` | Django secret key (same as Render) |
 
-> **Public repo = unlimited free Actions minutes.** Private repos are capped at 2,000 min/month. The pipeline consumes ~1,860 min/month, making a public repository essential for uninterrupted operation.
+> **Public repo = unlimited free Actions minutes.** The pipeline runs 4× per day = ~1,440 invocations/year. With a public repository, this is completely free. Private repos are capped at 2,000 min/month, which this pipeline would exhaust.

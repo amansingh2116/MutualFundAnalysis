@@ -318,22 +318,21 @@ After deploy and data load, test these URLs:
 
 ## Weekly Pipeline — How It Works
 
-The pipeline runs **Monday–Saturday at 8:30 PM UTC (2:00 AM IST)**:
+The pipeline runs **every 6 hours** (4 times/day, 365 days/year) — no day-of-week logic:
 
-| Day | Funds processed | Offset |
-|---|---|---|
-| Monday | funds 0 – 383 | `--offset=0 --limit=384` |
-| Tuesday | funds 384 – 767 | `--offset=384 --limit=384` |
-| Wednesday | funds 768 – 1151 | `--offset=768 --limit=384` |
-| Thursday | funds 1152 – 1535 | `--offset=1152 --limit=384` |
-| Friday | funds 1536 – 1919 | `--offset=1536 --limit=384` |
-| Saturday | funds 1920 – end | `--offset=1920 --limit=384` |
-| Sunday | benchmarks + content only | — |
+```
+Run 1  (Week start, +0h):  ~250–350 stale funds processed → 5h 10min limit → exits
+Run 2  (+6h):              Resumes from next stale fund
+Run 3–7 (+12h–36h):        Continues until all ~2,300 funds refreshed ✅
+Runs 8+ (+42h – week end): Finds 0 stale funds → completes in < 5 min 💤
+Next Monday:               7-day window expires → full automatic restart 🔄
+```
 
-Each run exits gracefully at **5h 10min** (`--time-limit-minutes=310`) so `sync_content` always runs. The next Monday restarts the cycle from fund 0.
+Each run uses `--resume --resume-hours=167` which skips funds updated in the last 7 days. Each run exits gracefully at 5h 10min (`--time-limit-minutes=310`) so `sync_content` always runs.
 
 **Manual run (bypass schedule):**  
-GitHub → Actions → **Weekly Data Pipeline** → **Run workflow** → set `day_override=1` for Monday's batch.
+GitHub → Actions → **Weekly Data Pipeline** → **Run workflow**  
+Use `resume_hours=0` to force-reprocess all funds (e.g. after a DB reset or scoring model change).
 
 ---
 
