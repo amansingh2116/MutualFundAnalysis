@@ -1770,42 +1770,120 @@ def build_report_context(request, scheme) -> dict:
 # ── Main entry point ──────────────────────────────────────────────────────────
 
 
+def _system_chrome_html_to_pdf(html_string: str) -> bytes:
+    """
+    Fallback PDF renderer using system-installed Google Chrome or Microsoft Edge CLI.
+    """
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+
+    candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("google-chrome-stable"),
+        shutil.which("google-chrome"),
+        shutil.which("chrome"),
+        shutil.which("chromium"),
+        shutil.which("msedge"),
+    ]
+    binary = next((c for c in candidates if c and os.path.exists(c)), None)
+    if not binary:
+        raise FileNotFoundError("No system Chrome or Edge binary found.")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path = os.path.join(tmpdir, "report.html")
+        pdf_path = os.path.join(tmpdir, "report.pdf")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_string)
+
+        cmd = [
+            binary,
+            "--headless",
+            "--no-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--no-pdf-header-footer",
+            f"--print-to-pdf={pdf_path}",
+            html_path,
+        ]
+        res = subprocess.run(cmd, capture_output=True, timeout=30)
+        if res.returncode == 0 and os.path.exists(pdf_path):
+            with open(pdf_path, "rb") as f:
+                data = f.read()
+                if data:
+                    return data
+        raise RuntimeError(f"System Chrome CLI returncode={res.returncode}: {res.stderr.decode('utf-8', errors='ignore')}")
+
+
 def _chrome_html_to_pdf(html_string: str) -> bytes:
     """
-    Convert an HTML string to PDF bytes using Playwright's headless Chromium.
-
-    Playwright downloads its own self-contained Chromium binary to
-    ~/.cache/ms-playwright during the build (via build.sh), so no apt-get or
-    system package installation is required. This works on Render's free tier.
+    Convert an HTML string to PDF bytes using a multi-tiered rendering pipeline:
+    1. Playwright (Headless Chromium)
+    2. System-installed Chrome / Edge CLI (--headless --print-to-pdf)
+    3. xhtml2pdf (pisa) fallback
     """
-    from playwright.sync_api import sync_playwright
+    errors = []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            args=[
-                "--no-sandbox",
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-                "--disable-software-rasterizer",
-            ]
-        )
-        page = browser.new_page()
-        page.set_content(html_string, wait_until="networkidle")
-        pdf_bytes = page.pdf(
-            format="A4",
-            print_background=True,
-            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
-        )
-        browser.close()
+    # 1. Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                args=[
+                    "--no-sandbox",
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--disable-software-rasterizer",
+                ]
+            )
+            page = browser.new_page()
+            page.set_content(html_string, wait_until="networkidle")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+            browser.close()
+            if pdf_bytes and pdf_bytes.startswith(b"%PDF"):
+                return pdf_bytes
+    except Exception as exc:
+        logger.warning("Playwright PDF generation failed, attempting system Chrome/Edge CLI fallback: %s", exc)
+        errors.append(f"Playwright: {exc}")
 
-    return pdf_bytes
+    # 2. System Chrome / Edge CLI
+    try:
+        pdf_bytes = _system_chrome_html_to_pdf(html_string)
+        if pdf_bytes and pdf_bytes.startswith(b"%PDF"):
+            return pdf_bytes
+    except Exception as exc:
+        logger.warning("System Chrome/Edge CLI PDF generation failed, attempting xhtml2pdf fallback: %s", exc)
+        errors.append(f"System Chrome CLI: {exc}")
+
+    # 3. xhtml2pdf fallback
+    try:
+        import io
+        from xhtml2pdf import pisa
+        out = io.BytesIO()
+        pisa_status = pisa.CreatePDF(html_string, dest=out)
+        pdf_bytes = out.getvalue()
+        if not pisa_status.err and pdf_bytes and pdf_bytes.startswith(b"%PDF"):
+            return pdf_bytes
+        errors.append(f"xhtml2pdf: err_code={pisa_status.err}")
+    except Exception as exc:
+        logger.warning("xhtml2pdf fallback failed: %s", exc)
+        errors.append(f"xhtml2pdf: {exc}")
+
+    raise RuntimeError("All PDF generation engines failed: " + " | ".join(errors))
 
 
 def generate_fund_report_response(request, scheme) -> HttpResponse:
     """
     Generate a comprehensive multi-page PDF report for a mutual fund scheme.
-    Uses Chrome headless --print-to-pdf (WeasyPrint requires GTK which is
-    unavailable on Windows without additional setup).
+    Uses Chrome headless --print-to-pdf with multi-tiered fallback.
     """
     try:
         ctx = build_report_context(request, scheme)
@@ -1835,5 +1913,6 @@ def generate_fund_report_response(request, scheme) -> HttpResponse:
         html_response["Content-Disposition"] = (
             f'inline; filename="FundReport_{safe_name}.html"'
         )
+        html_response["X-Report-Fallback"] = "HTML"
         return html_response
 

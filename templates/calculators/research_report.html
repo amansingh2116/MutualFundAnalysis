@@ -947,16 +947,22 @@ function startReportGeneration() {
 
   // Perform REAL async fetch to generate & receive the PDF Blob
   fetch(`/funds/${currentSchemeCode}/report/`)
-    .then(response => {
+    .then(async response => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return response.blob();
+      const contentType = response.headers.get('content-type') || '';
+      const blob = await response.blob();
+      return { blob, contentType };
     })
-    .then(async blob => {
+    .then(async ({ blob, contentType }) => {
       clearInterval(stepInterval);
       fill.style.width = '100%';
       setStep(5);
+
+      const isPdf = contentType.includes('pdf') || blob.type.includes('pdf');
+      const ext = isPdf ? 'pdf' : 'html';
+      const fileName = `FundReport_${currentSchemeCode}.${ext}`;
 
       const arrayBuffer = await blob.arrayBuffer();
 
@@ -966,26 +972,41 @@ function startReportGeneration() {
       currentBlobUrl = URL.createObjectURL(blob);
 
       const downloadBtn = document.getElementById('btn-download-pdf');
-      downloadBtn.href = currentBlobUrl;
-      downloadBtn.download = `FundReport_${currentSchemeCode}.pdf`;
+      if (downloadBtn) {
+        downloadBtn.href = currentBlobUrl;
+        downloadBtn.download = fileName;
+        downloadBtn.innerHTML = isPdf ? '📥 Download PDF Report' : '📥 Download HTML Report';
+      }
 
       const headerDownloadBtn = document.getElementById('pv-header-download-btn');
       if (headerDownloadBtn) {
         headerDownloadBtn.href = currentBlobUrl;
-        headerDownloadBtn.download = `FundReport_${currentSchemeCode}.pdf`;
+        headerDownloadBtn.download = fileName;
       }
 
       document.getElementById('ready-fund-name').innerText = fundName;
       document.getElementById('btn-view-fund').href = `/funds/${currentSchemeCode}/`;
 
-      // Transition smoothly to ready card & render PDF in-app viewer
+      // Transition smoothly to ready card & render PDF or HTML viewer
       setTimeout(async () => {
         document.getElementById('report-loading-card').style.display = 'none';
         document.getElementById('report-ready-card').style.display = 'block';
-        
-        // Render in PDF.js Canvas Viewer automatically
-        if (window.renderPdfViewerBuffer) {
-          await window.renderPdfViewerBuffer(arrayBuffer, fundName);
+
+        if (isPdf) {
+          if (window.renderPdfViewerBuffer) {
+            await window.renderPdfViewerBuffer(arrayBuffer, fundName);
+          }
+        } else {
+          // HTML fallback viewer
+          const viewerShell = document.getElementById('report-pdf-viewer-shell');
+          const statusEl = document.getElementById('pv-status-indicator');
+          const wrapEl = document.getElementById('pv-canvas-wrap');
+          if (viewerShell) viewerShell.style.display = 'flex';
+          if (statusEl) statusEl.style.display = 'none';
+          if (wrapEl) {
+            wrapEl.classList.add('loaded');
+            wrapEl.innerHTML = `<iframe src="${currentBlobUrl}" style="width:100%;height:800px;border:none;background:#fff;border-radius:8px;"></iframe>`;
+          }
         }
       }, 400);
     })
