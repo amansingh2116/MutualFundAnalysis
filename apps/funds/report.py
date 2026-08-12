@@ -72,11 +72,26 @@ def _pct(val, decimals=2, default="—") -> str:
 
 
 def _fig_to_b64(fig, width=680, height=260) -> str:
+    """Export a Plotly figure as a base64-encoded SVG string.
+
+    SVG export is pure-Python (no kaleido subprocess / chromium binary needed),
+    making it reliable on constrained hosting environments like Render free tier.
+    Falls back to PNG (kaleido) if SVG export somehow fails, then returns '' as
+    last resort so the report still generates without charts rather than crashing.
+    """
+    # Primary: SVG — no external binary required
+    try:
+        svg_bytes = fig.to_image(format="svg", width=width, height=height)
+        return "svg+xml;base64," + base64.b64encode(svg_bytes).decode("utf-8")
+    except Exception as svg_exc:
+        logger.debug("SVG chart export failed, trying PNG: %s", svg_exc)
+
+    # Fallback: PNG via kaleido
     try:
         png_bytes = fig.to_image(format="png", width=width, height=height, scale=2)
-        return base64.b64encode(png_bytes).decode("utf-8")
-    except Exception as exc:
-        logger.warning("Chart export failed: %s", exc)
+        return "png;base64," + base64.b64encode(png_bytes).decode("utf-8")
+    except Exception as png_exc:
+        logger.warning("Chart export failed (both SVG and PNG): %s", png_exc)
         return ""
 
 

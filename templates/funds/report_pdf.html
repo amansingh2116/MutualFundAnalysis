@@ -599,7 +599,7 @@ td.crash-na    { color: #94a3b8; }
   <div class="card no-break">
     <div class="card-header">Overall Model Score</div>
     <div class="card-body" style="padding:6px; text-align:center;">
-      <img src="data:image/png;base64,{{ charts.score_gauge }}" style="max-width:280px; display:inline-block;" alt="Score Gauge">
+      <img src="data:image/{{ charts.score_gauge }}" style="max-width:280px; display:inline-block;" alt="Score Gauge">
       <div style="margin-top:6px;">
         <span class="badge" style="background:{{ badge_color }}; font-size:10px; padding:4px 14px;">
           {{ score_data.overall_badge|default:"" }}
@@ -661,7 +661,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Pillar Score Breakdown</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.pillar_scores }}" class="chart-img" alt="Pillar Scores">
+    <img src="data:image/{{ charts.pillar_scores }}" class="chart-img" alt="Pillar Scores">
   </div>
 </div>
 {% endif %}
@@ -866,7 +866,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Growth of ₹1,00,000 Invested</div>
   <div class="card-body" style="padding: 6px;">
-    <img src="data:image/png;base64,{{ charts.nav_growth }}" class="chart-img" alt="NAV Growth">
+    <img src="data:image/{{ charts.nav_growth }}" class="chart-img" alt="NAV Growth">
   </div>
 </div>
 {% endif %}
@@ -926,7 +926,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break">
   <div class="card-header">Trailing Returns — Fund vs Benchmark vs Category Avg</div>
   <div class="card-body" style="padding: 6px;">
-    <img src="data:image/png;base64,{{ charts.trailing_returns }}" class="chart-img" alt="Trailing Returns Chart">
+    <img src="data:image/{{ charts.trailing_returns }}" class="chart-img" alt="Trailing Returns Chart">
   </div>
 </div>
 {% endif %}
@@ -943,7 +943,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Calendar Year Returns (%)</div>
   <div class="card-body" style="padding: 6px;">
-    <img src="data:image/png;base64,{{ charts.calendar_returns }}" class="chart-img" alt="Calendar Returns Chart">
+    <img src="data:image/{{ charts.calendar_returns }}" class="chart-img" alt="Calendar Returns Chart">
   </div>
 </div>
 {% endif %}
@@ -1074,7 +1074,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break">
   <div class="card-header">Historical Drawdown from Peak</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.drawdown }}" class="chart-img" alt="Drawdown Chart">
+    <img src="data:image/{{ charts.drawdown }}" class="chart-img" alt="Drawdown Chart">
   </div>
 </div>
 {% endif %}
@@ -1091,7 +1091,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Year-by-Year Volatility &amp; Sharpe Ratio</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.yearly_risk }}" class="chart-img" alt="Yearly Risk Chart">
+    <img src="data:image/{{ charts.yearly_risk }}" class="chart-img" alt="Yearly Risk Chart">
   </div>
 </div>
 {% endif %}
@@ -1197,7 +1197,7 @@ td.crash-na    { color: #94a3b8; }
   <div class="card no-break">
     <div class="card-header">Asset Allocation</div>
     <div class="card-body" style="padding:6px;">
-      <img src="data:image/png;base64,{{ charts.asset }}" class="chart-img" alt="Asset Allocation">
+      <img src="data:image/{{ charts.asset }}" class="chart-img" alt="Asset Allocation">
     </div>
   </div>
   {% endif %}
@@ -1225,7 +1225,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Sector Allocation</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.sector }}" class="chart-img" alt="Sector Allocation">
+    <img src="data:image/{{ charts.sector }}" class="chart-img" alt="Sector Allocation">
   </div>
 </div>
 {% endif %}
@@ -1369,7 +1369,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Rolling Return Distribution — Min / Q1 / Median / Q3 / Max (Box Plot)</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.rolling_box }}" class="chart-img" alt="Rolling Box Plot">
+    <img src="data:image/{{ charts.rolling_box }}" class="chart-img" alt="Rolling Box Plot">
   </div>
 </div>
 {% endif %}
@@ -1378,7 +1378,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:6px;">
   <div class="card-header">1-Year Rolling Return — Timeseries</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.rolling_1y }}" class="chart-img" alt="1Y Rolling">
+    <img src="data:image/{{ charts.rolling_1y }}" class="chart-img" alt="1Y Rolling">
   </div>
 </div>
 {% endif %}
@@ -1405,7 +1405,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:6px;">
   <div class="card-header">3-Year Rolling Return — Timeseries</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.rolling_3y }}" class="chart-img" alt="3Y Rolling">
+    <img src="data:image/{{ charts.rolling_3y }}" class="chart-img" alt="3Y Rolling">
   </div>
 </div>
 {% endif %}
@@ -1432,7 +1432,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:6px;">
   <div class="card-header">5-Year Rolling Return — Timeseries</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.rolling_5y }}" class="chart-img" alt="5Y Rolling">
+    <img src="data:image/{{ charts.rolling_5y }}" class="chart-img" alt="5Y Rolling">
   </div>
 </div>
 {% endif %}
@@ -1484,7 +1484,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:8px;">
   <div class="card-header">Best &amp; Worst Quarters — Fund Return (%)</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/png;base64,{{ charts.quarterly_perf }}" class="chart-img" alt="Quarterly Performance">
+    <img src="data:image/{{ charts.quarterly_perf }}" class="chart-img" alt="Quarterly Performance">
   </div>
 </div>
 {% endif %}
@@ -1642,7 +1642,7 @@ td.crash-na    { color: #94a3b8; }
       <!-- Riskometer Gauge -->
       {% if tf.gauge_chart %}
       <div style="text-align:center;">
-        <img src="data:image/png;base64,{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Daily Technical Meter">
+        <img src="data:image/{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Daily Technical Meter">
       </div>
       {% endif %}
     </div>
@@ -1702,7 +1702,7 @@ td.crash-na    { color: #94a3b8; }
       </div>
       {% if tf.gauge_chart %}
       <div style="text-align:center;">
-        <img src="data:image/png;base64,{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Weekly Technical Meter">
+        <img src="data:image/{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Weekly Technical Meter">
       </div>
       {% endif %}
     </div>
@@ -1742,7 +1742,7 @@ td.crash-na    { color: #94a3b8; }
       </div>
       {% if tf.gauge_chart %}
       <div style="text-align:center;">
-        <img src="data:image/png;base64,{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Monthly Technical Meter">
+        <img src="data:image/{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Monthly Technical Meter">
       </div>
       {% endif %}
     </div>
@@ -1939,4 +1939,4 @@ td.crash-na    { color: #94a3b8; }
 </div>
 
 </body>
-</html>
+</html>

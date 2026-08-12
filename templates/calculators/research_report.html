@@ -597,17 +597,20 @@
   <h2 style="font-size: 20px; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">
     Research Report Generated Successfully
   </h2>
-  <div style="font-size: 13px; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
-    The institutional PDF research report for <strong id="ready-fund-name">Selected Scheme</strong> is ready. You can view the full PDF report below in our canvas viewer or download the PDF file directly.
+  <div id="ready-description" style="font-size: 13px; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
+    The institutional research report for <strong id="ready-fund-name">Selected Scheme</strong> is ready. View it below or download it directly.
   </div>
 
   <div class="ready-actions">
     <button type="button" id="btn-toggle-viewer" class="btn btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); font-weight: 700; padding: 12px 24px; font-size: 14px;" onclick="scrollToViewer()">
-      👁️ View PDF Report
+      👁️ View Report
     </button>
     <a id="btn-download-pdf" href="#" download="" class="btn-download" style="padding: 12px 24px; font-size: 14px;">
-      📥 Download PDF Report
+      📥 Download Report
     </a>
+    <button type="button" id="btn-print-report" class="btn-download" style="display:none; padding: 12px 24px; font-size: 14px;" onclick="printHtmlReport()">
+      🖨️ Print / Save as PDF
+    </button>
     <a id="btn-view-fund" href="#" class="btn btn-secondary" style="padding: 12px 20px; font-size: 14px;">
       🔍 View Fund Analysis Page
     </a>
@@ -617,17 +620,24 @@
   </div>
 </div>
 
-<!-- In-App PDF Viewer Container (PDF.js Canvas Viewer) -->
+<!-- In-App PDF / HTML Viewer Container -->
 <div id="report-pdf-viewer-shell" class="pv-shell" style="display: none; margin-bottom: 32px;">
   <div class="pv-header">
     <div class="pv-title" id="pv-doc-title">📄 Institutional Mutual Fund Research Report</div>
     <div class="pv-actions">
+      <button type="button" id="pv-header-print-btn" class="btn-download" style="display:none;" onclick="printHtmlReport()" title="Print or save as PDF via browser">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;stroke:currentColor;fill:none;">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg> Print / PDF
+      </button>
       <a id="pv-header-download-btn" class="btn-download" href="#" download>
         <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;stroke:currentColor;fill:none;">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg> Download PDF
+        </svg> Download
       </a>
       <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFullscreenViewer()">
         ⛶ Fullscreen
@@ -945,7 +955,7 @@ function startReportGeneration() {
     }
   }, 700);
 
-  // Perform REAL async fetch to generate & receive the PDF Blob
+  // Perform REAL async fetch to generate & receive the report Blob
   fetch(`/funds/${currentSchemeCode}/report/`)
     .then(async response => {
       if (!response.ok) {
@@ -960,52 +970,73 @@ function startReportGeneration() {
       fill.style.width = '100%';
       setStep(5);
 
-      const isPdf = contentType.includes('pdf') || blob.type.includes('pdf');
+      const isPdf = contentType.includes('application/pdf') || blob.type.includes('application/pdf');
       const ext = isPdf ? 'pdf' : 'html';
       const fileName = `FundReport_${currentSchemeCode}.${ext}`;
 
-      const arrayBuffer = await blob.arrayBuffer();
+      const arrayBuffer = isPdf ? await blob.arrayBuffer() : null;
 
-      if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
-      }
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
       currentBlobUrl = URL.createObjectURL(blob);
 
+      // ── Update download buttons ──
       const downloadBtn = document.getElementById('btn-download-pdf');
       if (downloadBtn) {
         downloadBtn.href = currentBlobUrl;
         downloadBtn.download = fileName;
-        downloadBtn.innerHTML = isPdf ? '📥 Download PDF Report' : '📥 Download HTML Report';
+        downloadBtn.innerHTML = isPdf ? '📥 Download PDF' : '📥 Download HTML';
       }
-
       const headerDownloadBtn = document.getElementById('pv-header-download-btn');
       if (headerDownloadBtn) {
         headerDownloadBtn.href = currentBlobUrl;
         headerDownloadBtn.download = fileName;
       }
 
+      // ── Show/hide print button (only useful for HTML reports) ──
+      const printBtn = document.getElementById('btn-print-report');
+      const pvPrintBtn = document.getElementById('pv-header-print-btn');
+      if (printBtn)   printBtn.style.display   = isPdf ? 'none' : 'inline-flex';
+      if (pvPrintBtn) pvPrintBtn.style.display  = isPdf ? 'none' : 'inline-flex';
+
+      // ── Update ready card text ──
       document.getElementById('ready-fund-name').innerText = fundName;
       document.getElementById('btn-view-fund').href = `/funds/${currentSchemeCode}/`;
+      const readyDesc = document.getElementById('ready-description');
+      if (readyDesc) {
+        readyDesc.innerHTML = isPdf
+          ? `The institutional <strong>PDF</strong> research report for <strong id="ready-fund-name">${fundName}</strong> is ready. View it in our PDF viewer below or download directly.`
+          : `The institutional research report for <strong id="ready-fund-name">${fundName}</strong> is ready as an <strong>interactive HTML document</strong>. You can view it below, download it, or use <em>Print → Save as PDF</em> to get a PDF copy.`;
+      }
 
-      // Transition smoothly to ready card & render PDF or HTML viewer
+      // ── Transition to ready card & render viewer ──
       setTimeout(async () => {
         document.getElementById('report-loading-card').style.display = 'none';
         document.getElementById('report-ready-card').style.display = 'block';
 
+        const viewerShell = document.getElementById('report-pdf-viewer-shell');
+        const statusEl    = document.getElementById('pv-status');
+        const wrapEl      = document.getElementById('pv-canvas-wrap');
+        const toolbarEl   = document.getElementById('pv-toolbar');
+
         if (isPdf) {
+          // ── PDF: render via PDF.js canvas viewer ──
           if (window.renderPdfViewerBuffer) {
             await window.renderPdfViewerBuffer(arrayBuffer, fundName);
           }
         } else {
-          // HTML fallback viewer
-          const viewerShell = document.getElementById('report-pdf-viewer-shell');
-          const statusEl = document.getElementById('pv-status');
-          const wrapEl = document.getElementById('pv-canvas-wrap');
+          // ── HTML fallback: render in a full-height iframe ──
           if (viewerShell) viewerShell.style.display = 'flex';
-          if (statusEl) statusEl.style.display = 'none';
+          if (statusEl)    statusEl.style.display = 'none';
+          if (toolbarEl)   toolbarEl.classList.remove('visible'); // hide PDF page nav
           if (wrapEl) {
             wrapEl.classList.add('loaded');
-            wrapEl.innerHTML = `<iframe src="${currentBlobUrl}" style="width:100%;height:800px;border:none;background:#fff;border-radius:8px;"></iframe>`;
+            // Sandboxed iframe: allow-same-origin so JS can call print() on it
+            wrapEl.innerHTML = `<iframe
+              id="report-html-iframe"
+              src="${currentBlobUrl}"
+              sandbox="allow-same-origin allow-scripts allow-popups allow-modals"
+              style="width:100%;height:800px;border:none;background:#fff;border-radius:8px;"
+            ></iframe>`;
           }
         }
       }, 400);
@@ -1061,6 +1092,21 @@ function resetReportGenerator() {
     currentBlobUrl = null;
   }
   currentSchemeCode = '';
+}
+function printHtmlReport() {
+  // Trigger the browser's native print dialog on the HTML report iframe.
+  // Users can choose "Save as PDF" in the dialog to get a PDF copy.
+  const iframe = document.getElementById('report-html-iframe');
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  } else {
+    // Fallback: open blob URL in a new tab and trigger print from there
+    if (currentBlobUrl) {
+      const win = window.open(currentBlobUrl, '_blank');
+      if (win) { win.focus(); setTimeout(() => win.print(), 500); }
+    }
+  }
 }
 </script>
 {% endblock %}
