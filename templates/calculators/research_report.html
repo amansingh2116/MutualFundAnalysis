@@ -960,11 +960,8 @@ function startReportGeneration() {
       fill.style.width = '100%';
       setStep(5);
 
-      const isPdf = contentType.includes('application/pdf') || blob.type.includes('application/pdf');
-      const ext = isPdf ? 'pdf' : 'html';
-      const fileName = `FundReport_${currentSchemeCode}.${ext}`;
-
-      const arrayBuffer = isPdf ? await blob.arrayBuffer() : null;
+      // Server always returns an interactive HTML report (charts rendered by Plotly.js)
+      const fileName = `FundReport_${currentSchemeCode}.html`;
 
       if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
       currentBlobUrl = URL.createObjectURL(blob);
@@ -974,7 +971,7 @@ function startReportGeneration() {
       if (downloadBtn) {
         downloadBtn.href = currentBlobUrl;
         downloadBtn.download = fileName;
-        downloadBtn.innerHTML = isPdf ? '📥 Download PDF' : '📥 Download HTML';
+        downloadBtn.innerHTML = '📥 Download HTML';
       }
       const headerDownloadBtn = document.getElementById('pv-header-download-btn');
       if (headerDownloadBtn) {
@@ -982,24 +979,22 @@ function startReportGeneration() {
         headerDownloadBtn.download = fileName;
       }
 
-      // ── Show/hide print button (only useful for HTML reports) ──
+      // ── Always show "Print / Save as PDF" button ──
       const printBtn = document.getElementById('btn-print-report');
       const pvPrintBtn = document.getElementById('pv-header-print-btn');
-      if (printBtn)   printBtn.style.display   = isPdf ? 'none' : 'inline-flex';
-      if (pvPrintBtn) pvPrintBtn.style.display  = isPdf ? 'none' : 'inline-flex';
+      if (printBtn)   printBtn.style.display   = 'inline-flex';
+      if (pvPrintBtn) pvPrintBtn.style.display  = 'inline-flex';
 
       // ── Update ready card text ──
       document.getElementById('ready-fund-name').innerText = fundName;
       document.getElementById('btn-view-fund').href = `/funds/${currentSchemeCode}/`;
       const readyDesc = document.getElementById('ready-description');
       if (readyDesc) {
-        readyDesc.innerHTML = isPdf
-          ? `The institutional <strong>PDF</strong> research report for <strong id="ready-fund-name">${fundName}</strong> is ready. View it in our PDF viewer below or download directly.`
-          : `The institutional research report for <strong id="ready-fund-name">${fundName}</strong> is ready as an <strong>interactive HTML document</strong>. You can view it below, download it, or use <em>Print → Save as PDF</em> to get a PDF copy.`;
+        readyDesc.innerHTML = `The institutional research report for <strong>${fundName}</strong> is ready as an <strong>interactive HTML document</strong> with all charts. View it below, <strong>Download HTML</strong> to save it, or click <strong>🖨 Print / Save as PDF</strong> to export a PDF copy with all charts.`;
       }
 
-      // ── Transition to ready card & render viewer ──
-      setTimeout(async () => {
+      // ── Transition to ready card & render iframe ──
+      setTimeout(() => {
         document.getElementById('report-loading-card').style.display = 'none';
         document.getElementById('report-ready-card').style.display = 'block';
 
@@ -1008,26 +1003,19 @@ function startReportGeneration() {
         const wrapEl      = document.getElementById('pv-canvas-wrap');
         const toolbarEl   = document.getElementById('pv-toolbar');
 
-        if (isPdf) {
-          // ── PDF: render via PDF.js canvas viewer ──
-          if (window.renderPdfViewerBuffer) {
-            await window.renderPdfViewerBuffer(arrayBuffer, fundName);
-          }
-        } else {
-          // ── HTML fallback: render in a full-height iframe ──
-          if (viewerShell) viewerShell.style.display = 'flex';
-          if (statusEl)    statusEl.style.display = 'none';
-          if (toolbarEl)   toolbarEl.classList.remove('visible'); // hide PDF page nav
-          if (wrapEl) {
-            wrapEl.classList.add('loaded');
-            // Sandboxed iframe: allow-same-origin so JS can call print() on it
-            wrapEl.innerHTML = `<iframe
-              id="report-html-iframe"
-              src="${currentBlobUrl}"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-modals"
-              style="width:100%;height:800px;border:none;background:#fff;border-radius:8px;"
-            ></iframe>`;
-          }
+        // Render interactive HTML report in iframe
+        if (viewerShell) viewerShell.style.display = 'flex';
+        if (statusEl)    statusEl.style.display = 'none';
+        if (toolbarEl)   toolbarEl.classList.remove('visible'); // hide PDF page nav
+        if (wrapEl) {
+          wrapEl.classList.add('loaded');
+          // allow-same-origin + allow-scripts so Plotly.js renders charts inside iframe
+          wrapEl.innerHTML = `<iframe
+            id="report-html-iframe"
+            src="${currentBlobUrl}"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-modals"
+            style="width:100%;height:900px;border:none;background:#fff;border-radius:8px;"
+          ></iframe>`;
         }
       }, 400);
     })

@@ -157,8 +157,27 @@ table.data tr:hover { background: #f8fafc; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 
-/* ── Chart image ─────────────────────────────────────────────────── */
-.chart-img { width: 100%; display: block; }
+/* ── Chart container (Plotly HTML div) ──────────────────────────── */
+.chart-img {
+  width: 100%;
+  display: block;
+  margin: 4px 0;
+  min-height: 180px;
+}
+.chart-img .plotly-graph-div {
+  width: 100% !important;
+}
+/* Ensure charts render cleanly when printing */
+@media print {
+  .chart-img { page-break-inside: avoid; min-height: 0; }
+  .chart-img .plotly-graph-div { width: 100% !important; }
+  .modebar { display: none !important; }
+  @page { size: A4; margin: 14mm 14mm 18mm 14mm; }
+  .page-break { page-break-before: always; }
+  .no-break { break-inside: avoid; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 
 /* ── Pillar row ──────────────────────────────────────────────────── */
 .pillar-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; break-inside: avoid; }
@@ -345,6 +364,8 @@ td.crash-na    { color: #94a3b8; }
   background: white;
 }
 </style>
+<!-- Plotly.js: renders all chart divs client-side. No kaleido/Chromium required on the server. -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 </head>
 <body>
 
@@ -599,7 +620,7 @@ td.crash-na    { color: #94a3b8; }
   <div class="card no-break">
     <div class="card-header">Overall Model Score</div>
     <div class="card-body" style="padding:6px; text-align:center;">
-      <img src="data:image/{{ charts.score_gauge }}" style="max-width:280px; display:inline-block;" alt="Score Gauge">
+      <div class="chart-img" style="max-width:320px; display:inline-block;">{{ charts.score_gauge|safe }}</div>
       <div style="margin-top:6px;">
         <span class="badge" style="background:{{ badge_color }}; font-size:10px; padding:4px 14px;">
           {{ score_data.overall_badge|default:"" }}
@@ -661,7 +682,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Pillar Score Breakdown</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.pillar_scores }}" class="chart-img" alt="Pillar Scores">
+    <div class="chart-img">{{ charts.pillar_scores|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -866,7 +887,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Growth of ₹1,00,000 Invested</div>
   <div class="card-body" style="padding: 6px;">
-    <img src="data:image/{{ charts.nav_growth }}" class="chart-img" alt="NAV Growth">
+    <div class="chart-img">{{ charts.nav_growth|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -926,7 +947,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break">
   <div class="card-header">Trailing Returns — Fund vs Benchmark vs Category Avg</div>
   <div class="card-body" style="padding: 6px;">
-    <img src="data:image/{{ charts.trailing_returns }}" class="chart-img" alt="Trailing Returns Chart">
+    <div class="chart-img">{{ charts.trailing_returns|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -943,7 +964,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Calendar Year Returns (%)</div>
   <div class="card-body" style="padding: 6px;">
-    <img src="data:image/{{ charts.calendar_returns }}" class="chart-img" alt="Calendar Returns Chart">
+    <div class="chart-img">{{ charts.calendar_returns|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1074,7 +1095,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break">
   <div class="card-header">Historical Drawdown from Peak</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.drawdown }}" class="chart-img" alt="Drawdown Chart">
+    <div class="chart-img">{{ charts.drawdown|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1091,7 +1112,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Year-by-Year Volatility &amp; Sharpe Ratio</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.yearly_risk }}" class="chart-img" alt="Yearly Risk Chart">
+    <div class="chart-img">{{ charts.yearly_risk|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1197,7 +1218,7 @@ td.crash-na    { color: #94a3b8; }
   <div class="card no-break">
     <div class="card-header">Asset Allocation</div>
     <div class="card-body" style="padding:6px;">
-      <img src="data:image/{{ charts.asset }}" class="chart-img" alt="Asset Allocation">
+      <div class="chart-img">{{ charts.asset|safe }}</div>
     </div>
   </div>
   {% endif %}
@@ -1225,7 +1246,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Sector Allocation</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.sector }}" class="chart-img" alt="Sector Allocation">
+    <div class="chart-img">{{ charts.sector|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1369,7 +1390,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:10px;">
   <div class="card-header">Rolling Return Distribution — Min / Q1 / Median / Q3 / Max (Box Plot)</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.rolling_box }}" class="chart-img" alt="Rolling Box Plot">
+    <div class="chart-img">{{ charts.rolling_box|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1378,7 +1399,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:6px;">
   <div class="card-header">1-Year Rolling Return — Timeseries</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.rolling_1y }}" class="chart-img" alt="1Y Rolling">
+    <div class="chart-img">{{ charts.rolling_1y|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1405,7 +1426,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:6px;">
   <div class="card-header">3-Year Rolling Return — Timeseries</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.rolling_3y }}" class="chart-img" alt="3Y Rolling">
+    <div class="chart-img">{{ charts.rolling_3y|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1432,7 +1453,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:6px;">
   <div class="card-header">5-Year Rolling Return — Timeseries</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.rolling_5y }}" class="chart-img" alt="5Y Rolling">
+    <div class="chart-img">{{ charts.rolling_5y|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1484,7 +1505,7 @@ td.crash-na    { color: #94a3b8; }
 <div class="card no-break" style="margin-bottom:8px;">
   <div class="card-header">Best &amp; Worst Quarters — Fund Return (%)</div>
   <div class="card-body" style="padding:6px;">
-    <img src="data:image/{{ charts.quarterly_perf }}" class="chart-img" alt="Quarterly Performance">
+    <div class="chart-img">{{ charts.quarterly_perf|safe }}</div>
   </div>
 </div>
 {% endif %}
@@ -1641,9 +1662,9 @@ td.crash-na    { color: #94a3b8; }
       </div>
       <!-- Riskometer Gauge -->
       {% if tf.gauge_chart %}
-      <div style="text-align:center;">
-        <img src="data:image/{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Daily Technical Meter">
-      </div>
+        <div style="text-align:center;">
+          <div style="height:115px;">{{ tf.gauge_chart|safe }}</div>
+        </div>
       {% endif %}
     </div>
 
@@ -1701,9 +1722,9 @@ td.crash-na    { color: #94a3b8; }
         </table>
       </div>
       {% if tf.gauge_chart %}
-      <div style="text-align:center;">
-        <img src="data:image/{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Weekly Technical Meter">
-      </div>
+        <div style="text-align:center;">
+          <div style="height:115px;">{{ tf.gauge_chart|safe }}</div>
+        </div>
       {% endif %}
     </div>
 
@@ -1741,9 +1762,9 @@ td.crash-na    { color: #94a3b8; }
         </table>
       </div>
       {% if tf.gauge_chart %}
-      <div style="text-align:center;">
-        <img src="data:image/{{ tf.gauge_chart }}" style="height:115px; width:auto;" alt="Monthly Technical Meter">
-      </div>
+        <div style="text-align:center;">
+          <div style="height:115px;">{{ tf.gauge_chart|safe }}</div>
+        </div>
       {% endif %}
     </div>
 

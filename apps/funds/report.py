@@ -17,7 +17,7 @@ Report Sections:
 """
 from __future__ import annotations
 
-import base64
+
 import json
 import logging
 import traceback as _tb
@@ -71,27 +71,24 @@ def _pct(val, decimals=2, default="—") -> str:
     return f"{v:.{decimals}f}%" if v is not None else default
 
 
-def _fig_to_b64(fig, width=680, height=260) -> str:
-    """Export a Plotly figure as a base64-encoded SVG string.
+def _fig_to_html_div(fig, width=680, height=260) -> str:
+    """Export a Plotly figure as an interactive HTML div string.
 
-    SVG export is pure-Python (no kaleido subprocess / chromium binary needed),
-    making it reliable on constrained hosting environments like Render free tier.
-    Falls back to PNG (kaleido) if SVG export somehow fails, then returns '' as
-    last resort so the report still generates without charts rather than crashing.
+    Uses fig.to_html(full_html=False, include_plotlyjs=False) — pure Python,
+    no kaleido subprocess or Chromium binary required. The browser renders the
+    chart client-side using the Plotly.js CDN script included in the template.
+    Works reliably on Render free tier and any server environment.
+    Returns '' on failure so the report still generates without that chart.
     """
-    # Primary: SVG — no external binary required
     try:
-        svg_bytes = fig.to_image(format="svg", width=width, height=height)
-        return "svg+xml;base64," + base64.b64encode(svg_bytes).decode("utf-8")
-    except Exception as svg_exc:
-        logger.debug("SVG chart export failed, trying PNG: %s", svg_exc)
-
-    # Fallback: PNG via kaleido
-    try:
-        png_bytes = fig.to_image(format="png", width=width, height=height, scale=2)
-        return "png;base64," + base64.b64encode(png_bytes).decode("utf-8")
-    except Exception as png_exc:
-        logger.warning("Chart export failed (both SVG and PNG): %s", png_exc)
+        fig.update_layout(width=width, height=height)
+        return fig.to_html(
+            full_html=False,
+            include_plotlyjs=False,
+            config={"displayModeBar": False, "staticPlot": False},
+        )
+    except Exception as exc:
+        logger.warning("Chart HTML export failed: %s", exc)
         return ""
 
 
@@ -155,7 +152,7 @@ def _chart_trailing_returns(trailing, cat_snap) -> str:
                              textposition="outside", textfont=dict(size=9)))
     fig.update_layout(**CHART_LAYOUT, title_text="Trailing Returns — CAGR (%)",
                       barmode="group", yaxis_title="Return (%)", height=270)
-    return _fig_to_b64(fig, 680, 270)
+    return _fig_to_html_div(fig, 680, 270)
 
 
 def _chart_calendar_returns(calendar, cat_snap) -> str:
@@ -202,7 +199,7 @@ def _chart_calendar_returns(calendar, cat_snap) -> str:
     fig.add_hline(y=0, line_color=C_SLATE, line_width=0.8)
     fig.update_layout(**CHART_LAYOUT, title_text="Calendar Year Returns (%)",
                       yaxis_title="Return (%)", height=270)
-    return _fig_to_b64(fig, 680, 270)
+    return _fig_to_html_div(fig, 680, 270)
 
 
 def _chart_nav_growth(nav_series, benchmark_series) -> str:
@@ -234,7 +231,7 @@ def _chart_nav_growth(nav_series, benchmark_series) -> str:
                 ))
         fig.update_layout(**CHART_LAYOUT, title_text="Growth of ₹1,00,000 Since Inception",
                           yaxis_title="Portfolio Value (₹)", height=260)
-        return _fig_to_b64(fig, 680, 260)
+        return _fig_to_html_div(fig, 680, 260)
     except Exception as exc:
         logger.warning("NAV growth chart failed: %s", exc)
         return ""
@@ -293,7 +290,7 @@ def _chart_rolling_timeseries_window(nav_series, bm_series, window="3Y") -> str:
         fig.update_layout(**CHART_LAYOUT,
                           title_text=f"{window} Rolling Return Over Time (%)",
                           yaxis_title=f"Rolling {window} Return (%)", height=220)
-        return _fig_to_b64(fig, 680, 220)
+        return _fig_to_html_div(fig, 680, 220)
     except Exception:
         return ""
 
@@ -336,7 +333,7 @@ def _chart_quarterly_perf(quarterly) -> str:
     fig.update_layout(**CHART_LAYOUT,
                       title_text="Best & Worst Quarters — Fund Return (%)",
                       barmode="group", yaxis_title="Quarterly Return (%)", height=250)
-    return _fig_to_b64(fig, 680, 250)
+    return _fig_to_html_div(fig, 680, 250)
 
 
 def _chart_tech_riskometer(tf_data: dict, label: str = "Daily") -> str:
@@ -405,7 +402,7 @@ def _chart_tech_riskometer(tf_data: dict, label: str = "Daily") -> str:
             ],
         ))
         fig.update_layout(**layout_dict)
-        return _fig_to_b64(fig, 210, 190)
+        return _fig_to_html_div(fig, 210, 190)
     except Exception as exc:
         logger.warning("Technical riskometer chart failed: %s", exc)
         return ""
@@ -453,7 +450,7 @@ def _chart_rolling_boxplot(rolling) -> str:
                       xaxis_title="Rolling Window",
                       yaxis_title="Return (%)",
                       boxmode="group", height=250)
-    return _fig_to_b64(fig, 680, 250)
+    return _fig_to_html_div(fig, 680, 250)
 
 
 def _chart_drawdown(drawdown) -> str:
@@ -474,7 +471,7 @@ def _chart_drawdown(drawdown) -> str:
     fig.update_layout(**CHART_LAYOUT,
                       title_text="Historical Drawdown from Peak (%)",
                       yaxis_title="Drawdown (%)", height=220)
-    return _fig_to_b64(fig, 680, 220)
+    return _fig_to_html_div(fig, 680, 220)
 
 
 def _chart_yearly_risk(yearly_risk) -> str:
@@ -503,7 +500,7 @@ def _chart_yearly_risk(yearly_risk) -> str:
                       title_text="Yearly Volatility vs. Sharpe Ratio", height=240)
     fig.update_yaxes(title_text="Volatility (%)", gridcolor=C_BORDER, secondary_y=False)
     fig.update_yaxes(title_text="Sharpe Ratio", gridcolor=C_BORDER, secondary_y=True)
-    return _fig_to_b64(fig, 680, 240)
+    return _fig_to_html_div(fig, 680, 240)
 
 
 def _chart_sector_alloc(sector_alloc) -> str:
@@ -529,7 +526,7 @@ def _chart_sector_alloc(sector_alloc) -> str:
     fig.update_layout(**CHART_LAYOUT, title_text="Sector Allocation (%)",
                       xaxis_title="Weight (%)", height=h)
     fig.update_layout(yaxis=dict(autorange="reversed"))
-    return _fig_to_b64(fig, 680, h)
+    return _fig_to_html_div(fig, 680, h)
 
 
 def _chart_asset_alloc(asset_alloc) -> str:
@@ -552,7 +549,7 @@ def _chart_asset_alloc(asset_alloc) -> str:
                       legend=dict(orientation="v", x=1, y=0.5, font=dict(size=9)),
                       title_text="Asset Allocation",
                       title_font=dict(size=10))
-    return _fig_to_b64(fig, 380, 240)
+    return _fig_to_html_div(fig, 380, 240)
 
 
 def _chart_pillar_scores(score_data: dict) -> str:
@@ -577,7 +574,7 @@ def _chart_pillar_scores(score_data: dict) -> str:
     fig.update_layout(**CHART_LAYOUT, title_text="Pillar Scores (out of 100)", height=220)
     fig.update_xaxes(range=[0, 115])
     fig.update_layout(yaxis=dict(autorange="reversed"))
-    return _fig_to_b64(fig, 600, 220)
+    return _fig_to_html_div(fig, 600, 220)
 
 
 def _chart_score_gauge(score) -> str:
@@ -612,7 +609,7 @@ def _chart_score_gauge(score) -> str:
     ))
     fig.update_layout(font=CHART_FONT, paper_bgcolor="white",
                       margin=dict(l=20, r=20, t=20, b=20), height=220)
-    return _fig_to_b64(fig, 320, 220)
+    return _fig_to_html_div(fig, 320, 220)
 
 
 
@@ -1907,8 +1904,14 @@ def _chrome_html_to_pdf(html_string: str) -> bytes:
 
 def generate_fund_report_response(request, scheme) -> HttpResponse:
     """
-    Generate a comprehensive multi-page PDF report for a mutual fund scheme.
-    Uses Chrome headless --print-to-pdf with multi-tiered fallback.
+    Generate a comprehensive interactive HTML research report for a mutual fund scheme.
+
+    Charts are rendered client-side via Plotly.js (embedded as interactive divs),
+    so no Chromium/kaleido subprocess is required. This makes the report fully
+    compatible with constrained server environments like Render.com free tier.
+
+    The user can download the HTML or use their browser's Print → Save as PDF
+    to produce a PDF that includes all charts (rendered by the browser's own engine).
     """
     try:
         ctx = build_report_context(request, scheme)
@@ -1923,21 +1926,9 @@ def generate_fund_report_response(request, scheme) -> HttpResponse:
         raise
 
     safe_name = scheme.scheme_name.replace(" ", "_").replace("/", "-")[:60]
-
-    try:
-        pdf_bytes = _chrome_html_to_pdf(html_string)
-        response  = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="FundReport_{safe_name}.pdf"'
-        logger.info("PDF report generated for %s (%d bytes)", scheme.amfi_code, len(pdf_bytes))
-        return response
-    except Exception as exc:
-        logger.error("Chrome PDF generation failed for %s: %s\n%s",
-                     scheme.amfi_code, exc, _tb.format_exc())
-        # Absolute fallback: serve the HTML so user isn't left empty-handed
-        html_response = HttpResponse(html_string, content_type="text/html; charset=utf-8")
-        html_response["Content-Disposition"] = (
-            f'inline; filename="FundReport_{safe_name}.html"'
-        )
-        html_response["X-Report-Fallback"] = "HTML"
-        return html_response
+    html_response = HttpResponse(html_string, content_type="text/html; charset=utf-8")
+    html_response["Content-Disposition"] = f'inline; filename="FundReport_{safe_name}.html"'
+    html_response["X-Report-Format"] = "HTML"
+    logger.info("HTML report generated for %s (%d bytes)", scheme.amfi_code, len(html_string))
+    return html_response
 
