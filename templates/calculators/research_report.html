@@ -482,6 +482,9 @@
   user-select: none;
 }
 </style>
+<!-- html2canvas + jsPDF: used by downloadAsPdf() for automatic client-side PDF download -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -573,8 +576,18 @@
       <span>📈</span> <span>Step 4: Rendering Plotly timeseries charts &amp; riskometer gauges...</span>
     </div>
     <div id="step-5" class="loading-step-item">
-      <span>📄</span> <span>Step 5: Compiling PDF document via Chrome engine...</span>
+      <span>📄</span> <span>Step 5: Building interactive HTML report with all charts...</span>
     </div>
+  </div>
+
+  <!-- Inline error state (shown instead of alert popup) -->
+  <div id="report-error-state" style="display:none; text-align:center; padding:20px 0;">
+    <div style="font-size:36px; margin-bottom:10px;">⚠️</div>
+    <div style="font-size:15px; font-weight:700; color:#ef4444; margin-bottom:6px;">Report generation took too long</div>
+    <div id="report-error-msg" style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">The server is busy or took too long to respond. Please try again — it usually works on the second attempt.</div>
+    <button type="button" class="btn btn-primary" onclick="retryReportGeneration()" style="padding:10px 24px; font-weight:700;">
+      🔄 Try Again
+    </button>
   </div>
 </div>
 
@@ -595,10 +608,13 @@
     <button type="button" id="btn-toggle-viewer" class="btn btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); font-weight: 700; padding: 12px 24px; font-size: 14px;" onclick="scrollToViewer()">
       👁️ View Report
     </button>
+    <button type="button" id="btn-download-pdf-auto" class="btn-download" style="padding: 12px 24px; font-size: 14px;" onclick="downloadAsPdf()">
+      📥 Download PDF
+    </button>
     <a id="btn-download-pdf" href="#" download="" class="btn-download" style="padding: 12px 24px; font-size: 14px;">
-      📥 Download Report
+      💾 Download HTML
     </a>
-    <button type="button" id="btn-print-report" class="btn-download" style="display:none; padding: 12px 24px; font-size: 14px;" onclick="printHtmlReport()">
+    <button type="button" id="btn-print-report" class="btn-download" style="display:none; padding: 12px 24px; font-size: 14px;" onclick="printHtmlReport()" title="Opens browser print dialog — choose 'Save as PDF'">
       🖨️ Print / Save as PDF
     </button>
     <a id="btn-view-fund" href="#" class="btn btn-secondary" style="padding: 12px 20px; font-size: 14px;">
@@ -945,11 +961,17 @@ function startReportGeneration() {
     }
   }, 700);
 
+  // Use AbortController with a 5-minute timeout to handle slow Render cold-starts
+  // without showing a false-failure popup to the user.
+  const reportAbortController = new AbortController();
+  const reportTimeoutId = setTimeout(() => reportAbortController.abort('timeout'), 300000);
+
   // Perform REAL async fetch to generate & receive the report Blob
-  fetch(`/funds/${currentSchemeCode}/report/`)
+  fetch(`/funds/${currentSchemeCode}/report/`, { signal: reportAbortController.signal })
     .then(async response => {
+      clearTimeout(reportTimeoutId);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP ${response.status}`);
       }
       const contentType = response.headers.get('content-type') || '';
       const blob = await response.blob();
@@ -1021,11 +1043,26 @@ function startReportGeneration() {
     })
     .catch(err => {
       clearInterval(stepInterval);
+      clearTimeout(reportTimeoutId);
       console.error('Report generation error:', err);
-      alert('Failed to generate report. Please try again.');
-      document.getElementById('report-loading-card').style.display = 'none';
-      document.getElementById('selected-fund-card').style.display = 'flex';
+      // Show inline error state instead of a blocking alert popup
+      const errMsg = document.getElementById('report-error-msg');
+      if (errMsg) {
+        if (err && err.name === 'AbortError') {
+          errMsg.textContent = 'The request timed out (5 min limit). The server may be under load — please try again.';
+        } else {
+          errMsg.textContent = `Could not connect to the report server (${err.message || 'network error'}). Please try again.`;
+        }
+      }
+      document.getElementById('report-error-state').style.display = 'block';
+      // Don't hide the loading card so the user can see the error in context
     });
+}
+
+function retryReportGeneration() {
+  // Reset error state and retry
+  document.getElementById('report-error-state').style.display = 'none';
+  startReportGeneration();
 }
 
 function setStep(stepNum) {
@@ -1065,12 +1102,14 @@ function resetReportGenerator() {
   document.getElementById('report-loading-card').style.display = 'none';
   document.getElementById('report-ready-card').style.display = 'none';
   document.getElementById('report-pdf-viewer-shell').style.display = 'none';
+  document.getElementById('report-error-state').style.display = 'none';
   if (currentBlobUrl) {
     URL.revokeObjectURL(currentBlobUrl);
     currentBlobUrl = null;
   }
   currentSchemeCode = '';
 }
+
 function printHtmlReport() {
   // Trigger the browser's native print dialog on the HTML report iframe.
   // Users can choose "Save as PDF" in the dialog to get a PDF copy.
@@ -1084,6 +1123,77 @@ function printHtmlReport() {
       const win = window.open(currentBlobUrl, '_blank');
       if (win) { win.focus(); setTimeout(() => win.print(), 500); }
     }
+  }
+}
+
+async function downloadAsPdf() {
+  // Automatically download the report as a PDF using html2canvas + jsPDF.
+  // This generates a real PDF client-side — no print dialog, no server needed.
+  const btn = document.getElementById('btn-download-pdf-auto');
+  const origLabel = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Building PDF…'; }
+
+  try {
+    // Ensure libraries are loaded
+    if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+      throw new Error('PDF libraries not loaded yet — please wait a moment and try again.');
+    }
+    const { jsPDF } = window.jspdf;
+
+    const iframe = document.getElementById('report-html-iframe');
+    if (!iframe || !iframe.contentDocument) {
+      throw new Error('Report not yet rendered in viewer.');
+    }
+
+    const iframeDoc = iframe.contentDocument;
+    const iframeBody = iframeDoc.body;
+
+    // Render the full report page to a canvas at 2x resolution for sharpness
+    const canvas = await html2canvas(iframeBody, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#ffffff',
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: iframeDoc.documentElement.scrollWidth,
+      windowHeight: iframeDoc.documentElement.scrollHeight,
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.90);
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pageW  = pdf.internal.pageSize.getWidth();
+    const pageH  = pdf.internal.pageSize.getHeight();
+    const imgW   = pageW;
+    const imgH   = canvas.height * (pageW / canvas.width);
+
+    let yOffset = 0;
+    let remaining = imgH;
+
+    // Slice the long canvas into A4 pages
+    while (remaining > 0) {
+      const sliceH = Math.min(pageH, remaining);
+      if (yOffset > 0) pdf.addPage();
+      // Draw the portion of the image that fits on this page
+      pdf.addImage(imgData, 'JPEG', 0, -(yOffset), imgW, imgH);
+      // Clip overflowing content by overlaying white rectangles
+      if (yOffset > 0) pdf.setFillColor(255, 255, 255);
+      yOffset   += pageH;
+      remaining -= pageH;
+    }
+
+    const fundNameRaw = document.getElementById('sf-name')?.innerText || currentSchemeCode;
+    const safeName = fundNameRaw.replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/\s+/g, '_').substring(0, 60);
+    pdf.save(`FundReport_${safeName}.pdf`);
+
+  } catch (err) {
+    console.error('PDF auto-download failed:', err);
+    // Graceful fallback: open print dialog so user can still save as PDF
+    alert('Automatic PDF generation failed: ' + err.message + '\n\nFalling back to Print dialog — choose "Save as PDF" as the destination.');
+    printHtmlReport();
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = origLabel; }
   }
 }
 </script>
