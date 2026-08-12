@@ -3080,7 +3080,6 @@ function renderRollingTable(el, data, catAvgData) {
 
     /* Section 1: Risk Ratios */
     var ratiosRows =
-      metricRow('PE Ratio (Avg)', funds, function(f) { return {cls:'peers-val-neutral', txt: fmt(f.pe_ratio,1,'x')}; }) +
       metricRow('Std Dev 3Y (Ann %)', funds, function(f) { return {cls:'peers-val-neutral', txt: fmt(f.std_dev_3y)+'%'}; }) +
       metricRow('Sharpe Ratio 3Y', funds, function(f) { return {cls:colorClass(f.sharpe_3y), txt: fmt(f.sharpe_3y)}; }) +
       metricRow('Sortino Ratio 3Y', funds, function(f) { return {cls:colorClass(f.sortino_3y), txt: fmt(f.sortino_3y)}; }) +

@@ -64,16 +64,16 @@
           <span class="nav-section-caret" aria-hidden="true"></span>
         </button>
         <div class="nav-section-items" id="nav-section-tools">
-      <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' or request.resolver_match.url_name in 'child_education retirement peers research_amc_compare research_category_compare' %}active{% endif %}">
+      <a href="{% url 'calculators:hub' %}" class="nav-item {% if request.resolver_match.namespace == 'calculators' or request.resolver_match.url_name in ['child_education', 'retirement', 'peers'] %}active{% endif %}">
         <span class="nav-icon">🧮</span> Calculators
       </a>
-      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and 'backtester' not in request.resolver_match.url_name and 'strateg' not in request.resolver_match.url_name %}active{% endif %}">
+      <a href="{% url 'portfolio:list' %}" class="nav-item {% if request.resolver_match.namespace == 'portfolio' and request.resolver_match.url_name not in ['backtester', 'backtester_build', 'strategies', 'strategy_compare'] %}active{% endif %}">
         <span class="nav-icon">📊</span> My Portfolio
       </a>
       <a href="{% url 'recommendations:engine' %}" class="nav-item {% if request.resolver_match.namespace == 'recommendations' %}active{% endif %}">
         <span class="nav-icon">🎯</span> Recommendations
       </a>
-      <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name in 'backtester backtester_build strategies strategy_compare' %}active{% endif %}">
+      <a href="{% url 'portfolio:backtester' %}" class="nav-item {% if request.resolver_match.url_name in ['backtester', 'backtester_build', 'strategies', 'strategy_compare'] %}active{% endif %}">
         <span class="nav-icon">🧪</span> Backtester
       </a>
 
@@ -92,10 +92,10 @@
       <a href="{% url 'funds:research_category_meter' %}" class="nav-item {% if request.resolver_match.url_name == 'research_category_meter' %}active{% endif %}">
         <span class="nav-icon">📊</span> Category Returns
       </a>
-      <a href="{% url 'funds:research_categories' %}" class="nav-item {% if request.resolver_match.url_name == 'research_categories' or request.resolver_match.url_name == 'research_category_detail' or request.resolver_match.url_name == 'research_category_compare' %}active{% endif %}">
+      <a href="{% url 'funds:research_categories' %}" class="nav-item {% if request.resolver_match.url_name in ['research_categories', 'research_category_detail', 'research_category_compare'] %}active{% endif %}">
         <span class="nav-icon">🔬</span> Category Analysis
       </a>
-      <a href="{% url 'funds:research_amcs' %}" class="nav-item {% if request.resolver_match.url_name in 'research_amcs research_amc_detail research_amc_compare' %}active{% endif %}">
+      <a href="{% url 'funds:research_amcs' %}" class="nav-item {% if request.resolver_match.url_name in ['research_amcs', 'research_amc_detail', 'research_amc_compare'] %}active{% endif %}">
         <span class="nav-icon">🏦</span> AMC Analysis
       </a>
       <a href="{% url 'funds:research_quartiles' %}" class="nav-item {% if request.resolver_match.url_name == 'research_quartiles' %}active{% endif %}">
@@ -110,10 +110,10 @@
           <span class="nav-section-caret" aria-hidden="true"></span>
         </button>
         <div class="nav-section-items" id="nav-section-learn">
-      <a href="{% url 'core:learn_pdf_guides' %}" class="nav-item {% if request.resolver_match.url_name in 'learn_pdf_guides learn_pdf learn_pdf_detail learn_pdf_viewer learn_pdf_serve' %}active{% endif %}">
+      <a href="{% url 'core:learn_pdf_guides' %}" class="nav-item {% if request.resolver_match.url_name in ['learn_pdf_guides', 'learn_pdf', 'learn_pdf_detail', 'learn_pdf_viewer', 'learn_pdf_serve'] %}active{% endif %}">
         <span class="nav-icon">📘</span> PDF Guides
       </a>
-      <a href="{% url 'core:learn_blogs' %}" class="nav-item {% if request.resolver_match.url_name in 'learn_blogs learn_blog_detail learn_blog_image' %}active{% endif %}">
+      <a href="{% url 'core:learn_blogs' %}" class="nav-item {% if request.resolver_match.url_name in ['learn_blogs', 'learn_blog_detail', 'learn_blog_image'] %}active{% endif %}">
         <span class="nav-icon">✍️</span> Blogs
       </a>
         </div>
