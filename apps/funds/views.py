@@ -1,4 +1,3 @@
-from django.db.models import F, Q, Avg, Count, Sum
 """
 apps/funds/views.py — Core fund views
 """
@@ -9,7 +8,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Avg, Count, F, Q, Sum
 from django.core.paginator import Paginator
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
