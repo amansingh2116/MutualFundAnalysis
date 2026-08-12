@@ -739,7 +739,7 @@ def data_monitor_view(request):
     Publicly accessible (no login required).
     """
     from datetime import date, timedelta
-    from django.db.models import Count, Max, Min, Q
+    from django.db.models import Count, Max, Q, Exists, OuterRef
     from django.utils import timezone
 
     from apps.funds.models import (
@@ -754,18 +754,45 @@ def data_monitor_view(request):
     now = timezone.now()
 
     # ── Fund universe ────────────────────────────────────────────────────────
-    total_schemes    = Scheme.objects.filter(is_active=True).count()
+    total_schemes = Scheme.objects.filter(is_active=True).count()
+
+    # Primary pipeline universe: Direct Growth (Open-Ended) OR ETFs
     dg_filter = Q(is_direct=True, plan='GROWTH') | Q(is_etf=True)
     dg_schemes = Scheme.objects.filter(is_active=True).filter(dg_filter)
     total_dg   = dg_schemes.count()
 
+    # Breakdown for transparency (ETFs that are also Direct Growth are counted once in total_dg)
+    direct_growth_count = Scheme.objects.filter(is_active=True, is_direct=True, plan='GROWTH').count()
+    etf_count           = Scheme.objects.filter(is_active=True, is_etf=True).count()
+    etf_also_direct     = Scheme.objects.filter(is_active=True, is_etf=True, is_direct=True, plan='GROWTH').count()
+    # total_dg = direct_growth_count + etf_count - etf_also_direct  (verified by DB)
+
     # ── NAV freshness ─────────────────────────────────────────────────────────
-    # Schemes that have at least one NAV row
-    with_nav       = Scheme.objects.filter(is_active=True, nav_date__isnull=False).count()
-    nav_today      = Scheme.objects.filter(is_active=True, nav_date=today).count()
-    nav_this_week  = Scheme.objects.filter(is_active=True, nav_date__gte=seven_days_ago).count()
-    latest_nav_date = Scheme.objects.filter(is_active=True, nav_date__isnull=False) \
-                           .aggregate(m=Max('nav_date'))['m']
+    # Use NAVHistory EXISTS subquery — always accurate regardless of whether the
+    # denormalized Scheme.nav_date field was properly populated (it can be NULL
+    # on the deployed DB even when NAVHistory rows exist for that scheme).
+    nav_exists_subq = NAVHistory.objects.filter(scheme=OuterRef('pk'))
+    with_nav = dg_schemes.filter(Exists(nav_exists_subq)).count()
+
+    # Latest NAV date from the actual NAVHistory rows (not the cached field)
+    latest_nav_date = NAVHistory.objects.aggregate(m=Max('date'))['m']
+
+    # Count of DG funds whose latest NAVHistory row is the most recent trading day
+    if latest_nav_date:
+        nav_on_latest_date = (
+            dg_schemes
+            .filter(Exists(NAVHistory.objects.filter(scheme=OuterRef('pk'), date=latest_nav_date)))
+            .count()
+        )
+    else:
+        nav_on_latest_date = 0
+
+    # Count of DG funds with any NAV in the past 7 days
+    nav_this_week = (
+        dg_schemes
+        .filter(Exists(NAVHistory.objects.filter(scheme=OuterRef('pk'), date__gte=seven_days_ago)))
+        .count()
+    )
 
     total_nav_rows = NAVHistory.objects.count()
 
@@ -813,12 +840,13 @@ def data_monitor_view(request):
         return round(100 * n / d, 1) if d else 0
 
     coverage = {
-        'nav':       pct(with_nav,         total_dg),
-        'nav_today': pct(nav_today,         total_dg),
-        'snapshot':  pct(with_snapshot,    total_dg),
-        'model':     pct(with_model_score, total_dg),
-        'trailing':  pct(with_trailing,    total_dg),
-        'metadata':  pct(with_metadata,    total_dg),
+        'nav':            pct(with_nav,            total_dg),
+        'nav_latest_day': pct(nav_on_latest_date,  total_dg),
+        'nav_this_week':  pct(nav_this_week,        total_dg),
+        'snapshot':       pct(with_snapshot,        total_dg),
+        'model':          pct(with_model_score,     total_dg),
+        'trailing':       pct(with_trailing,        total_dg),
+        'metadata':       pct(with_metadata,        total_dg),
     }
 
     # ── Weekly progress (resume-based cycle) ─────────────────────────────────
@@ -830,14 +858,11 @@ def data_monitor_view(request):
         __import__('datetime').datetime.combine(monday_this_week, __import__('datetime').time.min)
     )
 
-    weekly_updated = FundScreenerSnapshot.objects.filter(updated_at__gte=week_start_dt).count()
-    weekly_pct     = round(100 * weekly_updated / total_dg, 1) if total_dg else 0
+    weekly_updated  = FundScreenerSnapshot.objects.filter(updated_at__gte=week_start_dt).count()
+    weekly_pct      = round(100 * weekly_updated / total_dg, 1) if total_dg else 0
     weekly_complete = weekly_updated >= total_dg
 
     # ── Pipeline run history (last 7 days, grouped into 6-hour slots) ────────
-    # Each 6-hour slot = one scheduled pipeline invocation.
-    # We group snapshots by their update hour and bucket into 6-hour windows.
-    # A slot with count > 0 = a real pipeline run happened.
     from django.db.models.functions import TruncHour
 
     hourly_buckets = (
@@ -874,49 +899,51 @@ def data_monitor_view(request):
 
     # ── Estimated runs remaining this week ───────────────────────────────────
     remaining_funds = max(0, total_dg - weekly_updated)
-    # Estimate: average funds per run from last 3 runs (or default 280)
-    recent_counts = [r['count'] for r in pipeline_runs[:3]]
-    avg_per_run = int(sum(recent_counts) / len(recent_counts)) if recent_counts else 280
-    runs_remaining = max(0, -(-remaining_funds // max(avg_per_run, 1)))  # ceiling div
+    recent_counts   = [r['count'] for r in pipeline_runs[:3]]
+    avg_per_run     = int(sum(recent_counts) / len(recent_counts)) if recent_counts else 280
+    runs_remaining  = max(0, -(-remaining_funds // max(avg_per_run, 1)))  # ceiling div
 
     context = {
         # Universe
-        'total_schemes':   total_schemes,
-        'total_dg':        total_dg,
+        'total_schemes':       total_schemes,
+        'total_dg':            total_dg,
+        'direct_growth_count': direct_growth_count,
+        'etf_count':           etf_count,
+        'etf_also_direct':     etf_also_direct,
         # NAV
-        'with_nav':        with_nav,
-        'nav_today':       nav_today,
-        'nav_this_week':   nav_this_week,
-        'latest_nav_date': latest_nav_date,
-        'total_nav_rows':  total_nav_rows,
+        'with_nav':            with_nav,
+        'nav_on_latest_date':  nav_on_latest_date,
+        'nav_this_week':       nav_this_week,
+        'latest_nav_date':     latest_nav_date,
+        'total_nav_rows':      total_nav_rows,
         # Analytics
-        'with_snapshot':    with_snapshot,
-        'with_model_score': with_model_score,
-        'with_trailing':    with_trailing,
-        'with_metadata':    with_metadata,
-        'latest_snapshot_ts': latest_snapshot_ts,
-        'latest_score_ts':    latest_score_ts,
-        'latest_trailing_ts': latest_trailing_ts,
+        'with_snapshot':       with_snapshot,
+        'with_model_score':    with_model_score,
+        'with_trailing':       with_trailing,
+        'with_metadata':       with_metadata,
+        'latest_snapshot_ts':  latest_snapshot_ts,
+        'latest_score_ts':     latest_score_ts,
+        'latest_trailing_ts':  latest_trailing_ts,
         # Categories
-        'cat_snapshot_count': cat_snapshot_count,
-        'latest_cat_ts':      latest_cat_ts,
+        'cat_snapshot_count':  cat_snapshot_count,
+        'latest_cat_ts':       latest_cat_ts,
         # Benchmarks
-        'benchmarks':  benchmarks,
+        'benchmarks':          benchmarks,
         # 7-day activity bar chart
-        'daily_activity': daily_activity,
-        'max_daily':      max_daily,
+        'daily_activity':      daily_activity,
+        'max_daily':           max_daily,
         # Coverage percentages
-        'coverage': coverage,
-        # Weekly progress — resume-based cycle
-        'weekly_updated':  weekly_updated,
-        'weekly_pct':      weekly_pct,
-        'weekly_complete': weekly_complete,
-        'remaining_funds': remaining_funds,
-        'runs_remaining':  runs_remaining,
-        'avg_per_run':     avg_per_run,
-        # Pipeline run history (last 7 days, merged hourly buckets)
-        'pipeline_runs':   pipeline_runs,
-        'today': today,
-        'monday_this_week': monday_this_week,
+        'coverage':            coverage,
+        # Weekly progress
+        'weekly_updated':      weekly_updated,
+        'weekly_pct':          weekly_pct,
+        'weekly_complete':     weekly_complete,
+        'remaining_funds':     remaining_funds,
+        'runs_remaining':      runs_remaining,
+        'avg_per_run':         avg_per_run,
+        # Pipeline run history
+        'pipeline_runs':       pipeline_runs,
+        'today':               today,
+        'monday_this_week':    monday_this_week,
     }
     return render(request, 'data_monitor.html', context)

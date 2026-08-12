@@ -284,14 +284,20 @@
         <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-violet),var(--c-cyan))"></div>
         <div class="dm-card-label">Direct Growth + ETF</div>
         <div class="dm-card-value">{{ total_dg|default:"—" }}</div>
-        <div class="dm-card-sub">Primary analysis universe</div>
+        <div class="dm-card-sub">
+          {{ direct_growth_count }} Direct Growth
+          &nbsp;+&nbsp; {{ etf_count }} ETFs
+          {% if etf_also_direct %}
+            <span style="color:var(--text-muted)">(-{{ etf_also_direct }} overlap)</span>
+          {% endif %}
+        </div>
       </div>
       <div class="dm-card">
         <div class="dm-card-accent" style="background:linear-gradient(90deg,var(--c-green),var(--c-cyan))"></div>
         <div class="dm-card-label">With NAV History</div>
         <div class="dm-card-value">{{ with_nav|default:"—" }}</div>
         <div class="dm-card-pct">
-          <span style="color:var(--c-green)">{{ coverage.nav }}%</span>
+          <span style="color:{% if coverage.nav >= 95 %}var(--c-green){% elif coverage.nav >= 80 %}var(--c-amber){% else %}var(--c-rose){% endif %}">{{ coverage.nav }}%</span>
           <span style="color:var(--text-muted);font-weight:400">coverage</span>
         </div>
       </div>
@@ -319,7 +325,8 @@
         </div>
         <div class="dm-card-sub">
           {% if latest_nav_date %}
-            {{ nav_today }} funds have today's NAV &nbsp;·&nbsp; {{ nav_this_week }} this week
+            {{ nav_on_latest_date }} funds have data for this date
+            &nbsp;·&nbsp; {{ nav_this_week }} updated this week
           {% else %}No NAV data loaded yet{% endif %}
         </div>
       </div>
@@ -338,22 +345,20 @@
           </div>
           <div class="dm-bar-item">
             <div class="dm-bar-head">
-              <span class="dm-bar-label">Today's NAV</span>
-              <span class="dm-bar-val">{{ nav_today }}/{{ total_dg }} ({{ coverage.nav_today }}%)</span>
+              <span class="dm-bar-label">Latest trading day</span>
+              <span class="dm-bar-val">{{ nav_on_latest_date }}/{{ total_dg }} ({{ coverage.nav_latest_day }}%)</span>
             </div>
             <div class="dm-bar-track">
-              <div class="dm-bar-fill" style="width:{{ coverage.nav_today }}%;background:var(--c-blue)"></div>
+              <div class="dm-bar-fill" style="width:{{ coverage.nav_latest_day }}%;background:var(--c-blue)"></div>
             </div>
           </div>
           <div class="dm-bar-item">
             <div class="dm-bar-head">
               <span class="dm-bar-label">This week's NAV</span>
-              <span class="dm-bar-val">{{ nav_this_week }}</span>
+              <span class="dm-bar-val">{{ nav_this_week }}/{{ total_dg }} ({{ coverage.nav_this_week }}%)</span>
             </div>
             <div class="dm-bar-track">
-              {% with pct_week=nav_this_week|default:0 %}
-              <div class="dm-bar-fill" style="width:{% widthratio nav_this_week total_dg 100 %}%;background:var(--c-violet)"></div>
-              {% endwith %}
+              <div class="dm-bar-fill" style="width:{{ coverage.nav_this_week }}%;background:var(--c-violet)"></div>
             </div>
           </div>
         </div>
@@ -650,7 +655,7 @@
         <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
           Pipeline runs every <strong>6 hours</strong> via GitHub Actions (free for public repos).
           Each run processes stale funds in AMFI-code order using <em>--resume --resume-hours=167</em>
-          (7-day window). After ~7&ndash;9 runs (~2&ndash;3 days), all ~2,300 funds are refreshed.
+          (7-day window). After ~7&ndash;9 runs (~2&ndash;3 days), all <strong>{{ total_dg }}</strong> funds are refreshed.
           Remaining runs that week find 0 stale funds and complete in under 5 minutes.
           Next Monday: the 7-day window expires and the full cycle restarts automatically.
         </div>
