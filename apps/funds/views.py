@@ -1056,15 +1056,14 @@ def fund_search_api(request):
 
 @ratelimit(key='ip', rate='1/m', method='GET', block=True)
 def export_pdf_view(request, amfi_code):
-    """Generate Chrome-headless PDF fund report for the given AMFI scheme code."""
+    """Generate HTML fund report for the given AMFI scheme code (fetched via JS)."""
     from apps.funds.report import generate_fund_report_response
     scheme = get_object_or_404(Scheme, amfi_code=amfi_code)
     try:
         return generate_fund_report_response(request, scheme)
     except Exception as e:
-        logger.error(f"PDF export failed for {amfi_code}: {e}")
-        messages.error(request, f'PDF generation failed: {e}')
-        return redirect('funds:detail', amfi_code=amfi_code)
+        logger.error(f"PDF export failed for {amfi_code}: {e}", exc_info=True)
+        return JsonResponse({'error': f'Report generation failed: {e}'}, status=500)
 
 
 # ════════════════════════════════════════════════════════════════════════════
