@@ -24,6 +24,7 @@ The PDF Guides page has a fixed three-section layout:
 - Displayed as a full-width horizontal hero card at the top.
 - Set `"category": "handbook"` in `guides.json`.
 - No tags shown on this card — it represents the whole compendium and is intentionally unpinned from the tag filter.
+- Linked to the open-source repository at [amansingh2116/A-Mutual-Fund-Handbook](https://github.com/amansingh2116/A-Mutual-Fund-Handbook) and direct download at [MutualFundBook.pdf](https://github.com/amansingh2116/A-Mutual-Fund-Handbook/blob/main/MutualFundBook.pdf).
 
 ### 2. Filter Bar
 - Appears **below** the Handbook, **above** Chapterwise Guides and Other Guides.

@@ -96,24 +96,35 @@
   background:linear-gradient(135deg,rgba(16,185,129,.08) 0%,rgba(99,102,241,.06) 100%);
   border:1px solid rgba(16,185,129,.25);border-radius:10px;overflow:hidden;
   display:flex;flex-direction:row;align-items:stretch;gap:0;
-  text-decoration:none;color:inherit;
-  transition:border-color .2s,transform .2s,box-shadow .2s;
+  color:inherit;
+  transition:border-color .2s,box-shadow .2s;
   min-height:160px;
 }
-.handbook-card:hover { border-color:rgba(16,185,129,.55);transform:translateY(-2px);box-shadow:0 8px 32px rgba(16,185,129,.14); }
+.handbook-card:hover { border-color:rgba(16,185,129,.50);box-shadow:0 8px 32px rgba(16,185,129,.14); }
 .handbook-cover-col {
   width:160px;flex-shrink:0;background:linear-gradient(160deg,rgba(16,185,129,.30) 0%,rgba(99,102,241,.22) 100%);
   display:flex;align-items:center;justify-content:center;padding:16px;border-right:1px solid rgba(16,185,129,.20);
 }
 .handbook-cover-col .cover-mark { width:100px; }
 .handbook-body { padding:18px 20px;flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center; }
-.handbook-badge { display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.30);color:#6ee7b7;font-size:10px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;align-self:flex-start;margin-bottom:4px; }
+.handbook-badge-row { display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px; }
+.handbook-badge { display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.30);color:#6ee7b7;font-size:10px;font-weight:750;letter-spacing:.04em;text-transform:uppercase; }
+.handbook-oss-badge { background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.30);color:#a5b4fc; }
 .handbook-title { font-size:18px;font-weight:800;color:var(--text-primary);line-height:1.25; }
-.handbook-desc { font-size:12.5px;color:var(--text-secondary);line-height:1.65;max-width:640px; }
-.handbook-foot { display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px; }
+.handbook-desc { font-size:12.5px;color:var(--text-secondary);line-height:1.65;max-width:680px; }
+.handbook-oss-note {
+  font-size:12px;color:var(--text-secondary);line-height:1.55;background:rgba(10,14,26,.45);
+  border:1px solid rgba(16,185,129,.20);border-radius:7px;padding:9px 12px;max-width:680px;
+}
+.handbook-oss-note a { color:var(--indigo-400);font-weight:650;text-decoration:none; }
+.handbook-oss-note a:hover { color:var(--indigo-300);text-decoration:underline; }
+.handbook-foot { display:flex;align-items:center;justify-content:space-between;margin-top:4px;flex-wrap:wrap;gap:8px; }
+.handbook-foot-actions { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
 .handbook-size { font-size:11px;color:var(--text-muted); }
-.btn-open-handbook { display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:7px;background:rgba(16,185,129,.16);border:1px solid rgba(16,185,129,.35);color:#6ee7b7;font-size:12px;font-weight:700;transition:background .18s,border-color .18s; }
-.btn-open-handbook:hover { background:rgba(16,185,129,.28);border-color:rgba(16,185,129,.55); }
+.btn-open-handbook { display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:7px;background:rgba(16,185,129,.16);border:1px solid rgba(16,185,129,.35);color:#6ee7b7;font-size:12px;font-weight:700;text-decoration:none;transition:background .18s,border-color .18s; }
+.btn-open-handbook:hover { background:rgba(16,185,129,.28);border-color:rgba(16,185,129,.55);color:#a7f3d0; }
+.btn-handbook-sec-sm { display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-secondary);font-size:11.5px;font-weight:650;text-decoration:none;transition:all .18s; }
+.btn-handbook-sec-sm:hover { background:rgba(99,102,241,.12);border-color:rgba(129,140,248,.35);color:var(--text-primary); }
 
 /* ── Empty state ── */
 .empty-guides { border:1px dashed var(--border);border-radius:8px;padding:26px;color:var(--text-muted);text-align:center;background:rgba(255,255,255,.02); }
@@ -201,7 +212,7 @@
       <h2 class="learn-section-title">📗 Complete Mutual Fund Handbook</h2>
     </div>
     {% for guide in handbook_guides %}
-    <a class="handbook-card" href="{{ guide.pdf_url }}" target="_blank" rel="noopener">
+    <div class="handbook-card">
       <div class="handbook-cover-col">
         <div class="cover-mark">
           <div class="cover-mark-icon">📗</div>
@@ -210,18 +221,28 @@
         </div>
       </div>
       <div class="handbook-body">
-        <div class="handbook-badge">⭐ Complete Reference</div>
+        <div class="handbook-badge-row">
+          <span class="handbook-badge">⭐ Complete Reference</span>
+          <span class="handbook-badge handbook-oss-badge">🌐 Open Source Project</span>
+        </div>
         <div class="handbook-title">{{ guide.title }}</div>
         <div class="handbook-desc">{{ guide.description }}</div>
+        <div class="handbook-oss-note">
+          This is an open source project available on GitHub at <a href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook" target="_blank" rel="noopener">amansingh2116/A-Mutual-Fund-Handbook</a>. You can also read and download the PDF directly from <a href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook/blob/main/MutualFundBook.pdf" target="_blank" rel="noopener">MutualFundBook.pdf on GitHub</a>.
+        </div>
         {% if guide.tags %}
         <div class="card-tags">{% for tag in guide.tags %}<span class="card-tag">{{ tag }}</span>{% endfor %}</div>
         {% endif %}
         <div class="handbook-foot">
           <span class="handbook-size">{{ guide.size_kb }} KB</span>
-          <span class="btn-open-handbook">Open Handbook →</span>
+          <div class="handbook-foot-actions">
+            <a class="btn-open-handbook" href="{{ guide.pdf_url }}" target="_blank" rel="noopener">Open Handbook →</a>
+            <a class="btn-handbook-sec-sm" href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook" target="_blank" rel="noopener">GitHub Repo</a>
+            <a class="btn-handbook-sec-sm" href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook/blob/main/MutualFundBook.pdf" target="_blank" rel="noopener">Download PDF</a>
+          </div>
         </div>
       </div>
-    </a>
+    </div>
     {% endfor %}
   </section>
   {% endif %}

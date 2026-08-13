@@ -78,10 +78,10 @@
   display:flex;flex-direction:row;align-items:stretch;
   background:linear-gradient(135deg,rgba(16,185,129,.08) 0%,rgba(99,102,241,.06) 100%);
   border:1px solid rgba(16,185,129,.28);border-radius:12px;overflow:hidden;
-  text-decoration:none;color:inherit;margin-bottom:10px;
-  transition:border-color .2s,transform .2s,box-shadow .2s;min-height:180px;
+  color:inherit;margin-bottom:10px;
+  transition:border-color .2s,box-shadow .2s;min-height:180px;
 }
-.handbook-hero:hover { border-color:rgba(16,185,129,.55);transform:translateY(-2px);box-shadow:0 10px 36px rgba(16,185,129,.16); }
+.handbook-hero:hover { border-color:rgba(16,185,129,.50);box-shadow:0 10px 36px rgba(16,185,129,.14); }
 .handbook-visual {
   width:200px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:24px;
   background:linear-gradient(150deg,rgba(16,185,129,.32) 0%,rgba(99,102,241,.20) 100%);
@@ -92,12 +92,28 @@
 .handbook-badge-row { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
 .handbook-badge { display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:999px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.32);color:#6ee7b7;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase; }
 .handbook-exclusive { background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.30);color:#fcd34d; }
+.handbook-oss-badge { background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.32);color:#a5b4fc; }
 .handbook-title-lg { font-size:20px;font-weight:850;color:var(--text-primary);line-height:1.2; }
-.handbook-desc-lg { font-size:13px;color:var(--text-secondary);line-height:1.65;max-width:680px; }
-.handbook-footer { display:flex;align-items:center;gap:14px;flex-wrap:wrap; }
+.handbook-desc-lg { font-size:13px;color:var(--text-secondary);line-height:1.65;max-width:760px; }
+.handbook-oss-box {
+  background:rgba(10,14,26,.45);border:1px solid rgba(16,185,129,.24);border-radius:8px;
+  padding:12px 16px;display:flex;flex-direction:column;gap:8px;max-width:760px;margin-top:2px;
+}
+.handbook-oss-note { font-size:12.5px;color:var(--text-secondary);line-height:1.55;display:flex;align-items:flex-start;gap:8px; }
+.handbook-oss-note svg { flex-shrink:0;margin-top:2px;color:#6ee7b7; }
+.handbook-oss-links { display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:6px;border-top:1px solid rgba(255,255,255,.06); }
+.handbook-oss-link {
+  display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:650;
+  color:var(--indigo-400);text-decoration:none;transition:color .18s;
+}
+.handbook-oss-link:hover { color:var(--indigo-300);text-decoration:underline; }
+.handbook-oss-sep { color:var(--text-muted);font-size:10px; }
+.handbook-footer { display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px; }
 .handbook-meta { font-size:11px;color:var(--text-muted); }
-.btn-handbook { display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.38);color:#6ee7b7;font-size:12px;font-weight:750;transition:all .18s; }
-.btn-handbook:hover { background:rgba(16,185,129,.30);border-color:rgba(16,185,129,.60); }
+.btn-handbook { display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.38);color:#6ee7b7;font-size:12px;font-weight:750;text-decoration:none;transition:all .18s; }
+.btn-handbook:hover { background:rgba(16,185,129,.30);border-color:rgba(16,185,129,.60);color:#a7f3d0; }
+.btn-handbook-secondary { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;font-weight:650;text-decoration:none;transition:all .18s; }
+.btn-handbook-secondary:hover { background:rgba(99,102,241,.12);border-color:rgba(129,140,248,.38);color:var(--text-primary); }
 
 @media (max-width:768px) {
   .handbook-hero { flex-direction:column; }
@@ -128,7 +144,7 @@
       <h2 class="gs-section-title">📗 Complete Handbook</h2>
     </div>
     {% for guide in handbook_guides %}
-    <a class="handbook-hero" href="{{ guide.pdf_url }}" target="_blank" rel="noopener">
+    <div class="handbook-hero">
       <div class="handbook-visual">
         <div class="cover-mark">
           <div class="cover-mark-icon">📗</div>
@@ -139,16 +155,48 @@
       <div class="handbook-info">
         <div class="handbook-badge-row">
           <span class="handbook-badge">⭐ Complete Reference</span>
-          <span class="handbook-badge handbook-exclusive">📌 Premium Content</span>
+          <span class="handbook-badge handbook-exclusive">📌 Featured Guide</span>
+          <span class="handbook-badge handbook-oss-badge">🌐 Open Source Project</span>
         </div>
         <div class="handbook-title-lg">{{ guide.title }}</div>
         <div class="handbook-desc-lg">{{ guide.description }}</div>
+
+        <div class="handbook-oss-box">
+          <div class="handbook-oss-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span>This handbook is our open source project! You can explore the repository on GitHub, read online, contribute, or download the full PDF.</span>
+          </div>
+          <div class="handbook-oss-links">
+            <a href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook" target="_blank" rel="noopener" class="handbook-oss-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+              GitHub Repository
+            </a>
+            <span class="handbook-oss-sep">•</span>
+            <a href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook/blob/main/MutualFundBook.pdf" target="_blank" rel="noopener" class="handbook-oss-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              MutualFundBook.pdf on GitHub
+            </a>
+          </div>
+        </div>
+
         <div class="handbook-footer">
           <span class="handbook-meta">{{ guide.size_kb }} KB</span>
-          <span class="btn-handbook">Open Full Handbook →</span>
+          <a class="btn-handbook" href="{{ guide.pdf_url }}" target="_blank" rel="noopener">Open Full Handbook →</a>
+          <a class="btn-handbook-secondary" href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook" target="_blank" rel="noopener">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            GitHub Repo
+          </a>
+          <a class="btn-handbook-secondary" href="https://github.com/amansingh2116/A-Mutual-Fund-Handbook/blob/main/MutualFundBook.pdf" target="_blank" rel="noopener">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download PDF
+          </a>
         </div>
       </div>
-    </a>
+    </div>
     {% endfor %}
   </section>
   {% endif %}
