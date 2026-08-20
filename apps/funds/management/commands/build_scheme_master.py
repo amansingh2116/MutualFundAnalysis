@@ -132,9 +132,24 @@ class Command(BaseCommand):
             if i % 1000 == 0:
                 self.stdout.write(f"  Processed {i}/{len(raw_schemes)}...")
 
-        # Clean up legacy schemes that no longer match the filter
+        # Clean up legacy schemes that no longer match the filter.
+        # CockroachDB enforces a 1 MB per-transaction lock budget; a single
+        # bulk DELETE on a large queryset easily exceeds it.  We therefore
+        # collect the PKs to remove first and delete them in small batches,
+        # each committed in its own transaction.
         valid_amfi_codes = [raw['amfi_code'] for raw in raw_schemes]
-        deleted_count, _ = Scheme.objects.exclude(amfi_code__in=valid_amfi_codes).delete()
+        stale_ids = list(
+            Scheme.objects.exclude(amfi_code__in=valid_amfi_codes)
+                          .values_list('pk', flat=True)
+        )
+        # Keep batches small: each Scheme deletion cascades into analytics,
+        # holdings, recommendations etc., multiplying lock counts significantly.
+        BATCH_SIZE = 25
+        deleted_count = 0
+        for batch_start in range(0, len(stale_ids), BATCH_SIZE):
+            batch = stale_ids[batch_start:batch_start + BATCH_SIZE]
+            n, _ = Scheme.objects.filter(pk__in=batch).delete()
+            deleted_count += n
         self.stdout.write(f"  Cleaned up {deleted_count} legacy schemes not matching criteria.")
 
         self.stdout.write(self.style.SUCCESS(
