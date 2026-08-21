@@ -77,9 +77,11 @@ apps/
    - Stores encrypted API keys (e.g. `fred` provider key).
    - Validates live via `validate_fred_key()`.
 3. **Metric Calculations (`metric_providers.py`)**:
-   - `_fetch_price_metrics()`: Downloads 14 price metrics from `yfinance` in parallel.
+   - `_fetch_price_metrics()`: Downloads 14 price metrics from `yfinance` in parallel (indices, global benchmarks, USD/INR).
    - `_fetch_technical_metrics()`: Downloads Nifty 50 & Midcap 150 daily data to compute RSI(14), MACD(12,26,9), Bollinger Bands %B, 50/200 DMA gap %, Dist from 52W High, Dist from ATH, and MidCap/LargeCap Relative Strength.
-   - `_fetch_fred_metrics()`: Queries FRED API for CPI India, RBI Repo Rate, and Fed Funds Rate using user's key or environment key.
+   - `_fetch_fred_metrics()`: Queries FRED API for India CPI, India 10Y G-Sec Yield (INDIRLTLT01STM), and Fed Funds Rate using user's personal FRED API key.
+   - `_fetch_valuation_metrics()`: Fetches Nifty 50 PE/PB/Dividend Yield via `nsepython.index_pe_pb_div()`, computes Earnings Yield–Bond Gap, and fetches Buffett Indicator (Market Cap/GDP) via `wbgapi` (World Bank, annual, 1-week cache).
+   - `_fetch_nse_sentiment_metrics()`: Fetches PCR (NSE option chain), FII Net Activity (NSE fiidiiTradeReact), Advance/Decline Ratio (NSE allIndicesConsumer), and SIP Inflows (AMFI, monthly, 24h cache). All NSE endpoints use a cookie-authenticated session.
    - `get_fund_metric()` & `get_benchmark_metric()`: Computes fund/benchmark metrics on the fly and attaches direction (`"up"`, `"down"`, `"neutral"`) and signal badges (`"BULLISH"`, `"BEARISH"`, `"EXCELLENT"`, `"DEFENSIVE"`, `"LOW COST"`, `"CAUTION"`).
 4. **Modal & Tooltips (`static/js/main.js`)**:
    - Single-source tooltip engine in `static/js/main.js` (`initInfoTooltips()`).

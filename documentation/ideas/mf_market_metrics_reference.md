@@ -116,14 +116,105 @@ This document serves as the comprehensive technical reference for market metrics
 
 ---
 
-## 3. Macro India Indicators
+---
 
-### 🏛️ RBI Repo Rate
-- **Description**: Benchmark interest rate set by the Reserve Bank of India.
-- **Bullish Signal**: Rate cut cycle initiated (Equity-positive; long-duration debt funds gain capital appreciation).
-- **Bearish Signal**: Rate hike cycle initiated (Equity valuation headwind; favor short-duration/floater debt funds).
-- **Thresholds**: Direction of rate trajectory & MPC stance (Accommodative vs. Withdrawal of Accommodation)
-- **Data Source**: FRED API (`INDIRLTLT01STM`) / RBI
+## 3. Valuation Metrics
+
+### 📊 Nifty 50 PE Ratio (Trailing)
+- **Description**: Trailing Price-to-Earnings ratio of Nifty 50.
+- **Interpretation**: Historically, Nifty 50 PE has traded in the 16x–28x range.
+- **Signals**:
+  - `PE < 18`: Deep value zone (historic strong long-term entry point for lump sums).
+  - `18 <= PE <= 24`: Fair value zone (optimal for regular monthly SIP compounding).
+  - `PE > 24`: Expensive (market priced for high growth; avoid large lump sums).
+  - `PE > 28`: Frothy / extreme overvaluation (consider tactical equity-to-debt rebalancing).
+- **Data Source**: NSE India (`/api/allIndices`, with `NIFTYBEES.NS` fallback).
+
+### 📖 Nifty 50 PB Ratio (Price-to-Book)
+- **Description**: Price-to-Book ratio comparing Nifty 50 market value to aggregate book value per share.
+- **Signals**:
+  - `PB < 2.5`: Undervalued relative to underlying corporate assets.
+  - `2.5 <= PB <= 3.5`: Normal historical range for Indian large-cap equities.
+  - `PB > 3.5`: Premium valuation (requires strong return on equity to justify).
+- **Data Source**: NSE India (`/api/allIndices`).
+
+### 🌾 Nifty Dividend Yield
+- **Description**: Trailing annual dividend yield (%) of Nifty 50 index constituents.
+- **Signals**:
+  - `DY > 2.0%`: High dividend yield (indicates depressed stock prices and value buffer).
+  - `1.2% <= DY <= 2.0%`: Fair historical range.
+  - `DY < 1.2%`: Low dividend yield (growth premium priced into market; lower margin of safety).
+- **Data Source**: NSE India (`/api/allIndices`).
+
+### ⚖️ Earnings Yield – 10Y Bond Yield Gap
+- **Description**: Spread between Nifty Earnings Yield `(1 / PE × 100%)` and India 10-Year G-Sec Yield.
+- **Signals**:
+  - `Gap > 2.0%`: Equities significantly undervalued relative to risk-free sovereign debt.
+  - `0.0% <= Gap <= 2.0%`: Equities fairly valued compared to fixed income.
+  - `Gap < 0.0%`: Sovereign bond yields exceed equity earnings yield; bonds offer superior risk-adjusted return.
+- **Data Source**: Computed dynamically via Nifty PE and FRED India 10Y Yield (`INDIRLTLT01STM`).
+
+### 🌐 Buffett Indicator (India Market Cap to GDP)
+- **Description**: Total market capitalization of Indian listed companies expressed as a % of Indian GDP.
+- **Signals**:
+  - `< 75%`: Undervalued (exceptional long-term accumulation zone).
+  - `75%–100%`: Fair valuation.
+  - `100%–120%`: Moderately expensive.
+  - `> 120%`: Substantially overvalued.
+- **Data Source**: World Bank (`wbgapi` series `CM.MKT.LCAP.CD` and `NY.GDP.MKTP.CD`, cached 1 week).
+
+---
+
+## 4. Market Sentiment Indicators
+
+### ⚡ India VIX (Volatility Index)
+- **Description**: NSE India Volatility Index (fear gauge).
+- **Signals**:
+  - `VIX < 12`: Extreme complacency (potential vulnerability to pullbacks).
+  - `12–18`: Normal healthy market volatility.
+  - `18–25`: Elevated uncertainty / corrective pressure.
+  - `> 25`: Panic / capitulation (historically exceptional multi-year SIP step-up or lump sum window).
+- **Data Source**: `yfinance` (`^INDIAVIX`).
+
+### 🎯 Nifty Put/Call Ratio (PCR by Open Interest)
+- **Description**: Ratio of total Put Open Interest to Call Open Interest on Nifty derivatives: `Total PE OI / Total CE OI`.
+- **Signals**:
+  - `PCR < 0.7`: Extreme call buying / overbought (complacency; caution warranted).
+  - `0.7–1.1`: Neutral market positioning.
+  - `PCR > 1.1`: High put hedging / oversold (contrarian bullish signal).
+- **Data Source**: NSE Derivatives API (`/api/liveEquity-derivatives?index=nse50_opt`).
+
+### 💼 FII / DII Net Institutional Activity
+- **Description**: Net purchase/sale value (in ₹ Crores) by Foreign Institutional Investors for the latest trading session.
+- **Signals**:
+  - `FII Net > +₹2,000 Cr`: Sustained institutional accumulation (index tailwind).
+  - `FII Net < -₹2,000 Cr`: Institutional distribution / risk-off selling.
+- **Data Source**: NSE FII/DII API (`/api/fiidiiTradeReact`).
+
+### 📈 Advance / Decline Ratio (Nifty 500 Breadth)
+- **Description**: Ratio of advancing stocks to declining stocks across the broader Nifty 500 universe.
+- **Signals**:
+  - `A/D > 1.5`: Broad-based healthy market rally.
+  - `0.8–1.5`: Mixed / selective market.
+  - `A/D < 0.8`: Broad-based market decline (warning signal if headline indices are rising on narrow stock leadership).
+- **Data Source**: NSE Index API (`/api/allIndices`).
+
+### 🌊 Monthly SIP Inflow Trends
+- **Description**: Total monthly mutual fund SIP contributions (in ₹ Crores) across all AMCs.
+- **Signals**:
+  - `> ₹22,000 Cr/month & Growing`: Robust domestic retail liquidity providing structural market downside support ("SIP Cushion").
+- **Data Source**: AMFI India (`/research-information/amfi-monthly`, cached 24h).
+
+---
+
+## 5. Macro India Indicators
+
+### 🏛️ India 10-Year Government Bond Yield (G-Sec)
+- **Description**: 10-Year Long-Term Government Bond Yield (benchmark risk-free sovereign rate).
+- **Bullish Signal**: Falling 10Y yield (Equity-positive; long-duration debt funds gain capital appreciation).
+- **Bearish Signal**: Rising 10Y yield > 7.2% (Equity valuation headwind; favor short-duration/floater debt funds).
+- **Thresholds**: `< 6.5%` bond-friendly | `6.5%–7.2%` neutral | `> 7.2%` equity headwind
+- **Data Source**: FRED API (`INDIRLTLT01STM`) / OECD
 
 ### 🏷️ CPI Inflation (YoY)
 - **Description**: Consumer Price Index YoY inflation. RBI target band is 4% ± 2%.
@@ -141,6 +232,12 @@ This document serves as the comprehensive technical reference for market metrics
 ---
 
 ## 4. Global Macro Indicators
+
+### 🌐 US VIX (CBOE)
+- **Description**: CBOE Volatility Index — global equity market fear gauge.
+- **Bullish Signal**: US VIX < 15 (Global risk-on; foreign institutional capital flows to Emerging Markets).
+- **Bearish Signal**: US VIX > 25 (Global risk-off panic; liquidity withdrawal from Emerging Markets including India).
+## 6. Global Macro Indicators
 
 ### 🌐 US VIX (CBOE)
 - **Description**: CBOE Volatility Index — global equity market fear gauge.
@@ -169,7 +266,7 @@ This document serves as the comprehensive technical reference for market metrics
 
 ---
 
-## 5. Mutual Fund Performance & Risk Metrics
+## 7. Mutual Fund Performance & Risk Metrics
 
 ### 📊 Rolling 3Y / 5Y CAGR
 - **Description**: Average rolling return across all available 3-year or 5-year windows from fund NAV history.
@@ -195,13 +292,14 @@ This document serves as the comprehensive technical reference for market metrics
 
 ---
 
-## 6. Mutual Fund Decision Map
+## 8. Mutual Fund Decision Map
 
 | Investment Action | Key Trigger Conditions | What to Avoid |
 | :--- | :--- | :--- |
-| **💰 Lump Sum Deployment** | • Nifty RSI < 40 (oversold)<br>• Nifty Dist 52WH > 15% (correction)<br>• India VIX > 20 (fear signal)<br>• Brent Crude < $75 | Avoid deploying large lump sum when RSI > 70 and VIX < 12 simultaneously. |
-| **⬆️ Step-Up SIP** | • Market in 10–20% correction<br>• CPI Inflation < 5.5% (stable macro)<br>• Monthly SIP inflows growing | Do not pause SIP during market dips — step up instead for lower NAV average. |
-| **⏸️ Pause / Slow SIP** | • Nifty 50/200 DMA gap > 15% (euphoria)<br>• RSI > 75 (extreme overbought)<br>• Within 1 year of financial goal | Never pause SIP due to short-term noise; only when near goal horizon. |
-| **💸 Profit Booking** | • Financial goal horizon reached (< 12M)<br>• Equity allocation exceeded target by > 15% | Do not book profits solely to time market tops — tax drag reduces compound return. |
-| **🔄 Switch: Equity → Debt** | • RBI Rate hike cycle starting<br>• Equity valuation stretched + yield gap negative<br>• Portfolio rebalancing required | Switch systematically via STP over 6–12 months to avoid timing risk. |
-| **📋 Switch: Active → Index** | • Active fund 3Y rolling alpha negative<br>• Fund AUM > ₹50,000 Cr with declining performance<br>• TER gap > 0.8% with no alpha | Give active fund at least 2–3 years of underperformance before switching. |
+| **💰 Lump Sum Deployment** | • Nifty PE < 18 (deep value) or EY–Bond Gap > 2%<br>• Nifty RSI < 40 (oversold) & PCR > 1.1<br>• Nifty Dist 52WH > 15% (correction)<br>• India VIX > 20 (fear signal) | Avoid deploying large lump sums when PE > 25, RSI > 70, and VIX < 12 simultaneously. |
+| **⬆️ Step-Up SIP** | • Market in 10–20% correction<br>• Buffett Indicator < 100% (fair value)<br>• CPI Inflation < 5.5% (stable macro)<br>• Monthly SIP inflows growing (>₹22,000 Cr) | Do not pause SIP during market dips — step up instead for lower NAV rupee-cost averaging. |
+| **⏸️ Pause / Slow SIP** | • Nifty 50/200 DMA gap > 15% (euphoria)<br>• RSI > 75 (extreme overbought)<br>• Within 1 year of financial goal maturity | Never pause SIP due to short-term headlines; only when approaching goal horizon. |
+| **💸 Tactical Profit Booking** | • Financial goal horizon reached (< 12M)<br>• Nifty PE > 28 & Buffett Indicator > 120%<br>• Equity allocation exceeded portfolio target by > 15% | Do not book profits solely to time tops — capital gains tax drag reduces compound growth. |
+| **🔄 Switch: Equity → Debt** | • EY–Bond Yield Gap < 0% (Bonds offer higher yield than earnings)<br>• India 10Y Yield rising > 7.5%<br>• Rebalancing to target asset allocation | Switch systematically via STP over 6–12 months to minimize execution risk. |
+| **📋 Switch: Active → Index** | • Active fund 3Y rolling alpha negative across 2+ market cycles<br>• Fund AUM > ₹50,000 Cr with declining quartile rank<br>• TER gap > 0.8% with no alpha generation | Give active fund manager at least 2–3 years of underperformance before switching. |
+

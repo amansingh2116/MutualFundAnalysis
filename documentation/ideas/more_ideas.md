@@ -127,10 +127,10 @@ A major planned feature is a dedicated AI analysis module for user portfolios th
 To provide investors with a comprehensive view of the macro environment, the platform will implement a dynamic Market Strip and Market Analysis section. This will include:
 
 - ✅ **Market Strip (Basic):** Live NIFTY 50, SENSEX, NIFTY 200, NIFTY MIDCAP 150, NIFTY SMLCAP 250, USD/INR ticker strip across all pages with configurable indices.
-- ⬜ **Sentiment Indicators:** India VIX, Put/Call Ratio (PCR), FII/DII Net Activity, Advance/Decline Ratio, and SIP Inflow Trends.
-- ⬜ **Technical Market Indicators:** Nifty RSI, MACD, Bollinger Bands, 50/200 DMA Crossovers, and Sector Relative Strength.
-- ⬜ **Valuation Metrics:** Nifty 50 PE/PB Ratios, Dividend Yield, Buffett Indicator (Market Cap to GDP), and Earnings Yield vs G-Sec Gap.
-- ⬜ **Macro & Global Factors:** RBI Repo Rate, 10-Year G-Sec Yield, CPI Inflation, USD/INR Exchange Rate, US VIX, DXY, Brent Crude, and Gold Prices.
+- ✅ **Sentiment Indicators:** India VIX (yfinance), Put/Call Ratio (NSE option chain), FII/DII Net Activity (NSE fiidiiTradeReact), Advance/Decline Ratio (NSE allIndicesConsumer, Nifty 500 breadth), and SIP Inflow Trends (AMFI monthly).
+- ✅ **Technical Market Indicators:** Nifty RSI(14), MACD(12,26,9) histogram, Bollinger Bands %B, 50/200 DMA Crossovers, and MidCap/LargeCap Relative Strength — all computed from yfinance Nifty 50 history.
+- ✅ **Valuation Metrics:** Nifty 50 PE/PB/Dividend Yield (nsepython.index_pe_pb_div), Earnings Yield vs 10Y G-Sec Gap (computed), and Buffett Indicator/India Market-Cap-to-GDP ratio (World Bank wbgapi). Note: Buffett Indicator uses annual World Bank data.
+- ✅ **Macro & Global Factors:** RBI/India 10Y G-Sec Yield (FRED INDIRLTLT01STM), CPI Inflation (FRED), USD/INR (yfinance), US VIX, DXY, US 10Y Yield, Brent Crude, Gold, S&P 500, NASDAQ (all yfinance), Fed Funds Rate (FRED). FRED metrics require a user-provided API key via the Manage Strip modal.
 
 These metrics will contextualize mutual fund performance within broader economic cycles, helping users identify structural bull/bear phases and rebalance accordingly.
 

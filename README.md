@@ -27,13 +27,14 @@
 ---
 
 ### 2. 📊 Market Intelligence & Ticker Strip
-- **Live Ticker Strip**: Real-time ticker bar displaying broad market indices, market sentiment, technicals, macroeconomic indicators, and global benchmarks.
-- **24 Built-in Market Metrics**:
+- **Live Ticker Strip**: Real-time ticker bar displaying broad market indices, market sentiment, technicals, valuation, macroeconomic indicators, and global benchmarks.
+- **33 Built-in Market Metrics**:
   - **Broad Indices**: Nifty 50, Sensex, Nifty 200, Nifty Midcap 150, Nifty Smallcap 250
-  - **Volatility & Currency**: USD/INR, India VIX
+  - **Sentiment**: India VIX, Nifty PCR (Put/Call Ratio), FII Net Activity, Advance/Decline Ratio, Monthly SIP Inflows
   - **Technicals**: Nifty RSI(14), MACD, BB %B, 50/200 DMA, Distance from 52W High, Distance from ATH, Mid/Large Cap Relative Strength
-  - **Macro (RBI & FRED)**: RBI Repo Rate, India CPI (YoY), Fed Funds Rate *(with personal FRED API key validation & storage)*
-  - **Global Benchmarks**: US VIX, DXY, US 10Y Yield, Brent Crude, Gold, S&P 500, NASDAQ
+  - **Valuation**: Nifty 50 PE, PB, Dividend Yield, Earnings Yield–Bond Gap, Buffett Indicator (Market Cap/GDP)
+  - **Macro**: USD/INR, India 10Y G-Sec Yield, India CPI (YoY) *(FRED API key required for macro metrics)*
+  - **Global Benchmarks**: Fed Funds Rate, US VIX, DXY, US 10Y Yield, Brent Crude, Gold, S&P 500, NASDAQ
 - **Direction-Calibrated Signals & Tooltips**: Color badges (`BULLISH`, `BEARISH`, `DEFENSIVE`, `LOW COST`) and viewport-aware hover tooltips.
 - *See [mf_market_metrics_reference.md](documentation/ideas/mf_market_metrics_reference.md) for the mathematical decision map.*
 

@@ -1,13 +1,18 @@
 """apps/benchmarks/metric_providers.py -- Market metric providers for the enhanced strip."""
 from __future__ import annotations
 import logging
-from datetime import datetime, timedelta
+import re
+import requests
+from datetime import datetime, timedelta, date as dt_date
 import pandas as pd
 from django.core.cache import cache
 logger = logging.getLogger("mfanalysis")
 TTL_PRICES=15*60; TTL_COMPUTED=30*60; TTL_FRED=6*3600
+TTL_VALUATION=6*3600; TTL_NSE_SENTIMENT=3600; TTL_AMFI=24*3600
 TECHNICAL_KEYS = {"nifty_rsi","nifty_macd","nifty_bb_pct","nifty_dma","nifty_dist_52wh","nifty_dist_ath","midcap_rs"}
 FRED_KEYS = {"cpi_india","fed_funds","repo_rate"}
+VALUATION_KEYS = {"nifty_pe","nifty_pb","nifty_dy","earnings_yield_gap","buffett_india"}
+NSE_SENTIMENT_KEYS = {"nifty_pcr","fii_net","adv_dec","sip_inflows"}
 METRIC_CATALOGUE = {
     "nifty50":  {"label":"NIFTY 50","category":"index","unit":"","ticker":"^NSEI","threshold":"Broad market index","tooltip_what":"Nifty 50 is the flagship Indian equity index comprising 50 large-cap stocks.","tooltip_interp":"Primary benchmark for Indian equity mutual funds. Directional moves indicate broad market health."},
     "sensex":   {"label":"SENSEX","category":"index","unit":"","ticker":"^BSESN","threshold":"BSE 30-stock index","tooltip_what":"S&P BSE SENSEX is the oldest and most widely followed Indian equity index.","tooltip_interp":"Tracks 30 large well-established financially sound companies listed on BSE."},
@@ -23,7 +28,7 @@ METRIC_CATALOGUE = {
     "nifty_dist_52wh":{"label":"Nifty Dist 52W High","category":"technical","unit":"%","threshold":">10% mild dip | >20% correction | >30% bear market","tooltip_what":"Percentage drawdown of Nifty 50 from its 52-week high.","tooltip_interp":"Market more than 20% below 52-week high: Meaningful correction, strong SIP step-up zone."},
     "nifty_dist_ath":{"label":"Nifty Dist from ATH","category":"technical","unit":"%","threshold":">20% off ATH = significant correction zone worth watching","tooltip_what":"Percentage drawdown of Nifty 50 from its all-time high (full available history, not just 1 year).","tooltip_interp":"Deep ATH drawdowns above 30% have historically been excellent long-term entry points."},
     "midcap_rs": {"label":"MidCap/LargeCap RS","category":"technical","unit":"x","threshold":">1 midcap outperforming | <1 large cap leading","tooltip_what":"6-month relative strength: Nifty Midcap 150 total return divided by Nifty 50 total return.","tooltip_interp":"RS above 1: Risk-on, consider mid cap allocation. RS below 1: Risk-off, prefer large cap funds."},
-    "repo_rate":{"label":"RBI Repo Rate","category":"macro","unit":"%","threshold":"Direction matters more: cuts = equity positive | hikes = headwind","tooltip_what":"RBI key policy rate. Source: FRED series INDIRLTLT01STM.","tooltip_interp":"Rate cut cycle: equity-positive, long-duration debt funds benefit. Rate hike cycle: equity headwind, prefer short-duration debt."},
+    "repo_rate":{"label":"India 10Y Yield","category":"macro","unit":"%","threshold":"<6.5% bond-friendly | 6.5-7% neutral | >7% equity headwind","tooltip_what":"India Long-Term Government Bond Yield: 10-Year (OECD). Source: FRED series INDIRLTLT01STM. Monthly data.","tooltip_interp":"Rising 10Y yield: bond prices fall, borrowing costs rise, equity valuations compress. Falling yield: equity-positive, long-duration debt funds benefit. Earnings yield gap = (1/Nifty PE) − this rate."},
     "cpi_india":{"label":"India CPI (YoY)","category":"macro","unit":"%","threshold":"<4% favorable | 4-6% neutral | >6% adverse (triggers rate hikes)","tooltip_what":"India Consumer Price Index YoY inflation. RBI targets 4%±2%. Source: FRED series INDCPIALLMINMEI.","tooltip_interp":"CPI 2-5%: RBI likely on hold or cutting, equity-friendly. CPI above 6%: Triggers rate hikes, headwind for equities and long-duration debt."},
     "us_vix":   {"label":"US VIX","category":"global","unit":"","ticker":"^VIX","threshold":"<15 risk-on globally | 15-25 normal | >25 fear | >35 crisis","tooltip_what":"CBOE Volatility Index, the global fear gauge. Primary driver of FII risk appetite and EM capital flows.","tooltip_interp":"VIX below 15: Global risk-on, FII inflows to India likely. VIX above 25: Global risk-off, FII outflows. VIX above 35: Crisis mode, historically a medium-term buying opportunity."},
     "dxy":      {"label":"DXY","category":"global","unit":"","ticker":"DX-Y.NYB","threshold":"<100 EM-friendly | 100-105 neutral | >105 significant headwind for EM","tooltip_what":"US Dollar Index measuring USD against a basket of 6 major currencies.","tooltip_interp":"DXY below 100: Dollar soft, EM inflows, INR relatively stable. DXY above 105: Dollar strong, EM capital outflows, INR weakens."},
@@ -33,6 +38,17 @@ METRIC_CATALOGUE = {
     "sp500":    {"label":"S&P 500","category":"global","unit":"","ticker":"^GSPC","threshold":"Above 200-day SMA = global risk-on | Below 200-day = caution","tooltip_what":"S&P 500 index. India equity markets correlate ~0.5 with S&P 500 over time.","tooltip_interp":"US in uptrend: global risk appetite high, India likely to perform well. US bear market: India selloff highly likely within 1-3 months."},
     "nasdaq":   {"label":"NASDAQ","category":"global","unit":"","ticker":"^IXIC","threshold":"Tech proxy most relevant for Indian IT and technology fund investors","tooltip_what":"NASDAQ Composite index tracking US technology and growth stocks.","tooltip_interp":"NASDAQ selloff often precedes IT sector underperformance in India by 3-6 months."},
     "fed_funds":{"label":"Fed Funds Rate","category":"global","unit":"%","threshold":"Cutting cycle = EM inflows | Hiking cycle = EM outflows","tooltip_what":"US Federal Funds Rate. Source: FRED series FEDFUNDS.","tooltip_interp":"Fed cutting cycle: Dollar weakens, EM inflows improve. Fed hiking cycle: Dollar strengthens, EM outflows."},
+    # ── Valuation metrics ────────────────────────────────────────────────────────
+    "nifty_pe":{"label":"Nifty 50 PE","category":"valuation","unit":"x","threshold":"<18 cheap | 18-24 fair | >24 expensive | >28 frothy","tooltip_what":"Nifty 50 trailing Price-to-Earnings ratio. Source: NSE India (nsepython).","tooltip_interp":"PE < 18: Historically cheap — strong long-term entry. PE 18-24: Fair value zone, keep SIPs running. PE > 24: Expensive — avoid large lump sums. PE > 28: Extreme overvaluation, consider trimming equity allocation."},
+    "nifty_pb":{"label":"Nifty 50 PB","category":"valuation","unit":"x","threshold":"<2.5 cheap | 2.5-3.5 fair | >3.5 premium | >4 very expensive","tooltip_what":"Nifty 50 Price-to-Book ratio: market price vs net asset value per share. Source: NSE India.","tooltip_interp":"PB < 2.5: Assets undervalued relative to market. PB 2.5-3.5: Normal range for Indian large caps. PB > 4: Premium priced — suitable only for quality compounder strategy with long horizon."},
+    "nifty_dy":{"label":"Nifty Div Yield","category":"valuation","unit":"%","threshold":">2% high yield | 1.2-2% fair | <1.2% growth priced in","tooltip_what":"Nifty 50 trailing dividend yield: annual dividends paid as % of total market cap. Source: NSE India.","tooltip_interp":"High yield (>2%): Market depressed, value zone. Low yield (<1.2%): Markets priced for growth; low margin of safety."},
+    "earnings_yield_gap":{"label":"EY–Bond Gap","category":"valuation","unit":"%","threshold":">2% equity cheap vs bonds | 0-2% fair | <0% bonds more attractive","tooltip_what":"Earnings Yield (1/PE × 100%) minus India 10-Year G-Sec Yield. Positive gap = equities cheaper than bonds.","tooltip_interp":"Gap > 2%: Strong case for equities over bonds. Gap 0-2%: Equities fairly valued vs bonds. Gap < 0%: Risk-free rate exceeds earnings yield — bonds offer better risk-adjusted return. Requires FRED API key for the 10Y rate."},
+    "buffett_india":{"label":"Buffett Indicator","category":"valuation","unit":"%","threshold":"<75% undervalued | 75-100% fair | >100% expensive | >120% significantly overvalued","tooltip_what":"India stock market capitalisation as % of GDP. Source: World Bank (annual data via wbgapi). Named after Warren Buffett's preferred valuation yardstick.","tooltip_interp":"Below 75%: Equities cheap vs economic output — strong long-term buy signal. 75-100%: Fairly valued. Above 100%: Expensive — be selective. Above 120%: Extreme overvaluation, reduce equity allocation."},
+    # ── Sentiment metrics (NSE-sourced) ──────────────────────────────────────────
+    "nifty_pcr":{"label":"Nifty PCR","category":"sentiment","unit":"","threshold":"<0.7 overbought | 0.7-1.1 neutral | >1.1 oversold/contrarian-bullish","tooltip_what":"Nifty Put/Call Ratio by Open Interest: total PE OI ÷ total CE OI. Source: NSE option chain.","tooltip_interp":"PCR < 0.7: Excessive call buying — overconfidence/overbought. PCR > 1.1: Excessive put buying — fear/oversold — contrarian bullish signal."},
+    "fii_net":{"label":"FII Net (₹Cr)","category":"sentiment","unit":"Cr","threshold":"Positive = FII buying | Negative = FII selling | >₹5,000Cr moves are significant","tooltip_what":"Foreign Institutional Investor net activity in Indian equities for the latest trading session (Buy minus Sell). Source: NSE India. In ₹ Crores.","tooltip_interp":"Large FII buying: foreign confidence in India, index support. Large FII selling: global risk-off or INR weakness driving outflows."},
+    "adv_dec":{"label":"Advance/Decline","category":"sentiment","unit":"x","threshold":">1.5 broad rally | 0.8-1.5 mixed | <0.8 broad decline","tooltip_what":"Ratio of advancing to declining stocks on NSE (Nifty 500 breadth). Source: NSE India.","tooltip_interp":"A/D > 2: Strong broad-based rally with healthy breadth. A/D < 0.5: Broad decline — most stocks falling even if indices are flat. Index moves are misleading when A/D diverges."},
+    "sip_inflows":{"label":"SIP Inflows","category":"sentiment","unit":"Cr","threshold":"Growing trend = healthy retail participation | >₹20,000Cr/month excellent","tooltip_what":"Monthly SIP (Systematic Investment Plan) inflows into Indian mutual funds in ₹ Crores. Source: AMFI. Monthly figure — cached 24 hours.","tooltip_interp":"Rising SIP inflows: retail investor confidence growing, provides systematic buying support ('SIP cushion'). Falling inflows: retail redemption pressure may amplify market declines."},
 }
 FUND_METRIC_DEFS = {
     "1d_return":     {"label":"1D Return","unit":"%","tooltip_what":"Fund NAV change from previous working day to today's NAV.","tooltip_interp":"Shows daily price movement. Compare against benchmark 1D return for outperformance on any given day."},
@@ -218,7 +234,7 @@ def _get_fred_key_info(user):
 FRED_SERIES = {
     "cpi_india": ("INDCPIALLMINMEI", "India CPI (YoY)", "macro", "%"),
     "fed_funds": ("FEDFUNDS", "Fed Funds Rate", "global", "%"),
-    "repo_rate": ("INDIRLTLT01STM", "RBI Repo Rate", "macro", "%")
+    "repo_rate": ("INDIRLTLT01STM", "India 10Y Yield", "macro", "%")
 }
 
 def _fetch_fred_metrics(user=None):
@@ -413,7 +429,334 @@ def get_benchmark_metric(index_name, metric_key):
 
 
 def get_all_metric_values(user=None):
-    price=_fetch_price_metrics()
-    tech=_fetch_technical_metrics()
-    fred=_fetch_fred_metrics(user)
-    return {**price,**tech,**fred}
+    price      = _fetch_price_metrics()
+    tech       = _fetch_technical_metrics()
+    fred       = _fetch_fred_metrics(user)
+    valuation  = _fetch_valuation_metrics()
+    nse_sent   = _fetch_nse_sentiment_metrics()
+    return {**price, **tech, **fred, **valuation, **nse_sent}
+
+
+# ── NSE session helper (mirrors nsepython_adapter, kept local to avoid circular import) ──
+_NSE_STRIP_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.nseindia.com/",
+}
+
+
+def _make_nse_strip_session() -> requests.Session:
+    """Create an NSE-cookie session for the market strip sentiment fetchers."""
+    import time
+    s = requests.Session()
+    s.headers.update(_NSE_STRIP_HEADERS)
+    try:
+        s.get("https://www.nseindia.com", timeout=10)
+        time.sleep(0.3)
+        s.get("https://www.nseindia.com/market-data/live-equity-market", timeout=10)
+        time.sleep(0.3)
+    except Exception as exc:
+        logger.debug("NSE strip session warmup: %s", exc)
+    return s
+
+
+def _fetch_valuation_metrics() -> dict:
+    """Fetch Nifty 50 PE/PB/DY and compute derived valuation metrics.
+
+    Sources
+    -------
+    - PE/PB/DY: NSE India via ``/api/allIndices`` (with yfinance NIFTYBEES fallback).
+    - Earnings Yield Gap: (1/PE)*100 minus India 10Y G-Sec yield (from FRED cache).
+    - Buffett Indicator: India Market Cap / GDP from World Bank (wbgapi, 1-week cache).
+    """
+    ck = "mkt_valuation:v3"
+    cached = cache.get(ck)
+    if cached:
+        return cached
+
+    results = {k: _stub(k) for k in VALUATION_KEYS}
+    pe_val: float | None = None
+    pb_val: float | None = None
+    dy_val: float | None = None
+
+    # --- 1. Nifty 50 PE / PB / Dividend Yield via NSE allIndices ---
+    try:
+        session = _make_nse_strip_session()
+        resp = session.get("https://www.nseindia.com/api/allIndices", timeout=12)
+        if resp.status_code == 200:
+            data = resp.json().get("data", [])
+            for item in data:
+                if str(item.get("index", "")).strip().upper() == "NIFTY 50":
+                    try:
+                        raw_pe = str(item.get("pe", "")).replace(",", "").strip()
+                        if raw_pe and raw_pe != "-":
+                            pe_val = float(raw_pe)
+                    except Exception:
+                        pass
+                    try:
+                        raw_pb = str(item.get("pb", "")).replace(",", "").strip()
+                        if raw_pb and raw_pb != "-":
+                            pb_val = float(raw_pb)
+                    except Exception:
+                        pass
+                    try:
+                        raw_dy = str(item.get("dy", "")).replace(",", "").strip()
+                        if raw_dy and raw_dy != "-":
+                            dy_val = float(raw_dy)
+                    except Exception:
+                        pass
+                    break
+    except Exception as exc:
+        logger.warning("NSE allIndices PE/PB fetch: %s", exc)
+
+    # Fallback for PE via yfinance NIFTY ETF if NSE is unreachable
+    if pe_val is None:
+        try:
+            import yfinance as yf
+            bees = yf.Ticker("NIFTYBEES.NS")
+            t_pe = bees.info.get("trailingPE")
+            if t_pe and float(t_pe) > 0:
+                pe_val = float(t_pe)
+        except Exception as exc:
+            logger.debug("yfinance NIFTYBEES PE fallback: %s", exc)
+
+    if pe_val is not None:
+        results["nifty_pe"] = _ok(
+            METRIC_CATALOGUE["nifty_pe"]["label"], "valuation", "x", round(pe_val, 2),
+            signal="cheap" if pe_val < 18 else ("fair" if pe_val < 24 else "expensive"),
+            threshold=METRIC_CATALOGUE["nifty_pe"]["threshold"],
+        )
+    if pb_val is not None:
+        results["nifty_pb"] = _ok(
+            METRIC_CATALOGUE["nifty_pb"]["label"], "valuation", "x", round(pb_val, 2),
+            signal="cheap" if pb_val < 2.5 else ("fair" if pb_val < 3.5 else "premium"),
+            threshold=METRIC_CATALOGUE["nifty_pb"]["threshold"],
+        )
+    if dy_val is not None:
+        results["nifty_dy"] = _ok(
+            METRIC_CATALOGUE["nifty_dy"]["label"], "valuation", "%", round(dy_val, 2),
+            signal="high" if dy_val > 2 else ("fair" if dy_val > 1.2 else "low yield"),
+            threshold=METRIC_CATALOGUE["nifty_dy"]["threshold"],
+        )
+
+    # --- 2. Earnings Yield Gap: (1/PE)*100 - India 10Y Yield ---
+    if pe_val is not None and pe_val > 0:
+        try:
+            ey = (1.0 / pe_val) * 100.0
+            india_10y: float | None = None
+            for suffix in ("anon",):
+                fred_c = cache.get(f"mkt_fred:v4:{suffix}")
+                if isinstance(fred_c, dict):
+                    v = (fred_c.get("repo_rate") or {}).get("value")
+                    if v is not None:
+                        india_10y = float(v)
+                        break
+            if india_10y is not None:
+                gap = round(ey - india_10y, 2)
+                results["earnings_yield_gap"] = _ok(
+                    METRIC_CATALOGUE["earnings_yield_gap"]["label"], "valuation", "%", gap,
+                    signal="equity cheap" if gap > 2 else ("fair" if gap > 0 else "bonds better"),
+                    threshold=METRIC_CATALOGUE["earnings_yield_gap"]["threshold"],
+                )
+        except Exception as exc:
+            logger.warning("earnings yield gap: %s", exc)
+
+    # --- 3. Buffett Indicator: India Market Cap / GDP (World Bank, 1-week cache) ---
+    try:
+        buffett_ck = "mkt_buffett_india:v2"
+        b_cached = cache.get(buffett_ck)
+        if b_cached:
+            results["buffett_india"] = b_cached
+        else:
+            import wbgapi as wb  # type: ignore[import]
+            df_mcap = wb.data.DataFrame("CM.MKT.LCAP.CD", "IND", mrv=5)
+            df_gdp  = wb.data.DataFrame("NY.GDP.MKTP.CD", "IND", mrv=5)
+            mcap_val = float(df_mcap.dropna(axis=1).iloc[0].values[-1]) if not df_mcap.empty else None
+            gdp_val  = float(df_gdp.dropna(axis=1).iloc[0].values[-1]) if not df_gdp.empty else None
+            if mcap_val and gdp_val and gdp_val > 0:
+                ratio = round((mcap_val / gdp_val) * 100.0, 1)
+                r = _ok(
+                    METRIC_CATALOGUE["buffett_india"]["label"], "valuation", "%", ratio,
+                    signal="undervalued" if ratio < 75 else ("fair" if ratio < 100 else "overvalued"),
+                    threshold=METRIC_CATALOGUE["buffett_india"]["threshold"],
+                )
+                r["data_note"] = "Annual estimate via World Bank."
+                cache.set(buffett_ck, r, 7 * 24 * 3600)
+                results["buffett_india"] = r
+    except Exception as exc:
+        logger.warning("buffett indicator: %s", exc)
+
+    cache.set(ck, results, TTL_VALUATION)
+    return results
+
+
+def _fetch_nse_sentiment_metrics() -> dict:
+    """Fetch NSE-sourced sentiment metrics: PCR, FII Net, Advance/Decline, and SIP Inflows.
+
+    Sources
+    -------
+    - PCR:     NSE live derivatives via ``/api/liveEquity-derivatives?index=nse50_opt``.
+    - FII Net: NSE FII/DII activity via ``/api/fiidiiTradeReact``.
+    - Adv/Dec: NSE Nifty 500 market breadth via ``/api/allIndices``.
+    - SIP:     AMFI monthly trends page (monthly; separate 24-hour cache).
+    """
+    ck = "mkt_nse_sentiment:v3"
+    cached = cache.get(ck)
+    if cached:
+        results = dict(cached)
+        sip_cached = cache.get("mkt_sip:v2")
+        if sip_cached:
+            results["sip_inflows"] = sip_cached
+        return results
+
+    results = {k: _stub(k) for k in NSE_SENTIMENT_KEYS}
+
+    try:
+        session = _make_nse_strip_session()
+
+        # ── 1. Put/Call Ratio (PCR) ──────────────────────────────────────────
+        try:
+            resp = session.get(
+                "https://www.nseindia.com/api/liveEquity-derivatives?index=nse50_opt",
+                timeout=12,
+            )
+            if resp.status_code == 200:
+                opt_data = resp.json().get("data", [])
+                ce_oi, pe_oi = 0.0, 0.0
+                for item in opt_data:
+                    opt_type = str(item.get("optionType", "")).upper()
+                    try:
+                        oi = float(str(item.get("openInterest", 0)).replace(",", "") or 0)
+                    except Exception:
+                        oi = 0.0
+                    if opt_type == "CE" or "CALL" in opt_type:
+                        ce_oi += oi
+                    elif opt_type == "PE" or "PUT" in opt_type:
+                        pe_oi += oi
+                if ce_oi > 0:
+                    pcr = round(pe_oi / ce_oi, 2)
+                    results["nifty_pcr"] = _ok(
+                        METRIC_CATALOGUE["nifty_pcr"]["label"], "sentiment", "", pcr,
+                        signal="oversold" if pcr > 1.1 else ("overbought" if pcr < 0.7 else "neutral"),
+                        threshold=METRIC_CATALOGUE["nifty_pcr"]["threshold"],
+                    )
+        except Exception as exc:
+            logger.warning("NSE PCR fetch: %s", exc)
+
+        # ── 2. FII Net Activity ──────────────────────────────────────────────
+        try:
+            resp = session.get(
+                "https://www.nseindia.com/api/fiidiiTradeReact",
+                timeout=12,
+            )
+            if resp.status_code == 200:
+                fii_data = resp.json()
+                for entry in (fii_data if isinstance(fii_data, list) else []):
+                    cat = str(entry.get("category", "")).upper()
+                    if "FII" in cat or "FPI" in cat:
+                        raw_net = str(entry.get("netPurchasesSales", entry.get("netValue", "0")))
+                        try:
+                            net = float(raw_net.replace(",", "").replace("\u2212", "-").strip() or "0")
+                        except Exception:
+                            net = 0.0
+                        results["fii_net"] = _ok(
+                            METRIC_CATALOGUE["fii_net"]["label"], "sentiment", "Cr",
+                            round(net, 0), change=None, change_pct=None,
+                            direction="up" if net >= 0 else "down",
+                            signal="buying" if net > 2000 else ("selling" if net < -2000 else "neutral"),
+                            threshold=METRIC_CATALOGUE["fii_net"]["threshold"],
+                        )
+                        break
+        except Exception as exc:
+            logger.warning("NSE FII/DII fetch: %s", exc)
+
+        # ── 3. Advance / Decline Ratio (Nifty 500 Breadth) ────────────────────
+        try:
+            resp = session.get(
+                "https://www.nseindia.com/api/allIndices",
+                timeout=12,
+            )
+            if resp.status_code == 200:
+                items = resp.json().get("data", [])
+                advances, declines = 0, 0
+                for item in items:
+                    sym = str(item.get("index", "")).upper().strip()
+                    if sym == "NIFTY 500":
+                        try:
+                            advances = int(item.get("advances", 0) or 0)
+                            declines = int(item.get("declines", 0) or 0)
+                        except Exception:
+                            pass
+                        break
+                if advances and declines and declines > 0:
+                    ratio = round(advances / declines, 2)
+                    results["adv_dec"] = _ok(
+                        METRIC_CATALOGUE["adv_dec"]["label"], "sentiment", "x", ratio,
+                        direction="up" if ratio >= 1 else "down",
+                        signal="bullish" if ratio > 1.5 else ("bearish" if ratio < 0.8 else "neutral"),
+                        threshold=METRIC_CATALOGUE["adv_dec"]["threshold"],
+                    )
+        except Exception as exc:
+            logger.warning("NSE Adv/Dec fetch: %s", exc)
+
+    except Exception as exc:
+        logger.warning("NSE sentiment session failed: %s", exc)
+
+    cache.set(ck, results, TTL_NSE_SENTIMENT)
+
+    # ── 4. SIP Inflows (AMFI, separate long-lived cache) ─────────────────────
+    sip_ck = "mkt_sip:v2"
+    sip_cached = cache.get(sip_ck)
+    if sip_cached:
+        results["sip_inflows"] = sip_cached
+    else:
+        try:
+            sip_result = _fetch_sip_inflows_amfi()
+            if sip_result:
+                cache.set(sip_ck, sip_result, TTL_AMFI)
+                results["sip_inflows"] = sip_result
+        except Exception as exc:
+            logger.warning("SIP inflows: %s", exc)
+
+    return results
+
+
+def _fetch_sip_inflows_amfi() -> dict | None:
+    """Scrape latest monthly SIP inflow figure from AMFI's monthly trends page.
+
+    Returns an ``_ok(...)`` dict on success or None if scraping fails.
+    """
+    try:
+        resp = requests.get(
+            "https://www.amfiindia.com/research-information/amfi-monthly",
+            headers={"User-Agent": "Mozilla/5.0 (compatible; MFAnalysis/1.0; "
+                                   "+https://github.com/amansingh2116/MutualFundAnalysis)"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return None
+        text = resp.text
+        # Look for numbers in the current monthly SIP range (₹18,000–₹45,000 Cr)
+        candidates: list[float] = []
+        for m in re.finditer(r'(?:Rs\.?|INR|₹)?\s*([1-9][0-9],[0-9]{3}(?:\.[0-9]{1,2})?|[1-9][0-9]{4}(?:\.[0-9]{1,2})?)\s*(?:crore|cr)?', text, re.IGNORECASE):
+            raw = m.group(1).replace(",", "")
+            try:
+                v = float(raw)
+                if 18000 <= v <= 45000:
+                    candidates.append(v)
+            except Exception:
+                pass
+        if not candidates:
+            return None
+        sip_val = round(max(candidates), 0)
+        meta = METRIC_CATALOGUE["sip_inflows"]
+        return _ok(
+            meta["label"], "sentiment", "Cr", sip_val,
+            signal="excellent" if sip_val > 22000 else ("strong" if sip_val > 18000 else "growing"),
+            threshold=meta["threshold"],
+        )
+    except Exception as exc:
+        logger.warning("AMFI SIP scrape: %s", exc)
+    return None
