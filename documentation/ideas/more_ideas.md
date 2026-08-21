@@ -107,7 +107,7 @@ A major planned feature is a dedicated AI analysis module for user portfolios th
 
 ### 3.2 Dynamic Fund Ranking Model
 - ✅ **Fund Scoring Engine**: Internal scoring model exists (Return, Recency, Stability composite score) used in recommendations and fund analysis.
-- ⬜ **Personalized Ranking Scorecard**: Fully expose the scoring model in the fund detail page UI with a visual breakdown card (Stability / Consistency / Recency / Cost breakdown).
+- ✅ **Personalized Ranking Scorecard**: Fully expose the scoring model in the fund detail page UI with a visual breakdown card (Stability / Consistency / Recency / Cost breakdown).
 - ⬜ **Rank Trend**: Display the historical trend of a fund's ranking (absolute, relative, and within category) over time on the fund detail page.
 
 ### 3.3 DevOps & Production Hardening
@@ -142,25 +142,23 @@ These metrics will contextualize mutual fund performance within broader economic
 The individual fund analysis pages will be significantly upgraded with specialized tabs for institutional-grade evaluation:
 
 ### 5.1 Technical Analysis Engine
-- ⬜ **Moving Averages & Momentum:** SMA/EMA cross-overs (Golden/Death cross), RSI divergence, and MACD signals.
-- ⬜ **Volatility & Trend:** Bollinger Bands, Average True Range (ATR), and ADX.
-- ⬜ **Volume Proxies:** Since mutual funds lack trading volume, AUM changes and Net SIP inflows will be used as volume/demand proxies.
+- ✅ **Moving Averages & Momentum:** SMA/EMA cross-overs (active Golden/Death cross with days tracker), RSI divergence (Regular Bullish & Bearish), and MACD momentum signals.
+- ✅ **Volatility & Trend:** Bollinger Bands ($2\sigma$), Average True Range (ATR), and ADX (14D) directional movement index.
 
 ### 5.2 Risk Analysis Module
 - ✅ **Core Risk Metrics:** Alpha, Beta, Sharpe, Sortino, Treynor, R-Squared shown on fund detail page Ratios tab.
 - ✅ **Drawdown Analysis:** Maximum Drawdown shown on fund detail page.
-- ⬜ **Value at Risk (VaR):** Historical and Parametric VaR, plus Conditional VaR (Expected Shortfall).
-- ⬜ **Good Fund Scorecard UI:** A visual composite Risk Score card (0-100) identifying funds as Conservative, Moderate, or Aggressive based on benchmark-relative thresholds.
+- ✅ **Value at Risk (VaR):** Empirical Historical VaR & CVaR (Expected Shortfall) alongside Parametric Normal (Gaussian) VaR & CVaR with Fat-Tail Kurtosis Risk Gap across 1D, 5D, 21D, and 252D horizons.
 
 ### 5.3 Time-Series Forecasting Suite
-- ⬜ **Classical Models:** Implementation of ARIMA, SARIMA, ETS (Exponential Smoothing), and Facebook Prophet to generate short-to-medium term (7-day to 1-year) NAV forecasts.
-- ⬜ **Forecast Output:** Point estimates along with 80% and 95% confidence intervals, evaluated using MAPE (Mean Absolute Percentage Error) through walk-forward backtesting.
+- ✅ **Classical Models:** Implementation of ARIMA($p,d,q$), SARIMA (Seasonal $(1,1,1)\times(1,1,0)_{21}$), ETS (Exponential Smoothing), and Facebook Prophet (harmonic Fourier seasonality) to generate short-to-medium term (7-day to 1-year) NAV forecasts.
+- ✅ **Forecast Output:** Point estimates along with 68%, 80%, and 95% confidence intervals, evaluated using MAPE (Mean Absolute Percentage Error) and RMSE through walk-forward out-of-sample backtesting.
 
 ### 5.4 Machine Learning Forecasting & Classification
-- ⬜ **Tree-Based Models:** Random Forest, XGBoost, and LightGBM for direct NAV prediction and fund quality classification.
-- ⬜ **Deep Learning (Premium):** LSTM, Bidirectional LSTM, GRU, and Attention-based Transformers for capturing non-linear NAV dynamics.
-- ⬜ **Ensemble & Stacking:** A weighted ensemble model averaging predictions to minimize error.
-- ⬜ **TruthLens:** A prediction accuracy tracker that creates a tamper-evident ledger of past ML predictions and compares them against actual NAV realizations for radical transparency.
+- ✅ **Tree-Based Models:** Random Forest, XGBoost, and LightGBM for direct NAV prediction and directional classification.
+- ✅ **Deep Learning (Premium):** LSTM, Bidirectional LSTM, GRU, and Attention-based Transformers for capturing non-linear NAV sequence dynamics.
+- ✅ **Ensemble & Stacking:** Inverse-MAPE weighted ensemble model averaging predictions across all active models to minimize forecast error.
+- ✅ **StrategyLab:** Strategy backtesting engine simulating 10 algorithmic strategies (Buy & Hold, SMA Cross, RSI Mean-Reversion, MACD Momentum, Bollinger Dip Buy, XGBoost ML, LightGBM ML, LSTM Neural Trend, Multi-Model Ensemble, Monthly SIP) directly on historical NAV, ranking strategies by StrategyLab score, CAGR, win rate, alpha, and max drawdown.
 
 ## 6. Advanced Platform Capabilities
 
@@ -172,12 +170,11 @@ The individual fund analysis pages will be significantly upgraded with specializ
 ### 6.2 Portfolio Analytics & Recommendations
 - ⬜ **Historical Score Tracking:** Save and track the historical evolution of a fund's internal holdings and quantitative model score over time to detect early signs of degradation or improvement.
 - ⬜ **Explainable Recommendations:** Provide short, transparent, natural-language explanations (e.g., "Why this fund?") instead of a black-box ranking, tailored directly to the user's risk and time horizon questionnaire responses.
-- ⬜ **Macro Stress Testing:** Simulate portfolio and fund performance under historical and hypothetical extreme scenarios (e.g., 2008 Financial Crisis, COVID-19 crash, interest rate shocks, inflation spikes, and sector concentration shocks).
-- ⬜ **Market-Regime Analysis:** Evaluate portfolio and fund performance across different economic cycles, including bull markets, bear markets, sideways markets, high-inflation periods, and rate-cut cycles.
+- ✅ **Macro Stress Testing:** Simulate portfolio and fund performance under historical and hypothetical extreme scenarios (e.g., 2008 Financial Crisis, COVID-19 crash, interest rate shocks, inflation spikes, and sector concentration shocks).
+- ✅ **Market-Regime Analysis:** Evaluate portfolio and fund performance across different economic cycles, including bull markets, bear markets, sideways markets, high-inflation periods, and rate-cut cycles.
 
 ### 6.3 Future Engineering Roadmap & Enhancements
 - ✅ **UI & UX Modernization:** Responsive glassmorphic UI, dynamic charts, interactive data visualization.
-- ⬜ **Backtester & Application Testing:** Comprehensive end-to-end testing suite for backtest strategies and core application workflows.
 - ✅ **Production Hardening & Deployment:** App deployed on Render with PostgreSQL in production.
 
 ---

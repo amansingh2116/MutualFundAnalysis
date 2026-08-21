@@ -49,10 +49,14 @@
   - **Visual 4-Factor Breakdown Cards:** Dedicated cards for Stability, Consistency, Recency, and Cost (plus Quality & Governance) detailing sub-metrics, scores, and exact point contributions.
   - **Multi-Factor Radar Benchmark Comparison:** Interactive spider/radar chart benchmarking the fund across 5 dimensions against SEBI category averages.
   - **Mathematical Transparency:** Step-by-step arithmetic substitution card and stacked color contribution bar showing live math aggregation: `Personalized Score = Σ(Weight_i × Score_i) − Red Flag Penalties`.
+- **Advanced Quantitative Analysis Suite (`#tab-advanced`):**
+  - **Technical Pattern & Divergence Scanner:** Active 50/200 DMA Golden/Death Cross with active days tracker, RSI Regular Bullish/Bearish Divergence, MACD Momentum, ADX Trend Strength, and live Market Regime classification.
+  - **Parametric & Empirical VaR/CVaR Matrix:** Multi-horizon (1D, 5D, 21D, 252D) risk evaluation comparing Empirical Historical vs. Gaussian Parametric VaR/CVaR with Fat-Tail Kurtosis Risk Gap.
+  - **16-Model Time-Series, ML & Deep Learning Forecasting:** ARIMA($p,d,q$), SARIMA (Seasonal), Facebook Prophet, ETS, Linear, Momentum, ARIMAX, XGBoost ML, LightGBM Regressor, LSTM Sequence Net, Bi-LSTM, GRU, Self-Attention Transformer, and Inverse-MAPE Weighted Ensemble with 7D to 365D (1 Year) horizons.
+  - **🧪 StrategyLab™ Strategy Backtester Engine:** Simulates 10 quantitative, technical, ML, deep learning, and systematic DCA strategies (Buy & Hold, SMA Cross, RSI Mean-Reversion, MACD Momentum, Bollinger Dip Buy, XGBoost ML, LightGBM ML, LSTM Neural Trend, Multi-Model Ensemble, Monthly SIP) directly on historical NAV with Top Strategy Hero Recommendation, interactive Plotly equity growth chart, and leaderboard table.
 - **Macro Stress Testing:** Simulates fund behavior across 6 major historical market crashes (2024–25 Tariff Shock, COVID-19 Crash, 2022 Rate Hikes, 2018 IL&FS, 2015 China Slowdown, 2008 GFC).
 - **Market-Regime Analysis:** Evaluates performance across 5 economic cycles (Bull, Bear, Sideways, High Inflation, Rate Cut).
 - **Quartile & Peer Rankings:** Dynamic sub-category peer ranking computed on-the-fly.
-- **Advanced Quant Suite:** 9 technical indicators, 5 pivot systems, 500-path Monte Carlo simulations, VaR/CVaR risk matrices, Ensemble & ARIMA/XGBoost/LSTM return forecasting, and GARCH volatility models.
 - *See [SCORING_MODEL.md](documentation/SCORING_MODEL.md), [SCREENER.md](documentation/SCREENER.md), and [ADVANCED_ANALYSIS.md](documentation/ADVANCED_ANALYSIS.md).*
 
 ---

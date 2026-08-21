@@ -1255,3 +1255,60 @@ def forecast_volatility_api(request, amfi_code):
     except Exception as exc:
         logger.error("[forecast_volatility_api] %s: %s", amfi_code, exc)
         return JsonResponse({"error": str(exc)}, status=500)
+
+
+@require_http_methods(["POST", "GET"])
+def var_cvar_api(request, amfi_code):
+    """
+    POST/GET /api/funds/<amfi>/var-cvar/
+    Returns Historical & Parametric (Gaussian) VaR & CVaR across multiple holding horizons.
+    """
+    try:
+        from apps.analytics.forecasting import calculate_var_cvar
+        if request.method == "POST":
+            body = json.loads(request.body) if request.body else {}
+            nav_data = body.get("nav_data", [])
+            params = body.get("params", {})
+        else:
+            nav_data = []
+            params = request.GET.dict()
+            
+        if not nav_data:
+            scheme = get_scheme_or_404(amfi_code)
+            qs = NAVHistory.objects.filter(scheme=scheme).order_by("date").values("date", "nav")
+            nav_data = [{"date": str(r["date"]), "nav": float(r["nav"])} for r in qs]
+            
+        result = calculate_var_cvar(nav_data, params)
+        return JsonResponse(result)
+    except Exception as exc:
+        logger.error("[var_cvar_api] %s: %s", amfi_code, exc)
+        return JsonResponse({"error": str(exc)}, status=500)
+
+
+@require_http_methods(["POST", "GET"])
+def truthlens_backtest_api(request, amfi_code):
+    """
+    POST/GET /api/funds/<amfi>/truthlens/
+    Runs TruthLens strategy backtesting across Technical, ML, Deep Learning, SIP, and Buy & Hold strategies.
+    """
+    try:
+        from apps.analytics.forecasting import run_truthlens_backtest
+        if request.method == "POST":
+            body = json.loads(request.body) if request.body else {}
+            nav_data = body.get("nav_data", [])
+            params = body.get("params", {})
+        else:
+            nav_data = []
+            params = request.GET.dict()
+
+        if not nav_data:
+            scheme = get_scheme_or_404(amfi_code)
+            qs = NAVHistory.objects.filter(scheme=scheme).order_by("date").values("date", "nav")
+            nav_data = [{"date": str(r["date"]), "nav": float(r["nav"])} for r in qs]
+
+        result = run_truthlens_backtest(nav_data, params)
+        return JsonResponse(result)
+    except Exception as exc:
+        logger.error("[truthlens_backtest_api] %s: %s", amfi_code, exc)
+        return JsonResponse({"error": str(exc)}, status=500)
+

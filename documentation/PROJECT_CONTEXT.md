@@ -31,7 +31,7 @@ Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV dat
    - **NAV:** Fetches historical NAV from mfapi.in (primary), mftool (fallback)
    - **Metadata:** Fetches from captnemo by ISIN; falls back to a same-fund sibling growth plan with a UI label indicating it's a reference value
    - **Holdings/Sectors:** Uses mstarpy (Morningstar) first, then yahooquery fallback after Yahoo ticker resolution
-   - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, quarterly top/worst performance, **Macro Stress Testing (Crisis Period Behaviour across 6 crash events)**, **Market-Regime Analysis (across 5 economic cycles with per-window breakdowns)**, and **Personalized Multi-Factor Scoring (Stability, Consistency, Recency, Cost, Quality)**.
+   - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, quarterly top/worst performance, **Macro Stress Testing (Crisis Period Behaviour across 6 crash events)**, **Market-Regime Analysis (across 5 economic cycles with per-window breakdowns)**, **Personalized Multi-Factor Scoring (Stability, Consistency, Recency, Cost, Quality)**, **Technical Pattern & Divergence Scanner**, **Parametric vs. Empirical VaR & CVaR Matrix**, **16-Model Statistical & ML/Deep Learning Forecasting Suite**, and **StrategyLab Strategy Backtester Engine**.
 3. **Peer Matching:** `apps.funds.peers.get_peer_matches(scheme)` fingerprints scheme names and basic metadata to rank peers even when `scheme_category` is empty.
 4. **Market Intelligence & Ticker Strip:** `apps/benchmarks/metric_providers.py` provides 24 core market metrics plus custom fund/benchmark monitor calculations.
 5. **Portfolio & Benchmarks** are the only data fully persisted in the database.
@@ -57,7 +57,11 @@ Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV dat
 apps/
 ├── core/           ← BaseModel (UUID PK), user dashboard, learn guides/blogs
 ├── funds/          ← Scheme, NAVHistory, SchemeMeta; runtime snapshot; peer matching; PDF report
-├── analytics/      ← Analytics engine (engine.py) — pure math, zero views
+├── analytics/      ← Analytics engine, scorer, and forecasting suites:
+│   ├── engine.py       ← Pure statistical and returns calculations
+│   ├── scorer.py       ← 6-pillar scoring model & personalized ranking breakdown
+│   ├── forecasting.py  ← Time series, ML/DL forecasting, VaR/CVaR & StrategyLab backtester
+│   └── test_quant.py   ← Automated unit test suite for quant & forecasting engines
 ├── benchmarks/     ← BenchmarkIndex, BenchmarkNAV, UserMarketStripProfile, UserApiKey, metric_providers.py
 │   ├── metric_providers.py ← Core market metrics, FRED API integration, fund/benchmark custom monitor logic
 │   ├── api_views.py        ← HTMX strip partial, manage modal endpoints, FRED key validation
