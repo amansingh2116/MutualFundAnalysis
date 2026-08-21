@@ -531,7 +531,7 @@ class Command(BaseCommand):
             if create:
                 self.stdout.write("  Creating new dataset (first time)...")
                 _run_kaggle(
-                    ['datasets', 'create', '-p', str(export_dir), '--dir-mode', 'zip'],
+                    ['datasets', 'create', '-p', str(export_dir), '--dir-mode', 'zip', '--public'],
                     cwd=str(export_dir)
                 )
             else:
