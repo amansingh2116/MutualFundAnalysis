@@ -646,6 +646,245 @@ def _overall_confidence(nav_days: int, statuses: list) -> str:
     return STATUS_RATED
 
 
+# ── Factor Sub-Score Extractor & Personalized Scoring ──────────────────────────
+
+def _extract_factors(perf: dict, risk: dict, cost: dict, comp: dict, manager: dict, debt: dict, fund_type: str) -> dict:
+    """
+    Extracts the 4 primary factors (Stability, Consistency, Recency, Cost)
+    plus Portfolio Quality for granular visual scorecard breakdown and user customization.
+    """
+    # 1. Stability (Risk & Downside Preservation)
+    stab_score = risk.get("score")
+    stab_details = risk.get("details", {})
+    stability = {
+        "key": "stability",
+        "label": "Stability & Downside Protection",
+        "short_label": "Stability",
+        "icon": "🛡️",
+        "color": "#10b981",
+        "score": stab_score,
+        "status": risk.get("status", STATUS_UNRATED),
+        "badge": score_badge(stab_score),
+        "interpretation": risk.get("interpretation") or "Evaluates downside capture, max drawdown, and risk-adjusted cushion.",
+        "missing": risk.get("missing"),
+        "details": stab_details,
+    }
+
+    # 2. Consistency (Rolling Win Rates & Return Stability)
+    p_details = perf.get("details", {})
+    cons_weighted_sum = 0.0
+    cons_available_w = 0.0
+    cons_details = {}
+
+    for k in ("win_rate_3y", "win_rate_5y", "consistency", "excess_3y"):
+        if k in p_details and p_details[k].get("score") is not None:
+            w = 0.35 if "win_rate" in k else 0.15
+            cons_weighted_sum += p_details[k]["score"] * w
+            cons_available_w += w
+            cons_details[k] = p_details[k]
+
+    if cons_available_w >= 0.20:
+        cons_score = round(cons_weighted_sum / cons_available_w, 1)
+        cons_status = STATUS_RATED if cons_available_w >= 0.60 else STATUS_PROVISIONAL
+    else:
+        # Fallback to perf score if specific consistency metrics aren't isolated
+        cons_score = perf.get("score")
+        cons_status = perf.get("status", STATUS_UNRATED)
+
+    consistency = {
+        "key": "consistency",
+        "label": "Consistency & Win Rate",
+        "short_label": "Consistency",
+        "icon": "🎯",
+        "color": "#6366f1",
+        "score": cons_score,
+        "status": cons_status,
+        "badge": score_badge(cons_score),
+        "interpretation": "Measures rolling outperformance probability and returns smoothness across cycles.",
+        "missing": None if cons_score is not None else "Insufficient rolling return data",
+        "details": cons_details or {k: v for k, v in p_details.items() if "win" in k or "excess" in k or "consistency" in k},
+    }
+
+    # 3. Recency & Trailing Growth
+    rec_weighted_sum = 0.0
+    rec_available_w = 0.0
+    rec_details = {}
+
+    if fund_type == "index":
+        for k in ("tracking_diff_1y", "tracking_error", "tracking_diff_3y"):
+            if k in p_details and p_details[k].get("score") is not None:
+                w = 0.50 if k == "tracking_diff_1y" else 0.25
+                rec_weighted_sum += p_details[k]["score"] * w
+                rec_available_w += w
+                rec_details[k] = p_details[k]
+    else:
+        for k, w in [("cagr_1y", 0.35), ("cagr_3y", 0.45), ("cagr_5y", 0.20), ("excess_3y", 0.10)]:
+            if k in p_details and p_details[k].get("score") is not None:
+                rec_weighted_sum += p_details[k]["score"] * w
+                rec_available_w += w
+                rec_details[k] = p_details[k]
+
+    if rec_available_w >= 0.20:
+        rec_score = round(rec_weighted_sum / rec_available_w, 1)
+        rec_status = STATUS_RATED if rec_available_w >= 0.60 else STATUS_PROVISIONAL
+    else:
+        rec_score = perf.get("score")
+        rec_status = perf.get("status", STATUS_UNRATED)
+
+    recency = {
+        "key": "recency",
+        "label": "Recency & Momentum",
+        "short_label": "Recency",
+        "icon": "⚡",
+        "color": "#f59e0b",
+        "score": rec_score,
+        "status": rec_status,
+        "badge": score_badge(rec_score),
+        "interpretation": "Evaluates trailing CAGR compounding speed and recent alpha trajectory.",
+        "missing": None if rec_score is not None else "Insufficient trailing return history",
+        "details": rec_details or {k: v for k, v in p_details.items() if "cagr" in k or "tracking" in k},
+    }
+
+    # 4. Cost & Scale
+    cost_score = cost.get("score")
+    cost_factor = {
+        "key": "cost",
+        "label": "Cost & Scale Efficiency",
+        "short_label": "Cost",
+        "icon": "💰",
+        "color": "#38bdf8",
+        "score": cost_score,
+        "status": cost.get("status", STATUS_UNRATED),
+        "badge": score_badge(cost_score),
+        "interpretation": cost.get("interpretation") or "Evaluates expense ratio vs category norms and AUM scale benefits.",
+        "missing": cost.get("missing"),
+        "details": cost.get("details", {}),
+    }
+
+    # 5. Portfolio Quality & Governance
+    qual_scores = []
+    qual_weights = []
+    qual_details = {}
+    
+    if comp.get("score") is not None and comp.get("status") != STATUS_SKIPPED:
+        qual_scores.append(comp["score"])
+        qual_weights.append(0.55)
+        qual_details.update(comp.get("details", {}))
+    elif debt.get("score") is not None and debt.get("status") != STATUS_SKIPPED:
+        qual_scores.append(debt["score"])
+        qual_weights.append(0.55)
+        qual_details.update(debt.get("details", {}))
+
+    if manager.get("score") is not None and manager.get("status") != STATUS_SKIPPED:
+        qual_scores.append(manager["score"])
+        qual_weights.append(0.45)
+        qual_details.update(manager.get("details", {}))
+
+    if qual_scores:
+        tot_w = sum(qual_weights)
+        qual_score = round(sum(s * w for s, w in zip(qual_scores, qual_weights)) / tot_w, 1)
+        qual_status = STATUS_RATED if tot_w >= 0.7 else STATUS_PROVISIONAL
+    else:
+        qual_score = None
+        qual_status = STATUS_SKIPPED if fund_type == "index" else STATUS_UNRATED
+
+    quality = {
+        "key": "quality",
+        "label": "Quality & Governance",
+        "short_label": "Quality",
+        "icon": "🏛️",
+        "color": "#a78bfa",
+        "score": qual_score,
+        "status": qual_status,
+        "badge": score_badge(qual_score),
+        "interpretation": "Evaluates diversification HHI, manager experience, and AMC governance credibility.",
+        "missing": None if qual_score is not None else "Portfolio composition or manager metrics unavailable",
+        "details": qual_details,
+    }
+
+    return {
+        "stability": stability,
+        "consistency": consistency,
+        "recency": recency,
+        "cost": cost_factor,
+        "quality": quality,
+    }
+
+
+def compute_personalized_score(factors: dict, red_flag_penalty: float = 0.0, weights: Optional[dict] = None) -> dict:
+    """
+    Computes personalized composite score dynamically based on user-configured weights
+    for Stability, Consistency, Recency, and Cost (and optionally Quality).
+    """
+    default_weights = {
+        "stability": 0.25,
+        "consistency": 0.25,
+        "recency": 0.25,
+        "cost": 0.25,
+    }
+    w_map = dict(default_weights)
+    if weights:
+        for k, v in weights.items():
+            if k in w_map and v is not None:
+                try:
+                    w_map[k] = max(0.0, float(v))
+                except (ValueError, TypeError):
+                    pass
+
+    total_w = sum(w_map.values())
+    if total_w <= 0:
+        w_map = default_weights
+        total_w = 1.0
+    else:
+        w_map = {k: v / total_w for k, v in w_map.items()}
+
+    available_w = 0.0
+    weighted_sum = 0.0
+    breakdown = {}
+
+    for f_key, weight in w_map.items():
+        factor = factors.get(f_key, {})
+        f_score = factor.get("score")
+        if f_score is not None:
+            contrib = f_score * weight
+            weighted_sum += contrib
+            available_w += weight
+            breakdown[f_key] = {
+                "label": factor.get("label", f_key.title()),
+                "short_label": factor.get("short_label", f_key.title()),
+                "score": f_score,
+                "weight": round(weight * 100, 1),
+                "points": round(contrib, 2),
+                "color": factor.get("color", "#6366f1"),
+                "icon": factor.get("icon", "🔹"),
+            }
+        else:
+            breakdown[f_key] = {
+                "label": factor.get("label", f_key.title()),
+                "short_label": factor.get("short_label", f_key.title()),
+                "score": None,
+                "weight": round(weight * 100, 1),
+                "points": 0.0,
+                "color": factor.get("color", "#6366f1"),
+                "icon": factor.get("icon", "🔹"),
+            }
+
+    if available_w < 0.10:
+        personalized_score = None
+    else:
+        composite = weighted_sum / available_w
+        penalty = min(float(red_flag_penalty or 0.0), MAX_RED_FLAG_PENALTY)
+        personalized_score = round(max(0.0, min(100.0, composite - penalty)), 1)
+
+    return {
+        "personalized_score": personalized_score,
+        "badge": score_badge(personalized_score),
+        "weights": {k: round(v * 100, 1) for k, v in w_map.items()},
+        "breakdown": breakdown,
+        "red_flag_penalty": red_flag_penalty,
+    }
+
+
 # ── Category Rank ─────────────────────────────────────────────────────────────
 
 def compute_category_rank(scheme, final_score: Optional[float]) -> dict:
@@ -793,6 +1032,10 @@ def score_fund(snapshot) -> SimpleNamespace:
     missing_pillars = [name for name, w, p in pillar_results if p.get("score") is None and w > 0]
     provisional_pillars = [name for name, _, p in pillar_results if p.get("status") == STATUS_PROVISIONAL]
 
+    # Extract 4-factor breakdown (Stability / Consistency / Recency / Cost + Quality)
+    factors = _extract_factors(perf, risk, cost, comp, manager, debt, fund_type)
+    personalized = compute_personalized_score(factors, red["total_penalty"])
+
     return SimpleNamespace(
         final_score      = final_score,
         performance      = perf,
@@ -801,6 +1044,8 @@ def score_fund(snapshot) -> SimpleNamespace:
         composition      = comp,
         debt             = debt,
         manager          = manager,
+        factors          = factors,
+        personalized     = personalized,
         red_flags        = red,
         confidence       = confidence,
         overall_badge    = overall_badge,
@@ -812,3 +1057,4 @@ def score_fund(snapshot) -> SimpleNamespace:
         normalized_top10_weight = top10_weight,
         normalized_total_count  = total_count,
     )
+

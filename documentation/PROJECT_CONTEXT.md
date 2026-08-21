@@ -31,7 +31,7 @@ Indian mutual funds comprise over 14,000 active schemes. Downloading all NAV dat
    - **NAV:** Fetches historical NAV from mfapi.in (primary), mftool (fallback)
    - **Metadata:** Fetches from captnemo by ISIN; falls back to a same-fund sibling growth plan with a UI label indicating it's a reference value
    - **Holdings/Sectors:** Uses mstarpy (Morningstar) first, then yahooquery fallback after Yahoo ticker resolution
-   - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, quarterly top/worst performance, **Macro Stress Testing (Crisis Period Behaviour across 6 crash events)**, and **Market-Regime Analysis (across 5 economic cycles with per-window breakdowns)**.
+   - **Analytics:** Computes all metrics in memory — trailing returns, rolling returns, risk metrics, drawdown, quarterly top/worst performance, **Macro Stress Testing (Crisis Period Behaviour across 6 crash events)**, **Market-Regime Analysis (across 5 economic cycles with per-window breakdowns)**, and **Personalized Multi-Factor Scoring (Stability, Consistency, Recency, Cost, Quality)**.
 3. **Peer Matching:** `apps.funds.peers.get_peer_matches(scheme)` fingerprints scheme names and basic metadata to rank peers even when `scheme_category` is empty.
 4. **Market Intelligence & Ticker Strip:** `apps/benchmarks/metric_providers.py` provides 24 core market metrics plus custom fund/benchmark monitor calculations.
 5. **Portfolio & Benchmarks** are the only data fully persisted in the database.

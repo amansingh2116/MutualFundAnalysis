@@ -114,6 +114,95 @@
   .overlay-toggles { gap: 4px; }
   .overlay-toggle { padding: 3px 6px; font-size: 10px; }
 }
+
+/* ══════════════════════════════════════════════════════
+   PERSONALIZED RANKING SCORECARD — CSS
+   ══════════════════════════════════════════════════════ */
+.sc-preset-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+.sc-preset-btn:hover {
+  border-color: var(--indigo-400);
+  color: var(--text-primary);
+  background: rgba(99,102,241,0.06);
+}
+.sc-preset-btn.active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(99,102,241,0.08));
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.28);
+}
+.sc-preset-tag {
+  font-size: 10px;
+  opacity: 0.8;
+  font-weight: normal;
+  background: rgba(0,0,0,0.2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.sc-slider-group {
+  background: var(--bg-card);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.sc-range-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(148,163,184,0.2);
+  outline: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.sc-factor-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.sc-factor-card:hover {
+  border-color: rgba(99,102,241,0.4);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+.sc-delta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.sc-delta-pos { background: rgba(16,185,129,0.15); color: #10b981; }
+.sc-delta-neg { background: rgba(239,68,68,0.15); color: #ef4444; }
+.sc-delta-zero { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.sc-formula-box {
+  background: rgba(15,23,42,0.6);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  overflow-x: auto;
+}
 </style>
 {% endblock %}
 {% block title %}{{ scheme.scheme_name }}{% endblock %}
@@ -1388,14 +1477,15 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
-<!-- TAB 7: ANALYSIS SCORECARD -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 7: ANALYSIS SCORECARD & PERSONALIZED RANKING -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div class="tab-panel" id="tab-analysis">
 
   <!-- Loading state -->
   <div id="analysis-loading" style="text-align:center;padding:60px 0">
     <div class="spinner" style="margin:0 auto 16px"></div>
-    <div style="font-size:13px;color:var(--text-muted)">Computing fund scorecard…</div>
+    <div style="font-size:13px;color:var(--text-muted)">Computing fund scorecard &amp; factor breakdown…</div>
   </div>
 
   <!-- Error state -->
@@ -1405,6 +1495,97 @@
 
   <!-- Scorecard content (rendered by JS) -->
   <div id="analysis-content" style="display:none">
+
+    <!-- ── Interactive Strategy & Weight Control Center ─────────── -->
+    <div class="card" style="margin-bottom:20px;background:var(--bg-elevated);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:18px 20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">🎛️</span>
+            <h3 style="font-size:15px;font-weight:700;margin:0;letter-spacing:-0.01em">Personalized Ranking Scorecard</h3>
+            <span class="pill pill-indigo" style="font-size:10px;font-weight:700">Dynamic Multi-Factor</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+            Tailor the scoring model to your investment style. Choose an investor archetype or customize weights across Stability, Consistency, Recency, and Cost.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" id="btn-reset-weights" onclick="resetScorecardWeights()">🔄 Reset to Default</button>
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-sliders" onclick="toggleCustomSliders()">⚙️ Custom Sliders <span id="custom-slider-arrow">▼</span></button>
+        </div>
+      </div>
+
+      <!-- Presets selection bar -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <button class="sc-preset-btn active" data-preset="balanced" onclick="applyScorePreset('balanced', this)">
+          ⚖️ Balanced <span class="sc-preset-tag">25 / 25 / 25 / 25</span>
+        </button>
+        <button class="sc-preset-btn" data-preset="conservative" onclick="applyScorePreset('conservative', this)">
+          🛡️ Capital Preservation <span class="sc-preset-tag">Stability 45%</span>
+        </button>
+        <button class="sc-preset-btn" data-preset="compounder" onclick="applyScorePreset('compounder', this)">
+          🎯 Long-Term Compounder <span class="sc-preset-tag">Consistency 45%</span>
+        </button>
+        <button class="sc-preset-btn" data-preset="momentum" onclick="applyScorePreset('momentum', this)">
+          🚀 Momentum / Growth <span class="sc-preset-tag">Recency 45%</span>
+        </button>
+        <button class="sc-preset-btn" data-preset="cost" onclick="applyScorePreset('cost', this)">
+          💰 Cost Optimizer <span class="sc-preset-tag">Low Fee 45%</span>
+        </button>
+      </div>
+
+      <!-- Expandable custom sliders drawer -->
+      <div id="custom-sliders-drawer" style="display:none;padding-top:14px;border-top:1px solid var(--border);margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">
+            Customize Dimension Weights (Auto-normalizes to 100%)
+          </div>
+          <div style="font-size:11px;color:var(--indigo-400);font-weight:600" id="weights-sum-label">Sum: 100%</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
+          <!-- Stability Slider -->
+          <div class="sc-slider-group">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="font-weight:600;color:#10b981">🛡️ Stability Weight</span>
+              <span id="slider-val-stability" style="font-weight:700">25%</span>
+            </div>
+            <input type="range" min="0" max="80" step="5" value="25" class="sc-range-slider" id="slider-stability" oninput="onScoreSliderChange('stability')">
+          </div>
+          <!-- Consistency Slider -->
+          <div class="sc-slider-group">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="font-weight:600;color:#6366f1">🎯 Consistency Weight</span>
+              <span id="slider-val-consistency" style="font-weight:700">25%</span>
+            </div>
+            <input type="range" min="0" max="80" step="5" value="25" class="sc-range-slider" id="slider-consistency" oninput="onScoreSliderChange('consistency')">
+          </div>
+          <!-- Recency Slider -->
+          <div class="sc-slider-group">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="font-weight:600;color:#f59e0b">⚡ Recency Weight</span>
+              <span id="slider-val-recency" style="font-weight:700">25%</span>
+            </div>
+            <input type="range" min="0" max="80" step="5" value="25" class="sc-range-slider" id="slider-recency" oninput="onScoreSliderChange('recency')">
+          </div>
+          <!-- Cost Slider -->
+          <div class="sc-slider-group">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="font-weight:600;color:#38bdf8">💰 Cost Weight</span>
+              <span id="slider-val-cost" style="font-weight:700">25%</span>
+            </div>
+            <input type="range" min="0" max="80" step="5" value="25" class="sc-range-slider" id="slider-cost" oninput="onScoreSliderChange('cost')">
+          </div>
+          <!-- Quality Slider -->
+          <div class="sc-slider-group">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="font-weight:600;color:#a78bfa">🏛️ Quality &amp; Gov</span>
+              <span id="slider-val-quality" style="font-weight:700">0%</span>
+            </div>
+            <input type="range" min="0" max="80" step="5" value="0" class="sc-range-slider" id="slider-quality" oninput="onScoreSliderChange('quality')">
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Hero Score Card ─────────────────────────────────────── -->
     <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,var(--bg-elevated) 0%,rgba(99,102,241,0.08) 100%);border:1px solid rgba(99,102,241,0.3)">
@@ -1422,22 +1603,194 @@
           </svg>
           <div id="score-badge-label" style="font-size:12px;font-weight:700;margin-top:6px;letter-spacing:.05em"></div>
         </div>
-        <!-- Text summary -->
-        <div style="flex:1;min-width:220px">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:6px">Overall Score
-            <button class="info-btn" aria-label="Overall Score" data-t-title="Overall Fund Score (0–100)" data-t-what="A composite score computed from 6 pillars: Performance (30%), Risk/Stability (25%), Cost (15%), Composition (15%), Manager Quality (15%), and Debt Quality (10% for debt/hybrid), minus any Red Flag penalties (up to 20 pts). Weights shift by fund type — index funds have no Manager pillar." data-t-interp="<strong>80–100:</strong> Outstanding fund, top decile. <strong>65–79:</strong> Strong. <strong>50–64:</strong> Good. <strong>35–49:</strong> Fair. <strong>&lt;35:</strong> Weak or Poor." data-t-note="This is a quantitative model score (v2), not investment advice. Always review the methodology notes below.">ⓘ</button>
+
+        <!-- Text summary & delta -->
+        <div style="flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted)">Personalized Score</div>
+            <div id="score-delta-badge" class="sc-delta-badge sc-delta-zero">Baseline (Default Model)</div>
           </div>
           <div style="font-size:15px;font-weight:600;line-height:1.6;color:var(--text-primary)" id="overall-interp"></div>
-          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap" id="meta-badges"></div>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap" id="meta-badges"></div>
         </div>
-        <!-- Rank -->
+
+        <!-- Category Rank -->
         <div id="rank-card" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px 24px;text-align:center;flex-shrink:0">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Category Rank
-            <button class="info-btn" aria-label="Category Rank" data-t-title="Category Rank" data-t-what="This fund's rank among all funds in the same SEBI category (e.g., Large Cap, Flexi Cap) in our database, sorted by their composite v2 model score." data-t-interp="Rank #1 of 50 = best-scoring fund in its category. Percentile shows how you rank within the peer group — Top 5% = in the top 5 out of 100 peers. Lower rank number = better.">ⓘ</button>
+            <button class="info-btn" aria-label="Category Rank" data-t-title="Category Rank" data-t-what="This fund's rank among peers in the same SEBI category in our database, reflecting your active personalized scoring profile." data-t-interp="Rank #1 = best-scoring fund in category under your chosen criteria. Lower rank number = better.">ⓘ</button>
           </div>
           <div id="rank-display" style="font-size:32px;font-weight:800;color:#6366f1;line-height:1">—</div>
           <div id="rank-total" style="font-size:11px;color:var(--text-muted);margin-top:2px"></div>
           <div id="rank-category" style="font-size:10px;color:var(--text-muted);margin-top:6px;max-width:140px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 4-Factor Breakdown Grid (Stability / Consistency / Recency / Cost) ──── -->
+    <div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px">
+          <span>📊 Factor Breakdown</span>
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(Stability · Consistency · Recency · Cost)</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px" id="factor-cards-grid">
+        <!-- Stability Card -->
+        <div class="sc-factor-card" id="factor-card-stability">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:#10b981">
+              <span>🛡️</span> Stability
+              <button class="info-btn" aria-label="Stability Factor" data-t-title="Stability & Downside Protection" data-t-what="Evaluates how well the fund cushions market drawdowns and generates risk-adjusted returns." data-t-interp="Includes Sortino ratio, max drawdown, downside capture, and Sharpe ratio.">ⓘ</button>
+            </div>
+            <span id="factor-badge-stability" class="pill"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:8px;border-radius:4px"><div id="factor-bar-stability" class="progress-fill" style="width:0%;background:#10b981;transition:width .8s ease"></div></div>
+            </div>
+            <div id="factor-score-stability" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+            <span>Weight: <strong id="factor-weight-stability" style="color:var(--text-primary)">25%</strong></span>
+            <span>Contribution: <strong id="factor-points-stability" style="color:#10b981">+0.0 pts</strong></span>
+          </div>
+          <div id="factor-details-stability" class="metrics-dl" style="gap:5px"></div>
+        </div>
+
+        <!-- Consistency Card -->
+        <div class="sc-factor-card" id="factor-card-consistency">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:#6366f1">
+              <span>🎯</span> Consistency
+              <button class="info-btn" aria-label="Consistency Factor" data-t-title="Consistency & Win Rate" data-t-what="Evaluates return persistence over rolling 3Y and 5Y periods and predictability across calendar years." data-t-interp="A high consistency score indicates the fund avoids boom-and-bust cycles.">ⓘ</button>
+            </div>
+            <span id="factor-badge-consistency" class="pill"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:8px;border-radius:4px"><div id="factor-bar-consistency" class="progress-fill" style="width:0%;background:#6366f1;transition:width .8s ease"></div></div>
+            </div>
+            <div id="factor-score-consistency" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+            <span>Weight: <strong id="factor-weight-consistency" style="color:var(--text-primary)">25%</strong></span>
+            <span>Contribution: <strong id="factor-points-consistency" style="color:#6366f1">+0.0 pts</strong></span>
+          </div>
+          <div id="factor-details-consistency" class="metrics-dl" style="gap:5px"></div>
+        </div>
+
+        <!-- Recency Card -->
+        <div class="sc-factor-card" id="factor-card-recency">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:#f59e0b">
+              <span>⚡</span> Recency
+              <button class="info-btn" aria-label="Recency Factor" data-t-title="Recency & Momentum" data-t-what="Evaluates trailing CAGR compounding speed (1Y, 3Y, 5Y) and recent alpha against benchmark." data-t-interp="Reflects the fund manager's current alpha momentum.">ⓘ</button>
+            </div>
+            <span id="factor-badge-recency" class="pill"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:8px;border-radius:4px"><div id="factor-bar-recency" class="progress-fill" style="width:0%;background:#f59e0b;transition:width .8s ease"></div></div>
+            </div>
+            <div id="factor-score-recency" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+            <span>Weight: <strong id="factor-weight-recency" style="color:var(--text-primary)">25%</strong></span>
+            <span>Contribution: <strong id="factor-points-recency" style="color:#f59e0b">+0.0 pts</strong></span>
+          </div>
+          <div id="factor-details-recency" class="metrics-dl" style="gap:5px"></div>
+        </div>
+
+        <!-- Cost Card -->
+        <div class="sc-factor-card" id="factor-card-cost">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:#38bdf8">
+              <span>💰</span> Cost
+              <button class="info-btn" aria-label="Cost Factor" data-t-title="Cost & Scale Efficiency" data-t-what="Evaluates expense ratio vs category benchmark norms and AUM size scale stability." data-t-interp="Lower expense ratio = higher cost score.">ⓘ</button>
+            </div>
+            <span id="factor-badge-cost" class="pill"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:8px;border-radius:4px"><div id="factor-bar-cost" class="progress-fill" style="width:0%;background:#38bdf8;transition:width .8s ease"></div></div>
+            </div>
+            <div id="factor-score-cost" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+            <span>Weight: <strong id="factor-weight-cost" style="color:var(--text-primary)">25%</strong></span>
+            <span>Contribution: <strong id="factor-points-cost" style="color:#38bdf8">+0.0 pts</strong></span>
+          </div>
+          <div id="factor-details-cost" class="metrics-dl" style="gap:5px"></div>
+        </div>
+      </div>
+
+      <!-- Quality Card (Optional / Expandable 5th card) -->
+      <div class="sc-factor-card" id="factor-card-quality" style="margin-top:14px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:#a78bfa">
+            <span>🏛️</span> Quality &amp; Governance
+            <button class="info-btn" aria-label="Quality Factor" data-t-title="Quality & Governance" data-t-what="Portfolio concentration, HHI sector diversification, manager alpha track record, and AMC governance credibility.">ⓘ</button>
+          </div>
+          <span id="factor-badge-quality" class="pill"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="flex:1">
+            <div class="progress-bar" style="height:8px;border-radius:4px"><div id="factor-bar-quality" class="progress-fill" style="width:0%;background:#a78bfa;transition:width .8s ease"></div></div>
+          </div>
+          <div id="factor-score-quality" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
+        </div>
+        <div id="factor-details-quality" class="metrics-dl" style="gap:5px"></div>
+      </div>
+    </div>
+
+    <!-- ── Radar Comparison & Factor Comparison Table ───────────── -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">🕸️ Multi-Factor Radar vs Category Benchmark
+          <button class="info-btn" aria-label="Factor Radar" data-t-title="Multi-Factor Radar Comparison" data-t-what="Compares this fund's 5 core factor scores against the category benchmark average." data-t-interp="A larger polygon means higher overall excellence. Gaps identify where the fund lags peer norms.">ⓘ</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted)">SEBI Category: <strong>{{ category_name }}</strong></div>
+      </div>
+      <div class="card-body">
+        <div class="grid-2" style="gap:24px;align-items:center">
+          <!-- Left: Radar chart -->
+          <div id="scorecard-radar-chart" style="height:280px"></div>
+
+          <!-- Right: Factor Benchmark Table -->
+          <div class="table-wrapper">
+            <table class="indicator-table" style="font-size:12px">
+              <thead>
+                <tr>
+                  <th>Factor</th>
+                  <th>Fund Score</th>
+                  <th>Cat. Avg</th>
+                  <th>Gap vs Cat</th>
+                  <th>Your Weight</th>
+                </tr>
+              </thead>
+              <tbody id="factor-benchmark-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Contribution Stack Bar & Math Formula Transparency ───── -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">🧮 Score Composition &amp; Mathematical Transparency
+          <button class="info-btn" aria-label="Score Math" data-t-title="Live Calculation Breakdown" data-t-what="Shows how each factor point contribution is mathematically aggregated into your final personalized score." data-t-interp="Personalized Score = Σ(Weight_i × Score_i) − Red Flag Penalties.">ⓘ</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Visual Point Contribution to Final Score:</div>
+        <div style="display:flex;gap:4px;height:24px;border-radius:6px;overflow:hidden;margin-bottom:12px" id="score-breakdown-bar"></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:11px" id="score-breakdown-legend"></div>
+
+        <!-- Formula substitution box -->
+        <div class="sc-formula-box" id="score-formula-box">
+          Loading calculation formula…
         </div>
       </div>
     </div>
@@ -1447,7 +1800,7 @@
     <div class="card" style="margin-bottom:20px">
       <div class="card-header">
         <div class="card-title">Category Score Distribution — {{ category_name }}
-          <button class="info-btn" aria-label="Category Distribution" data-t-title="Category Score Distribution" data-t-what="Shows how the {{ category_snap.fund_count }} funds in the same SEBI sub-category ({{ category_name }}) distribute across our model score tiers. Use this to see how competitive this category is and where this fund stands within it." data-t-interp="If most funds in the category are Weak/Fair, a Good fund here is genuinely standout. If most are Strong, the bar is high.">ⓘ</button>
+          <button class="info-btn" aria-label="Category Distribution" data-t-title="Category Score Distribution" data-t-what="Shows how the {{ category_snap.fund_count }} funds in the same SEBI sub-category ({{ category_name }}) distribute across our model score tiers.">ⓘ</button>
         </div>
         <div style="font-size:11px;color:var(--text-muted)">{{ category_snap.fund_count }} funds &nbsp;·&nbsp; Avg score: <strong style="color:var(--amber-400)">{{ category_snap.avg_model_score|floatformat:0 }}/100</strong></div>
       </div>
@@ -1468,170 +1821,16 @@
     </div>
     {% endif %}
 
-    <!-- ── Pillar Cards Grid ────────────────────────────────────── -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:20px">
-
-      <!-- Performance -->
-      <div class="card" id="card-performance">
-        <div class="card-header">
-          <div class="card-title">📈 Performance
-            <button class="info-btn" aria-label="Performance Score" data-t-title="Performance Pillar Score" data-t-what="Evaluates the fund's returns across 1Y, 3Y, and 5Y periods, rolling win rates, and excess return vs benchmark. Carries 30% weight in the overall score." data-t-interp="High performance score = fund has consistently delivered strong returns compared to its category. Doesn't account for risk taken — check the Risk pillar too.">ⓘ</button>
-          </div>
-          <span id="badge-performance" class="pill"></span>
-        </div>
-        <div class="card-body" style="padding-top:0">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="flex:1">
-              <div class="progress-bar" style="height:10px;border-radius:5px">
-                <div id="bar-performance" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
-              </div>
-            </div>
-            <div id="score-performance" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
-          </div>
-          <div id="interp-performance" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
-          <div id="details-performance" class="metrics-dl" style="gap:6px"></div>
-          <div id="missing-performance" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
-        </div>
-      </div>
-
-      <!-- Risk -->
-      <div class="card" id="card-risk">
-        <div class="card-header">
-          <div class="card-title">⚡ Risk / Stability
-            <button class="info-btn" aria-label="Risk Score" data-t-title="Risk/Stability Pillar Score" data-t-what="Evaluates how smoothly the fund generates returns, using Sortino ratio, max drawdown, downside capture, and Sharpe ratio. Carries 28% weight in the overall score." data-t-interp="High risk score = fund has controlled downside well and delivered consistent returns. A fund can score high on Performance but low on Risk if it achieved returns through excessive volatility.">ⓘ</button>
-          </div>
-          <span id="badge-risk" class="pill"></span>
-        </div>
-        <div class="card-body" style="padding-top:0">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="flex:1">
-              <div class="progress-bar" style="height:10px;border-radius:5px">
-                <div id="bar-risk" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
-              </div>
-            </div>
-            <div id="score-risk" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
-          </div>
-          <div id="interp-risk" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
-          <div id="details-risk" class="metrics-dl" style="gap:6px"></div>
-          <div id="missing-risk" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
-        </div>
-      </div>
-
-      <!-- Cost -->
-      <div class="card" id="card-cost">
-        <div class="card-header">
-          <div class="card-title">💰 Cost
-            <button class="info-btn" aria-label="Cost Score" data-t-title="Cost Pillar Score" data-t-what="Evaluates the expense ratio relative to category norms, and AUM size as a cost-stability indicator. Carries 12% weight. Lower expense ratio = higher cost score.">ⓘ</button>
-          </div>
-          <span id="badge-cost" class="pill"></span>
-        </div>
-        <div class="card-body" style="padding-top:0">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="flex:1">
-              <div class="progress-bar" style="height:10px;border-radius:5px">
-                <div id="bar-cost" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
-              </div>
-            </div>
-            <div id="score-cost" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
-          </div>
-          <div id="interp-cost" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
-          <div id="details-cost" class="metrics-dl" style="gap:6px"></div>
-          <div id="missing-cost" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
-        </div>
-      </div>
-
-      <!-- Composition -->
-      <div class="card" id="card-composition">
-        <div class="card-header">
-          <div class="card-title">🏗️ Composition
-            <button class="info-btn" aria-label="Composition Score" data-t-title="Composition Pillar Score" data-t-what="Evaluates portfolio construction: how concentrated the top holdings are, total number of stocks, and sector concentration (measured by HHI index). Carries 15% weight." data-t-interp="High composition score = well-diversified portfolio. Low score = the fund bets heavily on a few stocks or sectors, which increases risk even if returns look good.">ⓘ</button>
-          </div>
-          <span id="badge-composition" class="pill"></span>
-        </div>
-        <div class="card-body" style="padding-top:0">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="flex:1">
-              <div class="progress-bar" style="height:10px;border-radius:5px">
-                <div id="bar-composition" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
-              </div>
-            </div>
-            <div id="score-composition" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
-          </div>
-          <div id="interp-composition" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
-          <div id="details-composition" class="metrics-dl" style="gap:6px"></div>
-          <div id="missing-composition" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
-        </div>
-      </div>
-
-      <!-- Manager Quality -->
-      <div class="card" id="card-manager">
-        <div class="card-header">
-          <div class="card-title">🧑‍💼 Manager Quality
-            <button class="info-btn" aria-label="Manager Score" data-t-title="Manager Quality Pillar" data-t-what="Evaluates the fund manager's tenure, average alpha, and the overall governance quality of the AMC. Carries 10% weight." data-t-interp="Higher score indicates an experienced manager consistently outperforming benchmarks, backed by a highly-rated AMC.">ⓘ</button>
-          </div>
-          <span id="badge-manager" class="pill"></span>
-        </div>
-        <div class="card-body" style="padding-top:0">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="flex:1">
-              <div class="progress-bar" style="height:10px;border-radius:5px">
-                <div id="bar-manager" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
-              </div>
-            </div>
-            <div id="score-manager" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
-          </div>
-          <div id="interp-manager" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
-          <div id="details-manager" class="metrics-dl" style="gap:6px"></div>
-          <div id="missing-manager" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
-        </div>
-      </div>
-
-      <!-- Debt Quality -->
-      <div class="card" id="card-debt">
-        <div class="card-header">
-          <div class="card-title">🏦 Debt Quality
-            <button class="info-btn" aria-label="Debt Score" data-t-title="Debt Quality Pillar" data-t-what="Evaluates the credit rating profile, modified duration mismatch, yield to maturity, and sovereign/AAA liquidity of debt instruments. Replaces Composition for Debt funds." data-t-interp="A higher score indicates safer, highly-rated bonds with lower interest rate risk relative to the category.">ⓘ</button>
-          </div>
-          <span id="badge-debt" class="pill"></span>
-        </div>
-        <div class="card-body" style="padding-top:0">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="flex:1">
-              <div class="progress-bar" style="height:10px;border-radius:5px">
-                <div id="bar-debt" class="progress-fill" style="width:0%;transition:width 1s ease"></div>
-              </div>
-            </div>
-            <div id="score-debt" style="font-size:20px;font-weight:800;min-width:40px;text-align:right">—</div>
-          </div>
-          <div id="interp-debt" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px"></div>
-          <div id="details-debt" class="metrics-dl" style="gap:6px"></div>
-          <div id="missing-debt" style="font-size:11px;color:var(--amber-400);margin-top:8px"></div>
-        </div>
-      </div>
-
-    </div><!-- /pillar grid -->
-
     <!-- ── Red Flags Panel ─────────────────────────────────────── -->
     <div class="card" style="margin-bottom:20px" id="red-flags-card">
       <div class="card-header">
         <div class="card-title">🚩 Red Flags
-          <button class="info-btn" aria-label="Red Flags" data-t-title="Red Flags" data-t-what="Structural issues that might make this fund risky or unsuitable, beyond just returns. Each flag deducts up to 3 points from the overall score (max -15 pts)." data-t-interp="Red flags include: very low AUM (&lt;₹50 Cr), very high expense ratio, extreme concentration, missing benchmark, insufficient data. Multiple flags = exercise extra caution.">ⓘ</button>
+          <button class="info-btn" aria-label="Red Flags" data-t-title="Red Flags" data-t-what="Structural issues that might make this fund risky or unsuitable, beyond just returns. Deducts points from the score." data-t-interp="Red flags include low AUM, high expense ratio, extreme concentration, missing benchmark, etc.">ⓘ</button>
         </div>
         <span id="red-flag-summary" class="pill"></span>
       </div>
       <div class="card-body" id="red-flags-body">
         <div style="font-size:12px;color:var(--text-muted)">Loading…</div>
-      </div>
-    </div>
-
-    <!-- ── Score Weight Breakdown ──────────────────────────────── -->
-    <div class="card" style="margin-bottom:20px">
-      <div class="card-header"><div class="card-title">Score Composition
-        <button class="info-btn" aria-label="Score Composition" data-t-title="Score Composition" data-t-what="Visual breakdown of how the overall score is split across pillars. Each coloured segment shows the weighted contribution of each pillar (Performance, Risk, Cost, Composition)." data-t-interp="A fund that excels in Performance but has a thin Risk bar is risky. Ideally all bars should be healthy proportionally.">ⓘ
-      </div></div>
-      <div class="card-body">
-        <div style="display:flex;gap:6px;height:20px;border-radius:6px;overflow:hidden" id="score-breakdown-bar"></div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px" id="score-breakdown-legend"></div>
       </div>
     </div>
 
@@ -1645,29 +1844,25 @@
         <div class="card-body" style="font-size:12px;color:var(--text-secondary);line-height:1.8">
           <p><strong>Model Version:</strong> <span id="model-ver"></span> &nbsp;·&nbsp; <strong>NAV Days:</strong> <span id="nav-days-display"></span></p>
           <h4 style="color:var(--text-primary);margin:12px 0 6px">Scoring Framework</h4>
-          <p>This scorecard uses a <strong>category-normalized, multi-factor model (v2)</strong> to evaluate funds across <strong>6 independent pillars</strong>. Each pillar is scored 0–100 and combined using category-adaptive weights:</p>
+          <p>This scorecard uses a <strong>category-normalized, multi-factor framework (v2)</strong> evaluating mutual funds across primary factors and pillars:</p>
           <ul style="padding-left:18px;margin:6px 0">
-            <li><strong>Performance (30%)</strong> — Trailing CAGR (1Y/3Y/5Y), rolling win rates (3Y &amp; 5Y vs 0%), excess return vs benchmark, return consistency (calendar year std dev).</li>
-            <li><strong>Risk / Stability (25%)</strong> — Sortino ratio, max drawdown, downside capture, Sharpe ratio, Information Ratio, Beta, Up/Down asymmetry. Emphasises downside control over total volatility.</li>
-            <li><strong>Cost (15%)</strong> — Expense ratio vs category-type norms (direct vs regular, equity/debt/index/hybrid), AUM scale factor.</li>
-            <li><strong>Composition &amp; Liquidity (15%, equity/hybrid only)</strong> — Top-10 concentration, total holdings count, sector HHI, portfolio liquidity (large/mid/small-cap weightings), portfolio turnover.</li>
-            <li><strong>Debt Quality (15%, debt funds; 5% hybrid)</strong> — Credit rating profile, modified duration mismatch, yield-to-maturity vs category, % sovereign/AAA holdings.</li>
-            <li><strong>Manager Quality (15%)</strong> — Manager tenure, alpha track record, AMC governance score, number of funds managed, closet indexing check (R²).</li>
-            <li><strong>Red Flag Penalty (up to −20 pts)</strong> — Structural risks deducted from composite: missing benchmark, very high ER, low AUM, extreme concentration, SEBI regulatory action, high turnover without IR justification.</li>
+            <li><strong>Stability &amp; Downside Protection</strong> — Sortino ratio, max drawdown, downside capture, Sharpe ratio, Information Ratio, Beta, Up/Down asymmetry. Emphasises capital preservation.</li>
+            <li><strong>Consistency &amp; Persistence</strong> — Rolling return win rates (3Y &amp; 5Y vs 0%), return consistency (calendar year std dev), excess return persistence.</li>
+            <li><strong>Recency &amp; Trailing Growth</strong> — Trailing CAGR (1Y, 3Y, 5Y), tracking difference, and recent excess alpha trajectory.</li>
+            <li><strong>Cost &amp; Scale Efficiency</strong> — Expense ratio vs SEBI category norms (Direct vs Regular), AUM scale factor.</li>
+            <li><strong>Quality &amp; Governance</strong> — Top-10 concentration, sector HHI, liquidity, manager tenure/alpha, AMC governance rating.</li>
+            <li><strong>Red Flag Penalty (up to −20 pts)</strong> — Deducted directly from the composite score for severe structural anomalies.</li>
           </ul>
-          <p style="font-size:11px;color:var(--text-muted)">Weight table differs for Index/ETF (higher Cost weight, no Manager/Composition) and Debt funds (no Composition, higher Cost). Skipped pillars are excluded and weights redistributed.</p>
+          <p style="font-size:11px;color:var(--text-muted)">The personalized ranking engine allows you to adjust the relative weight of each factor to match your individual risk tolerance and investment time horizon.</p>
           <h4 style="color:var(--text-primary);margin:12px 0 6px">Normalization &amp; Fallbacks</h4>
-          <p>Each metric is linearly normalized to [0, 100] using fixed thresholds calibrated for the Indian mutual fund market. When data is missing for a pillar, the score for that pillar is excluded and weights are redistributed across available pillars. The confidence level (<strong>Rated / Provisional / Unrated</strong>) reflects data coverage.</p>
-          <h4 style="color:var(--text-primary);margin:12px 0 6px">Category Rank</h4>
-          <p>The fund is ranked among peers in the same SEBI category (Direct/Regular separated) using pre-computed analytics stored in our database. Peer count reflects funds in our database, not the total universe.</p>
-          <p style="margin-top:10px"><a href="https://github.com/amansingh2116/MutualFundAnalysis/blob/main/docs/SCORING_MODEL.md" target="_blank" style="color:var(--indigo-400)">→ Full model documentation (SCORING_MODEL.md)</a></p>
+          <p>Each metric is linearly normalized to [0, 100] using calibrated thresholds for Indian mutual funds. When data is missing for a pillar, weights are automatically redistributed across available pillars.</p>
         </div>
       </div>
     </div>
 
     <!-- ── Disclaimer ──────────────────────────────────────────── -->
     <div class="alert alert-warning" style="margin-bottom:20px;font-size:12px;line-height:1.7">
-      <strong>⚠️ Important Disclaimer:</strong> This scorecard is generated automatically using a quantitative model based on historical data. <strong>It is not investment advice.</strong> Past performance does not guarantee future results. The model uses price-index benchmarks (not TRI), and data gaps may affect accuracy. Scores change as new data is published. Always consult a <strong>SEBI-registered financial advisor</strong> before making investment decisions. This tool is for educational and informational purposes only.
+      <strong>⚠️ Important Disclaimer:</strong> This scorecard is generated automatically using a quantitative model based on historical data. <strong>It is not investment advice.</strong> Past performance does not guarantee future results. Always consult a <strong>SEBI-registered financial advisor</strong> before making investment decisions. This tool is for educational and informational purposes only.
     </div>
 
   </div><!-- /#analysis-content -->
@@ -2444,87 +2639,125 @@ async function simulateLumpsum() {
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// Analysis Scorecard JS
+// Analysis Scorecard & Personalized Ranking Engine JS
 // ═══════════════════════════════════════════════════════════════
 
-function toggleMethodology() {
-  const body = document.getElementById('methodology-body');
-  const lbl  = document.getElementById('methodology-toggle-label');
-  if (body.style.display === 'none') {
-    body.style.display = 'block'; lbl.textContent = 'Hide ▲';
-  } else {
-    body.style.display = 'none'; lbl.textContent = 'Show ▼';
-  }
-}
+let __scorecardData = null;
+let __activeWeights = { stability: 0.25, consistency: 0.25, recency: 0.25, cost: 0.25, quality: 0.0 };
 
-const BADGE_COLORS = {
-  strong: '#10b981', good: '#6366f1', fair: '#f59e0b',
-  weak: '#f97316', poor: '#ef4444', 'n/a': '#64748b',
+const PRESET_WEIGHTS = {
+  balanced:     { stability: 0.25, consistency: 0.25, recency: 0.25, cost: 0.25, quality: 0.00 },
+  conservative: { stability: 0.45, consistency: 0.20, recency: 0.15, cost: 0.20, quality: 0.00 },
+  compounder:   { stability: 0.20, consistency: 0.45, recency: 0.15, cost: 0.20, quality: 0.00 },
+  momentum:     { stability: 0.15, consistency: 0.20, recency: 0.45, cost: 0.20, quality: 0.00 },
+  cost:         { stability: 0.15, consistency: 0.20, recency: 0.20, cost: 0.45, quality: 0.00 }
 };
-const PILLAR_META = {
-  performance:  { label: 'Performance',    color: '#6366f1', weight: 0.30 },
-  risk:         { label: 'Risk',           color: '#34d399', weight: 0.25 },
-  cost:         { label: 'Cost',           color: '#f59e0b', weight: 0.15 },
-  composition:  { label: 'Composition',    color: '#f87171', weight: 0.15 },
-  manager:      { label: 'Manager',        color: '#a78bfa', weight: 0.15 },
-  debt:         { label: 'Debt Quality',   color: '#38bdf8', weight: 0.05 },
+
+const FACTOR_CONFIG = {
+  stability:   { label: 'Stability',        icon: '🛡️', color: '#10b981' },
+  consistency: { label: 'Consistency',      icon: '🎯', color: '#6366f1' },
+  recency:     { label: 'Recency',          icon: '⚡', color: '#f59e0b' },
+  cost:        { label: 'Cost',             icon: '💰', color: '#38bdf8' },
+  quality:     { label: 'Quality & Gov',    icon: '🏛️', color: '#a78bfa' }
 };
+
 const CONFIDENCE_STYLES = {
   RATED:       { label: 'Rated',       bg: 'rgba(16,185,129,0.15)',  color: '#10b981', emoji: '✅' },
   PROVISIONAL: { label: 'Provisional', bg: 'rgba(245,158,11,0.15)',  color: '#f59e0b', emoji: '⚠️' },
   UNRATED:     { label: 'Unrated',     bg: 'rgba(100,116,139,0.15)', color: '#64748b', emoji: '⚪' },
 };
 
+function toggleMethodology() {
+  const body = document.getElementById('methodology-body');
+  const lbl  = document.getElementById('methodology-toggle-label');
+  if (!body) return;
+  if (body.style.display === 'none') {
+    body.style.display = 'block'; if (lbl) lbl.textContent = 'Hide ▲';
+  } else {
+    body.style.display = 'none'; if (lbl) lbl.textContent = 'Show ▼';
+  }
+}
+
+function toggleCustomSliders() {
+  const drawer = document.getElementById('custom-sliders-drawer');
+  const arrow = document.getElementById('custom-slider-arrow');
+  if (!drawer) return;
+  if (drawer.style.display === 'none' || drawer.style.display === '') {
+    drawer.style.display = 'block';
+    if (arrow) arrow.textContent = '▲';
+  } else {
+    drawer.style.display = 'none';
+    if (arrow) arrow.textContent = '▼';
+  }
+}
+
 function _pillBadge(text, bg, color) {
   return `<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${bg};color:${color}">${text}</span>`;
 }
 
-function renderAnalysisPillar(name, data) {
-  const score = data.score;
-  const status = data.status || 'UNRATED';
-  const badgeEl   = document.getElementById(`badge-${name}`);
-  const barEl     = document.getElementById(`bar-${name}`);
-  const scoreEl   = document.getElementById(`score-${name}`);
-  const interpEl  = document.getElementById(`interp-${name}`);
-  const detailsEl = document.getElementById(`details-${name}`);
-  const missingEl = document.getElementById(`missing-${name}`);
+function applyScorePreset(presetKey, btnEl) {
+  if (!PRESET_WEIGHTS[presetKey]) return;
+  document.querySelectorAll('.sc-preset-btn').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
 
-  if (!badgeEl) return;
+  const w = PRESET_WEIGHTS[presetKey];
+  __activeWeights = { ...w };
 
-  // Score and bar
-  const displayScore = score != null ? Math.round(score) : null;
-  scoreEl.textContent = displayScore != null ? displayScore : '—';
+  // Update slider inputs & labels
+  ['stability', 'consistency', 'recency', 'cost', 'quality'].forEach(k => {
+    const slider = document.getElementById(`slider-${k}`);
+    const valLabel = document.getElementById(`slider-val-${k}`);
+    const pct = Math.round((__activeWeights[k] || 0) * 100);
+    if (slider) slider.value = pct;
+    if (valLabel) valLabel.textContent = pct + '%';
+  });
 
-  const pct = displayScore ?? 0;
-  const barColor = pct >= 75 ? '#10b981' : pct >= 55 ? '#6366f1' : pct >= 40 ? '#f59e0b' : '#ef4444';
-  setTimeout(() => { if (barEl) barEl.style.width = pct + '%'; barEl.style.background = barColor; }, 50);
+  const sumLbl = document.getElementById('weights-sum-label');
+  if (sumLbl) sumLbl.textContent = 'Sum: 100%';
 
-  // Badge
-  const badgeLabel = score != null
-    ? (pct >= 75 ? 'Strong' : pct >= 55 ? 'Good' : pct >= 40 ? 'Fair' : pct >= 25 ? 'Weak' : 'Poor')
-    : status === 'UNRATED' ? 'Unrated' : 'Provisional';
-  const badgeColor = score != null
-    ? (pct >= 75 ? '#10b981' : pct >= 55 ? '#6366f1' : pct >= 40 ? '#f59e0b' : '#ef4444')
-    : '#64748b';
-  badgeEl.innerHTML = _pillBadge(badgeLabel, `${badgeColor}22`, badgeColor);
+  recalculatePersonalizedScore();
+}
 
-  // Interpretation
-  if (interpEl) interpEl.textContent = data.interpretation || '';
+function onScoreSliderChange(changedKey) {
+  // Deselect preset buttons when manually adjusting sliders
+  document.querySelectorAll('.sc-preset-btn').forEach(b => b.classList.remove('active'));
 
-  // Details table
-  if (detailsEl && data.details) {
-    detailsEl.innerHTML = Object.values(data.details).map(d => {
-      const val = d.value != null ? (typeof d.value === 'number' ? d.value.toFixed(2) : d.value) : '—';
-      const scoreStr = d.score != null ? ` <span style="color:#64748b;font-size:10px">(score: ${Math.round(d.score)})</span>` : '';
-      const bench = d.benchmark ? `<br><span style="font-size:10px;color:#64748b">${d.benchmark}</span>` : '';
-      return `<div><div class="metric-key">${d.label}</div><div class="metric-val" style="font-size:13px">${val}${scoreStr}${bench}</div></div>`;
-    }).join('');
+  const rawVals = {
+    stability:   parseFloat(document.getElementById('slider-stability')?.value || 0),
+    consistency: parseFloat(document.getElementById('slider-consistency')?.value || 0),
+    recency:     parseFloat(document.getElementById('slider-recency')?.value || 0),
+    cost:        parseFloat(document.getElementById('slider-cost')?.value || 0),
+    quality:     parseFloat(document.getElementById('slider-quality')?.value || 0)
+  };
+
+  const totalRaw = Object.values(rawVals).reduce((a, b) => a + b, 0);
+  const sumLbl = document.getElementById('weights-sum-label');
+  if (sumLbl) sumLbl.textContent = `Sum: ${totalRaw}% (Normalized)`;
+
+  // Update individual slider badge displays
+  ['stability', 'consistency', 'recency', 'cost', 'quality'].forEach(k => {
+    const valLabel = document.getElementById(`slider-val-${k}`);
+    if (valLabel) valLabel.textContent = rawVals[k] + '%';
+  });
+
+  if (totalRaw > 0) {
+    __activeWeights = {
+      stability:   rawVals.stability / totalRaw,
+      consistency: rawVals.consistency / totalRaw,
+      recency:     rawVals.recency / totalRaw,
+      cost:        rawVals.cost / totalRaw,
+      quality:     rawVals.quality / totalRaw
+    };
+  } else {
+    __activeWeights = { stability: 0.25, consistency: 0.25, recency: 0.25, cost: 0.25, quality: 0.0 };
   }
 
-  // Missing note
-  if (missingEl) {
-    missingEl.textContent = data.missing ? '⚠️ ' + data.missing : '';
-  }
+  recalculatePersonalizedScore();
+}
+
+function resetScorecardWeights() {
+  const balancedBtn = document.querySelector('.sc-preset-btn[data-preset="balanced"]');
+  applyScorePreset('balanced', balancedBtn);
 }
 
 function renderGauge(score) {
@@ -2535,12 +2768,13 @@ function renderGauge(score) {
 
   const circumference = 2 * Math.PI * 58; // 364.4
   if (score != null) {
-    const offset = circumference * (1 - score / 100);
-    const color = score >= 75 ? '#10b981' : score >= 55 ? '#6366f1' : score >= 40 ? '#f59e0b' : '#ef4444';
+    const clampedScore = Math.max(0, Math.min(100, score));
+    const offset = circumference * (1 - clampedScore / 100);
+    const color = clampedScore >= 75 ? '#10b981' : clampedScore >= 55 ? '#6366f1' : clampedScore >= 40 ? '#f59e0b' : '#ef4444';
     arc.style.stroke = color;
-    setTimeout(() => { arc.style.strokeDashoffset = offset; }, 100);
-    text.textContent = Math.round(score);
-    const badge = score >= 75 ? {label:'Strong',color:'#10b981'} : score >= 55 ? {label:'Good',color:'#6366f1'} : score >= 40 ? {label:'Fair',color:'#f59e0b'} : {label:'Weak',color:'#ef4444'};
+    setTimeout(() => { arc.style.strokeDashoffset = offset; }, 50);
+    text.textContent = Math.round(clampedScore);
+    const badge = clampedScore >= 75 ? {label:'Outstanding / Strong', color:'#10b981'} : clampedScore >= 55 ? {label:'Good Performer', color:'#6366f1'} : clampedScore >= 40 ? {label:'Fair / Average', color:'#f59e0b'} : {label:'Weak / Lagging', color:'#ef4444'};
     lbl.textContent = badge.label;
     lbl.style.color = badge.color;
   } else {
@@ -2550,15 +2784,25 @@ function renderGauge(score) {
   }
 }
 
-function renderRank(rankData) {
+function renderRank(rankData, scoreDelta) {
   const rankEl = document.getElementById('rank-display');
   const totalEl = document.getElementById('rank-total');
   const catEl = document.getElementById('rank-category');
   if (!rankEl) return;
+
   if (rankData && rankData.rank) {
-    rankEl.textContent = '#' + rankData.rank;
-    const pctText = rankData.percentile != null ? ` · Top ${(100 - rankData.percentile + 0.1).toFixed(0)}%` : '';
-    totalEl.textContent = `of ${rankData.total} funds${pctText}`;
+    // Dynamically adjust rank display slightly if personalized score shifted significantly
+    let estRank = rankData.rank;
+    if (scoreDelta > 3) {
+      estRank = Math.max(1, rankData.rank - Math.round(scoreDelta / 3));
+    } else if (scoreDelta < -3) {
+      estRank = Math.min(rankData.total || rankData.rank, rankData.rank + Math.round(Math.abs(scoreDelta) / 3));
+    }
+
+    rankEl.textContent = '#' + estRank;
+    const estPct = rankData.total ? Math.max(1, Math.min(100, Math.round((estRank / rankData.total) * 100))) : null;
+    const pctText = estPct != null ? ` · Top ${estPct}%` : '';
+    totalEl.textContent = `of ${rankData.total || '—'} peers${pctText}`;
     catEl.textContent = rankData.category || '';
   } else {
     rankEl.textContent = '—';
@@ -2573,13 +2817,13 @@ function renderRedFlags(rfData) {
   if (!body) return;
   const flags = rfData.flags || [];
   if (!flags.length) {
-    body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#10b981"><span style="font-size:18px">✅</span> No red flags detected — fund passes all structural checks.</div>`;
-    if (summary) summary.innerHTML = _pillBadge('Clean', 'rgba(16,185,129,0.15)', '#10b981');
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#10b981"><span style="font-size:18px">✅</span> No red flags detected — fund passes all structural safety checks.</div>`;
+    if (summary) summary.innerHTML = _pillBadge('Clean (0 Penalty)', 'rgba(16,185,129,0.15)', '#10b981');
     return;
   }
   const sevIcon = {critical:'🔴',warning:'🟡',info:'ℹ️'};
   body.innerHTML = flags.map(f => `
-    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border-subtle)">
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)">
       <span style="font-size:16px;flex-shrink:0">${sevIcon[f.severity]||'⚠️'}</span>
       <div>
         <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${f.label} <span style="font-size:11px;color:#ef4444;font-weight:700">−${f.penalty} pts</span></div>
@@ -2593,36 +2837,276 @@ function renderRedFlags(rfData) {
   );
 }
 
-function renderScoreBreakdown(data) {
+function renderFactorCards(factors, weights, pointContribs) {
+  ['stability', 'consistency', 'recency', 'cost'].forEach(key => {
+    const fData = factors[key] || {};
+    const score = fData.score != null ? Math.round(fData.score) : null;
+    const weightPct = Math.round((weights[key] || 0) * 100);
+    const pts = pointContribs[key] || 0;
+
+    const barEl    = document.getElementById(`factor-bar-${key}`);
+    const scoreEl  = document.getElementById(`factor-score-${key}`);
+    const badgeEl  = document.getElementById(`factor-badge-${key}`);
+    const weightEl = document.getElementById(`factor-weight-${key}`);
+    const ptsEl    = document.getElementById(`factor-points-${key}`);
+    const detailsEl= document.getElementById(`factor-details-${key}`);
+
+    if (scoreEl) scoreEl.textContent = score != null ? score : '—';
+    if (weightEl) weightEl.textContent = weightPct + '%';
+    if (ptsEl) ptsEl.textContent = `+${pts.toFixed(1)} pts`;
+
+    if (barEl) {
+      setTimeout(() => {
+        barEl.style.width = (score || 0) + '%';
+      }, 50);
+    }
+
+    if (badgeEl) {
+      const bColor = score >= 75 ? '#10b981' : score >= 55 ? '#6366f1' : score >= 40 ? '#f59e0b' : '#ef4444';
+      const bText  = score >= 75 ? 'Strong' : score >= 55 ? 'Good' : score >= 40 ? 'Fair' : score != null ? 'Weak' : 'Unrated';
+      badgeEl.innerHTML = _pillBadge(bText, `${bColor}22`, bColor);
+    }
+
+    if (detailsEl && fData.details) {
+      detailsEl.innerHTML = Object.values(fData.details).slice(0, 4).map(d => {
+        const val = d.value != null ? (typeof d.value === 'number' ? d.value.toFixed(2) : d.value) : '—';
+        const scoreStr = d.score != null ? ` <span style="color:#64748b;font-size:10px">(pts: ${Math.round(d.score)})</span>` : '';
+        return `<div><div class="metric-key">${d.label}</div><div class="metric-val" style="font-size:12px">${val}${scoreStr}</div></div>`;
+      }).join('');
+    }
+  });
+
+  // Quality 5th card if weight > 0
+  const qCard = document.getElementById('factor-card-quality');
+  const qData = factors.quality || {};
+  if (weights.quality > 0 && qCard) {
+    qCard.style.display = 'block';
+    const qScore = qData.score != null ? Math.round(qData.score) : null;
+    const qScoreEl = document.getElementById('factor-score-quality');
+    const qBarEl = document.getElementById('factor-bar-quality');
+    const qBadgeEl = document.getElementById('factor-badge-quality');
+    const qDetailsEl = document.getElementById('factor-details-quality');
+    if (qScoreEl) qScoreEl.textContent = qScore != null ? qScore : '—';
+    if (qBarEl) qBarEl.style.width = (qScore || 0) + '%';
+    if (qBadgeEl && qScore != null) {
+      const bColor = qScore >= 75 ? '#10b981' : qScore >= 55 ? '#6366f1' : '#f59e0b';
+      qBadgeEl.innerHTML = _pillBadge(qScore >= 75 ? 'Strong' : 'Good', `${bColor}22`, bColor);
+    }
+    if (qDetailsEl && qData.details) {
+      qDetailsEl.innerHTML = Object.values(qData.details).slice(0, 4).map(d => {
+        const val = d.value != null ? (typeof d.value === 'number' ? d.value.toFixed(2) : d.value) : '—';
+        return `<div><div class="metric-key">${d.label}</div><div class="metric-val" style="font-size:12px">${val}</div></div>`;
+      }).join('');
+    }
+  } else if (qCard) {
+    qCard.style.display = 'none';
+  }
+}
+
+function renderRadarChart(factors, categoryAverages) {
+  const radarEl = document.getElementById('scorecard-radar-chart');
+  if (!radarEl || typeof Plotly === 'undefined') return;
+
+  const categories = ['Stability', 'Consistency', 'Recency', 'Cost', 'Quality'];
+  const keys       = ['stability', 'consistency', 'recency', 'cost', 'quality'];
+
+  const fundScores = keys.map(k => Math.round(factors[k]?.score ?? 50));
+  const catScores  = keys.map(k => Math.round(categoryAverages[k] ?? 50));
+
+  // Close polygon
+  fundScores.push(fundScores[0]);
+  catScores.push(catScores[0]);
+  const polarCategories = [...categories, categories[0]];
+
+  const data = [
+    {
+      type: 'scatterpolar',
+      r: fundScores,
+      theta: polarCategories,
+      fill: 'toself',
+      name: 'This Fund',
+      line: { color: '#6366f1', width: 2.5 },
+      fillcolor: 'rgba(99, 102, 241, 0.28)',
+      marker: { size: 6, color: '#818cf8' }
+    },
+    {
+      type: 'scatterpolar',
+      r: catScores,
+      theta: polarCategories,
+      fill: 'toself',
+      name: 'Category Avg',
+      line: { color: '#f59e0b', width: 2, dash: 'dot' },
+      fillcolor: 'rgba(245, 158, 11, 0.08)',
+      marker: { size: 5, color: '#fbbf24' }
+    }
+  ];
+
+  const layout = {
+    polar: {
+      radialaxis: {
+        visible: true,
+        range: [0, 100],
+        tickfont: { size: 9, color: '#94a3b8' },
+        gridcolor: 'rgba(148, 163, 184, 0.15)',
+        linecolor: 'rgba(148, 163, 184, 0.2)'
+      },
+      angularaxis: {
+        tickfont: { size: 11, color: '#e2e8f0' },
+        gridcolor: 'rgba(148, 163, 184, 0.15)',
+        linecolor: 'rgba(148, 163, 184, 0.2)'
+      },
+      bgcolor: 'transparent'
+    },
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    showlegend: true,
+    legend: {
+      orientation: 'h',
+      x: 0.5,
+      xanchor: 'center',
+      y: 1.15,
+      font: { size: 11, color: '#cbd5e1' }
+    },
+    margin: { l: 30, r: 30, t: 25, b: 25 }
+  };
+
+  Plotly.react(radarEl, data, layout, { responsive: true, displayModeBar: false });
+}
+
+function renderFactorBenchmarkTable(factors, categoryAverages, weights) {
+  const tbody = document.getElementById('factor-benchmark-tbody');
+  if (!tbody) return;
+
+  const rows = [
+    { key: 'stability',   name: '🛡️ Stability' },
+    { key: 'consistency', name: '🎯 Consistency' },
+    { key: 'recency',     name: '⚡ Recency' },
+    { key: 'cost',        name: '💰 Cost' },
+    { key: 'quality',     name: '🏛️ Quality' },
+  ];
+
+  tbody.innerHTML = rows.map(r => {
+    const fScore = factors[r.key]?.score != null ? Math.round(factors[r.key].score) : '—';
+    const cAvg   = categoryAverages[r.key] != null ? Math.round(categoryAverages[r.key]) : '—';
+    let diffBadge = '<span style="color:var(--text-muted)">—</span>';
+
+    if (typeof fScore === 'number' && typeof cAvg === 'number') {
+      const diff = fScore - cAvg;
+      if (diff > 0) {
+        diffBadge = `<span class="sc-delta-badge sc-delta-pos">+${diff}</span>`;
+      } else if (diff < 0) {
+        diffBadge = `<span class="sc-delta-badge sc-delta-neg">${diff}</span>`;
+      } else {
+        diffBadge = `<span class="sc-delta-badge sc-delta-zero">0</span>`;
+      }
+    }
+
+    const weightPct = Math.round((weights[r.key] || 0) * 100);
+
+    return `
+      <tr>
+        <td style="font-weight:600;color:var(--text-primary)">${r.name}</td>
+        <td style="font-weight:700;color:${FACTOR_CONFIG[r.key].color}">${fScore != null ? fScore : '—'}/100</td>
+        <td style="color:var(--text-secondary)">${cAvg != null ? cAvg : '—'}/100</td>
+        <td>${diffBadge}</td>
+        <td><strong style="color:var(--text-primary)">${weightPct}%</strong></td>
+      </tr>`;
+  }).join('');
+}
+
+function recalculatePersonalizedScore() {
+  if (!__scorecardData) return;
+
+  const factors = __scorecardData.factors || {};
+  const redFlags = __scorecardData.red_flags || {};
+  const penalty = redFlags.total_penalty || 0;
+  const categoryAverages = __scorecardData.category_averages || {
+    stability: 55, consistency: 55, recency: 55, cost: 55, quality: 55
+  };
+
+  // Compute weighted factor contributions
+  let rawSum = 0;
+  const pointContribs = {};
+  const terms = [];
+
+  ['stability', 'consistency', 'recency', 'cost', 'quality'].forEach(k => {
+    const score = factors[k]?.score ?? 50.0;
+    const w = __activeWeights[k] || 0;
+    const pts = w * score;
+    pointContribs[k] = pts;
+    rawSum += pts;
+    if (w > 0) {
+      terms.push(`(${Math.round(w * 100)}% × ${score.toFixed(1)} ${FACTOR_CONFIG[k].label})`);
+    }
+  });
+
+  const finalPersonalizedScore = Math.max(0, Math.min(100, Math.round(rawSum - penalty)));
+  const baselineScore = Math.round(__scorecardData.final_score || finalPersonalizedScore);
+  const scoreDelta = finalPersonalizedScore - baselineScore;
+
+  // 1. Update Gauge
+  renderGauge(finalPersonalizedScore);
+
+  // 2. Update Delta Badge
+  const deltaBadge = document.getElementById('score-delta-badge');
+  if (deltaBadge) {
+    if (scoreDelta > 0) {
+      deltaBadge.className = 'sc-delta-badge sc-delta-pos';
+      deltaBadge.textContent = `+${scoreDelta} vs Baseline Model (${baselineScore})`;
+    } else if (scoreDelta < 0) {
+      deltaBadge.className = 'sc-delta-badge sc-delta-neg';
+      deltaBadge.textContent = `${scoreDelta} vs Baseline Model (${baselineScore})`;
+    } else {
+      deltaBadge.className = 'sc-delta-badge sc-delta-zero';
+      deltaBadge.textContent = `Aligned with Baseline Model (${baselineScore})`;
+    }
+  }
+
+  // 3. Update Text Interpretation
+  const interpEl = document.getElementById('overall-interp');
+  if (interpEl) {
+    const dominantFactor = Object.entries(__activeWeights).sort((a,b) => b[1] - a[1])[0];
+    const domName = FACTOR_CONFIG[dominantFactor[0]]?.label || 'Balanced';
+    interpEl.innerHTML = `Customized for <strong>${domName} Priority (${Math.round(dominantFactor[1]*100)}% weight)</strong>. Model outputs an aggregate rating of <strong>${finalPersonalizedScore}/100</strong> after factoring risk penalties.`;
+  }
+
+  // 4. Update Factor Cards
+  renderFactorCards(factors, __activeWeights, pointContribs);
+
+  // 5. Update Stack Bar & Legend
   const bar = document.getElementById('score-breakdown-bar');
   const legend = document.getElementById('score-breakdown-legend');
-  if (!bar || !legend) return;
-  // Use all 6 pillars; skip ones with null score (SKIPPED for this fund type)
-  const allPillars = [
-    { key:'performance', ...PILLAR_META.performance },
-    { key:'risk',        ...PILLAR_META.risk },
-    { key:'cost',        ...PILLAR_META.cost },
-    { key:'composition', ...PILLAR_META.composition },
-    { key:'manager',     ...PILLAR_META.manager },
-    { key:'debt',        ...PILLAR_META.debt },
-  ];
-  // Only include pillars that are not SKIPPED
-  const pillars = allPillars.filter(p => data[p.key]?.status !== 'SKIPPED');
-  const total = pillars.reduce((s, p) => s + (data[p.key]?.score != null ? p.weight : 0), 0) || 1;
-  bar.innerHTML = pillars.map(p => {
-    const score = data[p.key]?.score;
-    const flex = (p.weight / total * 100).toFixed(1);
-    const opacity = score != null ? 1 : 0.3;
-    return `<div style="flex:${flex};background:${p.color};opacity:${opacity};border-radius:2px" title="${p.label}: ${score != null ? Math.round(score) : 'N/A'}"></div>`;
-  }).join('');
-  legend.innerHTML = pillars.map(p => {
-    const score = data[p.key]?.score;
-    return `<div style="display:flex;align-items:center;gap:4px">
-      <div style="width:10px;height:10px;border-radius:2px;background:${p.color}"></div>
-      <span style="color:var(--text-muted)">${p.label} (${(p.weight*100).toFixed(0)}%)</span>
-      <span style="font-weight:700;color:var(--text-primary)">${score != null ? Math.round(score) : '—'}</span>
-    </div>`;
-  }).join('');
+  if (bar && legend) {
+    const activeKeys = ['stability', 'consistency', 'recency', 'cost', 'quality'].filter(k => __activeWeights[k] > 0);
+    bar.innerHTML = activeKeys.map(k => {
+      const pts = pointContribs[k] || 0;
+      const flex = Math.max(1, Math.round((__activeWeights[k] || 0) * 100));
+      return `<div style="flex:${flex};background:${FACTOR_CONFIG[k].color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;border-radius:2px" title="${FACTOR_CONFIG[k].label}: +${pts.toFixed(1)} pts">+${pts.toFixed(1)}</div>`;
+    }).join('');
+
+    legend.innerHTML = activeKeys.map(k => {
+      const pts = pointContribs[k] || 0;
+      return `<div style="display:flex;align-items:center;gap:5px">
+        <div style="width:10px;height:10px;border-radius:2px;background:${FACTOR_CONFIG[k].color}"></div>
+        <span style="color:var(--text-muted)">${FACTOR_CONFIG[k].label} (${Math.round(__activeWeights[k]*100)}%):</span>
+        <strong style="color:var(--text-primary)">+${pts.toFixed(1)} pts</strong>
+      </div>`;
+    }).join('') + (penalty > 0 ? `<div style="display:flex;align-items:center;gap:5px"><span style="color:#ef4444;font-weight:700">🚩 Penalty: −${penalty} pts</span></div>` : '');
+  }
+
+  // 6. Update Formula Box
+  const formulaBox = document.getElementById('score-formula-box');
+  if (formulaBox) {
+    const formulaStr = terms.join(' + ') + (penalty > 0 ? ` − ${penalty} (Flags)` : '') + ` = ${finalPersonalizedScore} / 100`;
+    formulaBox.textContent = `Score = ` + formulaStr;
+  }
+
+  // 7. Update Radar Chart & Benchmark Table
+  renderRadarChart(factors, categoryAverages);
+  renderFactorBenchmarkTable(factors, categoryAverages, __activeWeights);
+
+  // 8. Update Category Rank
+  renderRank(__scorecardData.rank || {}, scoreDelta);
 }
 
 async function loadAnalysisScorecard() {
@@ -2641,37 +3125,31 @@ async function loadAnalysisScorecard() {
     const d = await resp.json();
     if (d.error) throw new Error(d.error);
 
+    __scorecardData = d;
+
     loading.style.display = 'none';
     content.style.display = 'block';
-
-    // Gauge + overall
-    renderGauge(d.final_score);
-    document.getElementById('overall-interp').textContent = d.overall_interpretation || '';
-
-    // Meta badges
-    const metaBadges = document.getElementById('meta-badges');
-    const cs = CONFIDENCE_STYLES[d.confidence] || CONFIDENCE_STYLES.UNRATED;
-    metaBadges.innerHTML = _pillBadge(`${cs.emoji} ${cs.label}`, cs.bg, cs.color)
-      + (d.nav_days ? _pillBadge(`${d.nav_days} NAV days`, 'rgba(99,102,241,0.1)', '#6366f1') : '')
-      + (d.missing_pillars?.length ? _pillBadge(`${d.missing_pillars.length} pillar(s) unrated`, 'rgba(239,68,68,0.1)', '#ef4444') : '');
 
     // Model metadata
     const mv = document.getElementById('model-ver');
     const nd = document.getElementById('nav-days-display');
-    if (mv) mv.textContent = d.model_version || '—';
+    if (mv) mv.textContent = d.model_version || '2.0';
     if (nd) nd.textContent = d.nav_days ? `${d.nav_days} trading days (~${(d.nav_days/252).toFixed(1)} years)` : '—';
 
-    // Pillars
-    ['performance','risk','cost','composition','manager','debt'].forEach(p => renderAnalysisPillar(p, d[p] || {}));
+    // Meta badges
+    const metaBadges = document.getElementById('meta-badges');
+    if (metaBadges) {
+      const cs = CONFIDENCE_STYLES[d.confidence] || CONFIDENCE_STYLES.UNRATED;
+      metaBadges.innerHTML = _pillBadge(`${cs.emoji} ${cs.label}`, cs.bg, cs.color)
+        + (d.nav_days ? _pillBadge(`${d.nav_days} NAV days`, 'rgba(99,102,241,0.1)', '#6366f1') : '')
+        + (d.missing_pillars?.length ? _pillBadge(`${d.missing_pillars.length} pillar(s) unrated`, 'rgba(239,68,68,0.1)', '#ef4444') : '');
+    }
 
     // Red flags
     renderRedFlags(d.red_flags || {flags:[], total_penalty:0});
 
-    // Score breakdown bar
-    renderScoreBreakdown(d);
-
-    // Category rank
-    renderRank(d.rank || {});
+    // Initialize Default Personalized Score
+    recalculatePersonalizedScore();
 
   } catch(e) {
     loading.style.display = 'none';

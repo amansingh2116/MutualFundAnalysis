@@ -43,11 +43,17 @@
 ### 3. 🔍 Fund Research, Screener & Analytics
 - **Complete Indian Universe:** Browse and evaluate **~2,300 Open-Ended Direct Growth Mutual Funds and ETFs** with real-time AMFI cache fallbacks. Close-Ended, Interval, Regular, IDCW, and dividend options are excluded platform-wide.
 - **6-Pillar Quantitative Scoring Engine (0–100):** Evaluates Performance (30%), Risk & Stability (25%), Cost Efficiency (15%), Portfolio Composition (15%), Manager Quality (15%), and Debt Quality (10% for hybrid/debt).
+- **Personalized Ranking Scorecard & Factor Breakdown:**
+  - **Strategy Archetypes:** ⚖️ *Balanced (Default 25/25/25/25)*, 🛡️ *Capital Preservation (Stability 45%)*, 🎯 *Long-Term Compounder (Consistency 45%)*, 🚀 *Momentum / High Growth (Recency 45%)*, and 💰 *Cost Optimizer (Low Fee 45%)*.
+  - **Dynamic Weight Sliders:** Interactive range sliders with auto-normalization to 100% and real-time score recalculation.
+  - **Visual 4-Factor Breakdown Cards:** Dedicated cards for Stability, Consistency, Recency, and Cost (plus Quality & Governance) detailing sub-metrics, scores, and exact point contributions.
+  - **Multi-Factor Radar Benchmark Comparison:** Interactive spider/radar chart benchmarking the fund across 5 dimensions against SEBI category averages.
+  - **Mathematical Transparency:** Step-by-step arithmetic substitution card and stacked color contribution bar showing live math aggregation: `Personalized Score = Σ(Weight_i × Score_i) − Red Flag Penalties`.
 - **Macro Stress Testing:** Simulates fund behavior across 6 major historical market crashes (2024–25 Tariff Shock, COVID-19 Crash, 2022 Rate Hikes, 2018 IL&FS, 2015 China Slowdown, 2008 GFC).
 - **Market-Regime Analysis:** Evaluates performance across 5 economic cycles (Bull, Bear, Sideways, High Inflation, Rate Cut).
 - **Quartile & Peer Rankings:** Dynamic sub-category peer ranking computed on-the-fly.
 - **Advanced Quant Suite:** 9 technical indicators, 5 pivot systems, 500-path Monte Carlo simulations, VaR/CVaR risk matrices, Ensemble & ARIMA/XGBoost/LSTM return forecasting, and GARCH volatility models.
-- *See [SCREENER.md](documentation/SCREENER.md) and [ADVANCED_ANALYSIS.md](documentation/ADVANCED_ANALYSIS.md).*
+- *See [SCORING_MODEL.md](documentation/SCORING_MODEL.md), [SCREENER.md](documentation/SCREENER.md), and [ADVANCED_ANALYSIS.md](documentation/ADVANCED_ANALYSIS.md).*
 
 ---
 

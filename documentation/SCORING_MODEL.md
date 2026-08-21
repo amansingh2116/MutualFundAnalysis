@@ -1174,33 +1174,61 @@ A debt fund's portfolio structure is fundamentally different from equities. The 
 
 ---
 
+## 12. Personalized Ranking Scorecard & Factor Sub-scoring Model
 
+### 12.1 Overview
+While the baseline v2 Model produces a fixed category-weighted score, different investors prioritize different investment objectives. The **Personalized Ranking Scorecard** decomposes the multi-pillar model into 4 primary investment factors (plus Quality & Governance) and allows investors to dynamically configure weights or choose from established investor archetypes.
 
-## 11. Model Version History
+### 12.2 Five Factor Dimensions
 
+| Factor | Icon | Description & Key Underpinnings | Default Weight |
+|---|---|---|---|
+| **Stability** | 🛡️ | Capital preservation and downside resilience (Sortino ratio, Max Drawdown, Downside Capture %, Sharpe ratio, Beta). | 25% |
+| **Consistency** | 🎯 | Return predictability and persistence across time (Rolling 3Y/5Y win rates vs 0%, calendar year return std dev, excess return persistence). | 25% |
+| **Recency** | ⚡ | Compounding speed and recent alpha trajectory (1Y, 3Y, 5Y Trailing CAGR, benchmark tracking, and short-term excess returns). | 25% |
+| **Cost** | 💰 | Scale and fee efficiency (Total expense ratio vs category norms, AUM scale benefit). | 25% |
+| **Quality & Governance** | 🏛️ | Portfolio construction and manager skill (Top-10 concentration %, sector HHI, portfolio liquidity, manager alpha track record, AMC governance). | 0% (Customizable) |
 
+### 12.3 Investor Archetype Presets
 
-| Version | Date | Summary |
+| Archetype | Stability | Consistency | Recency | Cost | Quality | Target Investor |
+|---|---|---|---|---|---|---|
+| **⚖️ Balanced** | 25% | 25% | 25% | 25% | 0% | General long-term investors seeking an even blend. |
+| **🛡️ Capital Preservation** | 45% | 20% | 15% | 20% | 0% | Conservative / defensive investors prioritizing low drawdowns. |
+| **🎯 Long-Term Compounder** | 20% | 45% | 15% | 20% | 0% | Patient investors focused on cycle-tested return consistency. |
+| **🚀 Momentum / Growth** | 15% | 20% | 45% | 20% | 0% | Aggressive investors seeking top recent performers and alpha. |
+| **💰 Cost Optimizer** | 15% | 20% | 20% | 45% | 0% | Fee-sensitive investors and index-leaning accumulators. |
 
-|---|---|---|
+### 12.4 Mathematical Aggregation & Formula
+The personalized score is computed through normalized convex combination:
 
-| v1.0 | 2026-05-28 | Initial release: 5-pillar model, category rank, confidence levels |
+$$\text{Raw Score} = \sum_{i \in \{\text{factors}\}} w_i \cdot S_i \quad \text{where } \sum w_i = 1.0$$
 
-| v2.0 | 2026-06-25 | Added Manager Quality pillar; added Debt Quality pillar; added Information Ratio, Portfolio Liquidity, Portfolio Turnover sub-metrics; category-aware weight tables; AMC governance scoring; updated red flag penalties; improved normalization bounds |
+$$\text{Personalized Score} = \max\left(0, \min\left(100, \text{Raw Score} - \text{Red Flag Penalty}\right)\right)$$
 
+### 12.5 API Endpoint & Query Parameters
+The backend endpoint `/api/funds/<amfi_code>/analysis/` supports real-time customization:
+- `w_stability` (float): Desired weight for stability (e.g. `0.45` or `45`).
+- `w_consistency` (float): Desired weight for consistency.
+- `w_recency` (float): Desired weight for recency.
+- `w_cost` (float): Desired weight for cost.
+- `w_quality` (float): Desired weight for quality and governance.
 
+The response includes:
+- `factors`: Normalized sub-scores and metric details for all dimensions.
+- `personalized`: Computed personalized score, active normalized weights, and per-factor point contributions.
+- `category_averages`: SEBI category average factor scores for radar chart benchmarking.
 
 ---
 
+## 13. Model Version History
 
+| Version | Date | Summary |
+|---|---|---|
+| v1.0 | 2026-05-28 | Initial release: 5-pillar model, category rank, confidence levels. |
+| v2.0 | 2026-06-25 | Added Manager Quality & Debt Quality pillars; Information Ratio, Liquidity, and Turnover sub-metrics; category-adaptive weight tables. |
+| v2.1 | 2026-08-21 | Added Personalized Ranking Engine, 4-Factor Breakdown Sub-model (Stability/Consistency/Recency/Cost), dynamic weighting API, and interactive Plotly radar benchmarking. |
+
+---
 
 *For questions or model improvements, see the project's GitHub repository.*
-
-after which we will test for some funds and re run migrations/population/ingestion whatever required for consistency and accuracy and thus updating data completely, also update markdown and readme accordingly  and thus having complete updated project
-</USER_REQUEST>
-<ADDITIONAL_METADATA>
-The current local time is: 2026-06-26T00:19:30+05:30.
-</ADDITIONAL_METADATA>
-<USER_SETTINGS_CHANGE>
-The user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
-</USER_SETTINGS_CHANGE>

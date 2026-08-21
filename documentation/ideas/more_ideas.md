@@ -168,7 +168,6 @@ The individual fund analysis pages will be significantly upgraded with specializ
 - ✅ **Enhanced Category Analysis:** Deep-dive metrics and trends for mutual fund categories, fund list, quartile ranking, intra-category performance.
 - ✅ **Category Comparison Tool:** Head-to-head evaluation of different categories across multiple market cycles.
 - ✅ **AMC Explorer:** Comprehensive dashboard to evaluate fund houses — overview, fund list, performance, portfolio tab, ratios. (Fund Manager tab removed per philosophy.)
-- ⬜ **Category Return Meter (full data):** Category return meter currently has some missing entries for certain periods/categories that need data population.
 
 ### 6.2 Portfolio Analytics & Recommendations
 - ⬜ **Historical Score Tracking:** Save and track the historical evolution of a fund's internal holdings and quantitative model score over time to detect early signs of degradation or improvement.
@@ -179,9 +178,7 @@ The individual fund analysis pages will be significantly upgraded with specializ
 ### 6.3 Future Engineering Roadmap & Enhancements
 - ✅ **UI & UX Modernization:** Responsive glassmorphic UI, dynamic charts, interactive data visualization.
 - ⬜ **Backtester & Application Testing:** Comprehensive end-to-end testing suite for backtest strategies and core application workflows.
-- ⬜ **Third-Party Data Integrations:** External reference tools, automated scraper pipelines, and API integrations for holdings data.
 - ✅ **Production Hardening & Deployment:** App deployed on Render with PostgreSQL in production.
-- ⬜ **Deep AI Integration:** LLM powered conversational analytics, natural language screeners, and automated portfolio health summaries.
 
 ---
 
