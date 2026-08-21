@@ -157,9 +157,39 @@ If you use this dataset, a mention of the
 # Helpers
 # ============================================================================
 
+def _setup_kaggle_credentials() -> None:
+    """Ensure ~/.kaggle/ directory and credentials are created for Kaggle CLI (v1 & v2 compatibility)."""
+    username = os.environ.get('KAGGLE_USERNAME', '').strip()
+    key = os.environ.get('KAGGLE_KEY', '').strip()
+    api_token = os.environ.get('KAGGLE_API_TOKEN', '').strip()
+
+    kaggle_dir = Path.home() / '.kaggle'
+    kaggle_dir.mkdir(parents=True, exist_ok=True)
+
+    if username and key:
+        kaggle_json = kaggle_dir / 'kaggle.json'
+        with open(kaggle_json, 'w', encoding='utf-8') as f:
+            json.dump({'username': username, 'key': key}, f)
+        try:
+            os.chmod(kaggle_json, 0o600)
+        except Exception:
+            pass
+
+    token_to_use = api_token or key
+    if token_to_use:
+        os.environ['KAGGLE_API_TOKEN'] = token_to_use
+        access_token_file = kaggle_dir / 'access_token'
+        access_token_file.write_text(token_to_use, encoding='utf-8')
+        try:
+            os.chmod(access_token_file, 0o600)
+        except Exception:
+            pass
+
+
 def _kaggle_username() -> str:
     """Return Kaggle username from env or ~/.kaggle/kaggle.json."""
-    username = os.environ.get('KAGGLE_USERNAME', '')
+    _setup_kaggle_credentials()
+    username = os.environ.get('KAGGLE_USERNAME', '').strip()
     if not username:
         cfg = Path.home() / '.kaggle' / 'kaggle.json'
         if cfg.exists():
@@ -170,8 +200,9 @@ def _kaggle_username() -> str:
 
 def _run_kaggle(args: list[str], cwd: str) -> str:
     """Run a kaggle CLI command, raising CommandError on failure."""
+    _setup_kaggle_credentials()
     cmd = [sys.executable, '-m', 'kaggle'] + args
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=cwd, env=os.environ.copy(), capture_output=True, text=True)
     if result.returncode != 0:
         raise CommandError(
             f"kaggle command failed:\n{result.stdout}\n{result.stderr}"

@@ -57,6 +57,7 @@ jobs:
       SECRET_KEY:   ${{ secrets.SECRET_KEY }}
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
       KAGGLE_KEY:      ${{ secrets.KAGGLE_KEY }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_KEY }}
 
     steps:
       - name: Check out repository
@@ -70,6 +71,19 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
+
+      - name: Configure Kaggle Credentials
+        run: |
+          mkdir -p ~/.kaggle
+          if [ -n "${{ secrets.KAGGLE_USERNAME }}" ] && [ -n "${{ secrets.KAGGLE_KEY }}" ]; then
+            echo "{\"username\":\"${{ secrets.KAGGLE_USERNAME }}\",\"key\":\"${{ secrets.KAGGLE_KEY }}\"}" > ~/.kaggle/kaggle.json
+            chmod 600 ~/.kaggle/kaggle.json
+          fi
+          TOKEN="${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_KEY }}"
+          if [ -n "$TOKEN" ]; then
+            echo "$TOKEN" > ~/.kaggle/access_token
+            chmod 600 ~/.kaggle/access_token
+          fi
 
       - name: Export & Publish Kaggle Dataset
         run: |
