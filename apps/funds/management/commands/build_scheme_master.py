@@ -58,14 +58,37 @@ class Command(BaseCommand):
 
         self.stdout.write(f"  Fetched {len(raw_schemes)} raw scheme rows from AMFI")
 
-        # Strictly filter for Open-Ended Direct Growth OR ETFs (User Request)
+        # Filter: Open-Ended Direct Growth OR ETFs
+        # New AMFI format: plan_col='Direct Plan', option_col='Growth Option'
+        # Old AMFI format: plan_col='', option_col='' → fall back to name heuristics
         filtered_schemes = []
         for s in raw_schemes:
-            name = s['scheme_name']
-            stype = s.get('scheme_type', '')
-            if is_open_ended_scheme(stype, name) and (is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name))):
+            name     = s['scheme_name']
+            stype    = s.get('scheme_type', '')
+            plan_col = s.get('plan_col', '').lower()
+            opt_col  = s.get('option_col', '').lower()
+
+            if not is_open_ended_scheme(stype, name):
+                continue
+
+            # ETF: always included regardless of plan/option
+            if is_etf_scheme(name):
                 filtered_schemes.append(s)
-        
+                continue
+
+            # Direct Growth detection:
+            #  - New format: explicit 'direct' in plan_col AND 'growth' in option_col
+            #  - Old format: fallback to name heuristics (plan_col is empty)
+            if plan_col:
+                is_direct = 'direct' in plan_col
+                is_growth = 'growth' in opt_col and 'idcw' not in opt_col and 'dividend' not in opt_col
+            else:
+                is_direct = is_direct_scheme(name)
+                is_growth = is_growth_scheme(name)
+
+            if is_direct and is_growth:
+                filtered_schemes.append(s)
+
         raw_schemes = filtered_schemes
         self.stdout.write(f"  After Open-Ended Direct Growth / ETF filter: {len(raw_schemes)} schemes")
 
@@ -89,10 +112,20 @@ class Command(BaseCommand):
                 scheme_name = raw['scheme_name']
                 nav_date    = parse_amfi_date(raw.get('date', ''))
 
-                # Detect plan and direct from scheme name
-                is_direct   = is_direct_scheme(scheme_name)
-                is_growth   = is_growth_scheme(scheme_name)
-                plan        = 'GROWTH' if is_growth else 'IDCW'
+                # Detect plan and direct:
+                # New format: use explicit plan_col / option_col columns
+                # Old format: fall back to scheme name heuristics
+                plan_col = raw.get('plan_col', '').lower()
+                opt_col  = raw.get('option_col', '').lower()
+
+                if plan_col:
+                    is_direct = 'direct' in plan_col
+                    is_growth_flag = 'growth' in opt_col and 'idcw' not in opt_col and 'dividend' not in opt_col
+                else:
+                    is_direct = is_direct_scheme(scheme_name)
+                    is_growth_flag = is_growth_scheme(scheme_name)
+
+                plan = 'GROWTH' if is_growth_flag else 'IDCW'
 
                 # Parse NAV safely
                 try:

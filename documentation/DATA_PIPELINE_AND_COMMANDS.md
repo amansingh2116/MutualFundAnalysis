@@ -8,10 +8,13 @@ The platform is strictly scoped to **Open-Ended Direct Growth mutual funds + all
 - **~2,280+ Open-Ended Direct Growth schemes & ETFs** — Close-Ended schemes, Interval funds, regular plans, and IDCW/dividend plans are excluded platform-wide
 
 This is enforced at **two layers**:
-1. **`build_scheme_master`** — Only imports schemes matching `is_open_ended_scheme(stype, name) AND (is_etf_scheme(name) OR (is_direct_scheme(name) AND is_growth_scheme(name)))` from AMFI's NAVAll.txt. Any scheme that doesn't match is immediately discarded.
-2. **`populate_screener`** — Filters `Q(is_direct=True, plan="GROWTH") | Q(is_etf=True)` and excludes `Close Ended` & `Interval` schemes before iterating, providing a second hard gate.
+1. **`build_scheme_master`** — Imports schemes matching `is_open_ended_scheme(stype, name) AND (is_etf_scheme(name) OR is_direct_growth(plan_col, option_col))` from AMFI's NAVAll.txt. As of mid-2026, AMFI's format includes explicit Plan and Option columns; the parser uses these directly and falls back to name heuristics for legacy format. Any scheme not matching is immediately discarded.
+2. **`populate_screener`** — Filters `Q(is_direct=True, plan="GROWTH") | Q(is_etf=True)` and excludes `Close Ended` & `Interval` schemes, providing a second hard gate.
 
 Search, browse, screener, category analysis, calculators, and all tools apply the same filter — **no Close-Ended, Interval, regular, dividend, or IDCW options are ever shown.**
+
+> [!NOTE]
+> **AMFI Format Change (mid-2026):** AMFI changed NAVAll.txt from 6 columns to 8 columns, adding explicit `Plan` and `Option` fields. The `AMFIAdapter._parse_navall()` method auto-detects this via the header line and populates `plan_col`/`option_col` accordingly. Both `build_scheme_master` and `get_amfi_scheme_list()` (search autocomplete) use these explicit fields, with name-heuristic fallback for old format.
 
 ---
 
@@ -330,12 +333,13 @@ The file `.github/workflows/daily_pipeline.yml` runs **every 6 hours** (4 times 
 The key mechanism: `--resume --resume-hours=167` skips any fund whose `FundScreenerSnapshot.updated_at` is newer than 167 hours (7 days). Once all funds are refreshed, every subsequent run processes 0 funds and exits immediately.
 
 ### What each run does (in order):
-1. Apply pending database migrations
-2. `build_scheme_master` — refresh AMFI fund universe
-3. `ingest_benchmarks` — incremental benchmark NAV sync
-4. `populate_benchmark_returns` — benchmark analytics
-5. `populate_screener --resume --resume-hours=167 --time-limit-minutes=310`
-6. `sync_content` — sync PDF guides and blog posts
+1. **Check data source contracts** (`check_data_sources --skip-nse`) — validates live AMFI, mfapi.in, captnemo schemas before anything writes to DB. Emits GitHub Actions warnings on format changes. `continue-on-error: true`
+2. Apply pending database migrations
+3. `build_scheme_master` — refresh AMFI fund universe (8-column format auto-detected)
+4. `ingest_benchmarks` — incremental benchmark NAV sync
+5. `populate_benchmark_returns` — benchmark analytics
+6. `populate_screener --resume --resume-hours=167 --time-limit-minutes=310`
+7. `sync_content` — sync PDF guides and blog posts
 
 ### Self-healing properties
 - **If a run fails** (network error, API timeout): next run 6 hours later picks up automatically
@@ -360,4 +364,119 @@ Go to **GitHub → Actions → Weekly Data Pipeline → Run workflow**. Optional
 | `DATABASE_URL` | Full CockroachDB connection string |
 | `SECRET_KEY` | Django secret key (same as Render) |
 
-> **Public repo = unlimited free Actions minutes.** The pipeline runs 4× per day = ~1,440 invocations/year. With a public repository, this is completely free. Private repos are capped at 2,000 min/month, which this pipeline would exhaust.
+> **Public repo = unlimited free Actions minutes.** The pipeline runs 4x per day = ~1,440 invocations/year. With a public repository, this is completely free. Private repos are capped at 2,000 min/month, which this pipeline would exhaust.
+
+---
+
+## Data Portability & Export Commands
+
+These commands are used to move data between environments (production -> local, local -> Kaggle, etc.).
+
+### `check_data_sources`
+**Purpose:** Validates live external data source schemas against known contracts. Detects API format changes (column count, key fields, value ranges) **before** the pipeline writes data to the database.
+
+**Monitors:**
+- AMFI NAVAll.txt (row count, column count, direct growth count, date/NAV parseability)
+- mfapi.in (key presence, data structure, NAV count)
+- captnemo.in (response shape, key fields)
+- NSE benchmark (optional, `--skip-nse` for CI)
+
+**Outputs:** `[OK]` / `[WARN]` / `[FAIL]` per check. Emits `::warning::` / `::error::` GitHub Actions annotations.
+
+```bash
+# Full check (all sources)
+python manage.py check_data_sources
+
+# Skip NSE (slow; not needed in CI)
+python manage.py check_data_sources --skip-nse
+
+# Single source
+python manage.py check_data_sources --source amfi
+
+# Fail fast on first FAIL (strict CI mode)
+python manage.py check_data_sources --fail-fast
+```
+
+### `push_to_kaggle`
+**Purpose:** Exports database tables to CSV files and publishes/updates a Kaggle dataset manually on demand.
+
+**Exports:** `funds.csv`, `fund_screener.csv`, `nav_history.csv`, `benchmarks.csv`, `benchmark_returns.csv`, `trailing_returns.csv`, `risk_metrics.csv` plus a generated `README.md` and `dataset-metadata.json`.
+
+**Credentials:** Set `KAGGLE_USERNAME` and `KAGGLE_KEY` environment variables, or create `~/.kaggle/kaggle.json` via the Kaggle website (Settings -> API -> Create Token).
+
+```bash
+# First time: create the dataset on Kaggle
+python manage.py push_to_kaggle --create
+
+# Subsequent updates
+python manage.py push_to_kaggle
+python manage.py push_to_kaggle --message "Data refresh Aug 2026"
+
+# Skip large nav_history.csv (fast metadata-only update)
+python manage.py push_to_kaggle --skip-nav
+
+# Dry run: export CSVs but don't push
+python manage.py push_to_kaggle --dry-run --output-dir /tmp/mf_export
+```
+
+A **GitHub Actions workflow** (`.github/workflows/publish_kaggle.yml`) also provides a manual dispatch button from the Actions tab. Required secrets: `KAGGLE_USERNAME`, `KAGGLE_KEY`, `DATABASE_URL`, `SECRET_KEY`.
+
+### `sync_from_prod`
+**Purpose:** Pulls live data from the CockroachDB production database into a local SQLite or PostgreSQL database. Useful for local development with real fund data.
+
+```bash
+# Sync all tables (funds, NAV, analytics, benchmarks)
+python manage.py sync_from_prod
+
+# Sync specific tables only
+python manage.py sync_from_prod --tables funds,nav
+
+# Sync funds created/updated after a date
+python manage.py sync_from_prod --since 2026-01-01
+```
+
+### `export_data` / `import_data`
+**Purpose:** Export database to portable JSON/CSV files and import them back. Useful for sharing snapshots or seeding a new environment.
+
+```bash
+# Export all data to a directory
+python manage.py export_data --output-dir ./data_export
+
+# Import from a previously exported directory
+python manage.py import_data --input-dir ./data_export
+```
+
+---
+
+## Docker Local Development
+
+For full local testing against a real PostgreSQL database (matching production):
+
+```bash
+# First time: build image and start all services
+docker compose up --build
+
+# In another terminal: run setup commands
+docker compose run --rm web python manage.py migrate
+docker compose run --rm web python manage.py createsuperuser
+docker compose run --rm web python manage.py build_scheme_master
+
+# Subsequent starts (no rebuild needed unless requirements.txt changed)
+docker compose up
+
+# Stop but preserve DB data
+docker compose down
+
+# Full reset (wipes DB volume)
+docker compose down -v
+```
+
+**Services started:**
+- `db` — PostgreSQL 16 (persistent named volume, survives restarts)
+- `web` — Django dev server on http://localhost:8000
+- `worker` — django-q2 background task cluster
+
+**Settings:** Docker uses `config.settings.local_pg` which inherits `dev.py` but overrides the database to the containerized PostgreSQL. The DB host `db` resolves internally via Docker's network.
+
+> [!TIP]
+> Use `docker compose run --rm web python manage.py sync_from_prod` to populate your Docker PostgreSQL database with real production data after the initial migration.

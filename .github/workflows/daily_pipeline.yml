@@ -72,16 +72,26 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      # ── 2. DB migrations ─────────────────────────────────────────────────
+      # ── 2. Data source contract checks ──────────────────────────────────
+      # Fast (~30s) — validates live AMFI, mfapi.in, and captnemo.in schemas.
+      # Detects API format changes (e.g. column count shifts) before they cause
+      # silent data corruption downstream. Skips NSE (nselib is slow in CI).
+      # continue-on-error: true → warns loudly via GH annotations but does NOT
+      # block the pipeline for non-critical changes.
+      - name: Check data source contracts
+        run: python manage.py check_data_sources --skip-nse
+        continue-on-error: true
+
+      # ── 3. DB migrations ─────────────────────────────────────────────────
       - name: Apply pending database migrations
         run: python manage.py migrate --no-input
 
-      # ── 3. Fund universe ──────────────────────────────────────────────────
+      # ── 4. Fund universe ──────────────────────────────────────────────────
       # ~1–2 min — incremental AMFI scheme list sync.
       - name: Sync fund universe (AMFI master list)
         run: python manage.py build_scheme_master
 
-      # ── 4. Benchmark data ─────────────────────────────────────────────────
+      # ── 5. Benchmark data ─────────────────────────────────────────────────
       # Incremental — fetches only new trading-day rows. ~1–3 min.
       - name: Ingest benchmark NAVs (incremental)
         run: python manage.py ingest_benchmarks
@@ -89,7 +99,7 @@ jobs:
       - name: Recompute benchmark return snapshots
         run: python manage.py populate_benchmark_returns
 
-      # ── 5. Fund screener pipeline (resume-based, self-completing) ─────────
+      # ── 6. Fund screener pipeline (resume-based, self-completing) ─────────
       # --resume --resume-hours=167: skips funds updated in the last 7 days.
       # --time-limit-minutes=310:    exits gracefully before the 6h job timeout.
       # No offset/limit needed: resume mode automatically picks up where the
@@ -123,7 +133,7 @@ jobs:
             --time-limit-minutes="$TIME_LIMIT" \
             $LIMIT_ARG
 
-      # ── 6. Learn content sync ─────────────────────────────────────────────
+      # ── 7. Learn content sync ─────────────────────────────────────────────
       # Fast (< 10 s) — always runs. Safe because fund pipeline exits gracefully.
       - name: Sync Learn section content
         run: python manage.py sync_content

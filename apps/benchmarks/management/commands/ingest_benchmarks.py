@@ -26,6 +26,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.db import connection
 
 from adapters.benchmark_adapter import BenchmarkAdapter
 from apps.benchmarks.benchmark_config import BENCHMARK_CONFIG, BenchmarkConfig, REQUIRED_BENCHMARK_NAMES
@@ -42,6 +43,16 @@ def _bulk_upsert(index, rows, source):
     on CockroachDB Cloud) with a single batched statement.  For 5 000 rows we
     send 10 INSERT statements (batch_size=500) instead of 10 000 queries.
 
+    PostgreSQL / CockroachDB path (production + Docker local_pg):
+        Uses update_conflicts=True which emits INSERT … ON CONFLICT DO UPDATE.
+        This ensures existing rows get their close/source refreshed on re-runs.
+
+    SQLite path (plain `python manage.py` dev workflow):
+        update_conflicts + unique_fields is a PostgreSQL-specific feature and
+        raises django.db.utils.NotSupportedError on SQLite.  We fall back to
+        ignore_conflicts=True (plain INSERT OR IGNORE) which is safe on SQLite
+        and still idempotent — existing rows are simply skipped.
+
     Returns the number of rows processed.
     """
     objs = [
@@ -57,13 +68,28 @@ def _bulk_upsert(index, rows, source):
     if not objs:
         return 0
 
-    BenchmarkNAV.objects.bulk_create(
-        objs,
-        batch_size=500,
-        update_conflicts=True,
-        unique_fields=['index', 'date'],
-        update_fields=['close', 'source'],
-    )
+    if connection.vendor == 'sqlite':
+        # SQLite does not support ON CONFLICT DO UPDATE via Django's ORM.
+        # Use ignore_conflicts=True (INSERT OR IGNORE) as a safe fallback.
+        # Existing rows are skipped rather than updated — acceptable for dev.
+        logger.debug(
+            "[_bulk_upsert] SQLite detected — using ignore_conflicts fallback "
+            "(existing rows will not be updated; use Docker/local_pg for full upsert)"
+        )
+        BenchmarkNAV.objects.bulk_create(
+            objs,
+            batch_size=500,
+            ignore_conflicts=True,
+        )
+    else:
+        # PostgreSQL / CockroachDB: efficient ON CONFLICT DO UPDATE upsert.
+        BenchmarkNAV.objects.bulk_create(
+            objs,
+            batch_size=500,
+            update_conflicts=True,
+            unique_fields=['index', 'date'],
+            update_fields=['close', 'source'],
+        )
     return len(objs)
 
 

@@ -33,11 +33,14 @@ AMFI_LIST_TTL       = 6 * 3600   # 6 hours
 
 def get_amfi_scheme_list() -> list[dict]:
     """
-    Returns the full AMFI scheme list (14K+ schemes) as a list of dicts:
-      [{'amfi_code': '120503', 'scheme_name': '...', 'amc_name': '...', 'nav': '...'}, ...]
+    Returns the AMFI scheme list filtered to Open-Ended Direct Growth plans + ETFs,
+    as a list of slim dicts used by fund search autocomplete.
 
     Cached in Django cache for 6 hours. Fetches from AMFI NAVAll.txt on cache miss.
-    This is the backbone for fund search autocomplete.
+
+    Handles both AMFI format versions:
+      - OLD (6-col): plan/option embedded in scheme name → name-heuristic fallback
+      - NEW (8-col): plan_col='Direct Plan', option_col='Growth Option' → explicit check
     """
     cached = cache.get(AMFI_LIST_CACHE_KEY)
     if cached:
@@ -48,14 +51,21 @@ def get_amfi_scheme_list() -> list[dict]:
         adapter = AMFIAdapter()
         schemes = adapter.fetch_scheme_universe()
         from apps.core.utils import is_direct_scheme, is_growth_scheme, is_etf_scheme, is_open_ended_scheme
-        # Keep only the fields we need for search and filter for Open-Ended Direct Growth / ETFs
+
         slim = []
         for s in schemes:
             if not s.get('amfi_code'):
                 continue
-            name = s['scheme_name']
-            stype = s.get('scheme_type', '')
-            if is_open_ended_scheme(stype, name) and (is_etf_scheme(name) or (is_direct_scheme(name) and is_growth_scheme(name))):
+            name     = s['scheme_name']
+            stype    = s.get('scheme_type', '')
+            plan_col = s.get('plan_col', '').lower()
+            opt_col  = s.get('option_col', '').lower()
+
+            if not is_open_ended_scheme(stype, name):
+                continue
+
+            # ETFs always included regardless of plan/option column
+            if is_etf_scheme(name):
                 slim.append({
                     'amfi_code':   s['amfi_code'],
                     'scheme_name': s['scheme_name'],
@@ -63,8 +73,29 @@ def get_amfi_scheme_list() -> list[dict]:
                     'nav':         s.get('nav', ''),
                     'scheme_type': s.get('scheme_type', ''),
                 })
+                continue
+
+            # Direct Growth detection:
+            #   New 8-col format: use explicit plan_col / option_col
+            #   Old 6-col format: fallback to name heuristics (plan_col is empty)
+            if plan_col:
+                is_direct = 'direct' in plan_col
+                is_growth = 'growth' in opt_col and 'idcw' not in opt_col and 'dividend' not in opt_col
+            else:
+                is_direct = is_direct_scheme(name)
+                is_growth = is_growth_scheme(name)
+
+            if is_direct and is_growth:
+                slim.append({
+                    'amfi_code':   s['amfi_code'],
+                    'scheme_name': s['scheme_name'],
+                    'amc_name':    s['amc_name'],
+                    'nav':         s.get('nav', ''),
+                    'scheme_type': s.get('scheme_type', ''),
+                })
+
         cache.set(AMFI_LIST_CACHE_KEY, slim, AMFI_LIST_TTL)
-        logger.info(f"Cached {len(slim)} schemes from AMFI NAVAll.txt")
+        logger.info(f"Cached {len(slim)} schemes from AMFI NAVAll.txt (format: {'new 8-col' if any(s.get('plan_col') for s in schemes[:10]) else 'legacy 6-col'})")
         return slim
     except Exception as e:
         logger.error(f"Failed to fetch AMFI scheme list: {e}")

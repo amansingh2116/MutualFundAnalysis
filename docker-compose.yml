@@ -1,0 +1,114 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml — MutualFundAnalysis
+# ─────────────────────────────────────────────────────────────────────────────
+# Services:
+#   db      — PostgreSQL 16 (persistent volume; survives docker compose down)
+#   web     — Django dev server on port 8000
+#   worker  — django-q2 background task cluster
+#
+# Quick-start:
+#   docker compose up --build          # first time (builds image, starts all)
+#   docker compose up                  # subsequent starts
+#   docker compose down                # stop containers (DB data preserved)
+#   docker compose down -v             # stop + wipe DB volume (fresh start)
+#
+# First-time database setup (run once after first `docker compose up --build`):
+#   docker compose run --rm web python manage.py migrate
+#   docker compose run --rm web python manage.py createsuperuser
+#   docker compose run --rm web python manage.py build_scheme_master
+#
+# Running management commands:
+#   docker compose run --rm web python manage.py <command>
+#   docker compose run --rm web python manage.py populate_screener
+#   docker compose run --rm web python manage.py ingest_benchmarks
+#
+# Settings:
+#   All services use config.settings.local_pg which:
+#     • Inherits dev.py (DEBUG=True, relaxed security)
+#     • Overrides DATABASES to use the 'db' PostgreSQL 16 container
+#     • Uses the standard Django PostgreSQL backend (not CockroachDB)
+#
+# Environment:
+#   Secrets are loaded from .env at the repo root.
+#   The DB credentials below are dev-only and match config/settings/local_pg.py.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL 16 ──────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       mfanalysis
+      POSTGRES_USER:     mfanalysis
+      POSTGRES_PASSWORD: mfanalysis
+    volumes:
+      # Named volume: DB data persists across docker compose down + up cycles.
+      # Run `docker compose down -v` to wipe it for a completely fresh start.
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Expose on host so you can connect with psql/DBeaver/pgAdmin locally:
+      #   psql -h localhost -p 5432 -U mfanalysis -d mfanalysis
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mfanalysis -d mfanalysis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Django web server ──────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime        # use the second stage of the multi-stage build
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      # Mount the repo root into /app so code changes are reflected instantly
+      # without rebuilding the image. Only rebuild when requirements.txt changes.
+      - .:/app
+      # Isolate the Playwright browser cache from the host volume mount.
+      # Without this, the volume mount above would shadow /root/.cache inside
+      # the container, causing Playwright to re-download Chromium every run.
+      - playwright_cache:/root/.cache/ms-playwright
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local_pg
+      # SECRET_KEY is read from .env via python-decouple.
+      # Remaining app config (API keys, email, RF_ANNUAL_RATE) also from .env.
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy   # wait for Postgres to pass healthcheck
+
+  # ── django-q2 background task worker ──────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    command: python manage.py qcluster
+    volumes:
+      - .:/app
+      - playwright_cache:/root/.cache/ms-playwright
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local_pg
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    # Persists the Postgres database across container restarts.
+    # To wipe: docker compose down -v
+  playwright_cache:
+    # Persists the Playwright Chromium binary download (~130 MB) so it isn't
+    # re-downloaded every time the .:/app volume mount shadows /root/.cache.

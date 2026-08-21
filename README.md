@@ -4,9 +4,11 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Django 5.x](https://img.shields.io/badge/django-5.x-green.svg)](https://www.djangoproject.com/)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)](https://www.docker.com/)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary_Non--Commercial-red.svg)](LICENSE)
 [![Deployed on Render](https://img.shields.io/badge/Deployed%20on-Render-46E3B7?logo=render)](https://render.com)
 [![Database: CockroachDB](https://img.shields.io/badge/Database-CockroachDB-6933FF?logo=cockroachlabs)](https://cockroachlabs.cloud)
+[![Kaggle Dataset](https://img.shields.io/badge/Kaggle-Dataset-20BEFF?logo=kaggle)](https://www.kaggle.com/datasets/amansingh2116/indian-mutual-funds-complete-nav-analytics)
 
 **Disclaimer:** Mutual fund investments are subject to market risks. Read all scheme-related documents carefully before investing. This platform is built strictly for research, quantitative analysis, and educational purposes. It does not constitute financial, legal, or tax advice.
 
@@ -110,21 +112,27 @@
 | **Visualization** | Plotly.js, Plotly Python, Canvas PDF.js |
 | **PDF Generation** | Google Chrome Headless, Django HTML/CSS Paged Media |
 | **Frontend UI** | Django Templates, Vanilla CSS (Custom Design System), Vanilla JS, HTMX |
-| **Database** | SQLite (development) / CockroachDB — PostgreSQL-compatible (production, free 10 GB) |
+| **Database** | SQLite (dev) / CockroachDB -- PostgreSQL-compatible (production, free 10 GB) / PostgreSQL 16 (Docker dev) |
+| **Containerization** | Docker + Docker Compose (multi-stage build; PostgreSQL 16 service for local dev) |
 | **Auth & Email** | Django built-in auth, rate-limited login, email verification, SMTP (Sender.net / Gmail) |
-| **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), yfinance (equity benchmarks), FRED API (macro), AMFI NAVAll.txt, World Bank API (CPI) |
-| **Deployment** | Render (web service, free tier), GitHub Actions (weekly data pipeline, free for public repos) |
+| **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), yfinance (equity benchmarks), FRED API (macro), AMFI NAVAll.txt (8-col format auto-detected), World Bank API (CPI) |
+| **Deployment** | Render (web service, free tier), GitHub Actions (weekly data pipeline + Kaggle publish, free for public repos) |
+| **Data Distribution** | Kaggle dataset (manual publish via `push_to_kaggle` command or Actions workflow) |
 
 ---
 
-## 💻 Local Setup & Development Quickstart
+## Local Setup & Development Quickstart
 
-### Prerequisites
+Two options: **native Python** (SQLite, fast for UI work) or **Docker** (PostgreSQL 16, matches production).
+
+### Option A: Native Python (SQLite)
+
+#### Prerequisites
 - Python 3.11 or higher
 - Git
 - Google Chrome (installed at standard OS location for PDF generation)
 
-### Installation Steps
+#### Installation Steps
 
 1. **Clone the Repository**:
    ```bash
@@ -149,11 +157,11 @@
 4. **Environment Configuration**:
    ```bash
    cp .env.example .env
-   # Edit .env — at minimum set DJANGO_SETTINGS_MODULE and SECRET_KEY
+   # Edit .env -- at minimum set SECRET_KEY
    # DJANGO_SETTINGS_MODULE=config.settings.dev
    # SECRET_KEY=<run: python -c "import secrets; print(secrets.token_urlsafe(50))">
    ```
-   > **Email in local dev:** Emails (account activation, password reset, contact form) are printed directly to the terminal console — no SMTP provider needed.
+   > **Email in local dev:** Emails are printed to the terminal console -- no SMTP provider needed.
 
 5. **Run Database Migrations**:
    ```bash
@@ -172,6 +180,42 @@
    Open `http://127.0.0.1:8000/` in your browser.
 
 ---
+
+### Option B: Docker + PostgreSQL 16 (Recommended for production-accurate testing)
+
+#### Prerequisites
+- Docker Desktop installed and running
+
+#### Steps
+
+1. **Clone and configure**:
+   ```bash
+   git clone https://github.com/amansingh2116/MutualFundAnalysis.git
+   cd MutualFundAnalysis
+   cp .env.example .env   # Edit SECRET_KEY at minimum
+   ```
+
+2. **Build and start all services** (PostgreSQL 16 + Django web + django-q2 worker):
+   ```bash
+   docker compose up --build
+   ```
+
+3. **First-time database setup** (run once in a new terminal while containers are running):
+   ```bash
+   docker compose run --rm web python manage.py migrate
+   docker compose run --rm web python manage.py createsuperuser
+   docker compose run --rm web python manage.py build_scheme_master
+   ```
+
+4. **Access the app** at http://localhost:8000
+
+5. **(Optional) Populate with real data** from production:
+   ```bash
+   # Requires DATABASE_URL env var pointing to CockroachDB
+   docker compose run --rm web python manage.py sync_from_prod
+   ```
+
+> **Subsequent starts:** `docker compose up` (no rebuild needed unless requirements.txt changes). DB data persists across restarts in a named Docker volume. Use `docker compose down -v` to wipe and start fresh.
 
 ## 🔄 Data Pipeline — Self-Completing Weekly Cycle
 
@@ -223,8 +267,9 @@ See [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md)
 
 | Document | Contents |
 |---|---|
-| [DEPLOYMENT.md](documentation/DEPLOYMENT.md) | Full production deployment guide — Render + CockroachDB + GitHub Actions |
-| [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md) | All management commands, flags, and weekly pipeline architecture |
+| [DEPLOYMENT.md](documentation/DEPLOYMENT.md) | Full production deployment guide -- Render + CockroachDB + GitHub Actions |
+| [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md) | All management commands, flags, weekly pipeline, Docker setup, Kaggle publish |
+| [docker/README.md](docker/README.md) | Docker Compose quick reference and troubleshooting |
 | [INSTITUTIONAL_REPORT.md](documentation/INSTITUTIONAL_REPORT.md) | Institutional PDF Research Report engine |
 | [SCREENER.md](documentation/SCREENER.md) | Fund Screener user & developer guide |
 | [ADVANCED_ANALYSIS.md](documentation/ADVANCED_ANALYSIS.md) | Technical indicators, ML forecasting & risk models |

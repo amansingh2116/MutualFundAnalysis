@@ -7,13 +7,20 @@ Primary source for:
   - Scheme metadata (mfapi.in meta block)
 
 NAVAll.txt format (semicolon-delimited):
-  Scheme Code;ISIN Growth;ISIN IDCW;Scheme Name;NAV;Date
+
+  OLD 6-col (pre-2026):
+    Scheme Code;ISIN Growth;ISIN IDCW;Scheme Name;NAV;Date
+
+  NEW 8-col (mid-2026+):
+    Scheme Code;ISIN Growth;ISIN IDCW;Scheme Name;Plan;Option;NAV;Date
+
+  The format is auto-detected from the header line. See _parse_navall() for details.
 
 mfapi.in endpoints:
   GET https://api.mfapi.in/mf/{amfi_code}
-    → {'meta': {...}, 'data': [{'date': 'DD-MM-YYYY', 'nav': '...'}]}
+    -> {'meta': {...}, 'data': [{'date': 'DD-MM-YYYY', 'nav': '...'}]}
 
-Date format: 'DD-MM-YYYY' → use apps.core.utils.parse_amfi_date()
+Date format: 'DD-MM-YYYY' -> use apps.core.utils.parse_amfi_date()
 """
 import logging
 from typing import Optional
@@ -53,20 +60,34 @@ class AMFIAdapter(BaseAdapter):
         """
         Parse the raw NAVAll.txt content.
 
-        File structure:
-          Open Ended Schemes(Debt Schemes)
-          ;ISIN Growth;ISIN IDCW;Scheme Name;NAV;Date
-          120503;INF209K01UN5;INF209K01UP0;Aditya Birla...; 15.234;27-May-2026
-          ...
-          [blank line separates AMC sections]
+        AMFI changed the format in mid-2026 from 6 columns to 8 columns:
+
+        OLD (6-col):
+          Code;ISIN_Growth;ISIN_IDCW;Scheme Name;NAV;Date
+
+        NEW (8-col) — Plan and Option are now explicit fields:
+          Code;ISIN_Growth;ISIN_IDCW;Scheme Name;Plan;Option;NAV;Date
+
+        We auto-detect which format is in use from the header line and
+        populate 'plan_col' and 'option_col' accordingly so downstream
+        code (build_scheme_master) can use them without guessing.
         """
         schemes      = []
         current_type = ''
         current_amc  = ''
+        new_format   = False   # True when AMFI uses 8-column layout
 
         for raw_line in text.splitlines():
             line = raw_line.strip()
             if not line:
+                continue
+
+            # Header line — detect format version
+            # Old header: "Scheme Code;ISIN Div Payout/ ISIN Growth;..."
+            # New header adds ";Plan;Option" before NAV/Date
+            if line.startswith('Scheme Code') or line.startswith(';ISIN'):
+                new_format = ';Plan;' in line or 'Plan;Option' in line
+                logger.info(f"NAVAll.txt format: {'NEW 8-col' if new_format else 'OLD 6-col'}")
                 continue
 
             # Section headers: 'Open Ended Schemes(...)' or 'Close Ended Schemes(...)'
@@ -82,19 +103,38 @@ class AMFIAdapter(BaseAdapter):
 
             # Scheme data rows: start with digit, semicolon-delimited
             parts = line.split(';')
-            if len(parts) < 6 or not parts[0].strip().isdigit():
+            min_cols = 8 if new_format else 6
+            if len(parts) < min_cols or not parts[0].strip().isdigit():
                 continue
 
-            schemes.append({
-                'amfi_code':   parts[0].strip(),
-                'isin_growth': parts[1].strip() or None,
-                'isin_idcw':   parts[2].strip() or None,
-                'scheme_name': parts[3].strip(),
-                'nav':         parts[4].strip(),
-                'date':        parts[5].strip(),
-                'amc_name':    current_amc,
-                'scheme_type': current_type,
-            })
+            if new_format:
+                # 8-col: Code;ISIN_G;ISIN_D;Name;Plan;Option;NAV;Date
+                schemes.append({
+                    'amfi_code':   parts[0].strip(),
+                    'isin_growth': parts[1].strip() or None,
+                    'isin_idcw':   parts[2].strip() or None,
+                    'scheme_name': parts[3].strip(),
+                    'plan_col':    parts[4].strip(),   # e.g. 'Direct Plan' / 'Regular Plan'
+                    'option_col':  parts[5].strip(),   # e.g. 'Growth Option' / 'IDCW Payout'
+                    'nav':         parts[6].strip(),
+                    'date':        parts[7].strip(),
+                    'amc_name':    current_amc,
+                    'scheme_type': current_type,
+                })
+            else:
+                # 6-col legacy: Code;ISIN_G;ISIN_D;Name;NAV;Date
+                schemes.append({
+                    'amfi_code':   parts[0].strip(),
+                    'isin_growth': parts[1].strip() or None,
+                    'isin_idcw':   parts[2].strip() or None,
+                    'scheme_name': parts[3].strip(),
+                    'plan_col':    '',
+                    'option_col':  '',
+                    'nav':         parts[4].strip(),
+                    'date':        parts[5].strip(),
+                    'amc_name':    current_amc,
+                    'scheme_type': current_type,
+                })
 
         logger.info(f"Parsed {len(schemes)} schemes from NAVAll.txt")
         return schemes

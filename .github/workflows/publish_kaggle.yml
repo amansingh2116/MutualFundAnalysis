@@ -1,0 +1,115 @@
+name: Publish Kaggle Dataset
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# KAGGLE DATASET AUTO-PUBLISHER
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Runs every Sunday at 9:30 AM UTC (3 PM IST) — after the weekly data pipeline
+# has finished refreshing all 2,300+ funds.
+#
+# Can also be triggered manually from the Actions tab.
+#
+# REQUIRED SECRETS (GitHub → Settings → Secrets → Actions):
+#   KAGGLE_USERNAME  — your Kaggle username
+#   KAGGLE_KEY       — your Kaggle API key (from kaggle.com/settings → API)
+#   DATABASE_URL     — production CockroachDB connection string
+#   SECRET_KEY       — Django secret key
+#
+# FIRST TIME SETUP:
+#   1. Set the secrets above.
+#   2. Go to Actions → Publish Kaggle Dataset → Run workflow → check "create".
+#      This creates the dataset on Kaggle for the first time.
+#   3. After that, the weekly schedule auto-publishes new versions.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Manual dispatch only — trigger from Actions tab whenever you want to publish/update
+on:
+  workflow_dispatch:
+    inputs:
+      create:
+        description: 'Create dataset for the first time? (check only on first run)'
+        required: false
+        type: boolean
+        default: false
+      skip_nav:
+        description: 'Skip nav_history.csv? (faster metadata-only update)'
+        required: false
+        type: boolean
+        default: false
+      message:
+        description: 'Version message (leave blank for auto)'
+        required: false
+        default: ''
+      dataset_slug:
+        description: 'Kaggle dataset slug'
+        required: false
+        default: 'indian-mutual-funds-complete-nav-analytics'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120   # NAV CSV export can take up to 30 min for 3.5M rows
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SECRET_KEY:   ${{ secrets.SECRET_KEY }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY:      ${{ secrets.KAGGLE_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Export & Publish Kaggle Dataset
+        run: |
+          CREATE_FLAG=""
+          if [ "${{ github.event.inputs.create }}" = "true" ]; then
+            CREATE_FLAG="--create"
+          fi
+
+          SKIP_NAV_FLAG=""
+          if [ "${{ github.event.inputs.skip_nav }}" = "true" ]; then
+            SKIP_NAV_FLAG="--skip-nav"
+          fi
+
+          MESSAGE="${{ github.event.inputs.message }}"
+          MESSAGE_FLAG=""
+          if [ -n "$MESSAGE" ]; then
+            MESSAGE_FLAG="--message=$MESSAGE"
+          fi
+
+          SLUG="${{ github.event.inputs.dataset_slug }}"
+          SLUG="${SLUG:-indian-mutual-funds-complete-nav-analytics}"
+
+          echo "=== Kaggle Dataset Push ==="
+          echo "  Create:   ${CREATE_FLAG:-no}"
+          echo "  Skip NAV: ${SKIP_NAV_FLAG:-no}"
+          echo "  Slug:     $SLUG"
+          echo "=========================="
+
+          python manage.py push_to_kaggle \
+            $CREATE_FLAG \
+            $SKIP_NAV_FLAG \
+            $MESSAGE_FLAG \
+            --slug="$SLUG"
+
+      - name: Print dataset URL
+        if: success()
+        run: |
+          echo "=========================================================="
+          echo "✅ Dataset published successfully to Kaggle!"
+          echo "📊 Dataset URL : https://www.kaggle.com/datasets/${{ secrets.KAGGLE_USERNAME }}/${{ github.event.inputs.dataset_slug || 'indian-mutual-funds-complete-nav-analytics' }}"
+          echo "🌐 Live App    : https://mfanalysis-web-picv.onrender.com/"
+          echo "💻 GitHub Repo : https://github.com/amansingh2116/MutualFundAnalysis"
+          echo "=========================================================="

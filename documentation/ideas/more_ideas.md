@@ -112,9 +112,11 @@ A major planned feature is a dedicated AI analysis module for user portfolios th
 
 ### 3.3 DevOps & Production Hardening
 - ✅ **Render Deployment**: render.yaml and Procfile configured; app deployed on Render.
-- ⬜ **Docker Containerization**: Prepare Dockerfiles and docker-compose setups for easier local deployment and scaling.
+- ✅ **Docker Containerization**: Dockerfile (multi-stage, Playwright-ready), docker-compose.yml (web + worker + postgres:16), config/settings/local_pg.py, and docker/README.md added.
 - ✅ **PostgreSQL Production**: App uses PostgreSQL in production via Render.
-- ⬜ **PostgreSQL Production Validation**: Fully validate all Pandas/ORM queries against PostgreSQL to ensure no dialect-specific SQLite logic is breaking production.
+- ✅ **PostgreSQL Production Validation**: Full codebase scan completed. No raw SQL or SQLite-dialect functions found. One `update_conflicts=True` guard added to `_bulk_upsert()` in `ingest_benchmarks.py` for safe SQLite fallback. All other ORM patterns confirmed Postgres-compatible.
+- ✅ **Data Portability & Local Seeding**: `sync_from_sqlite`, `sync_from_prod`, `export_data`, `import_data` management commands for local data lifecycle management (SQLite→Postgres migration, portable `.tar.gz` snapshots, CockroachDB sync).
+- ✅ **Kaggle Dataset Publishing**: `push_to_kaggle` management command + `publish_kaggle.yml` GitHub Actions workflow. Exports funds, NAV history (3.5M rows), screener snapshots, analytics, and benchmark data as CSVs and publishes to Kaggle. Auto-updates every Sunday. Manual trigger supports first-time `--create` mode.
 - ⬜ **Unit Test Expansion**: Expand test coverage, particularly for the backtesting engine and new tax calculator components.
 
 ---
