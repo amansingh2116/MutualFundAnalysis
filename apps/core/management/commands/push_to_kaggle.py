@@ -53,11 +53,7 @@ logger = logging.getLogger('mfanalysis')
 # ============================================================================
 
 DATASET_TITLE    = "Indian Mutual Funds: NAV & Analytics Dataset"
-DATASET_SUBTITLE = (
-    "Daily NAV history for 2,000+ SEBI-registered Indian mutual funds "
-    "(Direct Growth Open Funds + ETFs) with trailing returns, risk metrics, "
-    "screener scores, and benchmark data."
-)
+DATASET_SUBTITLE = "Daily NAV history and risk analytics for Indian mutual funds & ETFs."
 DATASET_LICENSES = [{"name": "CC0-1.0"}]
 
 
