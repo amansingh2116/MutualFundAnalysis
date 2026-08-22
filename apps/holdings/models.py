@@ -56,14 +56,40 @@ class SectorAllocation(BaseModel):
 
 
 class MarketCapAllocation(BaseModel):
-    """Market cap breakdown: large/mid/small/other (from mstarpy or yahooquery)."""
+    """Market cap breakdown: large/mid/small/other (from mstarpy or yahooquery).
+
+    large_pct / mid_pct / small_pct are computed from equity holdings via
+    CapClassifier (apps.holdings.cap_classifier) against the SEBI cap list.
+
+    equity_pct / debt_pct / cash_pct / other_pct reflect the overall fund
+    asset-class allocation (from mstarpy allocationMap or yahooquery).
+
+    cap_method:
+        'caplist'  — computed by mapping holdings against nifty_caplist.json
+        'mstarpy'  — taken directly from mstarpy's native large/mid/small split
+        'yahoo'    — taken from yahooquery priceToBook large/mid/small split
+        'unknown'  — source unclear
+    """
     scheme      = models.ForeignKey('funds.Scheme', on_delete=models.CASCADE,
                                     related_name='mcap_allocations')
     as_of_month = models.DateField()
     large_pct   = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True)
     mid_pct     = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True)
     small_pct   = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True)
-    other_pct   = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True)
+    other_pct   = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True,
+                                      help_text="Non-equity residual not classified as L/M/S")
+    # Overall asset-class split
+    equity_pct  = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True,
+                                      help_text="% of portfolio in equities")
+    debt_pct    = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True,
+                                      help_text="% of portfolio in debt instruments")
+    cash_pct    = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True,
+                                      help_text="% of portfolio in cash & equivalents")
+    # Method used for cap classification
+    cap_method  = models.CharField(
+        max_length=10, default='unknown',
+        help_text="caplist | mstarpy | yahoo | unknown"
+    )
     source      = models.CharField(max_length=20, default='mstarpy')
 
     class Meta:

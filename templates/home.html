@@ -668,6 +668,51 @@
 {% endif %}
 
 
+{# ─────────────────────────────────────────────────────────────────────────── #}
+{# Section 6 — Industry Capital Flows (AMFI Monthly Inflow Data)              #}
+{# ─────────────────────────────────────────────────────────────────────────── #}
+<div class="dash-section" id="section-industry-flows">
+  <div class="dash-section-header">
+    <div class="dash-section-title">🏦 Industry Capital Flows
+      <button type="button" class="info-btn" data-t-key="industry_capital_flows"
+        data-t-title="Industry Capital Flows"
+        data-t-what="Monthly gross purchase, gross redemption, and net inflow figures from AMFI across all mutual fund categories (Equity, Debt, Hybrid, ETF, etc.)."
+        data-t-interp="Net positive flow = fresh investor money entering the category. Large equity inflows signal bullish sentiment. Persistent outflows from a category can indicate macro concern or tax-selling pressure.">ⓘ</button>
+    </div>
+    <span class="dash-section-badge" id="inflow-as-of-badge" style="display:none"></span>
+  </div>
+
+  <div id="inflow-loading" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>
+  <div id="inflow-empty" style="display:none;text-align:center;padding:40px">
+    <div style="font-size:36px;margin-bottom:12px">📊</div>
+    <h3 style="margin:0 0 8px;font-size:15px">Industry flow data not yet available</h3>
+    <p style="font-size:12px;color:var(--text-muted)">Run <code>python manage.py ingest_industry_inflows --months 6</code> to fetch AMFI monthly data.</p>
+  </div>
+
+  <div id="inflow-content" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <!-- Category Bar Chart -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">Net Inflow by Category (₹ Cr)</div></div>
+        <div id="inflow-bars" style="padding:16px;display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+
+      <!-- Equity Trend Sparkline -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Equity Net Inflow — 6-Month Trend</div>
+        </div>
+        <div class="card-body" style="padding:16px">
+          <canvas id="inflow-trend-chart" style="max-height:180px"></canvas>
+          <div id="inflow-trend-empty" style="display:none;text-align:center;padding:20px;color:var(--text-muted);font-size:12px">Not enough monthly data yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1017,6 +1062,91 @@ document.addEventListener('DOMContentLoaded', () => {
   renderMeterTable();
   const defaultCat = "{{ default_sub_cat|escapejs }}";
   if (defaultCat) loadQuartile(defaultCat);
+  loadIndustryFlows();
 });
+</script>
+
+{# ── Section 6 JS: Industry Capital Flows ── #}
+<script>
+let inflowTrendChart = null;
+function loadIndustryFlows() {
+  fetch("{% url 'funds:home_industry_inflows_api' %}")
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('inflow-loading').style.display = 'none';
+      if (!data.has_data) {
+        document.getElementById('inflow-empty').style.display = 'block';
+        return;
+      }
+      document.getElementById('inflow-content').style.display = 'block';
+      const badge = document.getElementById('inflow-as-of-badge');
+      if (data.as_of_month) {
+        badge.textContent = 'As of ' + data.as_of_month;
+        badge.style.display = '';
+      }
+
+      // Category bars
+      const barsEl = document.getElementById('inflow-bars');
+      const cats = data.categories || [];
+      if (cats.length) {
+        const maxAbs = Math.max(...cats.map(c => Math.abs(c.net_inflow_cr || 0)), 1);
+        const COLORS = {'Equity':'#6366f1','Debt':'#10b981','Hybrid':'#f59e0b','ETF / Index':'#3b82f6','Solution Oriented':'#8b5cf6','Other':'#6b7280'};
+        barsEl.innerHTML = cats.map(c => {
+          const val = c.net_inflow_cr || 0;
+          const pct = Math.min(100, Math.abs(val) / maxAbs * 100).toFixed(1);
+          const color = val >= 0 ? (COLORS[c.name] || '#6366f1') : '#ef4444';
+          const sign = val >= 0 ? '+' : '';
+          const aum = c.aum_cr ? ' · AUM ₹' + Number(c.aum_cr).toLocaleString('en-IN', {maximumFractionDigits:0}) + ' Cr' : '';
+          return `<div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="font-weight:600">${c.name}</span>
+              <span style="color:${color};font-weight:700">${sign}₹${Number(val).toLocaleString('en-IN',{maximumFractionDigits:0})} Cr${aum}</span>
+            </div>
+            <div style="background:var(--surface-3);border-radius:6px;height:8px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${color};border-radius:6px;transition:width 0.6s"></div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      // Equity trend sparkline
+      const trend = data.equity_trend || [];
+      if (trend.length >= 2) {
+        const ctx = document.getElementById('inflow-trend-chart').getContext('2d');
+        if (inflowTrendChart) inflowTrendChart.destroy();
+        inflowTrendChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: trend.map(r => r.month),
+            datasets: [{
+              label: 'Equity Net Inflow (₹ Cr)',
+              data: trend.map(r => r.net_inflow_cr),
+              borderColor: '#6366f1',
+              backgroundColor: 'rgba(99,102,241,0.08)',
+              fill: true, tension: 0.35, pointRadius: 5,
+              pointBackgroundColor: trend.map(r => (r.net_inflow_cr||0) >= 0 ? '#6366f1' : '#ef4444'),
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: {
+              label: c => (c.parsed.y >= 0 ? '+' : '') + '₹' + Number(c.parsed.y).toLocaleString('en-IN', {maximumFractionDigits:0}) + ' Cr'
+            }}},
+            scales: {
+              x: { ticks: { font: { size: 10 } } },
+              y: { ticks: { callback: v => '₹' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v) + ' Cr', font: { size: 10 } } }
+            }
+          }
+        });
+      } else {
+        document.getElementById('inflow-trend-chart').style.display = 'none';
+        document.getElementById('inflow-trend-empty').style.display = 'block';
+      }
+    })
+    .catch(() => {
+      document.getElementById('inflow-loading').style.display = 'none';
+      document.getElementById('inflow-empty').style.display = 'block';
+    });
+}
 </script>
 {% endblock %}

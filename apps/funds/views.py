@@ -27,6 +27,7 @@ except ImportError:
 from apps.funds.models import (
     CategorySnapshot, FundModelScore, FundScreenerSnapshot,
     NAVHistory, Scheme, SchemeMeta,
+    SchemeAumSnapshot, FundScoreTrend, IndustryInflow,
 )
 from apps.funds.screener import benchmark_options, TOP_FUND_BASKETS
 from apps.funds.screener_reports import render_fund_report_html
@@ -2481,3 +2482,240 @@ def category_compare_api(request):
         logger.error('category_compare_api error: %s', exc)
         return JsonResponse({'error': 'server error'}, status=500)
 
+
+# ── Portfolio Timeline & Industry Inflow APIs ─────────────────────────────────
+
+
+@login_required
+def amc_portfolio_api(request, slug: str):
+    """
+    AJAX: GET /research/amcs/<slug>/portfolio/
+    Returns aggregated portfolio data for the AMC Portfolio Insights tab:
+      - top_holdings:  Top 20 stocks aggregated across all schemes (AUM-weighted)
+      - sectors:       Sector allocation aggregated across equity schemes
+      - cap_blend:     Large/Mid/Small blend
+      - aum_trend:     Monthly AMC total AUM across SchemeAumSnapshot
+      - exits:         Holdings present in prior month but absent this month
+    """
+    from collections import defaultdict
+    from apps.holdings.models import Holding, SectorAllocation, MarketCapAllocation
+
+    fund_house = _slug_to_fund_house(slug)
+    if not fund_house:
+        return JsonResponse({'error': 'AMC not found'}, status=404)
+
+    try:
+        scheme_qs = Scheme.objects.filter(
+            Q(is_direct=True, plan='GROWTH') | Q(is_etf=True),
+            fund_house=fund_house, is_active=True,
+        )
+        scheme_ids = list(scheme_qs.values_list('id', flat=True))
+        scheme_aum = {s.id: float(s.aum_cr or 0) for s in scheme_qs.only('id', 'aum_cr')}
+        total_aum  = sum(scheme_aum.values()) or 1
+
+        latest_month = (
+            Holding.objects.filter(scheme_id__in=scheme_ids)
+            .values_list('as_of_month', flat=True).order_by('-as_of_month').first()
+        )
+
+        result = {
+            'fund_house': fund_house, 'latest_month': str(latest_month) if latest_month else None,
+            'top_holdings': [], 'sectors': [], 'cap_blend': {},
+            'aum_trend': [], 'exits': [], 'has_data': latest_month is not None,
+        }
+        if not latest_month:
+            return JsonResponse(result)
+
+        # Top holdings (AUM-weighted)
+        holdings_by_stock = defaultdict(float)
+        for h in Holding.objects.filter(
+            scheme_id__in=scheme_ids, as_of_month=latest_month, holding_type='equity'
+        ).values('scheme_id', 'security_name', 'weight_pct'):
+            aum_share = scheme_aum.get(h['scheme_id'], 0) / total_aum
+            holdings_by_stock[h['security_name']] += float(h['weight_pct'] or 0) * aum_share
+        result['top_holdings'] = sorted(
+            [{'name': k, 'weight_pct': round(v, 4)} for k, v in holdings_by_stock.items()],
+            key=lambda x: -x['weight_pct']
+        )[:20]
+
+        # Sector allocation
+        sector_agg = defaultdict(float)
+        for s in SectorAllocation.objects.filter(
+            scheme_id__in=scheme_ids, as_of_month=latest_month
+        ).values('scheme_id', 'sector', 'weight_pct'):
+            sector_agg[s['sector']] += float(s['weight_pct'] or 0) * (scheme_aum.get(s['scheme_id'], 0) / total_aum)
+        result['sectors'] = sorted(
+            [{'sector': k, 'weight_pct': round(v, 4)} for k, v in sector_agg.items()],
+            key=lambda x: -x['weight_pct']
+        )
+
+        # Cap blend
+        cap_l = cap_m = cap_s = 0.0; cap_count = 0
+        for mc in MarketCapAllocation.objects.filter(
+            scheme_id__in=scheme_ids, as_of_month=latest_month
+        ).values('scheme_id', 'large_pct', 'mid_pct', 'small_pct'):
+            w = scheme_aum.get(mc['scheme_id'], 0) / total_aum
+            cap_l += float(mc['large_pct'] or 0) * w
+            cap_m += float(mc['mid_pct']   or 0) * w
+            cap_s += float(mc['small_pct'] or 0) * w
+            cap_count += 1
+        if cap_count:
+            result['cap_blend'] = {'large_pct': round(cap_l, 2), 'mid_pct': round(cap_m, 2), 'small_pct': round(cap_s, 2), 'count': cap_count}
+
+        # AMC AUM trend
+        from django.db.models import Sum as DSum
+        result['aum_trend'] = [
+            {'month': str(r['as_of_month']), 'aum_cr': round(float(r['total_aum'] or 0), 2)}
+            for r in SchemeAumSnapshot.objects.filter(scheme_id__in=scheme_ids)
+                .values('as_of_month').annotate(total_aum=DSum('aum_cr')).order_by('as_of_month')
+        ]
+
+        # Exits
+        prev_months = list(
+            Holding.objects.filter(scheme_id__in=scheme_ids)
+            .values_list('as_of_month', flat=True).order_by('-as_of_month').distinct()
+        )
+        if len(prev_months) >= 2:
+            curr_names = set(Holding.objects.filter(scheme_id__in=scheme_ids, as_of_month=latest_month, holding_type='equity').values_list('security_name', flat=True))
+            prev_names = set(Holding.objects.filter(scheme_id__in=scheme_ids, as_of_month=prev_months[1], holding_type='equity').values_list('security_name', flat=True))
+            result['exits'] = sorted(list(prev_names - curr_names))[:15]
+
+        return JsonResponse(result)
+    except Exception as exc:
+        logger.error('amc_portfolio_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+@login_required
+def fund_portfolio_timeline_api(request, amfi_code: str):
+    """
+    AJAX: GET /funds/<amfi_code>/portfolio-timeline/
+    Returns per-fund AUM trend, cap blend timeline, sector breakdown.
+    """
+    from apps.holdings.models import SectorAllocation, MarketCapAllocation
+    try:
+        scheme    = get_object_or_404(Scheme, amfi_code=amfi_code)
+        aum_trend = list(SchemeAumSnapshot.objects.filter(scheme=scheme).order_by('as_of_month').values('as_of_month', 'aum_cr'))
+        cap_trend = list(MarketCapAllocation.objects.filter(scheme=scheme).order_by('as_of_month').values('as_of_month', 'large_pct', 'mid_pct', 'small_pct', 'equity_pct', 'debt_pct', 'cash_pct', 'cap_method'))
+        latest_sa_month = SectorAllocation.objects.filter(scheme=scheme).values_list('as_of_month', flat=True).order_by('-as_of_month').first()
+        sectors = list(SectorAllocation.objects.filter(scheme=scheme, as_of_month=latest_sa_month).order_by('-weight_pct').values('sector', 'weight_pct')) if latest_sa_month else []
+        return JsonResponse({
+            'amfi_code': amfi_code,
+            'aum_trend': [{'month': str(r['as_of_month']), 'aum_cr': round(float(r['aum_cr'] or 0), 2)} for r in aum_trend],
+            'cap_trend': [{'month': str(r['as_of_month']), 'large_pct': _flt(r['large_pct']), 'mid_pct': _flt(r['mid_pct']), 'small_pct': _flt(r['small_pct']), 'equity_pct': _flt(r['equity_pct']), 'debt_pct': _flt(r['debt_pct']), 'cash_pct': _flt(r['cash_pct']), 'cap_method': r.get('cap_method', 'unknown')} for r in cap_trend],
+            'sectors': [{'sector': s['sector'], 'weight_pct': _flt(s['weight_pct'])} for s in sectors],
+            'sector_as_of': str(latest_sa_month) if latest_sa_month else None,
+        })
+    except Exception as exc:
+        logger.error('fund_portfolio_timeline_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+@login_required
+def fund_score_trend_api(request, amfi_code: str):
+    """
+    AJAX: GET /funds/<amfi_code>/score-trend/
+    Returns score and rank trend history for fund detail Advanced tab.
+    """
+    try:
+        scheme = get_object_or_404(Scheme, amfi_code=amfi_code)
+        trend  = list(FundScoreTrend.objects.filter(scheme=scheme).order_by('as_of_week').values('as_of_week', 'final_score', 'score_badge', 'rank_in_cat', 'cat_total'))
+        return JsonResponse({
+            'amfi_code': amfi_code,
+            'trend': [{'week': str(r['as_of_week']), 'score': _flt(r['final_score']), 'badge': r['score_badge'] or '', 'rank': r['rank_in_cat'], 'cat_total': r['cat_total'], 'rank_pct': round(100 * r['rank_in_cat'] / r['cat_total'], 1) if r['rank_in_cat'] and r['cat_total'] else None} for r in trend],
+        })
+    except Exception as exc:
+        logger.error('fund_score_trend_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)
+
+
+def home_industry_inflows_api(request):
+    """
+    AJAX: GET /home/industry-inflows/
+    Returns latest month industry inflow breakdown + 6-month equity trend.
+
+    Primary:  IndustryInflow table (populated by ingest_industry_inflows from AMFI).
+    Fallback: SchemeAumSnapshot grouped by category_group — provides AUM per category
+              and month-over-month AUM change as a proxy for net inflows.
+    Public endpoint (no login required).
+    """
+    try:
+        # ── Primary: IndustryInflow (AMFI data) ──────────────────────────────
+        latest_month = IndustryInflow.objects.values_list('as_of_month', flat=True).order_by('-as_of_month').first()
+        if latest_month:
+            categories = list(IndustryInflow.objects.filter(as_of_month=latest_month).order_by('-aum_cr').values(
+                'category_group', 'gross_purchase', 'gross_redemption', 'net_inflow', 'aum_cr'))
+            equity_trend = list(IndustryInflow.objects.filter(category_group='Equity').order_by('-as_of_month')[:6].values('as_of_month', 'net_inflow', 'aum_cr'))
+            return JsonResponse({
+                'has_data': True,
+                'data_source': 'amfi',
+                'as_of_month': str(latest_month),
+                'latest_month': str(latest_month),
+                'categories': [{'name': r['category_group'], 'purchase_cr': _flt(r['gross_purchase']), 'redemption_cr': _flt(r['gross_redemption']), 'net_inflow_cr': _flt(r['net_inflow']), 'aum_cr': _flt(r['aum_cr'])} for r in categories],
+                'equity_trend': [{'month': str(r['as_of_month']), 'net_inflow_cr': _flt(r['net_inflow']), 'aum_cr': _flt(r['aum_cr'])} for r in reversed(equity_trend)],
+            })
+
+        # ── Fallback: SchemeAumSnapshot grouped by category_group ────────────
+        # Build category_group map from FundScreenerSnapshot (scheme_id → group)
+        from django.db.models import Sum as DSum
+        cat_map = dict(
+            FundScreenerSnapshot.objects.filter(Q(is_direct=True) | Q(is_etf=True))
+            .values_list('scheme_id', 'category_group')
+        )
+        if not cat_map:
+            return JsonResponse({'has_data': False, 'data_source': 'none', 'as_of_month': None, 'categories': [], 'equity_trend': []})
+
+        # Get latest 2 months from SchemeAumSnapshot
+        months = list(
+            SchemeAumSnapshot.objects.filter(scheme_id__in=cat_map.keys())
+            .values_list('as_of_month', flat=True).order_by('-as_of_month').distinct()[:7]
+        )
+        if not months:
+            return JsonResponse({'has_data': False, 'data_source': 'none', 'as_of_month': None, 'categories': [], 'equity_trend': []})
+
+        latest = months[0]
+        prev   = months[1] if len(months) > 1 else None
+
+        # AUM per category for latest month
+        aum_latest: dict[str, float] = {}
+        for row in SchemeAumSnapshot.objects.filter(scheme_id__in=cat_map.keys(), as_of_month=latest).values('scheme_id', 'aum_cr'):
+            grp = cat_map.get(row['scheme_id'], 'Other')
+            aum_latest[grp] = aum_latest.get(grp, 0) + float(row['aum_cr'] or 0)
+
+        # AUM per category for prior month (for ΔNet proxy)
+        aum_prev: dict[str, float] = {}
+        if prev:
+            for row in SchemeAumSnapshot.objects.filter(scheme_id__in=cat_map.keys(), as_of_month=prev).values('scheme_id', 'aum_cr'):
+                grp = cat_map.get(row['scheme_id'], 'Other')
+                aum_prev[grp] = aum_prev.get(grp, 0) + float(row['aum_cr'] or 0)
+
+        cats_out = []
+        for grp, aum in sorted(aum_latest.items(), key=lambda x: -x[1]):
+            delta = aum - aum_prev.get(grp, aum) if prev else None  # AUM change proxy
+            cats_out.append({
+                'name': grp,
+                'aum_cr': round(aum / 1_00_00_000, 2) if aum > 1_00_00_000 else round(aum, 2),
+                'net_inflow_cr': round(delta, 2) if delta is not None else None,
+                'purchase_cr': None, 'redemption_cr': None,
+            })
+
+        # 6-month equity AUM trend
+        equity_scheme_ids = [sid for sid, g in cat_map.items() if g == 'Equity']
+        equity_trend_out = []
+        for m in reversed(months):
+            eq_aum = SchemeAumSnapshot.objects.filter(scheme_id__in=equity_scheme_ids, as_of_month=m).aggregate(t=DSum('aum_cr'))['t']
+            if eq_aum:
+                equity_trend_out.append({'month': str(m), 'net_inflow_cr': None, 'aum_cr': round(float(eq_aum), 2)})
+
+        return JsonResponse({
+            'has_data': True,
+            'data_source': 'aum_snapshot',
+            'as_of_month': str(latest),
+            'latest_month': str(latest),
+            'categories': cats_out,
+            'equity_trend': equity_trend_out,
+        })
+
+    except Exception as exc:
+        logger.error('home_industry_inflows_api error: %s', exc)
+        return JsonResponse({'error': 'server error'}, status=500)

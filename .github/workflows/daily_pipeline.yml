@@ -137,3 +137,11 @@ jobs:
       # Fast (< 10 s) — always runs. Safe because fund pipeline exits gracefully.
       - name: Sync Learn section content
         run: python manage.py sync_content
+
+      # ── 8. Score trend snapshot ───────────────────────────────────────────
+      # Stores each fund's model score and category rank for the current week
+      # in FundScoreTrend (keyed by as_of_week — idempotent). Powers the
+      # Score & Rank Trend chart on the fund detail Portfolio tab.
+      - name: Ingest weekly score trend snapshot
+        run: python manage.py ingest_score_trend
+        continue-on-error: true   # Non-fatal; screener may still be running

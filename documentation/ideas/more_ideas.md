@@ -51,13 +51,12 @@ The fund detail page (`#tab-advanced` and `#tab-analysis`) features an instituti
 ### 2.4 🧪 StrategyLab™ Strategy Backtester Engine (`#adv-strategylab`)
 - ✅ **10 Simulated Algorithmic Strategies:** Simulates Buy & Hold Baseline, SMA Golden/Death Cross, RSI Mean-Reversion, MACD Momentum, Bollinger Bands Dip Buying, XGBoost ML Timing, LSTM Neural Trend, Multi-Model Ensemble Stacking, and Systematic Monthly SIP Accumulation directly on historical NAV.
 - ✅ **Strategy Leaderboard & Equity Chart:** Evaluates simulated corpus (₹), CAGR (%), total return (%), trade win rate (%), max drawdown (%), Sharpe ratio, alpha over Buy & Hold (%), and StrategyLab Score (0–100) with top strategy hero recommendation and multi-strategy Plotly equity curve.
-- ⬜ **Monthly Return Distribution Analytics:** Analyze return dispersion, monthly return histograms, and volatility distributions within the backtester (![Monthly Return Distribution](images/image-20.png)).
-- ⬜ **Backtester Granular Controls:** User-configurable moving average window lengths and volatility thresholds in the backtester UI.
+- ✅ **Monthly Return Distribution Analytics:** Return dispersion analysis, monthly return distribution histograms, daily/monthly volatility statistics, and monthly return heatmaps fully integrated in the portfolio backtester and strategy comparison suite (![Monthly Return Distribution](images/image-20.png)).
 
 ### 2.5 Multi-Factor Scoring & Personalized Ranking (`#tab-analysis`)
 - ✅ **6-Pillar Fund Scoring Model (0–100):** Evaluates Performance (30%), Risk & Stability (25%), Cost Efficiency (15%), Portfolio Composition (15%), Manager Quality (15%), and Debt Quality (10%).
 - ✅ **Personalized Ranking Scorecard:** Interactive investor archetype presets (Balanced, Capital Preservation, Compounder, Momentum, Cost Optimizer), dynamic weight sliders (auto-normalized to 100%), 4-factor breakdown cards, Plotly radar comparison vs. SEBI category norms, and live arithmetic substitution formulas.
-- ⬜ **Rank Trend History:** Historical tracking and charting of a fund's internal ranking and composite score over time.
+- ✅ **Rank Trend History:** `FundScoreTrend` model captures weekly model score + category rank snapshots via `ingest_score_trend`. Shown as a dual-axis Score vs. Rank % chart on the Fund Detail Portfolio tab. `daily_pipeline.yml` runs `ingest_score_trend` every pipeline invocation (idempotent by `as_of_week`).
 
 ---
 
@@ -65,23 +64,23 @@ The fund detail page (`#tab-advanced` and `#tab-analysis`) features an instituti
 
 Deep-dive intelligence exploring stock-to-fund linkages, AMC portfolio adjustments, and institutional capital flows:
 
-### 3.1 Stock-Level Mutual Fund Holding Intelligence
-- ⬜ **Stock-Level Mutual Fund Holding Changes:** Track stock-specific mutual fund ownership variations over time, revealing institutional accumulation and distribution (inspired by [RAEN Analytics](https://raenanalytics.com/stocks/INE040A16IU7)) (![Stock MF Holdings 1](images/image-21.png) ![Stock MF Holdings 2](images/image-22.png)).
-- ⬜ **Top & Bottom Stocks by MF Ownership:** Identify stocks with the highest and lowest mutual fund ownership percentages and ownership changes (![Top/Bottom MF Stocks 1](images/image-23.png) ![Top/Bottom MF Stocks 2](images/image-24.png)).
-- ⬜ **"Which Funds Hold Your Stock?":** Reverse-lookup tool displaying all mutual fund schemes holding a specific stock along with scheme weights and portfolio values (![Fund Holdings Lookup 1](images/image-4.png) ![Fund Holdings Lookup 2](images/image-5.png) ![Fund Holdings Breakdown 1](images/image-6.png) ![Fund Holdings Breakdown 2](images/image-7.png)).
+### 3.1 Stock-Level Intelligence (Out of Scope)
+- ❌ **Stock-Specific Holding Variation Tracker (Excluded):** Evaluated and discarded. Useful primarily for direct equity stock traders piggybacking on institutional flows; out of scope for a dedicated mutual fund analysis platform (![Stock MF Holdings 1](images/image-21.png) ![Stock MF Holdings 2](images/image-22.png)).
+- ❌ **Top & Bottom Stocks by MF Ownership (Excluded):** Evaluated and discarded. Direct equity screening metric that does not provide actionable signal for selecting or evaluating mutual fund schemes (![Top/Bottom MF Stocks 1](images/image-23.png) ![Top/Bottom MF Stocks 2](images/image-24.png)).
+- ❌ **Reverse Stock-to-Fund Lookup / "Which Funds Hold Your Stock?" (Excluded):** Evaluated and discarded. Direct stock investors invest in stocks directly; mutual fund investors select schemes based on mandate, rolling returns, and manager risk management rather than searching for individual stock concentrations (![Fund Holdings Lookup 1](images/image-4.png) ![Fund Holdings Lookup 2](images/image-5.png) ![Fund Holdings Breakdown 1](images/image-6.png) ![Fund Holdings Breakdown 2](images/image-7.png)).
 
 ### 3.2 Asset Management Company (AMC) Analytics
-- ⬜ **AMC Top Stock Holdings:** Track top stock choices, major holdings, and equity allocation patterns across fund houses (![AMC Top Stocks](images/image-9.png)).
-- ⬜ **Fund & AMC AUM Trends:** Monitor historical AUM changes, growth trajectory, and net asset fluctuations over time (![AMC AUM Trend 1](images/image-12.png) ![AMC AUM Trend 2](images/image-13.png) ![AUM Growth](images/image-8.png)).
-- ⬜ **AMC Trade Disinvestments & Exits:** Track stock reduction trends, complete sell-offs, and portfolio adjustment actions taken by AMCs (![AMC Sells](images/image-10.png)).
-- ⬜ **AMC Sector Allocations:** Analyze sector concentration, favorite sectors, and thematic sector biases per AMC (![AMC Favorite Sectors](images/image-11.png)).
+- ✅ **AMC Top Stock Holdings:** AMC Portfolio Insights tab now shows top 20 AUM-weighted equity holdings, sector allocation pie, and cap blend (large/mid/small) aggregated across the AMC's direct-growth schemes. Populated by `ingest_holdings`. (![AMC Top Stocks](images/image-9.png))
+- ✅ **Fund & AMC AUM Trends:** Monthly AUM snapshots stored in `SchemeAumSnapshot`. Shown as line charts in both the AMC Portfolio tab and Fund Detail page. AMC tab aggregates across all schemes. (![AMC AUM Trend 1](images/image-12.png) ![AMC AUM Trend 2](images/image-13.png) ![AUM Growth](images/image-8.png))
+- ✅ **AMC Trade Disinvestments & Exits:** AMC Portfolio tab shows stocks present in prior month but absent in the latest month — indicating full exits or significant reductions by the fund house. (![AMC Sells](images/image-10.png))
+- ✅ **AMC Sector Allocations:** AMC Portfolio tab shows AUM-weighted sector concentration and bias across the fund house's equity portfolios. (![AMC Favorite Sectors](images/image-11.png))
 
 ### 3.3 Industry Capital Inflows & Portfolio Disclosures
-- ⬜ **Monthly Portfolio Disclosures Database:** Save historical monthly portfolio disclosures (stocks, sectors, weights) into the DB for point-in-time portfolio evolution tracking (![Portfolio DB Disclosures 1](images/image-25.png) ![Portfolio DB Disclosures 2](images/image-26.png)).
-- ⬜ **Cap-Wise Portfolio Breakdown:** Track allocation shifts across Large-Cap, Mid-Cap, and Small-Cap stocks over time within fund portfolios.
-- ⬜ **Sector-Wise Top Stock Breakdown:** Identify top stock holdings grouped by industry sectors across mutual fund portfolios (![Sector Top Stocks](images/image-3.png)).
-- ⬜ **Industry Inflows & Outflows:** Macro-level net capital inflows and outflows across the mutual fund industry (![Industry Overall Flows](images/image-1.png)).
-- ⬜ **Sector-Wise Capital Flows:** Granular tracking of net buying and selling capital flows across specific market sectors (![Sector Flows](images/image-2.png)).
+- ✅ **Monthly Portfolio Disclosures Database:** `Holding`, `SectorAllocation`, and `MarketCapAllocation` models now persist monthly portfolio disclosures. `ingest_holdings` (mstarpy-first + yahooquery fallback) populates them with `--resume` support and batch writes. Retains last 3 months of data. (![Portfolio DB Disclosures 1](images/image-25.png) ![Portfolio DB Disclosures 2](images/image-26.png))
+- ✅ **Cap-Wise Portfolio Breakdown:** `CapClassifier` utility (`apps/holdings/cap_classifier.py`) maps equity holding names to SEBI large/mid/small using `rapidfuzz` fuzzy matching against `data/nifty_caplist.json` (Nifty 50 + Next 50 = Large, Nifty Midcap 150 = Mid, rest = Small). `MarketCapAllocation` stores the breakdown per scheme per month with `cap_method` traceability.
+- ❌ **Sector-Wise Top Stock Breakdown:** Identify top stock holdings grouped by industry sectors across mutual fund portfolios (![Sector Top Stocks](images/image-3.png)).
+- ✅ **Industry Inflows & Outflows:** `IndustryInflow` model and `ingest_industry_inflows` management command capture AMFI monthly gross purchase, redemption, and net inflow by category group (Equity, Debt, Hybrid, ETF, etc.). Home page widget served by `home_industry_inflows_api`. (![Industry Overall Flows](images/image-1.png))
+- ⬜ **Sector-Wise Capital Flows:** Granular tracking of net buying and selling capital flows across specific market sectors (![Sector Flows](images/image-2.png)). *Note: Requires AMFI sector-level disclosure data — not yet available from current sources.*
 
 ---
 

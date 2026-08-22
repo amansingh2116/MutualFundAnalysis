@@ -254,7 +254,41 @@ def refresh_snapshot_for_scheme(scheme):
             port_debt_pct = _decimal(debt_w)
             port_cash_pct = _decimal(cash_w)
             port_other_pct = _decimal(other_w)
-    
+
+    # ── Cap blend (MarketCapAllocation) ───────────────────────────────────────
+    large_pct_val = mid_pct_val = small_pct_val = None
+    try:
+        from apps.holdings.models import MarketCapAllocation
+        mc = MarketCapAllocation.objects.filter(scheme=scheme).order_by('-as_of_month').first()
+        if mc:
+            large_pct_val = _decimal(mc.large_pct, max_digits=7, decimal_places=2)
+            mid_pct_val   = _decimal(mc.mid_pct,   max_digits=7, decimal_places=2)
+            small_pct_val = _decimal(mc.small_pct, max_digits=7, decimal_places=2)
+    except Exception:
+        pass
+
+    # ── Top sector (SectorAllocation) ─────────────────────────────────────────
+    top_sector_val = ''
+    try:
+        from apps.holdings.models import SectorAllocation
+        sa = SectorAllocation.objects.filter(scheme=scheme).order_by('-as_of_month', '-weight_pct').first()
+        if sa:
+            top_sector_val = sa.sector or ''
+    except Exception:
+        pass
+
+    # ── AUM 1-month change % (SchemeAumSnapshot) ──────────────────────────────
+    aum_1m_change_pct_val = None
+    try:
+        from apps.funds.models import SchemeAumSnapshot
+        aum_rows = list(SchemeAumSnapshot.objects.filter(scheme=scheme).order_by('-as_of_month').values('aum_cr')[:2])
+        if len(aum_rows) == 2 and aum_rows[1]['aum_cr'] and float(aum_rows[1]['aum_cr']) != 0:
+            prev = float(aum_rows[1]['aum_cr'])
+            curr = float(aum_rows[0]['aum_cr'] or 0)
+            aum_1m_change_pct_val = _decimal((curr - prev) / prev * 100, max_digits=8, decimal_places=2)
+    except Exception:
+        pass
+
     # ── Category Standard Deviation & Excess vs Category ─────────────────────
     from apps.funds.models import CategorySnapshot
     cat_snap = CategorySnapshot.objects.filter(scheme_sub_category=sub_category).first()
@@ -385,6 +419,12 @@ def refresh_snapshot_for_scheme(scheme):
             "port_top5_concentration": port_top5,
             "port_top10_concentration":port_top10,
             "category_st_dev":         category_st_dev,
+            # ── Cap blend + sector + AUM trend (from monthly holdings pipeline) ─
+            "large_pct":           large_pct_val,
+            "mid_pct":             mid_pct_val,
+            "small_pct":           small_pct_val,
+            "top_sector":          top_sector_val,
+            "aum_1m_change_pct":   aum_1m_change_pct_val,
             # ── Rolling return min values (worst rolling window) ───────────────
             "rolling_return_7y_pct":   _decimal(getattr(rolling_7y, "mean_pct", None)),
             "rolling_min_3y_pct":      _decimal(getattr(rolling_3y, "min_pct", None)),

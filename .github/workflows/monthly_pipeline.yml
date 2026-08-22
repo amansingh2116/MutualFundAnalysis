@@ -1,0 +1,96 @@
+﻿name: Monthly Data Pipeline
+
+# =====================================================================
+# HOW THE MONTHLY PIPELINE WORKS
+# =====================================================================
+#
+# Runs on the 5th of each month at 3:00 AM UTC.
+#
+# WHAT IT INGESTS (in order):
+#   1. update_nifty_caplist    -- Nifty 50 / Next 50 / Midcap 150 refresh
+#   2. ingest_holdings         -- Monthly portfolio disclosures (all active funds)
+#   3. ingest_aum_snapshots    -- Point-in-time AUM snapshot for all schemes
+#   4. ingest_industry_inflows -- AMFI category-level net inflow data (last 3 mo)
+#
+# DATA RETENTION:
+#   Holdings (Holding, SectorAllocation, MarketCapAllocation) retain last 3
+#   months automatically — ingest_holdings uses update_or_create keyed by
+#   (scheme, as_of_month) so re-running is safe and idempotent.
+#
+# DOWNSTREAM:
+#   The next weekly populate_screener run picks up new large_pct / mid_pct /
+#   small_pct / top_sector / aum_1m_change_pct for all FundScreenerSnapshot rows.
+#
+# REQUIREMENTS: DATABASE_URL and SECRET_KEY GitHub Secrets must be set.
+# =====================================================================
+
+on:
+  schedule:
+    - cron: '0 3 5 * *'
+  workflow_dispatch:
+    inputs:
+      inflow_months:
+        description: 'Months of industry inflow data to fetch (default 3)'
+        required: false
+        default: '3'
+
+jobs:
+  monthly-ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SECRET_KEY:   ${{ secrets.SECRET_KEY }}
+      RF_ANNUAL_RATE: "0.065"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Apply pending database migrations
+        run: python manage.py migrate --no-input
+
+      # -- 3. Refresh Nifty cap-list (SEBI cap classification accuracy) -------
+      # Fast (~10s). Updates data/nifty_caplist.json from NSE.
+      - name: Refresh Nifty cap-list
+        run: python manage.py update_nifty_caplist
+        continue-on-error: true
+
+      # -- 4. Ingest monthly portfolio holdings --------------------------------
+      # Downloads AMFI portfolio disclosures for all active direct-growth funds.
+      # mstarpy (primary) + yahooquery (fallback). CapClassifier maps to SEBI caps.
+      # update_or_create keyed by (scheme, as_of_month) -- safe to re-run.
+      - name: Ingest portfolio holdings
+        run: |
+          echo "=== Monthly Portfolio Holdings Ingest ==="
+          echo "  Date: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          python manage.py ingest_holdings
+
+      # -- 5. AUM snapshots ---------------------------------------------------
+      # Snapshots current AUM from AMFI for all active schemes (SchemeAumSnapshot).
+      # Used by fund AUM trend chart and aum_1m_change_pct screener column.
+      - name: Ingest AUM snapshots
+        run: python manage.py ingest_aum_snapshots
+        continue-on-error: true
+
+      # -- 6. AMFI industry inflows -------------------------------------------
+      # Fetches category-level gross purchase, gross redemption, net inflow
+      # from AMFI into IndustryInflow model. Shown on Home page Capital Flows widget.
+      - name: Ingest AMFI industry inflows
+        run: |
+          INFLOW_MONTHS="${{ github.event.inputs.inflow_months }}"
+          INFLOW_MONTHS="${INFLOW_MONTHS:-3}"
+          echo "=== AMFI Industry Inflows: last ${INFLOW_MONTHS} months ==="
+          python manage.py ingest_industry_inflows --months="${INFLOW_MONTHS}"
+        continue-on-error: true

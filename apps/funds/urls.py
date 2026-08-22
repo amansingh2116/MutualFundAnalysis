@@ -35,6 +35,14 @@ urlpatterns = [
     path('research/amcs/api/compare/', views.amc_compare_api, name='amc_compare_api'),
     path('research/amcs/<str:slug>/', views.ResearchAMCDetailView.as_view(), name='research_amc_detail'),
     path('research/amcs/<str:slug>/funds/', views.amc_detail_funds_api, name='amc_detail_funds_api'),
+    path('research/amcs/<str:slug>/portfolio/', views.amc_portfolio_api, name='amc_portfolio_api'),
+
+    # ── Fund Portfolio Timeline & Score Trend APIs ─────────────────────────────
+    path('funds/<str:amfi_code>/portfolio-timeline/', views.fund_portfolio_timeline_api, name='fund_portfolio_timeline_api'),
+    path('funds/<str:amfi_code>/score-trend/', views.fund_score_trend_api, name='fund_score_trend_api'),
+
+    # ── Home Page Widgets ──────────────────────────────────────────────────────
+    path('home/industry-inflows/', views.home_industry_inflows_api, name='home_industry_inflows_api'),
 ]
 
 # Aliases for calculator pages under funds namespace to prevent NoReverseMatch

@@ -106,13 +106,35 @@ class MstarpyAdapter(BaseAdapter):
         Fetch sector allocation.
 
         Returns:
-            DataFrame or dict with sector → weight % mapping, or None on failure.
+            dict or DataFrame with sector → weight % mapping, or None on failure.
         """
         import time
+        SECTOR_NAME_MAP = {
+            'basicMaterials': 'Basic Materials',
+            'consumerCyclical': 'Consumer Cyclical',
+            'financialServices': 'Financial Services',
+            'realEstate': 'Real Estate',
+            'communicationServices': 'Communication Services',
+            'energy': 'Energy',
+            'industrials': 'Industrials',
+            'technology': 'Technology',
+            'consumerDefensive': 'Consumer Defensive',
+            'healthcare': 'Healthcare',
+            'utilities': 'Utilities',
+        }
         try:
             fund = self._init_fund(mstar_id)
             time.sleep(self.RATE_LIMIT_DELAY)
-            return fund.sectorAllocation()
+            if hasattr(fund, 'sector'):
+                raw = fund.sector()
+                if isinstance(raw, dict):
+                    eq = raw.get('EQUITY', {}).get('fundPortfolio', {})
+                    if eq:
+                        return {SECTOR_NAME_MAP.get(k, k): v for k, v in eq.items() if v is not None}
+                    return raw
+            elif hasattr(fund, 'sectorAllocation'):
+                return fund.sectorAllocation()
+            return None
         except Exception as e:
             logger.warning(f"[mstarpy] fetch_sector_allocation failed for {mstar_id}: {e}")
             return None
@@ -129,7 +151,9 @@ class MstarpyAdapter(BaseAdapter):
         try:
             fund = self._init_fund(mstar_id)
             time.sleep(self.RATE_LIMIT_DELAY)
-            return fund.trailingReturn()
+            if hasattr(fund, 'trailingReturn'):
+                return fund.trailingReturn()
+            return None
         except Exception as e:
             logger.warning(f"[mstarpy] fetch_trailing_returns failed for {mstar_id}: {e}")
             return None
@@ -145,7 +169,12 @@ class MstarpyAdapter(BaseAdapter):
         try:
             fund = self._init_fund(mstar_id)
             time.sleep(self.RATE_LIMIT_DELAY)
-            data = fund.riskVolatilityMeasures()
+            if hasattr(fund, 'riskVolatility'):
+                data = fund.riskVolatility()
+            elif hasattr(fund, 'riskVolatilityMeasures'):
+                data = fund.riskVolatilityMeasures()
+            else:
+                return None
             # Normalise to dict indexed by period if DataFrame returned
             import pandas as pd
             if isinstance(data, pd.DataFrame) and 'period' in data.columns:
@@ -161,7 +190,9 @@ class MstarpyAdapter(BaseAdapter):
         try:
             fund = self._init_fund(mstar_id)
             time.sleep(self.RATE_LIMIT_DELAY)
-            return fund.maxDrawDown()
+            if hasattr(fund, 'maxDrawDown'):
+                return fund.maxDrawDown()
+            return None
         except Exception as e:
             logger.warning(f"[mstarpy] fetch_max_drawdown failed for {mstar_id}: {e}")
             return None
@@ -172,24 +203,50 @@ class MstarpyAdapter(BaseAdapter):
         try:
             fund = self._init_fund(mstar_id)
             time.sleep(self.RATE_LIMIT_DELAY)
-            return fund.portfolioStatistics()
+            if hasattr(fund, 'allocationWeighting'):
+                alloc = fund.allocationWeighting()
+                if isinstance(alloc, dict):
+                    large = sum(float(alloc.get(k, 0) or 0) for k in ('largeValue', 'largeBlend', 'largeGrowth'))
+                    mid   = sum(float(alloc.get(k, 0) or 0) for k in ('middleValue', 'middleBlend', 'middleGrowth'))
+                    small = sum(float(alloc.get(k, 0) or 0) for k in ('smallValue', 'smallBlend', 'smallGrowth'))
+                    return {'large_pct': large, 'mid_pct': mid, 'small_pct': small, 'raw': alloc}
+            elif hasattr(fund, 'portfolioStatistics'):
+                return fund.portfolioStatistics()
+            return None
         except Exception as e:
             logger.warning(f"[mstarpy] fetch_portfolio_statistics failed for {mstar_id}: {e}")
             return None
 
     def search_fund(self, name: str, page_size: int = 5) -> list:
         """
-        Search for a fund by name to get its Morningstar SecId.
-        Used by build_mstar_mapping management command.
+        Search for a fund by name or ISIN to get its Morningstar SecId.
+        Used by build_mstar_mapping management command and holdings auto-discovery.
 
         Returns:
-            List of dicts with 'SecId', 'Name', 'LegalName' etc.
+            List of dicts with 'SecId', 'securityID', 'Name', 'isin' etc.
         """
         try:
             from mstarpy.search import MorningstarSession
             session = MorningstarSession()
-            results = session.screener_universe(name, field=["SecId", "Name"], pageSize=page_size)
-            return [r.get('meta', {}) | r.get('fields', {}) for r in results]
+            results = session.screener_universe(name, field=["isin", "name"], pageSize=page_size)
+            if not results or not isinstance(results, list):
+                return []
+            output = []
+            for r in results:
+                meta = r.get('meta', {})
+                fields = r.get('fields', {})
+                sec_id = meta.get('securityID') or meta.get('SecId') or meta.get('secId')
+                fund_name = fields.get('name', {}).get('value') if isinstance(fields.get('name'), dict) else fields.get('name')
+                isin_val = fields.get('isin', {}).get('value') if isinstance(fields.get('isin'), dict) else fields.get('isin')
+                output.append({
+                    'SecId': sec_id,
+                    'securityID': sec_id,
+                    'Name': fund_name,
+                    'isin': isin_val,
+                    'meta': meta,
+                    'fields': fields,
+                })
+            return output
         except Exception as e:
             logger.warning(f"[mstarpy] search_fund failed for '{name}': {e}")
             return []

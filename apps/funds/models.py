@@ -423,6 +423,28 @@ class FundScreenerSnapshot(BaseModel):
     metadata_as_of = models.DateTimeField(null=True, blank=True)
     source_notes = models.CharField(max_length=200, blank=True)
 
+    # ── Portfolio composition (from ingest_holdings monthly pipeline) ────────
+    large_pct = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        help_text="% Large Cap equity (SEBI: Nifty 50 + Next 50) — latest MarketCapAllocation"
+    )
+    mid_pct = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        help_text="% Mid Cap equity (SEBI: Nifty Midcap 150) — latest MarketCapAllocation"
+    )
+    small_pct = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        help_text="% Small Cap equity (SEBI: residual) — latest MarketCapAllocation"
+    )
+    top_sector = models.CharField(
+        max_length=80, blank=True,
+        help_text="Top sector by weight from latest SectorAllocation"
+    )
+    aum_1m_change_pct = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text="AUM change % vs 1 month ago (from SchemeAumSnapshot)"
+    )
+
     class Meta:
         ordering = ['fund_name']
         indexes = [
@@ -618,3 +640,123 @@ class CategorySnapshot(BaseModel):
 
     def __str__(self):
         return f"CategorySnapshot: {self.scheme_sub_category} ({self.fund_count} funds)"
+
+
+class SchemeAumSnapshot(BaseModel):
+    """
+    Monthly point-in-time AUM snapshot per scheme.
+
+    Populated by: management command ingest_aum_snapshots (monthly).
+    Enables trend charts: AUM growth/decline over time per fund and per AMC.
+
+    as_of_month is always the 1st of the month (YYYY-MM-01).
+    """
+    scheme      = models.ForeignKey(
+        Scheme, on_delete=models.CASCADE, related_name='aum_snapshots', db_index=True
+    )
+    as_of_month = models.DateField(help_text="YYYY-MM-01 — first of the month")
+    aum_cr      = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True,
+        help_text="AUM in crores at end of this month"
+    )
+    source      = models.CharField(max_length=20, default='captnemo')
+
+    class Meta:
+        unique_together = ('scheme', 'as_of_month')
+        ordering = ['-as_of_month']
+        indexes = [
+            models.Index(fields=['scheme', 'as_of_month']),
+            models.Index(fields=['as_of_month']),
+        ]
+
+    def __str__(self):
+        return f"{self.scheme.amfi_code} | {self.as_of_month} | ₹{self.aum_cr} Cr"
+
+
+class FundScoreTrend(BaseModel):
+    """
+    Weekly snapshot of a fund's composite model score and category rank.
+
+    Populated by: management command ingest_score_trend (weekly, every Sunday).
+    Enables: score trend charts and rank history in fund detail page.
+
+    as_of_week = the Monday of the ISO week (YYYY-MM-DD).
+    Keeps last 52 weeks of data (older records pruned automatically).
+    """
+    scheme      = models.ForeignKey(
+        Scheme, on_delete=models.CASCADE, related_name='score_trend', db_index=True
+    )
+    as_of_week  = models.DateField(
+        help_text="Monday of the ISO week this snapshot was taken"
+    )
+    final_score = models.DecimalField(
+        max_digits=5, decimal_places=1, null=True, blank=True,
+        help_text="Composite model score 0–100 at this snapshot"
+    )
+    score_badge = models.CharField(max_length=20, blank=True,
+                                   help_text="Strong / Good / Fair / Weak / Poor")
+    rank_in_cat = models.IntegerField(null=True, blank=True,
+                                      help_text="Numeric rank within sub-category at snapshot time")
+    cat_total   = models.IntegerField(null=True, blank=True,
+                                      help_text="Total peers in sub-category at snapshot time")
+    sub_category = models.CharField(max_length=120, blank=True,
+                                    help_text="Sub-category name at snapshot time (denormalised)")
+
+    class Meta:
+        unique_together = ('scheme', 'as_of_week')
+        ordering = ['-as_of_week']
+        indexes = [
+            models.Index(fields=['scheme', 'as_of_week']),
+        ]
+
+    def __str__(self):
+        return (f"{self.scheme.amfi_code} | {self.as_of_week} | "
+                f"Score={self.final_score} Rank={self.rank_in_cat}/{self.cat_total}")
+
+
+class IndustryInflow(BaseModel):
+    """
+    Monthly AMFI industry-level gross purchase, redemption, net inflow, and AUM
+    broken down by broad mutual fund category (Equity, Debt, Hybrid, ETF, etc.).
+
+    Source: AMFI monthly data (https://www.amfiindia.com/research-information/mf-data)
+    Populated by: management command ingest_industry_inflows (monthly).
+    Used by: home page Industry Capital Flows widget + trend charts.
+
+    as_of_month is always the 1st of the month (YYYY-MM-01).
+    """
+    as_of_month       = models.DateField(help_text="YYYY-MM-01 — first of the month")
+    category_group    = models.CharField(
+        max_length=80, db_index=True,
+        help_text="AMFI broad category: Equity, Debt, Hybrid, Solution Oriented, Other, ETF"
+    )
+    # Amounts in crores (INR)
+    gross_purchase    = models.DecimalField(
+        max_digits=16, decimal_places=2, null=True, blank=True,
+        help_text="Gross purchases / subscriptions (₹ Cr)"
+    )
+    gross_redemption  = models.DecimalField(
+        max_digits=16, decimal_places=2, null=True, blank=True,
+        help_text="Gross redemptions (₹ Cr)"
+    )
+    net_inflow        = models.DecimalField(
+        max_digits=16, decimal_places=2, null=True, blank=True,
+        help_text="Net inflow = gross_purchase - gross_redemption (₹ Cr)"
+    )
+    aum_cr            = models.DecimalField(
+        max_digits=16, decimal_places=2, null=True, blank=True,
+        help_text="Industry AUM for this category at month end (₹ Cr)"
+    )
+    folio_count       = models.BigIntegerField(null=True, blank=True,
+                                               help_text="Number of folios at month end")
+
+    class Meta:
+        unique_together = ('as_of_month', 'category_group')
+        ordering = ['-as_of_month', 'category_group']
+        indexes = [
+            models.Index(fields=['as_of_month']),
+            models.Index(fields=['category_group']),
+        ]
+
+    def __str__(self):
+        return f"IndustryInflow | {self.as_of_month} | {self.category_group} | Net={self.net_inflow} Cr"
