@@ -1,336 +1,152 @@
-# Future Ideas and To-Be-Implemented Features
+# Platform Capabilities, Future Ideas & Feature Roadmap
 
-This document serves as a centralized repository of ideas, future features, and AI integrations extracted from project archives and documentation that are planned for future implementation.
+This document serves as the centralized roadmap of implemented capabilities, pending feature proposals, AI integrations, and industry data tools for the India-focused Mutual Fund Analysis Platform.
 
-> **Legend:** ✅ = Implemented | ⬜ = Pending / Not yet implemented
-
----
-
-## 0. Implemented Platform Foundation
-*(Features shipped and live on the platform)*
-
-- ✅ **Open-Ended Direct Growth Funds & ETFs Only** — Data pipeline restricted to open-ended direct growth schemes and ETFs; no closed-ended or interval fund data in DB.
-- ✅ **Market Strip** — Scrollable live ticker bar (NIFTY 50, SENSEX, NIFTY 200, NIFTY MIDCAP 150, NIFTY SMLCAP 250, USD/INR) across all pages. Settings button fixed/sticky so it's always accessible without scrolling.
-- ✅ **Fund Screener** — Advanced multi-filter screener with search, sort, and configurable columns.
-- ✅ **Fund Detail Page** — Full individual fund analysis page with multiple tabs (Overview, Performance, Portfolio, Fund Info, Fund Managers, Ratios, Peer Comparison).
-- ✅ **Rolling Returns Calculator** — Rolling return periods (1Y, 3Y, 5Y, 7Y, 10Y) with interactive charts.
-- ✅ **SIP Calculator** — Step SIP, SWP, STP, Lumpsum, Goal, Net Worth, Retirement, Child Education calculators implemented.
-- ✅ **Portfolio Module** — Upload CSV / manual entry; portfolio dashboard with XIRR, Benchmark comparison, Overlap analysis, Rebalance view.
-- ✅ **Backtester v2** — Multi-fund backtester with 5 rebalancing strategies (Trend, MA filter, Volatility, PE valuation, Combined), SIP analysis, CAGR, rolling returns, saved strategies, strategy comparison.
-- ✅ **Category Analysis** — Category list, category detail with deep-dive metrics, category comparison, category return meter.
-- ✅ **AMC Analysis** — AMC list, AMC detail (overview, funds, performance, portfolio, ratios — Fund Manager tab removed), AMC comparison.
-- ✅ **Quartile Rankings** — Interactive quartile ranking table by category.
-- ✅ **Benchmark Monitor** — Live benchmark watchlist with user-configurable indices.
-- ✅ **Learn Section** — PDF Guides, Blogs (markdown-powered), Community Feed.
-- ✅ **Blog: Open vs Closed vs Interval Funds** — Published blog explaining platform philosophy of open-ended direct growth only (with cover image).
-- ✅ **Recommendations Engine** — Questionnaire -> fund recommendations with backtest preview.
-- ✅ **Tax Calculator** — Comprehensive tax calculation for mutual fund gains.
-- ✅ **PDF Report Export** — Institutional-grade fund analysis PDF with charts and metrics.
-- ✅ **Peer Comparison Calculator** — Side-by-side fund comparison tool.
-- ✅ **Fund Comparison Calculator** — Multi-fund head-to-head comparison (/calculators/compare/).
-- ✅ **Research Report** — Research report generator.
-- ✅ **User Dashboard & Settings** — User account dashboard and settings page.
-- ✅ **About / Terms / Privacy / Contact** pages.
-- ✅ **Dark mode** — Platform-wide dark theme as default.
-- ✅ **Glassmorphism UI** — Premium card-based UI with animations, micro-interactions.
-- ✅ **Blog Cards Layout** — Blog listing page with cover-image cards in responsive grid.
-- ✅ **README & Docs Updated** — README, DATA_PIPELINE_AND_COMMANDS, PROJECT_CONTEXT, CALCULATORS, SCREENER, SCORING_MODEL docs updated after major changes.
-- ✅ **Data Pipeline: Open-Ended Only Filter** — populate_funds and update_nav management commands filter to open-ended direct growth / ETF schemes only.
-- ✅ **Settings Button Always Accessible** — Market strip settings button is fixed/sticky, accessible from any page without scrolling.
+> **Legend:** ✅ = Shipped & Implemented | ⬜ = Planned / Pending Implementation | ❌ = Excluded / Discarded with Rationale
 
 ---
 
-## 1. Comprehensive AI Integration
+## 1. Platform Foundation (Shipped Capabilities)
 
-The platform aims to integrate AI deeply across various modules to provide personalized and quantitative analysis without compromising data integrity.
+The core architecture, quantitative analytics, and reporting modules are fully operational:
 
-### 1.1 Robust Execution & Edge-Case Handling
-- ⬜ **Structured Outputs**: Utilize strict JSON schemas (via Pydantic and function calling) to ensure LLMs output deterministic financial summaries. This is critical so AI outputs do not break the PDF generation pipeline or UI components.
-- ⬜ **Semantic Caching**: Implement caching for AI queries to significantly reduce API costs and latency, especially for frequently searched tickers and common queries.
-- ⬜ **Hallucination Prevention**: Enforce strict grounding rules. The AI should only be allowed to comment on the quantitative data provided by the analytics engine, effectively preventing it from inventing financial figures.
-
-### 1.2 API Rate Limiting & Authentication
-- ⬜ **Bring Your Own Key (BYOK)**: Introduce a system where users authenticate with their credentials and submit their own API keys (e.g., OpenAI/Anthropic). This enables personalized rate limits and avoids exhausting shared platform API quotas.
-- ⬜ **Selective AI Invocation**: Add dedicated buttons in the Django UI for each AI-powered task (e.g., risk analysis, portfolio analysis, investor recommendation). Users can selectively run AI only on specific components, while the platform still produces a baseline quantitative summary without AI when desired.
-- ⬜ **Caching & Rate-limit Guardrails**: Implement semantic caching of AI responses and a request-throttling layer that monitors usage per user API key, automatically backing off or queueing requests when limits are approached.
-
-### 1.3 AI-Powered Page Integrations
-- ⬜ **Individual Fund Analysis Pages**: AI to summarize the fund's historical performance, expense ratio impact, and risk profile (Sharpe, Sortino, Alpha, Beta) into a human-readable "Fund Health Check" paragraph.
-- ⬜ **Natural Language Screener**: An AI-based screener where users can type queries like "Show me flexi-cap funds with expense ratio under 1% and 5-year CAGR over 15%" and the system translates it into backend filter parameters.
-- ⬜ **AI-Based Fund Recommendation**: Improve the risk-profiling questionnaire to allow free-text input ("I am saving for a house in 5 years and can't take much risk"), parsed by AI to generate customized Equity/Debt/Gold allocations.
+- ✅ **Universe Focus:** Open-Ended Direct Growth Schemes and ETFs only (~2,300 active funds). Close-ended, interval, regular, and dividend plans are excluded platform-wide.
+- ✅ **Institutional PDF Research Engine:** Automated Chrome-headless report generator with analyst narratives, verdict cards, metric explainers, and rolling return distribution charts.
+- ✅ **Live Market Strip (33 Core Metrics):** Scrollable live ticker bar (Broad Indices, India VIX, Nifty PCR, FII/DII Net Activity, Valuation, FRED Macro Indicators, Global Benchmarks) with fixed settings modal.
+- ✅ **Fund Screener & Peer Comparison:** Multi-filter screener with dynamic column selection, multi-fund head-to-head comparison, and peer matching algorithms.
+- ✅ **Financial Research & Planning Suite (18 Calculators):** SIP, Step-Up SIP, SWP, STP, Lumpsum, XIRR, Rolling Returns (1Y–10Y), Goal Planner, Retirement Planner (25x FIRE / 4% SWR), Child Education, Capital Gains Tax Calculator (FY 2025–26 rules), ELSS, Net Worth Tracker, and Overlap Checker.
+- ✅ **Portfolio Analytics & Overlap Engine:** CSV/manual entry, portfolio XIRR, benchmark tracking, stock-level overlap matrix, and sector HHI concentration metrics.
+- ✅ **Strategy Backtester V2:** Multi-fund portfolio builder with 5 rebalancing strategies (Trend, MA filter, Volatility, PE valuation, Combined), SIP XIRR, drawdown curves, and strategy comparison.
+- ✅ **Macro Stress Testing & Market Regimes:** Evaluates scheme behavior across 6 major crash events (2024–25 Tariff Shock, COVID-19, 2022 Rate Hikes, 2018 IL&FS, 2015 China Slowdown, 2008 GFC) and 5 economic cycles.
+- ✅ **Category & AMC Explorer:** Category list, deep-dive category metrics, category comparison matrix, Category Return Meter, AMC profiles, and AMC comparisons.
+- ✅ **Interactive Quartile Rankings:** Sub-category quartile rank tables computed dynamically.
+- ✅ **DevOps & Production Infrastructure:** Deployed on Render, PostgreSQL/CockroachDB ORM-compatible, Docker Compose environment, automated weekly GitHub Actions data pipeline, and automated Sunday Kaggle dataset publishing (`push_to_kaggle`).
 
 ---
 
-## 2. Mutual Fund Portfolio: AI Quantitative and Qualitative Analysis
+## 2. Quantitative Analysis, Forecasting & StrategyLab
 
-A major planned feature is a dedicated AI analysis module for user portfolios that goes beyond standard XIRR.
+The fund detail page (`#tab-advanced` and `#tab-analysis`) features an institutional quantitative analytics suite:
 
-### 2.1 Quantitative AI Analysis
-- ⬜ **Market Timing Efficiency**: AI analysis of the user's Systematic Investment Plan (SIP) patterns and lumpsum injections to evaluate market timing efficiency (did the user buy during dips or peaks?).
-- ⬜ **Diversification Insights**: AI-generated commentary on diversification metrics, correlating daily movements of the last 1 year to identify under/over-diversification across asset classes and sectors.
+### 2.1 Technical Analysis Engine & Real-Time Scanner (`#adv-technical`)
+- ✅ **Moving Averages & Momentum:** 10 SMAs/EMAs (10D–200D), active Golden Cross / Death Cross with days-active counter and price levels, RSI(14) regular bullish/bearish divergence scanner, and MACD(12,26,9) momentum states.
+- ✅ **Volatility & Trend Strength:** Bollinger Bands ($2\sigma$), Average True Range (ATR), and ADX (14D) directional movement index with live Market Regime classification.
+- ✅ **Pivot Systems:** 5 classic pivot matrix models (Classic, Fibonacci, Camarilla, Woodie, DeMark).
+- ✅ **All-Time & Multi-Year Range Barometer:** Dynamic ATH, ATL, 52-Week, 3-Year, and 5-Year price channel tracker with visual range progress bars, drawdown from peak, channel percentile metrics, and regime categorization (Near ATH, Secular Expansion, Shallow Pullback, Moderate Correction, Deep Drawdown).
+- ❌ **Category / Fund Breakout Screeners (Excluded):** Evaluated and discarded during architecture review. Mutual fund NAVs represent underlying portfolio book value rather than order-book supply/demand resistance; fund-level technical breakouts are driven by market beta and category mandates rather than actionable chart patterns (![Category Breakout Tracker](images/image-16.png)).
 
-### 2.2 Psychological & Behavioral Analysis
-- ⬜ **Investor Archetype Identification**: Identify the user's investor archetype based on their transaction history, risk tolerance, and investment horizon.
-- ⬜ **Behavioral Pattern Detection**: Detect cognitive biases in the user's portfolio, such as:
-  - *Overconfidence*
-  - *Loss Aversion* (e.g., selling winning funds too early, holding losing funds too long)
-  - *Framing Effects*
-- ⬜ **Risk Evolution Tracking**: Analyze how the user's portfolio risk has evolved over time.
-- ⬜ **Consistency Scoring**: Score the consistency of the investor's decisions against their stated investment philosophy.
+### 2.2 Risk Analytics & Period-Wise VaR/CVaR Matrix (`#adv-risk`)
+- ✅ **Core Risk Metrics:** Alpha, Beta, Sharpe, Sortino, Treynor, Calmar, R-Squared, and Maximum Drawdown.
+- ✅ **Parametric vs. Empirical VaR & CVaR:** 1-Day, 1-Week (5D), 1-Month (21D), and 1-Year (252D) rolling periods comparing Empirical Historical VaR/CVaR against Gaussian Parametric Normal VaR/CVaR.
+- ✅ **Fat-Tail Kurtosis Risk Gap %:** Measures crash severity and tail risk beyond normal distribution assumptions ($|\text{Hist CVaR}| - |\text{Param CVaR}|$).
+- ✅ **500-Path Monte Carlo Engine:** Resampling simulation across 1Y, 3Y, 5Y horizons with 95th, 75th, 50th, 25th, and 5th percentile fan bands.
 
-### 2.3 Comparative Analysis & Actionable Insights
-- ⬜ **Missed Gains Identification**: XIRR analysis comparing the user's portfolio against category averages and benchmarks to identify missed gains (alpha generated vs category average).
-- ⬜ **Actionable Rebalancing Suggestions**: AI-driven suggestions (what to buy/sell, how much, and when) based on macro-economic conditions, personal risk profile, and tax-loss harvesting opportunities.
+### 2.3 16-Model Statistical, ML & Deep Learning Forecasting Suite (`#adv-forecast`)
+- ✅ **Classical Time-Series:** ARIMA($p,d,q$), SARIMA (Seasonal $(1,1,1)\times(1,1,0)_{21}$), Facebook Prophet (Fourier harmonics), ETS (Exponential Smoothing), Linear Trend, Momentum (21D), Naïve Random Walk, MA (20D), and ARIMAX.
+- ✅ **Machine Learning Regressors:** XGBoost ML and LightGBM Regressor on lag-return features.
+- ✅ **Deep Learning Sequence Networks:** LSTM Sequence Net, Bi-LSTM (Bidirectional), GRU Sequence Net, and Multi-Head Self-Attention Transformer.
+- ✅ **🏆 Inverse-MAPE Weighted Ensemble:** Blends all active models using inverse-MAPE weighting for minimized out-of-sample error across 7D to 365D (1 Year) horizons.
+- ✅ **Walk-Forward Out-of-Sample Backtesting:** Model leaderboard evaluating MAPE (%), RMSE (₹), and Directional Hit Rate (%) over out-of-sample windows.
 
-### 2.4 Advanced Portfolio Management & Tracking
-- ✅ **Seamless Portfolio Import:** CSV upload and manual entry supported.
-- ⬜ **CAS Statement Parser:** Integration of automated CAS statement parsing for CAMS, Karvy, and KFintech statements via [casparser](https://github.com/codereverser/casparser).
-- ⬜ **Unified Household Tracking:** Consolidate portfolios across multiple family members into a single household view.
-- ⬜ **Goal Mapping & Asset Allocation:** Assign specific funds to goals and visualize asset allocation across equity, debt, hybrid, gold, cash, and international.
-- ⬜ **Diagnostic Health Check:** Generate a detailed report assessing concentration risk, portfolio overlap, style drift, sector biases, debt quality risk, inconsistent categories, and an excess number of funds.
-- ✅ **Consolidated Performance & Transparency:** XIRR, absolute return, time-weighted return, cash flows tracked. Portfolio overlap analysis exists.
+### 2.4 🧪 StrategyLab™ Strategy Backtester Engine (`#adv-strategylab`)
+- ✅ **10 Simulated Algorithmic Strategies:** Simulates Buy & Hold Baseline, SMA Golden/Death Cross, RSI Mean-Reversion, MACD Momentum, Bollinger Bands Dip Buying, XGBoost ML Timing, LSTM Neural Trend, Multi-Model Ensemble Stacking, and Systematic Monthly SIP Accumulation directly on historical NAV.
+- ✅ **Strategy Leaderboard & Equity Chart:** Evaluates simulated corpus (₹), CAGR (%), total return (%), trade win rate (%), max drawdown (%), Sharpe ratio, alpha over Buy & Hold (%), and StrategyLab Score (0–100) with top strategy hero recommendation and multi-strategy Plotly equity curve.
+- ⬜ **Monthly Return Distribution Analytics:** Analyze return dispersion, monthly return histograms, and volatility distributions within the backtester (![Monthly Return Distribution](images/image-20.png)).
+- ⬜ **Backtester Granular Controls:** User-configurable moving average window lengths and volatility thresholds in the backtester UI.
 
-### 2.5 Smart Alerts & Custom Watchlists
-- ⬜ **Drift & Underperformance Alerts:** Notify users when their portfolio drifts away from the target allocation or when funds persistently lag behind their category (ignoring temporary dips).
-- ⬜ **Fund Change Alerts:** Trigger warnings for critical events such as manager changes, mandate updates, AUM shocks, expense ratio hikes, large un-invested cash positions, or style drift.
-- ⬜ **Rule-Based Watchlists:** Allow users to set customized rules (e.g., "alert me if tracking error worsens" or "alert me if expense ratio rises").
-
----
-
-## 3. Platform & Architectural Enhancements
-
-### 3.1 Backtesting Enhancements
-- ✅ **Custom Weighted Benchmark**: Users can construct a custom portfolio in the backtester with arbitrary fund weightage.
-- ✅ **Advanced Rebalancing Signals**: 5 rebalancing strategies implemented (Trend, MA filter, Volatility, PE valuation, Combined).
-- ⬜ **Moving Average Filters (extended)**: More granular MA configurations (e.g., user-configurable MA window length).
-- ⬜ **Volatility-Based Rebalancing (extended)**: User-configurable volatility threshold input in the backtester UI.
-
-### 3.2 Dynamic Fund Ranking Model
-- ✅ **Fund Scoring Engine**: Internal scoring model exists (Return, Recency, Stability composite score) used in recommendations and fund analysis.
-- ✅ **Personalized Ranking Scorecard**: Fully expose the scoring model in the fund detail page UI with a visual breakdown card (Stability / Consistency / Recency / Cost breakdown).
-- ⬜ **Rank Trend**: Display the historical trend of a fund's ranking (absolute, relative, and within category) over time on the fund detail page.
-
-### 3.3 DevOps & Production Hardening
-- ✅ **Render Deployment**: render.yaml and Procfile configured; app deployed on Render.
-- ✅ **Docker Containerization**: Dockerfile (multi-stage, Playwright-ready), docker-compose.yml (web + worker + postgres:16), config/settings/local_pg.py, and docker/README.md added.
-- ✅ **PostgreSQL Production**: App uses PostgreSQL in production via Render.
-- ✅ **PostgreSQL Production Validation**: Full codebase scan completed. No raw SQL or SQLite-dialect functions found. One `update_conflicts=True` guard added to `_bulk_upsert()` in `ingest_benchmarks.py` for safe SQLite fallback. All other ORM patterns confirmed Postgres-compatible.
-- ✅ **Data Portability & Local Seeding**: `sync_from_sqlite`, `sync_from_prod`, `export_data`, `import_data` management commands for local data lifecycle management (SQLite→Postgres migration, portable `.tar.gz` snapshots, CockroachDB sync).
-- ✅ **Kaggle Dataset Publishing**: `push_to_kaggle` management command + `publish_kaggle.yml` GitHub Actions workflow. Exports funds, NAV history (3.5M rows), screener snapshots, analytics, and benchmark data as CSVs and publishes to Kaggle. Auto-updates every Sunday. Manual trigger supports first-time `--create` mode.
-- ⬜ **Unit Test Expansion**: Expand test coverage, particularly for the backtesting engine and new tax calculator components.
+### 2.5 Multi-Factor Scoring & Personalized Ranking (`#tab-analysis`)
+- ✅ **6-Pillar Fund Scoring Model (0–100):** Evaluates Performance (30%), Risk & Stability (25%), Cost Efficiency (15%), Portfolio Composition (15%), Manager Quality (15%), and Debt Quality (10%).
+- ✅ **Personalized Ranking Scorecard:** Interactive investor archetype presets (Balanced, Capital Preservation, Compounder, Momentum, Cost Optimizer), dynamic weight sliders (auto-normalized to 100%), 4-factor breakdown cards, Plotly radar comparison vs. SEBI category norms, and live arithmetic substitution formulas.
+- ⬜ **Rank Trend History:** Historical tracking and charting of a fund's internal ranking and composite score over time.
 
 ---
 
-## 4. Market Analysis Metrics & Market Strip
-*(Sourced from `documentation/ideas/mf_market_metrics_reference.html`)*
+## 3. Stock-Level & Mutual Fund Holdings Intelligence
 
-To provide investors with a comprehensive view of the macro environment, the platform will implement a dynamic Market Strip and Market Analysis section. This will include:
+Deep-dive intelligence exploring stock-to-fund linkages, AMC portfolio adjustments, and institutional capital flows:
 
-- ✅ **Market Strip (Basic):** Live NIFTY 50, SENSEX, NIFTY 200, NIFTY MIDCAP 150, NIFTY SMLCAP 250, USD/INR ticker strip across all pages with configurable indices.
-- ✅ **Sentiment Indicators:** India VIX (yfinance), Put/Call Ratio (NSE option chain), FII/DII Net Activity (NSE fiidiiTradeReact), Advance/Decline Ratio (NSE allIndicesConsumer, Nifty 500 breadth), and SIP Inflow Trends (AMFI monthly).
-- ✅ **Technical Market Indicators:** Nifty RSI(14), MACD(12,26,9) histogram, Bollinger Bands %B, 50/200 DMA Crossovers, and MidCap/LargeCap Relative Strength — all computed from yfinance Nifty 50 history.
-- ✅ **Valuation Metrics:** Nifty 50 PE/PB/Dividend Yield (nsepython.index_pe_pb_div), Earnings Yield vs 10Y G-Sec Gap (computed), and Buffett Indicator/India Market-Cap-to-GDP ratio (World Bank wbgapi). Note: Buffett Indicator uses annual World Bank data.
-- ✅ **Macro & Global Factors:** RBI/India 10Y G-Sec Yield (FRED INDIRLTLT01STM), CPI Inflation (FRED), USD/INR (yfinance), US VIX, DXY, US 10Y Yield, Brent Crude, Gold, S&P 500, NASDAQ (all yfinance), Fed Funds Rate (FRED). FRED metrics require a user-provided API key via the Manage Strip modal.
+### 3.1 Stock-Level Mutual Fund Holding Intelligence
+- ⬜ **Stock-Level Mutual Fund Holding Changes:** Track stock-specific mutual fund ownership variations over time, revealing institutional accumulation and distribution (inspired by [RAEN Analytics](https://raenanalytics.com/stocks/INE040A16IU7)) (![Stock MF Holdings 1](images/image-21.png) ![Stock MF Holdings 2](images/image-22.png)).
+- ⬜ **Top & Bottom Stocks by MF Ownership:** Identify stocks with the highest and lowest mutual fund ownership percentages and ownership changes (![Top/Bottom MF Stocks 1](images/image-23.png) ![Top/Bottom MF Stocks 2](images/image-24.png)).
+- ⬜ **"Which Funds Hold Your Stock?":** Reverse-lookup tool displaying all mutual fund schemes holding a specific stock along with scheme weights and portfolio values (![Fund Holdings Lookup 1](images/image-4.png) ![Fund Holdings Lookup 2](images/image-5.png) ![Fund Holdings Breakdown 1](images/image-6.png) ![Fund Holdings Breakdown 2](images/image-7.png)).
 
-These metrics will contextualize mutual fund performance within broader economic cycles, helping users identify structural bull/bear phases and rebalance accordingly.
-
----
-
-## 5. Advanced Fund Analysis Tabs
-*(Sourced from `documentation/ideas/MutualFund_Platform_Blueprint.md`)*
-
-The individual fund analysis pages will be significantly upgraded with specialized tabs for institutional-grade evaluation:
-
-### 5.1 Technical Analysis Engine
-- ✅ **Moving Averages & Momentum:** SMA/EMA cross-overs (active Golden/Death cross with days tracker), RSI divergence (Regular Bullish & Bearish), and MACD momentum signals.
-- ✅ **Volatility & Trend:** Bollinger Bands ($2\sigma$), Average True Range (ATR), and ADX (14D) directional movement index.
-
-### 5.2 Risk Analysis Module
-- ✅ **Core Risk Metrics:** Alpha, Beta, Sharpe, Sortino, Treynor, R-Squared shown on fund detail page Ratios tab.
-- ✅ **Drawdown Analysis:** Maximum Drawdown shown on fund detail page.
-- ✅ **Value at Risk (VaR):** Empirical Historical VaR & CVaR (Expected Shortfall) alongside Parametric Normal (Gaussian) VaR & CVaR with Fat-Tail Kurtosis Risk Gap across 1D, 5D, 21D, and 252D horizons.
-
-### 5.3 Time-Series Forecasting Suite
-- ✅ **Classical Models:** Implementation of ARIMA($p,d,q$), SARIMA (Seasonal $(1,1,1)\times(1,1,0)_{21}$), ETS (Exponential Smoothing), and Facebook Prophet (harmonic Fourier seasonality) to generate short-to-medium term (7-day to 1-year) NAV forecasts.
-- ✅ **Forecast Output:** Point estimates along with 68%, 80%, and 95% confidence intervals, evaluated using MAPE (Mean Absolute Percentage Error) and RMSE through walk-forward out-of-sample backtesting.
-
-### 5.4 Machine Learning Forecasting & Classification
-- ✅ **Tree-Based Models:** Random Forest, XGBoost, and LightGBM for direct NAV prediction and directional classification.
-- ✅ **Deep Learning (Premium):** LSTM, Bidirectional LSTM, GRU, and Attention-based Transformers for capturing non-linear NAV sequence dynamics.
-- ✅ **Ensemble & Stacking:** Inverse-MAPE weighted ensemble model averaging predictions across all active models to minimize forecast error.
-- ✅ **StrategyLab:** Strategy backtesting engine simulating 10 algorithmic strategies (Buy & Hold, SMA Cross, RSI Mean-Reversion, MACD Momentum, Bollinger Dip Buy, XGBoost ML, LightGBM ML, LSTM Neural Trend, Multi-Model Ensemble, Monthly SIP) directly on historical NAV, ranking strategies by StrategyLab score, CAGR, win rate, alpha, and max drawdown.
-
-## 6. Advanced Platform Capabilities
-
-### 6.1 Market & Category Intelligence
-- ✅ **Enhanced Category Analysis:** Deep-dive metrics and trends for mutual fund categories, fund list, quartile ranking, intra-category performance.
-- ✅ **Category Comparison Tool:** Head-to-head evaluation of different categories across multiple market cycles.
-- ✅ **AMC Explorer:** Comprehensive dashboard to evaluate fund houses — overview, fund list, performance, portfolio tab, ratios. (Fund Manager tab removed per philosophy.)
-
-### 6.2 Portfolio Analytics & Recommendations
-- ⬜ **Historical Score Tracking:** Save and track the historical evolution of a fund's internal holdings and quantitative model score over time to detect early signs of degradation or improvement.
-- ⬜ **Explainable Recommendations:** Provide short, transparent, natural-language explanations (e.g., "Why this fund?") instead of a black-box ranking, tailored directly to the user's risk and time horizon questionnaire responses.
-- ✅ **Macro Stress Testing:** Simulate portfolio and fund performance under historical and hypothetical extreme scenarios (e.g., 2008 Financial Crisis, COVID-19 crash, interest rate shocks, inflation spikes, and sector concentration shocks).
-- ✅ **Market-Regime Analysis:** Evaluate portfolio and fund performance across different economic cycles, including bull markets, bear markets, sideways markets, high-inflation periods, and rate-cut cycles.
-
-### 6.3 Future Engineering Roadmap & Enhancements
-- ✅ **UI & UX Modernization:** Responsive glassmorphic UI, dynamic charts, interactive data visualization.
-- ✅ **Production Hardening & Deployment:** App deployed on Render with PostgreSQL in production.
-
----
-
-## 7. Industry Data, AMC Analytics & Extended Feature Ideas
-
-### 7.1 Asset Management Company (AMC) Analytics
-- ✅ **AMC Analysis Dashboard:** AMC overview, fund list, performance comparison, portfolio breakdown, and ratio analysis implemented.
-- ⬜ **AMC Top Stock Holdings:** Track top stock choices, major holdings, and overall equity allocation patterns across different AMCs (![AMC Top Stocks](images/image-9.png)).
-- ⬜ **Fund & AMC AUM Trends:** Monitor historical AUM changes, growth trajectory, and net asset fluctuations over time for individual funds and fund houses (![AMC AUM Trend 1](images/image-12.png) ![AMC AUM Trend 2](images/image-13.png) ![AUM Growth](images/image-8.png)).
+### 3.2 Asset Management Company (AMC) Analytics
+- ⬜ **AMC Top Stock Holdings:** Track top stock choices, major holdings, and equity allocation patterns across fund houses (![AMC Top Stocks](images/image-9.png)).
+- ⬜ **Fund & AMC AUM Trends:** Monitor historical AUM changes, growth trajectory, and net asset fluctuations over time (![AMC AUM Trend 1](images/image-12.png) ![AMC AUM Trend 2](images/image-13.png) ![AUM Growth](images/image-8.png)).
 - ⬜ **AMC Trade Disinvestments & Exits:** Track stock reduction trends, complete sell-offs, and portfolio adjustment actions taken by AMCs (![AMC Sells](images/image-10.png)).
-- ⬜ **AMC Sector Allocations:** Analyze sector-wise concentration, favorite sectors, and thematic sector biases per AMC (![AMC Favorite Sectors](images/image-11.png)).
+- ⬜ **AMC Sector Allocations:** Analyze sector concentration, favorite sectors, and thematic sector biases per AMC (![AMC Favorite Sectors](images/image-11.png)).
 
-### 7.2 Stock-Level & Mutual Fund Holdings Intelligence
-- ⬜ **Stock-Level Mutual Fund Holding Changes:** Deep dive into stock-specific mutual fund holding variations over time, tracking institutional accumulation and distribution (inspired by [RAEN Analytics Stock Details](https://raenanalytics.com/stocks/INE040A16IU7)) (![Stock MF Holdings 1](images/image-21.png) ![Stock MF Holdings 2](images/image-22.png)).
-- ⬜ **Top & Bottom Stocks by MF Ownership:** Identify stocks with the highest and lowest overall mutual fund holding percentages and ownership changes (![Top/Bottom MF Stocks 1](images/image-23.png) ![Top/Bottom MF Stocks 2](images/image-24.png)).
-- ⬜ **"Which Funds Hold Your Stock?":** Interactive reverse-lookup tool displaying all mutual fund schemes holding a specific stock along with scheme weights and holding values (![Fund Holdings Lookup 1](images/image-4.png) ![Fund Holdings Lookup 2](images/image-5.png) ![Fund Holdings Breakdown 1](images/image-6.png) ![Fund Holdings Breakdown 2](images/image-7.png)).
-
-### 7.3 Industry Inflows, Sector Flows & Portfolio Disclosures
+### 3.3 Industry Capital Inflows & Portfolio Disclosures
+- ⬜ **Monthly Portfolio Disclosures Database:** Save historical monthly portfolio disclosures (stocks, sectors, weights) into the DB for point-in-time portfolio evolution tracking (![Portfolio DB Disclosures 1](images/image-25.png) ![Portfolio DB Disclosures 2](images/image-26.png)).
 - ⬜ **Cap-Wise Portfolio Breakdown:** Track allocation shifts across Large-Cap, Mid-Cap, and Small-Cap stocks over time within fund portfolios.
-- ⬜ **Monthly Portfolio Disclosures Database:** Save historical monthly portfolio disclosures (stocks, sectors, weights) into DB to enable point-in-time portfolio evolution tracking (![Portfolio DB Disclosures 1](images/image-25.png) ![Portfolio DB Disclosures 2](images/image-26.png)).
-- ⬜ **Sector-Wise Top Stock Breakdown:** Identify top stock holdings grouped by specific industry sectors across mutual fund portfolios (![Sector Top Stocks](images/image-3.png)).
-- ⬜ **Mutual Fund Industry Overall Inflows & Outflows:** Monitor macro-level net capital inflows and outflows across the mutual fund industry (![Industry Overall Flows](images/image-1.png)).
+- ⬜ **Sector-Wise Top Stock Breakdown:** Identify top stock holdings grouped by industry sectors across mutual fund portfolios (![Sector Top Stocks](images/image-3.png)).
+- ⬜ **Industry Inflows & Outflows:** Macro-level net capital inflows and outflows across the mutual fund industry (![Industry Overall Flows](images/image-1.png)).
 - ⬜ **Sector-Wise Capital Flows:** Granular tracking of net buying and selling capital flows across specific market sectors (![Sector Flows](images/image-2.png)).
 
-### 7.4 Technical Signals, Breakout Tracking & Reports
-- ✅ **Comprehensive Data Report Generator:** PDF export of fund analysis report implemented (/funds/<code>/report/).
-- ⬜ **Multi-Platform One-Click Social Sharing:** Native sharing integrations for WhatsApp, LinkedIn, Instagram, and direct copy-to-clipboard shareable links.
-- ⬜ **Mutual Fund 52-Week High / Low Tracker:** Monitor funds trading at or near their 52-week high and 52-week low bounds (![52-Week High/Low Tracker](images/image-14.png)).
-- ⬜ **Mutual Fund All-Time High / Low Tracker:** Historical tracking of schemes hitting all-time high (ATH) or all-time low NAV levels (![All-Time High/Low Tracker](images/image-15.png)).
-- ⬜ **Category-Wise Technical Breakout Engine:** Screen and detect technical price breakouts aggregated by mutual fund categories (![Category Breakout Tracker](images/image-16.png)).
+---
 
-### 7.5 Advanced Backtester, Stress Testing & Risk Analytics
-- ✅ **Market Regime Testing:** Backtester evaluates strategy performance across time periods including bull/bear market cycles.
-- ⬜ **Crisis Period Behavior:** Evaluate portfolio and backtest strategy resilience across historical crisis events (e.g., 2008 Financial Crisis, COVID-19 Crash) (![Crisis Period Behavior](images/image-18.png)).
-- ✅ **Periodic Rebalancing Study:** Comparative backtest analysis evaluating multiple rebalancing strategies vs. Buy-and-Hold (![Rebalancing Study](images/image-19.png)).
-- ⬜ **Monthly Return Distribution Analytics:** Analyze return dispersion, monthly return histograms, and volatility distributions within the backtester (![Monthly Return Distribution](images/image-20.png)).
+## 4. Advanced Portfolio Intelligence & Risk Tracking
 
-### 7.6 Portfolio Import Tools & CAS Statement Parser
-- ✅ **CSV Upload:** Portfolio upload via CSV transaction file.
-- ✅ **Manual Entry:** Manual portfolio entry form.
-- ⬜ **Consolidated Account Statement (CAS) Parser:** Integration of automated CAS statement parsing for CAMS, Karvy, and KFintech statements via [casparser](https://github.com/codereverser/casparser).
+Expanding user portfolio diagnostic tools beyond basic XIRR:
 
-### 7.7 Industry Research Sources, Regulatory References & Knowledge Base
-- **Primary Data Sources & Portals:**
-  - [AMFI India Research & Information](https://www.amfiindia.com/research-information)
-  - [Nifty Indices Official Portal](https://niftyindices.com/)
-  - [AMFI Monthly Portfolio Disclosure Center](https://www.amfiindia.com/online-center/portfolio-disclosure)
-  - [RAEN Analytics - Stock & MF Holdings](https://raenanalytics.com/)
-  - [RightAdvise Financial Analytics](https://rightadvise.com/)
-- **Regulatory History & Market Insights (Blogs & Educational Resources):**
-  - Blog: [SEBI Stock Category Changes India — Complete Story from 2018 to January-June 2026](https://rightadvise.com/sebi-india-market-cap-story.php)
-  - Blog: [SEBI Market Cap Category Changes — January-June 2026 Update](https://rightadvise.com/sebi-market-cap-update.php)
-  - Knowledge Base: [History of Mutual Funds in India (AMFI)](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=HistoryOfMutualFundsInIndia)
+### 4.1 Portfolio Diagnostics & CAS Ingestion
+- ⬜ **Automated CAS Statement Parser:** Integration of automated Consolidated Account Statement (CAS) parsing for CAMS, Karvy, and KFintech PDF statements via [casparser](https://github.com/codereverser/casparser).
+- ⬜ **Unified Household Tracking:** Consolidate portfolios across multiple family members into a single household view.
+- ⬜ **Goal Mapping & Asset Allocation:** Assign specific funds to financial goals and visualize asset allocation across equity, debt, hybrid, gold, cash, and international assets.
+- ⬜ **Diagnostic Health Check:** Detailed diagnostic report assessing concentration risk, style drift, sector biases, debt quality, and excessive fund counts.
+- ⬜ **Missed Gains & Opportunity Cost:** XIRR analysis comparing portfolio returns against benchmark indices and category averages to quantify alpha generated.
+- ⬜ **Red Flag Warnings:** Flag portfolio holdings subject to ASM/GSM surveillance, high promoter pledges, or credit downgrade risks.
+
+### 4.2 Psychological & Behavioral Analytics
+- ⬜ **Market Timing Efficiency:** Evaluate SIP and lumpsum transaction timing against historical peak/trough levels.
+- ⬜ **Investor Archetype & Bias Detection:** Identify behavioral biases (loss aversion, overconfidence, disposition effect) and track portfolio risk evolution over time.
+- ⬜ **Consistency Scoring:** Score the consistency of investment actions against stated risk profiles.
+
+### 4.3 Smart Alerts & Watchlists
+- ⬜ **Drift & Underperformance Alerts:** Notify users when portfolio allocations drift beyond target thresholds or when funds persistently lag category benchmarks.
+- ⬜ **Critical Fund Event Alerts:** Real-time triggers for manager changes, mandate updates, sudden AUM shocks, expense ratio hikes, or style drifts.
+- ⬜ **Benchmark Monitor Alerts:** Price/return threshold alerts on specific benchmark indices.
 
 ---
 
-## 8. Workflow Feature Status (from `documentation/archive/workflow.md`)
+## 5. Comprehensive AI & Machine Learning Integrations
 
-### 8.1 Mutual Fund Analysis (Fund Detail Page)
-- ✅ Fund Name, Type, Category
-- ✅ Performance — Trailing returns (1Y, 3Y, 5Y, 7Y, 10Y, Since Inception), Rolling returns (1Y, 3Y, 5Y, 7Y, 10Y — max/min/mean) with charts
-- ✅ Portfolio — Equity/Debt/Cash breakdown, cap-wise (Large/Mid/Small), sector distribution, holdings list
-- ✅ Peer Comparison — Ratios, returns, scheme info vs peers
-- ✅ Fund Information — NAV, AUM, Expense Ratio, Exit Load, Stamp Duty, Lock-in, Min SIP/Lumpsum, Benchmark, Inception Date, Tax Implications, Fund Objective
-- ✅ Fund Managers — Name, date joined, other funds managed
-- ✅ Ratios — PE, PB, Alpha, Beta, Sharpe, Sortino, Std Dev, R-Squared, Max Drawdown vs category and benchmark
-- ⬜ Ranking & Rank Trend — Full scorecard UI with stability/consistency/recency breakdown and rank history chart
-- ⬜ Overview "In Form / On Track / Off Track / Out of Form" rating badge
-- ⬜ Returns Calculator tab inside fund detail (SIP vs Lumpsum, before/after tax, XIRR vs benchmark/peers)
+Integrating AI capabilities into research workflows while preserving strict data grounding:
 
-### 8.2 Common Tools & Calculators
-- ✅ SIP Return Calculator
-- ✅ Step SIP Return Calculator
-- ✅ SWP Calculator
-- ✅ STP Calculator
-- ✅ Lumpsum Calculator
-- ✅ Goal Calculator
-- ✅ Child Education Calculator
-- ✅ Retirement Calculator
-- ✅ Net Worth Calculator
-- ✅ Tax Calculator (STCG/LTCG)
-- ✅ ELSS / Tax-Saving Calculator
-- ✅ Rolling Returns Calculator
-- ✅ Peer Comparison Calculator
-- ✅ Fund Comparison (multi-fund head-to-head)
-- ✅ Portfolio Overlap Calculator
-- ⬜ PPF vs ELSS Calculator
-- ⬜ Market Capture Ratio Calculator
-- ⬜ Benchmark Return Calculator
-- ⬜ Dividend-related calculators (Highest Dividend, Consistent Dividend, Category-wise Dividends, Historical Dividends)
-- ⬜ Mutual Fund Latest NAV lookup tool
+### 5.1 Architecture & Guardrails
+- ⬜ **Deterministic Structured Outputs:** Enforce strict JSON schemas (via Pydantic and function calling) for financial summaries to guarantee rendering compatibility with PDF and UI pipelines.
+- ⬜ **Semantic Caching & Grounding:** Semantic caching to reduce API latency and cost, with grounding rules that restrict LLMs to verified quantitative data from the engine.
+- ⬜ **Bring Your Own Key (BYOK):** Allow users to store personal encrypted API keys (OpenAI / Anthropic / Gemini) for higher individual rate limits.
+- ⬜ **Selective AI Invocation:** Dedicated UI trigger buttons for on-demand AI analyses rather than mandatory background execution.
 
-### 8.3 Mutual Fund Screener
-- ✅ Basic filters — Asset class, AUM, Exit load, Expense ratio, Fund type, Nature (Growth/IDCW)
-- ✅ Return filters — 1M, 3M, 6M, 1Y, 3Y, 5Y returns
-- ✅ Risk filters — Volatility, Beta, Sharpe, Sortino, Max Drawdown
-- ✅ Configurable columns — Add/hide columns
-- ⬜ AI / Natural Language Screener
-
-### 8.4 Fund Comparison Tool
-- ✅ Multi-fund comparison (returns, risk metrics, scheme info)
-- ⬜ Fund Manager performance comparison
-- ⬜ Fund Management Skills (Index Alpha, Sector & Stock Skills, Bull's Eye)
-- ⬜ Holdings & Concentration comparison
-
-### 8.5 Personalized Recommendations
-- ✅ Questionnaire (investing experience, risk profile, return expectations)
-- ✅ Algorithm-based portfolio recommendation (Defensive, Moderate, Aggressive)
-- ✅ Backtest of recommended portfolio
-- ⬜ Free-text AI input for questionnaire
-- ⬜ 10-year simulation with SIP vs Lumpsum and tax analysis for recommended portfolio
-
-### 8.6 Custom Portfolio Analysis
-- ✅ CSV upload / manual entry
-- ✅ XIRR calculation
-- ✅ Portfolio vs market (benchmark comparison)
-- ✅ Portfolio overlap analysis
-- ✅ Rebalance view
-- ⬜ Missed gains identification vs benchmark/category
-- ⬜ Portfolio fund overlap (stock-level overlap)
-- ⬜ Diversification score and commentary
-- ⬜ Red flag analysis (ASM/GSM list, pledged promoter holdings, default probability)
-- ⬜ News and Events for portfolio
-- ⬜ Portfolio forecasting (next 1, 3, 6, 12 months)
-- ⬜ Comprehensive portfolio review with actionable insights (rebalancing, exit, add fund suggestions)
-
-### 8.7 Mutual Fund Portfolio Backtester
-- ✅ Multi-fund input with weightage, investment type, frequency
-- ✅ CAGR, trailing returns, rolling returns, std deviation
-- ✅ SIP XIRR analysis
-- ✅ 5 rebalancing strategies
-- ✅ Saved strategies and strategy comparison
-- ⬜ Monthly return distribution analytics in backtester UI
-- ⬜ Crisis period overlay on backtester chart
+### 5.2 AI-Powered User Experiences
+- ⬜ **AI Fund Health Check:** Automated natural-language summary synthesizing performance, expense ratio, and risk metrics on fund detail pages.
+- ⬜ **Natural Language Screener:** Conversational search translating text queries (e.g., *"Show flexi-cap funds with TER under 1% and 5Y CAGR above 15%"*) into backend database filters.
+- ⬜ **Conversational Risk Profiling:** Free-text questionnaire parsing (e.g., *"Saving for child education in 7 years, moderate risk tolerance"*) into optimal asset allocations.
+- ⬜ **Explainable Recommendations:** Transparent, plain-English rationales explaining why specific funds were recommended.
 
 ---
 
-## 9. New / Missing Features Identified in August 2026 Audit
+## 6. Platform, Community & Discovery Tools
 
-The following items were identified during the August 2026 audit as missing or not yet addressed in any planning document:
+- ✅ **52-Week & Multi-Year Range Barometer (Fund Detail):** Integrated directly into the fund detail page Advanced Quant Suite with 52W/3Y/5Y visual channel indicators and behavioral guidance (![52-Week High/Low Tracker](images/image-14.png)).
+- ✅ **All-Time High / Low Tracker & Drawdown Matrix (Fund Detail):** Integrated directly into the fund detail page Advanced Quant Suite tracking ATH peak dates, days since peak, recovery multiples, and secular expansion status (![All-Time High/Low Tracker](images/image-15.png)).
+- ⬜ **Multi-Platform One-Click Social Sharing:** Native sharing integrations for WhatsApp, LinkedIn, Instagram, and direct copy-to-clipboard summary links.
+- ⬜ **Community Discussion Feed:** Backend integration enabling real user discussion threads, question posting, and research sharing.
+- ⬜ **Mobile Breakpoint Optimization:** Continued UI polishing for mobile responsive layouts across complex tables and Plotly charts.
 
-- ⬜ **Fund Detail: "Overview" Status Badge** — A clear "In Form / On Track / Off Track / Out of Form" badge on the fund overview tab, driven by the scoring model.
-- ⬜ **Fund Detail: Integrated Returns Calculator** — A built-in SIP/Lumpsum/XIRR calculator inside the fund detail page (so users don't have to leave the page).
-- ⬜ **Fund Detail: Rank Trend Chart** — Historical chart showing how the fund's internal rank has changed month-over-month.
-- ⬜ **Screener: Save/Export Results** — Allow users to save screener results as a watchlist or export to CSV.
-- ⬜ **Benchmark Monitor: Alerts** — Allow users to set price/return alerts on specific benchmarks.
-- ⬜ **Category Meter: Data Completeness** — Some category x period combinations still show missing entries in the category return meter; data pipeline needs to ensure full coverage.
-- ⬜ **52-Week High/Low Tracker** — A dedicated page/section listing funds at or near 52-week high/low NAVs.
-- ⬜ **All-Time High/Low Tracker** — A dedicated page/section listing funds at or near all-time high/low NAVs.
-- ⬜ **Social Sharing** — One-click sharing of fund analysis, portfolio snapshots, and backtester results to WhatsApp/LinkedIn/Instagram.
-- ⬜ **Mobile Responsiveness Audit** — Full review of all pages for mobile breakpoints (especially fund detail, backtester, category detail).
-- ⬜ **Community Feed: Real Posts** — Community feed currently appears as a template; needs backend for actual user posts/discussion threads.
-- ⬜ **News & Events Feed** — A live news/events section on the home page and portfolio page, sourced from NSE/SEBI/AMFI.
-- ⬜ **Market Mood Index / Sentiment Gauge** — A visual "market mood" indicator on the home page dashboard.
-- ⬜ **Investment Ideas / Portfolio Buckets** — Curated fund buckets (e.g., "Wealth Builder", "Tax Saver", "All Weather") on the home page for quick exploration.
-- ⬜ **XIRR Calculator (standalone)** — Standalone XIRR calculator (template exists at calculators/xirr.html but needs URL wiring and verification).
-- ⬜ **Fund Factsheet / Offer Document Links** — Link to official AMFI factsheet/offer document from fund detail page.
-- ⬜ **Regulatory Disclosures Page** — Display relevant SEBI/AMFI disclaimers and regulatory information.
+---
+
+## 7. Industry Research Sources & Knowledge Base
+
+### Primary Data Sources & Portals
+- [AMFI India Research & Information](https://www.amfiindia.com/research-information)
+- [Nifty Indices Official Portal](https://niftyindices.com/)
+- [AMFI Monthly Portfolio Disclosure Center](https://www.amfiindia.com/online-center/portfolio-disclosure)
+- [RAEN Analytics - Stock & MF Holdings](https://raenanalytics.com/)
+- [RightAdvise Financial Analytics](https://rightadvise.com/)
+
+### Regulatory History & Market Insights
+- [SEBI Stock Category Changes India — Complete Story from 2018 to 2026](https://rightadvise.com/sebi-india-market-cap-story.php)
+- [SEBI Market Cap Category Changes — 2026 Update](https://rightadvise.com/sebi-market-cap-update.php)
+- [History of Mutual Funds in India (AMFI Knowledge Center)](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=HistoryOfMutualFundsInIndia)

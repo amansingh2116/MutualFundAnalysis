@@ -1956,6 +1956,171 @@
         </div>
       </div>
 
+      <!-- ════════════════════════════════════════════════
+           ALL-TIME & MULTI-YEAR RANGE BAROMETER
+           ════════════════════════════════════════════════ -->
+      <div class="card" style="margin-bottom:18px;background:linear-gradient(135deg, rgba(30,41,59,0.7), rgba(15,23,42,0.85));border-color:rgba(99,102,241,0.25)">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span>🚀 All-Time &amp; Multi-Year Range Barometer</span>
+            <button class="info-btn" data-t-title="All-Time &amp; Multi-Period Range Barometer" data-t-what="Tracks the scheme's All-Time High (ATH), All-Time Low (ATL), and dynamic 52-Week, 3-Year, and 5-Year price channels with visual progress indicators." data-t-interp="Unlike individual stocks with order-book resistance, mutual fund NAVs naturally trend upward over decades due to underlying corporate earnings compounding and reinvested dividends. Evaluates drawdown from peak and channel expansion.">ⓘ</button>
+          </div>
+          <span class="sc-delta-badge" id="barometer-regime-badge" style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">Analyzing Price Channel…</span>
+        </div>
+        <div class="card-body">
+          <!-- 5-Factor Key Range Metrics Grid -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px" id="barometer-cards-grid">
+            
+            <!-- ATH Card -->
+            <div class="sc-factor-card" style="border-left:3px solid #10b981">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">All-Time High (ATH)</span>
+                <span id="ath-badge-pill" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:#10b981">Peak</span>
+              </div>
+              <div style="font-size:18px;font-weight:800;color:var(--text-primary);margin:4px 0" id="barometer-ath-val">₹—</div>
+              <div style="font-size:11px;color:var(--text-secondary)" id="barometer-ath-date">Peak Date: —</div>
+              <div style="font-size:11px;font-weight:600;margin-top:4px" id="barometer-ath-drawdown">—</div>
+            </div>
+
+            <!-- ATL Card -->
+            <div class="sc-factor-card" style="border-left:3px solid #6366f1">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">All-Time Low (ATL)</span>
+                <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8">Inception/Base</span>
+              </div>
+              <div style="font-size:18px;font-weight:800;color:var(--text-primary);margin:4px 0" id="barometer-atl-val">₹—</div>
+              <div style="font-size:11px;color:var(--text-secondary)" id="barometer-atl-date">Trough Date: —</div>
+              <div style="font-size:11px;font-weight:600;color:#10b981;margin-top:4px" id="barometer-atl-gain">—</div>
+            </div>
+
+            <!-- 52-Week Range Card -->
+            <div class="sc-factor-card" style="border-left:3px solid #06b6d4">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">52-Week (1Y) Channel</span>
+                <span id="barometer-52w-pos-pill" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(6,182,212,0.15);color:#06b6d4">—%</span>
+              </div>
+              <div style="font-size:15px;font-weight:800;color:var(--text-primary);margin:4px 0" id="barometer-52w-range">₹— – ₹—</div>
+              <div style="font-size:11px;color:var(--text-secondary)" id="barometer-52w-sub">Position in 52W Channel</div>
+              <div style="font-size:11px;font-weight:600;margin-top:4px" id="barometer-52w-dist">—</div>
+            </div>
+
+            <!-- 3-Year Range Card -->
+            <div class="sc-factor-card" style="border-left:3px solid #a855f7">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">3-Year Channel</span>
+                <span id="barometer-3y-pos-pill" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(168,85,247,0.15);color:#c084fc">—%</span>
+              </div>
+              <div style="font-size:15px;font-weight:800;color:var(--text-primary);margin:4px 0" id="barometer-3y-range">₹— – ₹—</div>
+              <div style="font-size:11px;color:var(--text-secondary)">3-Year Low &amp; High Bounds</div>
+              <div style="font-size:11px;font-weight:600;color:#10b981;margin-top:4px" id="barometer-3y-gain">—</div>
+            </div>
+
+            <!-- 5-Year Range Card -->
+            <div class="sc-factor-card" style="border-left:3px solid #ec4899">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">5-Year Channel</span>
+                <span id="barometer-5y-pos-pill" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(236,72,153,0.15);color:#f472b6">—%</span>
+              </div>
+              <div style="font-size:15px;font-weight:800;color:var(--text-primary);margin:4px 0" id="barometer-5y-range">₹— – ₹—</div>
+              <div style="font-size:11px;color:var(--text-secondary)">5-Year Low &amp; High Bounds</div>
+              <div style="font-size:11px;font-weight:600;color:#10b981;margin-top:4px" id="barometer-5y-gain">—</div>
+            </div>
+
+          </div>
+
+          <!-- Interactive Multi-Period Channel Progress Trackers -->
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+              <span>📍 Visual NAV Position Across Timeframe Channels</span>
+              <span style="font-size:11px;color:var(--text-muted)">Current NAV: <strong style="color:var(--indigo-400)" id="barometer-current-nav-label">₹—</strong></span>
+            </div>
+
+            <!-- 52-Week Progress Bar -->
+            <div style="margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+                <span style="color:var(--text-muted)"><strong>52-Week Low:</strong> <span id="bar-52w-low-lbl">₹—</span> (<span id="bar-52w-low-date">—</span>)</span>
+                <span style="font-weight:700;color:#06b6d4" id="bar-52w-mid-lbl">52W Channel (—% of range)</span>
+                <span style="color:var(--text-muted)"><strong>52-Week High:</strong> <span id="bar-52w-high-lbl">₹—</span> (<span id="bar-52w-high-date">—</span>)</span>
+              </div>
+              <div style="position:relative;height:12px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;border:1px solid var(--border)">
+                <div id="bar-52w-fill" style="height:100%;width:50%;background:linear-gradient(90deg, #06b6d4, #3b82f6);border-radius:6px;transition:width .5s ease"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px">
+                <span id="bar-52w-low-dist">+—% from Low</span>
+                <span id="bar-52w-high-dist">—% from High</span>
+              </div>
+            </div>
+
+            <!-- 3-Year Progress Bar -->
+            <div style="margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+                <span style="color:var(--text-muted)"><strong>3-Year Low:</strong> <span id="bar-3y-low-lbl">₹—</span> (<span id="bar-3y-low-date">—</span>)</span>
+                <span style="font-weight:700;color:#a855f7" id="bar-3y-mid-lbl">3Y Channel (—% of range)</span>
+                <span style="color:var(--text-muted)"><strong>3-Year High:</strong> <span id="bar-3y-high-lbl">₹—</span> (<span id="bar-3y-high-date">—</span>)</span>
+              </div>
+              <div style="position:relative;height:12px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;border:1px solid var(--border)">
+                <div id="bar-3y-fill" style="height:100%;width:50%;background:linear-gradient(90deg, #a855f7, #6366f1);border-radius:6px;transition:width .5s ease"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px">
+                <span id="bar-3y-low-dist">+—% from Low</span>
+                <span id="bar-3y-high-dist">—% from High</span>
+              </div>
+            </div>
+
+            <!-- 5-Year Progress Bar -->
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+                <span style="color:var(--text-muted)"><strong>5-Year Low:</strong> <span id="bar-5y-low-lbl">₹—</span> (<span id="bar-5y-low-date">—</span>)</span>
+                <span style="font-weight:700;color:#ec4899" id="bar-5y-mid-lbl">5Y Channel (—% of range)</span>
+                <span style="color:var(--text-muted)"><strong>5-Year High:</strong> <span id="bar-5y-high-lbl">₹—</span> (<span id="bar-5y-high-date">—</span>)</span>
+              </div>
+              <div style="position:relative;height:12px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;border:1px solid var(--border)">
+                <div id="bar-5y-fill" style="height:100%;width:50%;background:linear-gradient(90deg, #ec4899, #f43f5e);border-radius:6px;transition:width .5s ease"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px">
+                <span id="bar-5y-low-dist">+—% from Low</span>
+                <span id="bar-5y-high-dist">—% from High</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 🧠 Institutional & Behavioral Investor Guide -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+            
+            <div style="background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:12px">
+              <div style="font-size:11px;font-weight:800;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+                💡 Compounding Asset vs Order-Book Mechanics
+              </div>
+              <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0">
+                A mutual fund's NAV is not a stock price driven by order-book bid/ask resistance. Rather, it represents the <em>net book value of a diversified portfolio</em>. As underlying companies generate corporate earnings, pay dividends, and compound cash flows, NAV naturally reaches new All-Time Highs year after year. Being at ATH is a healthy hallmark of secular compounding.
+              </p>
+            </div>
+
+            <div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:12px">
+              <div style="font-size:11px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+                🛑 The "Waiting for a Dip" Timing Fallacy
+              </div>
+              <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0">
+                Retail investors frequently pause investing when a fund reaches an ATH, hoping for a correction. Historical empirical data proves that in compounding equity funds, waiting on the sidelines causes severe <strong>cash drag</strong> and missed dividend reinvestment. Entering at an ATH historically delivers virtually identical 5-year rolling returns compared to trying to time 5–10% dips.
+              </p>
+            </div>
+
+            <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.25);border-radius:8px;padding:12px">
+              <div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+                🧭 Actionable Decision Guide (SIP vs Lumpsum)
+              </div>
+              <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0">
+                <strong>SIP Investors:</strong> Continue monthly SIP uninterrupted. Rupee-cost averaging automatically acquires fewer units at peaks and more at dips.<br>
+                <strong>Lumpsum Investors:</strong> If NAV is at ATH with high category P/E, deploy via a 3–6 month STP. If NAV is &gt;15% below ATH during a broad market crash, it represents a high-conviction accumulation zone.
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
       <!-- Tri-gauge Signal Meter -->
       <div class="card" style="margin-bottom:18px">
         <div class="card-header">
@@ -4699,6 +4864,213 @@ window.renderTechnicalSection = function() {
   const elRegimeBadge = document.getElementById('tech-regime-badge');
   if (elRegimeBadge) {
     elRegimeBadge.innerText = isGolden && isMacdBull ? '🌟 Strong Bull Market Regime' : (!isGolden && !isMacdBull) ? '⚠️ Bear Market Downtrend' : '⚡ Mixed / Transitional Regime';
+  }
+
+  // ── All-Time & Multi-Year Range Barometer Calculation ──────────
+  try {
+    const fullN = rawNav.length;
+    if (fullN > 0) {
+      const curNav = rawNav[fullN - 1];
+      const curDateStr = rawDates[fullN - 1] || '';
+
+      // ATH Calculation
+      let athVal = -Infinity, athIdx = 0;
+      for (let i = 0; i < fullN; i++) {
+        if (rawNav[i] > athVal) {
+          athVal = rawNav[i];
+          athIdx = i;
+        }
+      }
+      const athDateStr = rawDates[athIdx] || '—';
+      const athDrawdown = athVal > 0 ? ((curNav - athVal) / athVal) * 100 : 0;
+      const daysSinceAth = fullN - 1 - athIdx;
+
+      // ATL Calculation
+      let atlVal = Infinity, atlIdx = 0;
+      for (let i = 0; i < fullN; i++) {
+        if (rawNav[i] < atlVal) {
+          atlVal = rawNav[i];
+          atlIdx = i;
+        }
+      }
+      const atlDateStr = rawDates[atlIdx] || '—';
+      const atlGain = atlVal > 0 ? ((curNav - atlVal) / atlVal) * 100 : 0;
+      const atlMultiplier = atlVal > 0 ? (curNav / atlVal).toFixed(2) : '1.00';
+
+      // 52-Week Range (last 252 trading days)
+      const n52 = Math.min(252, fullN);
+      let high52Val = -Infinity, high52Idx = fullN - n52;
+      let low52Val = Infinity, low52Idx = fullN - n52;
+      for (let i = fullN - n52; i < fullN; i++) {
+        if (rawNav[i] > high52Val) { high52Val = rawNav[i]; high52Idx = i; }
+        if (rawNav[i] < low52Val) { low52Val = rawNav[i]; low52Idx = i; }
+      }
+      const high52Date = rawDates[high52Idx] || '—';
+      const low52Date = rawDates[low52Idx] || '—';
+      const pos52 = high52Val > low52Val ? Math.max(0, Math.min(100, ((curNav - low52Val) / (high52Val - low52Val)) * 100)) : 100;
+      const distHigh52 = high52Val > 0 ? ((curNav - high52Val) / high52Val) * 100 : 0;
+      const gainLow52 = low52Val > 0 ? ((curNav - low52Val) / low52Val) * 100 : 0;
+
+      // 3-Year Range (last 756 trading days)
+      const n3y = Math.min(756, fullN);
+      let high3yVal = -Infinity, high3yIdx = fullN - n3y;
+      let low3yVal = Infinity, low3yIdx = fullN - n3y;
+      for (let i = fullN - n3y; i < fullN; i++) {
+        if (rawNav[i] > high3yVal) { high3yVal = rawNav[i]; high3yIdx = i; }
+        if (rawNav[i] < low3yVal) { low3yVal = rawNav[i]; low3yIdx = i; }
+      }
+      const high3yDate = rawDates[high3yIdx] || '—';
+      const low3yDate = rawDates[low3yIdx] || '—';
+      const pos3y = high3yVal > low3yVal ? Math.max(0, Math.min(100, ((curNav - low3yVal) / (high3yVal - low3yVal)) * 100)) : 100;
+      const distHigh3y = high3yVal > 0 ? ((curNav - high3yVal) / high3yVal) * 100 : 0;
+      const gainLow3y = low3yVal > 0 ? ((curNav - low3yVal) / low3yVal) * 100 : 0;
+
+      // 5-Year Range (last 1260 trading days)
+      const n5y = Math.min(1260, fullN);
+      let high5yVal = -Infinity, high5yIdx = fullN - n5y;
+      let low5yVal = Infinity, low5yIdx = fullN - n5y;
+      for (let i = fullN - n5y; i < fullN; i++) {
+        if (rawNav[i] > high5yVal) { high5yVal = rawNav[i]; high5yIdx = i; }
+        if (rawNav[i] < low5yVal) { low5yVal = rawNav[i]; low5yIdx = i; }
+      }
+      const high5yDate = rawDates[high5yIdx] || '—';
+      const low5yDate = rawDates[low5yIdx] || '—';
+      const pos5y = high5yVal > low5yVal ? Math.max(0, Math.min(100, ((curNav - low5yVal) / (high5yVal - low5yVal)) * 100)) : 100;
+      const distHigh5y = high5yVal > 0 ? ((curNav - high5yVal) / high5yVal) * 100 : 0;
+      const gainLow5y = low5yVal > 0 ? ((curNav - low5yVal) / low5yVal) * 100 : 0;
+
+      // Update Barometer DOM
+      const elAthVal = document.getElementById('barometer-ath-val');
+      if (elAthVal) elAthVal.innerText = `₹${athVal.toFixed(2)}`;
+      const elAthDate = document.getElementById('barometer-ath-date');
+      if (elAthDate) elAthDate.innerText = `Peak: ${athDateStr} (${daysSinceAth}d ago)`;
+      const elAthDraw = document.getElementById('barometer-ath-drawdown');
+      if (elAthDraw) {
+        if (athDrawdown >= -0.1) {
+          elAthDraw.innerHTML = `<span style="color:#10b981">🌟 New Peak / ATH (0.00%)</span>`;
+        } else {
+          elAthDraw.innerHTML = `<span style="color:${athDrawdown >= -5 ? '#34d399' : athDrawdown >= -15 ? '#f59e0b' : '#ef4444'}">${athDrawdown.toFixed(2)}% from Peak</span>`;
+        }
+      }
+
+      const elAtlVal = document.getElementById('barometer-atl-val');
+      if (elAtlVal) elAtlVal.innerText = `₹${atlVal.toFixed(2)}`;
+      const elAtlDate = document.getElementById('barometer-atl-date');
+      if (elAtlDate) elAtlDate.innerText = `Inception/Base: ${atlDateStr}`;
+      const elAtlGain = document.getElementById('barometer-atl-gain');
+      if (elAtlGain) elAtlGain.innerText = `+${atlGain.toLocaleString('en-IN', {maximumFractionDigits:1})}% (${atlMultiplier}x Multiplier)`;
+
+      const el52wRange = document.getElementById('barometer-52w-range');
+      if (el52wRange) el52wRange.innerText = `₹${low52Val.toFixed(2)} – ₹${high52Val.toFixed(2)}`;
+      const el52wPosPill = document.getElementById('barometer-52w-pos-pill');
+      if (el52wPosPill) el52wPosPill.innerText = `${pos52.toFixed(0)}% Range`;
+      const el52wDist = document.getElementById('barometer-52w-dist');
+      if (el52wDist) el52wDist.innerHTML = `<span style="color:${distHigh52 >= -2 ? '#10b981' : '#60a5fa'}">${distHigh52.toFixed(2)}% from 52W High</span>`;
+
+      const el3yRange = document.getElementById('barometer-3y-range');
+      if (el3yRange) el3yRange.innerText = `₹${low3yVal.toFixed(2)} – ₹${high3yVal.toFixed(2)}`;
+      const el3yPosPill = document.getElementById('barometer-3y-pos-pill');
+      if (el3yPosPill) el3yPosPill.innerText = `${pos3y.toFixed(0)}% Range`;
+      const el3yGain = document.getElementById('barometer-3y-gain');
+      if (el3yGain) el3yGain.innerText = `+${gainLow3y.toFixed(1)}% from 3Y Low`;
+
+      const el5yRange = document.getElementById('barometer-5y-range');
+      if (el5yRange) el5yRange.innerText = `₹${low5yVal.toFixed(2)} – ₹${high5yVal.toFixed(2)}`;
+      const el5yPosPill = document.getElementById('barometer-5y-pos-pill');
+      if (el5yPosPill) el5yPosPill.innerText = `${pos5y.toFixed(0)}% Range`;
+      const el5yGain = document.getElementById('barometer-5y-gain');
+      if (el5yGain) el5yGain.innerText = `+${gainLow5y.toFixed(1)}% from 5Y Low`;
+
+      const elCurNavLbl = document.getElementById('barometer-current-nav-label');
+      if (elCurNavLbl) elCurNavLbl.innerText = `₹${curNav.toFixed(2)} (${curDateStr})`;
+
+      // Update Channel Progress Bars
+      const el52wLowLbl = document.getElementById('bar-52w-low-lbl');
+      if (el52wLowLbl) el52wLowLbl.innerText = `₹${low52Val.toFixed(2)}`;
+      const el52wLowDate = document.getElementById('bar-52w-low-date');
+      if (el52wLowDate) el52wLowDate.innerText = low52Date;
+      const el52wHighLbl = document.getElementById('bar-52w-high-lbl');
+      if (el52wHighLbl) el52wHighLbl.innerText = `₹${high52Val.toFixed(2)}`;
+      const el52wHighDate = document.getElementById('bar-52w-high-date');
+      if (el52wHighDate) el52wHighDate.innerText = high52Date;
+      const el52wMidLbl = document.getElementById('bar-52w-mid-lbl');
+      if (el52wMidLbl) el52wMidLbl.innerText = `52W Position: ${pos52.toFixed(1)}%`;
+      const el52wFill = document.getElementById('bar-52w-fill');
+      if (el52wFill) el52wFill.style.width = `${pos52}%`;
+      const el52wLowDist = document.getElementById('bar-52w-low-dist');
+      if (el52wLowDist) el52wLowDist.innerText = `+${gainLow52.toFixed(1)}% from Low`;
+      const el52wHighDist = document.getElementById('bar-52w-high-dist');
+      if (el52wHighDist) el52wHighDist.innerText = `${distHigh52.toFixed(1)}% from High`;
+
+      // 3Y Progress Bar
+      const el3yLowLbl = document.getElementById('bar-3y-low-lbl');
+      if (el3yLowLbl) el3yLowLbl.innerText = `₹${low3yVal.toFixed(2)}`;
+      const el3yLowDate = document.getElementById('bar-3y-low-date');
+      if (el3yLowDate) el3yLowDate.innerText = low3yDate;
+      const el3yHighLbl = document.getElementById('bar-3y-high-lbl');
+      if (el3yHighLbl) el3yHighLbl.innerText = `₹${high3yVal.toFixed(2)}`;
+      const el3yHighDate = document.getElementById('bar-3y-high-date');
+      if (el3yHighDate) el3yHighDate.innerText = high3yDate;
+      const el3yMidLbl = document.getElementById('bar-3y-mid-lbl');
+      if (el3yMidLbl) el3yMidLbl.innerText = `3Y Position: ${pos3y.toFixed(1)}%`;
+      const el3yFill = document.getElementById('bar-3y-fill');
+      if (el3yFill) el3yFill.style.width = `${pos3y}%`;
+      const el3yLowDist = document.getElementById('bar-3y-low-dist');
+      if (el3yLowDist) el3yLowDist.innerText = `+${gainLow3y.toFixed(1)}% from Low`;
+      const el3yHighDist = document.getElementById('bar-3y-high-dist');
+      if (el3yHighDist) el3yHighDist.innerText = `${distHigh3y.toFixed(1)}% from High`;
+
+      // 5Y Progress Bar
+      const el5yLowLbl = document.getElementById('bar-5y-low-lbl');
+      if (el5yLowLbl) el5yLowLbl.innerText = `₹${low5yVal.toFixed(2)}`;
+      const el5yLowDate = document.getElementById('bar-5y-low-date');
+      if (el5yLowDate) el5yLowDate.innerText = low5yDate;
+      const el5yHighLbl = document.getElementById('bar-5y-high-lbl');
+      if (el5yHighLbl) el5yHighLbl.innerText = `₹${high5yVal.toFixed(2)}`;
+      const el5yHighDate = document.getElementById('bar-5y-high-date');
+      if (el5yHighDate) el5yHighDate.innerText = high5yDate;
+      const el5yMidLbl = document.getElementById('bar-5y-mid-lbl');
+      if (el5yMidLbl) el5yMidLbl.innerText = `5Y Position: ${pos5y.toFixed(1)}%`;
+      const el5yFill = document.getElementById('bar-5y-fill');
+      if (el5yFill) el5yFill.style.width = `${pos5y}%`;
+      const el5yLowDist = document.getElementById('bar-5y-low-dist');
+      if (el5yLowDist) el5yLowDist.innerText = `+${gainLow5y.toFixed(1)}% from Low`;
+      const el5yHighDist = document.getElementById('bar-5y-high-dist');
+      if (el5yHighDist) el5yHighDist.innerText = `${distHigh5y.toFixed(1)}% from High`;
+
+      // Regime Badge
+      const elRegime = document.getElementById('barometer-regime-badge');
+      if (elRegime) {
+        if (athDrawdown >= -1.5) {
+          elRegime.innerText = '🌟 At / Near All-Time High';
+          elRegime.style.background = 'rgba(16,185,129,0.2)';
+          elRegime.style.color = '#10b981';
+          elRegime.style.border = '1px solid rgba(16,185,129,0.4)';
+        } else if (athDrawdown >= -5.0) {
+          elRegime.innerText = `📈 Secular Expansion (${athDrawdown.toFixed(1)}% from ATH)`;
+          elRegime.style.background = 'rgba(52,211,153,0.15)';
+          elRegime.style.color = '#34d399';
+          elRegime.style.border = '1px solid rgba(52,211,153,0.3)';
+        } else if (athDrawdown >= -10.0) {
+          elRegime.innerText = `⏸️ Shallow Pullback (${athDrawdown.toFixed(1)}% from ATH)`;
+          elRegime.style.background = 'rgba(96,165,250,0.15)';
+          elRegime.style.color = '#60a5fa';
+          elRegime.style.border = '1px solid rgba(96,165,250,0.3)';
+        } else if (athDrawdown >= -20.0) {
+          elRegime.innerText = `⚠️ Moderate Correction (${athDrawdown.toFixed(1)}% from ATH)`;
+          elRegime.style.background = 'rgba(245,158,11,0.15)';
+          elRegime.style.color = '#f59e0b';
+          elRegime.style.border = '1px solid rgba(245,158,11,0.3)';
+        } else {
+          elRegime.innerText = `🚨 Deep Drawdown (${athDrawdown.toFixed(1)}% from ATH)`;
+          elRegime.style.background = 'rgba(239,68,68,0.15)';
+          elRegime.style.color = '#ef4444';
+          elRegime.style.border = '1px solid rgba(239,68,68,0.3)';
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Range Barometer calculation error:', err);
   }
 
   // Update Gauges UI

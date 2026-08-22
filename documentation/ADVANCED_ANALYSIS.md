@@ -45,11 +45,29 @@ A tri-gauge quantitative consensus display scoring technical direction from **-1
 - **ADX Trend Strength**: Directional Movement Index classifying market state into Strong Trend 🚀, Moderate Trend 📈, or Range-Bound ⏸️.
 - **Market Regime Badge**: Real-time identification of regime (`Strong Bull Market Regime 🌟`, `Bear Market Downtrend ⚠️`, `Transitional Regime ⚡`).
 
-### 4. Moving Averages Table
+### 4. 🚀 All-Time & Multi-Year Range Barometer
+- **All-Time High (ATH)**: Tracks highest historical NAV (₹), peak date, days since peak, and current drawdown from peak ($\% \text{ below ATH}$).
+- **All-Time Low (ATL)**: Tracks lowest inception/trough NAV (₹), trough date, and appreciation multiple ($\text{Gain } \% \text{ and } X\text{x Multiplier}$).
+- **52-Week (1-Year) Channel**: 52-week High & Low with channel percentile position ($\% \text{ in range}$), gain from 52W low, and distance to 52W high.
+- **3-Year Channel & 5-Year Channel**: 3Y and 5Y High/Low bounds and dynamic range position trackers.
+- **Visual Progress Channels**: Responsive gradient progress bars showing current NAV marker position across 52W, 3Y, and 5Y windows.
+- **Regime & Expansion Classification**:
+  - `🌟 At / Near All-Time High` ($< 1.5\%$ from ATH)
+  - `📈 Secular Expansion` ($1.5\% \text{ to } 5.0\%$ from ATH)
+  - `⏸️ Shallow Pullback` ($5.0\% \text{ to } 10.0\%$ from ATH)
+  - `⚠️ Moderate Correction` ($10.0\% \text{ to } 20.0\%$ from ATH)
+  - `🚨 Deep Drawdown` ($> 20.0\%$ from ATH)
+
+### 5. 🧠 Institutional & Behavioral Interpretation Framework
+- **Compounding Asset vs. Order-Book Mechanics**: Explains that mutual fund NAV is net asset value per unit—not a stock price governed by order-book resistance. NAV naturally achieves new ATHs over decades as underlying corporate earnings compound.
+- **The "Waiting for a Dip" Fallacy**: Documents the opportunity cost and cash drag of sitting on the sidelines when a fund hits ATH, noting that 5-year rolling returns from ATH entries are nearly identical to dip-timed entries in quality funds.
+- **Actionable Decision Guide**: Provides clear rules for SIP accumulators (uninterrupted dollar-cost averaging) vs lumpsum investors (STP deployment during high category valuation vs lump-sum accumulation during $>15\%$ broad market drawdowns).
+
+### 6. Moving Averages Table
 - Computes **SMA (Simple Moving Average)** and **EMA (Exponential Moving Average)** across 10D, 20D, 50D, 100D, and 200D periods.
 - **Pattern Recognition**: Automatically flags **Golden Cross** ($50\text{D} \text{SMA} > 200\text{D} \text{SMA}$) and **Death Cross** ($50\text{D} \text{SMA} < 200\text{D} \text{SMA}$).
 
-### 5. Pivot Points Matrix
+### 7. Pivot Points Matrix
 Calculates 5 classic floor/ceiling pivot systems from 30-day High, Low, and Close NAVs:
 1. **Classic Pivots** ($P, R_1, R_2, R_3, S_1, S_2, S_3$)
 2. **Fibonacci Pivots** (based on $38.2\%, 61.8\%, 100\%$ ratios)
