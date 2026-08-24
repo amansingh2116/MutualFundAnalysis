@@ -378,7 +378,7 @@ class Command(BaseCommand):
         time.sleep(delay * 0.3)
 
         # Strategy 2: Morningstar holdings API with ISIN as path param.
-        # The API accepts ISINs and may include secId in the response JSON.
+        # The API accepts ISINs and sometimes returns a `secId` in the response body.
         try:
             h_url = (f'https://api-global.morningstar.com/sal-service/v1/fund'
                      f'/portfolio/holding/v2/{isin}/data')
@@ -391,12 +391,50 @@ class Command(BaseCommand):
             if h_resp.status_code == 200:
                 body   = h_resp.json()
                 sec_id = str(body.get('secId') or body.get('masterPortfolioId') or '').strip()
-                if sec_id and (sec_id.startswith('F0') or sec_id.startswith('0P')):
+                if sec_id:
                     logger.debug('[%s] Mstar holdings returned secId=%s for ISIN=%s',
                                  amfi, sec_id, isin)
                     return sec_id
         except Exception as exc:
             logger.debug('[%s] Mstar ISIN path-param resolve error: %s', amfi, exc)
+
+        time.sleep(delay * 0.3)
+
+        # Strategy 3: Name-based token search — used when token/search returns 400
+        # for newly-issued ISINs not yet indexed by Morningstar's ISIN lookup.
+        try:
+            name = str(scheme.scheme_name or '').strip()
+            # Strip common suffixes for a cleaner search term
+            for suffix in [' - Direct Plan Growth Option', ' Direct Growth', ' - Direct Plan',
+                           ' Direct Plan Growth', '- Direct Plan Growth', ' Growth Option',
+                           ' - Growth Option']:
+                name = name.replace(suffix, '')
+            search_term = ' '.join(name.split()[:6]).strip()
+            if search_term:
+                url = 'https://api-global.morningstar.com/sal-service/v1/fund/token/search'
+                resp = requests.get(
+                    url, headers=headers,
+                    params={'term': search_term, 'limit': 5, 'clientId': 'MDC',
+                            'currency': 'INR', 'universeIds': 'FOIND$$ALL|ETFIND$$ALL'},
+                    timeout=12,
+                )
+                time.sleep(delay * 0.3)
+                if resp.status_code == 200:
+                    results = resp.json()
+                    if isinstance(results, dict):
+                        results = results.get('hits') or results.get('results') or []
+                    for item in results:
+                        sec_id = str(
+                            item.get('SecId') or item.get('secId') or item.get('id') or ''
+                        ).strip()
+                        item_isin = str(item.get('Isin') or item.get('isin') or '').strip().upper()
+                        # Must match ISIN exactly when present
+                        if sec_id and (item_isin == isin.upper() or not item_isin):
+                            logger.debug('[%s] Mstar name-search resolved SecId=%s (ISIN=%s)',
+                                         amfi, sec_id, isin)
+                            return sec_id
+        except Exception as exc:
+            logger.debug('[%s] Mstar name-search resolve error: %s', amfi, exc)
 
         return ''
 
@@ -404,14 +442,16 @@ class Command(BaseCommand):
         """Fetch full holdings + sectors from Morningstar REST API.
 
         Uses the same api-global.morningstar.com endpoints as runtime.py's
-        fetch_mstarpy_payload(). Accepts both F0xxxx (mutual fund) and 0Pxxxx
-        (ETF) SecId formats. Plain HTTP — no browser, no Selenium.
+        fetch_mstarpy_payload(). Accepts all Morningstar SecId formats:
+        F0xxxx (mutual funds), 0Pxxxx (ETFs), FOUSAxxxxx (US-listed), F0GBRxxxx (UK-listed).
 
         Returns (holdings_list, sector_list, alloc_dict) or (None, None, None).
         """
         sec_id = str(scheme.morningstar_id or '').strip()
-        # Accept both F0xxxx (fund) and 0Pxxxx (ETF) Morningstar SecIds
-        if not sec_id or (not sec_id.startswith('F0') and not sec_id.startswith('0P')):
+        # The Morningstar REST API accepts all SecId formats:
+        # F0xxxx (funds), 0Pxxxx (ETFs), FOUSAxxxxx (older US-listed), F0GBRxxxx (UK-listed), etc.
+        # Do NOT filter by prefix — let the HTTP response determine validity.
+        if not sec_id:
             return None, None, None
 
         amfi = scheme.amfi_code
@@ -464,11 +504,23 @@ class Command(BaseCommand):
                 weight = _to_decimal(row.get('weighting'))
                 if not name or weight is None:
                     continue
-                sector = str(row.get('sector') or '').strip()
+                sector = str(row.get('sector') or row.get('superSectorName') or '').strip()
                 isin   = str(row.get('isin') or '')
                 ticker = str(row.get('ticker') or '')
-                htype  = str(row.get('holdingType') or 'equity').lower()
-                if htype not in ('equity', 'debt', 'cash'):
+                # Morningstar holdingType values: 'Equity', 'Bond', 'Other' (capitalized)
+                # holdingTypeId further classifies: GS/B=bond, CP/CD=cash, CR/CA=cash,
+                #   FO=fund-of-fund (treat as equity/other), DD=commodity (treat as other)
+                htype_raw = str(row.get('holdingType') or '').lower()
+                htype_id  = str(row.get('holdingTypeId') or '').upper()
+                if htype_raw == 'bond':
+                    htype = 'debt'
+                elif htype_raw == 'equity':
+                    htype = 'equity'
+                elif htype_id in ('GS', 'B', 'NCD'):
+                    htype = 'debt'
+                elif htype_id in ('CP', 'CD', 'CR', 'CA', 'TB'):
+                    htype = 'cash'
+                else:
                     htype = _finapi_holding_type(name, sector)
                 holdings_list.append({
                     'security_name': name,
@@ -907,7 +959,7 @@ class Command(BaseCommand):
 # ── Helper parsers ────────────────────────────────────────────────────────────────
 
 def _finapi_holding_type(name: str, sector: str) -> str:
-    """Classify a holding as equity/debt/cash from its name and sector."""
+    """Classify a holding as equity/debt/cash/other from its name and sector."""
     text = f'{name} {sector}'.lower()
     if any(m in text for m in ['cash', 'treasury', 'clearing corporation', 'ccil',
                                 'tri party', 't-bill']):
@@ -915,4 +967,6 @@ def _finapi_holding_type(name: str, sector: str) -> str:
     if any(m in text for m in ['bond', 'debenture', 'government securities', 'g-sec',
                                 'securit', 'ncd', 'commercial paper', 'cp ']):
         return 'debt'
+    if any(m in text for m in ['gold', 'silver', 'platinum', 'commodity', 'bullion']):
+        return 'other'
     return 'equity'

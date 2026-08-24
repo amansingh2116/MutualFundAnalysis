@@ -252,11 +252,17 @@ Handles SEBI-mandated monthly portfolio disclosures and point-in-time AUM snapsh
 
 ```
 1. update_nifty_caplist      — refresh Nifty cap classification list (NSE)
-2. ingest_holdings           — portfolio holdings (Morningstar REST → yahooquery fallback)
+2. ingest_holdings           — portfolio holdings (Morningstar REST [all SecIds] → yahooquery fallback)
 3. ingest_aum_snapshots      — point-in-time AUM for all schemes
 4. ingest_industry_inflows   — AMFI category-level net inflows (Capital Flows widget)
 5. ingest_score_trend        — weekly fund score & rank snapshot
 ```
+
+> **Portfolio Ingestion & Live Runtime Engine**:
+> - **Universal SecId Support**: Supports all Morningstar SecId formats (`F0xxxx` mutual funds, `0Pxxxx` ETFs, `FOUSAxxxxx` older US-listed, `F0GBRxxxx` UK-listed).
+> - **3-Tier Inline SecId Resolution**: 1) mstarpy screener, 2) ISIN path-param payload discovery, 3) Name-based token search for new/unindexed funds.
+> - **Live Runtime Fallback**: Live fund detail page automatically attempts on-the-fly SecId resolution with 24h negative-result caching and DB persistence (`DB Disclosures > Live Morningstar REST > finapi > Live Yahoo Search`).
+> - **Granular Asset Classification**: Precise mapping for Debt (`GS/B/NCD`), Cash (`CP/CD/CR/CA/TB`), Commodities (`Gold/Silver/Bullion` as `other`), Fund-of-Funds (`FO`), and fallback sector inference via `superSectorName`.
 
 ### Key management commands:
 
@@ -284,7 +290,7 @@ python manage.py populate_screener --time-limit-minutes=310
 python manage.py ingest_score_trend
 
 # ─── Monthly commands ────────────────────────────────────────────────────────
-# Portfolio holdings (Morningstar REST → yahooquery fallback, no browser)
+# Portfolio holdings (Morningstar REST [all SecIds + auto-resolve] → yahoo fallback, no browser)
 python manage.py ingest_holdings --source auto --resume
 
 # AUM snapshots (point-in-time per scheme per month)

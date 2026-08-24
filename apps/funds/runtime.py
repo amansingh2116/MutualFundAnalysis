@@ -801,20 +801,122 @@ def finapi_holding_type(name: str, sector: str) -> str:
         return "cash"
     if any(marker in text for marker in ["bond", "debenture", "government securities", "g-sec", "securit"]):
         return "debt"
+    if any(marker in text for marker in ["gold", "silver", "platinum", "commodity", "bullion"]):
+        return "other"
     return "equity"
 
 
+_MSTAR_RESOLVE_NEG_TTL = 60 * 60 * 24  # 24h negative-result cache — don't retry unindexed ISINs too often
+
+
+def _resolve_morningstar_id_live(scheme: Scheme) -> str:
+    """Attempt to resolve morningstar_id on-the-fly for the live fund detail page.
+
+    Uses the same pure-HTTP strategies as ingest_holdings._resolve_morningstar_id():
+      1. ISIN as path parameter to the Morningstar holdings endpoint — the API
+         sometimes returns a secId in the response body even when the ISIN itself
+         has no holdings data.
+      2. Name-based token search — catches newly-launched funds whose ISINs are
+         not yet indexed by Morningstar's ISIN search.
+
+    Results are cached (both hits and misses) so each AMFI code is only attempted
+    once per 24 hours.  On success the SecId is persisted to Scheme.morningstar_id.
+    """
+    isin = str(scheme.isin_growth or "").strip()
+    if not isin:
+        return ""
+
+    neg_cache_key = f"fund:mstar_resolve:neg:v1:{scheme.amfi_code}"
+    if cache.get(neg_cache_key):
+        return ""  # Previously failed — wait 24h before retrying
+
+    api_key = "lstzFDEOhfFNMLikKa0am9mgEKLBl49T"
+    headers = {
+        "apikey":     api_key,
+        "Accept":     "application/json, text/plain, */*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    }
+
+    # Strategy 1: ISIN as holdings path param — API may return secId in body
+    try:
+        h_url = (f"https://api-global.morningstar.com/sal-service/v1/fund"
+                 f"/portfolio/holding/v2/{isin}/data")
+        resp = requests.get(
+            h_url, headers=headers,
+            params={"clientId": "MDC", "version": "4.71.0",
+                    "premiumNum": 10000, "freeNum": 10000},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            try:
+                body = resp.json()
+            except Exception:
+                body = {}
+            if isinstance(body, dict):
+                sec_id = str(body.get("secId") or body.get("masterPortfolioId") or "").strip()
+                if sec_id:
+                    return sec_id
+    except Exception:
+        pass
+
+    # Strategy 2: Name-based token search
+    try:
+        name = str(scheme.scheme_name or "").strip()
+        for suffix in [" - Direct Plan Growth Option", " Direct Growth", " - Direct Plan",
+                       " Direct Plan Growth", "- Direct Plan Growth", " Growth Option",
+                       " - Growth Option"]:
+            name = name.replace(suffix, "")
+        search_term = " ".join(name.split()[:6]).strip()
+        if search_term:
+            r = requests.get(
+                "https://api-global.morningstar.com/sal-service/v1/fund/token/search",
+                headers=headers,
+                params={"term": search_term, "limit": 5, "clientId": "MDC",
+                        "currency": "INR", "universeIds": "FOIND$$ALL|ETFIND$$ALL"},
+                timeout=10,
+            )
+            if r.status_code == 200:
+                results = r.json()
+                if isinstance(results, dict):
+                    results = results.get("hits") or results.get("results") or []
+                for item in results:
+                    sec_id   = str(item.get("SecId") or item.get("secId") or item.get("id") or "").strip()
+                    item_isin = str(item.get("Isin") or item.get("isin") or "").strip().upper()
+                    if sec_id and (item_isin == isin.upper() or not item_isin):
+                        return sec_id
+    except Exception:
+        pass
+
+    # Cache the negative result to avoid hammering the API on every page load
+    cache.set(neg_cache_key, True, _MSTAR_RESOLVE_NEG_TTL)
+    return ""
+
+
 def fetch_mstarpy_data(scheme: Scheme) -> dict:
-    # Only attempt mstarpy when a verified Morningstar SecId is available.
-    # Without it the subprocess always fails after a long timeout (403 Forbidden)
-    # which would block the portfolio tab for 35+ seconds on every page load.
+    # Only attempt mstarpy when a Morningstar SecId is available (or resolvable).
     if not scheme.morningstar_id and not scheme.isin_growth:
         return {}
-    terms = [scheme.morningstar_id, scheme.isin_growth]
-    terms = [term for term in dict.fromkeys(str(t).strip() for t in terms if t)]
-    if not terms:
+
+    sec_id = str(scheme.morningstar_id or "").strip()
+
+    # On-the-fly resolve: if no SecId stored, try to discover it from the ISIN.
+    # This lets the live fund detail page show full Morningstar holdings for funds
+    # that were added to AMFI after the last ingest_holdings run.
+    if not sec_id and scheme.isin_growth:
+        sec_id = _resolve_morningstar_id_live(scheme)
+        if sec_id:
+            # Persist so subsequent page loads skip resolution entirely
+            try:
+                Scheme.objects.filter(pk=scheme.pk).update(morningstar_id=sec_id)
+                scheme.morningstar_id = sec_id  # update in-memory too
+            except Exception:
+                pass
+
+    if not sec_id:
         return {}
-    cache_key = f"fund:mstarpy:v1:{scheme.amfi_code}:{md5('|'.join(terms).encode('utf-8')).hexdigest()}"
+
+    terms = [sec_id]
+    cache_key = f"fund:mstarpy:v1:{scheme.amfi_code}:{md5(sec_id.encode('utf-8')).hexdigest()}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -850,9 +952,10 @@ def fetch_mstarpy_payload(scheme: Scheme, terms: list[str]) -> dict:
 
     for term in terms:
         sec_id = str(term or "").strip()
-        if not sec_id.startswith("F0") and not sec_id.startswith("0P"):
-            # Morningstar SecIds start with 'F0' for funds or '0P' for ETFs
-            # (e.g. F00000SC5Y for MFs, 0P0001IX52 for ETFs)
+        # The Morningstar REST API accepts all SecId formats:
+        # F0xxxx (funds), 0Pxxxx (ETFs), FOUSAxxxxx (older US-listed), F0GBRxxxx (UK-listed), etc.
+        # Do NOT filter by prefix — let the HTTP response determine validity.
+        if not sec_id:
             continue
         try:
             # 1. Holdings
@@ -874,15 +977,16 @@ def fetch_mstarpy_payload(scheme: Scheme, terms: list[str]) -> dict:
             holdings_raw = []
             for row in all_raw:
                 holdings_raw.append({
-                    "securityName": row.get("securityName", ""),
-                    "weighting":    row.get("weighting"),
-                    "sector":       row.get("sector", ""),
-                    "isin":         row.get("isin", ""),
-                    "ticker":       row.get("ticker", ""),
-                    "holdingType":  row.get("holdingType", "equity"),
+                    "securityName":  row.get("securityName", ""),
+                    "weighting":     row.get("weighting"),
+                    "sector":        row.get("sector") or row.get("superSectorName") or "",
+                    "isin":          row.get("isin", ""),
+                    "ticker":        row.get("ticker", ""),
+                    "holdingType":   row.get("holdingType", "equity"),
+                    "holdingTypeId": row.get("holdingTypeId", ""),
                     "forwardPERatio": row.get("forwardPERatio"),
-                    "marketValue":  row.get("marketValue"),
-                    "country":      row.get("country", ""),
+                    "marketValue":   row.get("marketValue"),
+                    "country":       row.get("country", ""),
                 })
 
             # 2. Sectors (best-effort)
@@ -1104,16 +1208,32 @@ def mstarpy_holdings(holdings_df) -> list[SimpleNamespace]:
         weight = _float(row.get("weighting") or row.get("weight") or row.get("holdingPercent"))
         if not name or weight is None or weight <= 0:
             continue
+        sector = str(row.get("sector") or row.get("globalSectorName") or row.get("superSectorName") or "")
+        # Morningstar holdingType: 'Equity', 'Bond', 'Other' (capitalized)
+        # holdingTypeId: GS/B=bond, CP/CD/CR/CA/TB=cash, FO=fund, DD=commodity
+        htype_raw = str(row.get("holdingType") or row.get("assetType") or "").lower()
+        htype_id  = str(row.get("holdingTypeId") or "").upper()
+        if htype_raw == "bond":
+            htype = "debt"
+        elif htype_raw == "equity":
+            htype = "equity"
+        elif htype_id in ("GS", "B", "NCD"):
+            htype = "debt"
+        elif htype_id in ("CP", "CD", "CR", "CA", "TB"):
+            htype = "cash"
+        else:
+            htype = finapi_holding_type(str(name), sector)
         rows.append(ns(
             security_name=str(name),
             ticker=str(row.get("ticker") or row.get("symbol") or ""),
             isin=str(row.get("isin") or ""),
-            sector=str(row.get("sector") or row.get("globalSectorName") or ""),
+            sector=sector,
             weight_pct=weight * 100 if weight <= 1 else weight,
             forward_pe=_float(row.get("forwardPERatio") or row.get("forwardPE")),
-            holding_type=str(row.get("holdingType") or row.get("assetType") or "equity").lower(),
+            holding_type=htype,
         ))
     return rows
+
 
 
 def mstarpy_sectors(sector_raw: dict) -> list[SimpleNamespace]:

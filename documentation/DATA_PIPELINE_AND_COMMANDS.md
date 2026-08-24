@@ -164,19 +164,34 @@ Learn content source files:
 See `documentation/LEARN_CONTENT.md` for the full metadata format.
 
 ### 8. `ingest_holdings` (Monthly Portfolio Ingestion)
-**Purpose:** Ingests SEBI-mandated monthly portfolio disclosures — stock holdings, sector allocation, and market-cap breakdown — for all active direct-growth equity/hybrid funds and ETFs.
+**Purpose:** Ingests SEBI-mandated monthly portfolio disclosures — stock/debt/commodity/cash holdings, sector allocation, and market-cap breakdown — for all active direct-growth equity/hybrid/debt funds and ETFs.
 **When to run:** Monthly (automated on the 5th via `monthly_pipeline.yml`). Safe to re-run (idempotent via `update_or_create`).
 
 **Sources (priority order — all plain HTTP, no browser required):**
-1. **Morningstar REST API** (`api-global.morningstar.com`) — full 100+ stock holdings, sector weights, asset allocation. Requires `Scheme.morningstar_id` (SecId, F0...) to be populated — see `build_mstar_ids` below.
-2. **yahooquery** — top-10 holdings + sector weights. Fallback for ETFs or funds without a `morningstar_id`.
+1. **Morningstar REST API** (`api-global.morningstar.com`) — full 100+ positions, sector weights, asset allocation.
+   - **Universal SecId Compatibility**: Prefix-agnostic support for all Morningstar SecId formats:
+     - `F0xxxx` (Mutual Funds)
+     - `0Pxxxx` (ETFs, e.g. `0P0001IX52` ICICI BSE Sensex ETF)
+     - `FOUSAxxxxx` (US-listed / Older ETFs, e.g. `FOUSA06V39` Kotak BSE Sensex ETF)
+     - `F0GBRxxxx` (UK / Global formats, e.g. `F0GBR06R2I` Quantum Liquid Fund)
+   - **3-Tier Inline SecId Resolution**: Automatically resolves missing `Scheme.morningstar_id` on-the-fly:
+     1. `mstarpy.search.MorningstarSession().screener_universe(isin)` (fast threaded check).
+     2. Morningstar holdings endpoint with ISIN as path parameter (extracts `secId` from response payload).
+     3. Scheme name-based token search on Morningstar's universe endpoint (handles newly-issued funds).
+   - **Granular Position Classification**:
+     - Debt: `holdingType='Bond'` or `holdingTypeId` ∈ `['GS', 'B', 'NCD']` (e.g. Government of India securities).
+     - Cash & Equivalents: `holdingTypeId` ∈ `['CP', 'CD', 'CR', 'CA', 'TB']` (Commercial Paper, Certificates of Deposit, TREPS, Repos, T-Bills).
+     - Commodities: Gold/Silver/Bullion classified as `'other'`.
+     - Fund-of-Funds (`FO`): Underlying mutual fund units classified as `'equity'`/`'other'`.
+     - Sector inference: Falls back to `superSectorName` (e.g. `government`, `cashAndEquivalents`, `corporate`) when the security lacks an equity sector.
+2. **yahooquery** — fallback for ETFs or funds without a `morningstar_id`. Returns top-10 holdings + sector weights.
 3. **CapClassifier** — runs after either source. Maps stock names → Large/Mid/Small cap via rapidfuzz fuzzy matching against `data/nifty_caplist.json`.
 
 > [!NOTE]
-> `finapi.upvaly.com` was the previous primary source but dropped portfolio fields from their API. Old data ingested via finapi remains in the DB (`source='finapi'`). New ingestion uses Morningstar REST + yahooquery.
+> **Live Runtime Snapshot (`apps/funds/runtime.py`)**: When users view a fund detail page, `get_portfolio_snapshot` serves DB disclosures if available. If DB is empty, it runs live Morningstar REST queries with on-the-fly SecId resolution (`_resolve_morningstar_id_live`), caches negative results for 24h, and automatically saves resolved SecIds to the database for future instantaneous page loads.
 
 **Writes to:**
-- `Holding` — all stock/bond/cash positions per fund per month
+- `Holding` — all stock/debt/commodity/cash positions per fund per month
 - `SectorAllocation` — sector weights per fund per month  
 - `MarketCapAllocation` — Large/Mid/Small/Other % per fund per month
 
@@ -202,9 +217,9 @@ python manage.py ingest_holdings --delay 1.0
 ```
 
 ### 9. `build_mstar_ids` (One-time Morningstar SecId Setup)
-**Purpose:** One-time command to populate `Scheme.morningstar_id` (Morningstar SecId, e.g. `F0GBR04SGI`) for all active equity/hybrid funds. Once populated, `ingest_holdings` uses the Morningstar REST API (pure HTTP, no browser) for all subsequent monthly ingestion runs forever.
+**Purpose:** Bulk command to populate `Scheme.morningstar_id` (Morningstar SecId, e.g. `F0GBR04SGI`, `0P0001IX52`) for active equity/hybrid/debt funds and ETFs. Once populated, `ingest_holdings` and the live runtime snapshot use pure-HTTP REST calls with no browser.
 
-**When to run:** Once after a fresh DB setup, or when new funds are added. Requires Chrome/Selenium via `mstarpy` to query the Morningstar global screener for the ISIN → SecId mapping.
+**When to run:** Optional bulk run after a fresh DB setup. Requires Chrome/Selenium via `mstarpy` to query the Morningstar global screener for the ISIN → SecId mapping. Note that missing SecIds are also resolved dynamically during normal ingestion and live page loads.
 
 ```bash
 # Map all active equity/hybrid funds (long — ~2,300 funds × 2s = ~1.3 hours)
@@ -222,9 +237,6 @@ python manage.py build_mstar_ids --force
 # Adjust rate limit (default 2.0s between calls)
 python manage.py build_mstar_ids --delay 1.5
 ```
-
-> [!IMPORTANT]
-> Run `build_mstar_ids` **before** running `ingest_holdings` for the first time. Without `morningstar_id` populated, `ingest_holdings` falls back to yahooquery (top-10 only) for all funds.
 
 ### 10. `ingest_aum_snapshots` (Monthly AUM Trend)
 **Purpose:** Takes a point-in-time AUM snapshot from AMFI for all active schemes into `SchemeAumSnapshot`. Used for the fund AUM trend chart (shows last 3 months) and the `aum_1m_change_pct` screener column.

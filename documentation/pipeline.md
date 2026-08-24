@@ -158,10 +158,23 @@ docker compose exec web python manage.py ingest_holdings --delay 1.0
 **Sources (in priority order):**
 
 1. **Morningstar REST API** (`api-global.morningstar.com`) — Full holdings + sectors + asset
-   allocation via plain HTTP using `Scheme.morningstar_id` (SecId starting with F0).
-   This is the same API that powers the fund detail Portfolio tab in `runtime.py`.
-   **Requires `morningstar_id` to be pre-populated** (run `build_mstar_ids` first).
-   Retries on 429 with exponential backoff.
+   allocation via plain HTTP.
+   - **Prefix-Agnostic SecId Format**: Accepts all Morningstar SecId formats:
+     - `F0xxxx` (Mutual Funds)
+     - `0Pxxxx` (ETFs, e.g. `0P0001IX52` ICICI BSE Sensex ETF)
+     - `FOUSAxxxxx` (US-listed / Older ETFs, e.g. `FOUSA06V39` Kotak BSE Sensex ETF)
+     - `F0GBRxxxx` (UK / Global formats, e.g. `F0GBR06R2I` Quantum Liquid Fund)
+   - **3-Tier Inline SecId Resolution**: If `Scheme.morningstar_id` is blank, `ingest_holdings` automatically attempts:
+     1. `mstarpy.search.MorningstarSession().screener_universe(isin)` (fast threaded check).
+     2. Morningstar holdings endpoint with ISIN as path parameter (extracts `secId` from response payload).
+     3. Scheme name-based token search on Morningstar's universe endpoint (for newly-launched funds where ISIN indexing is delayed).
+   - **Precise Asset & Sector Classification**:
+     - Debt: `holdingType='Bond'` or `holdingTypeId` ∈ `['GS', 'B', 'NCD']` (e.g. Government of India securities).
+     - Cash & Equivalents: `holdingTypeId` ∈ `['CP', 'CD', 'CR', 'CA', 'TB']` (Commercial Paper, Certificates of Deposit, TREPS, Repos, T-Bills).
+     - Commodities: Gold/Silver/Bullion classified as `'other'`.
+     - Fund-of-Funds (`FO`): Underlying mutual fund units classified as `'equity'`/`'other'`.
+     - Sector inference: Falls back to `superSectorName` (e.g. `government`, `cashAndEquivalents`, `corporate`) when the individual security lacks a specific equity sector.
+   - Retries on 429 with exponential backoff.
 2. **yahooquery** — fallback for ETFs or new funds without a `morningstar_id`.
    Returns top-10 holdings + sector weights only.
 3. **CapClassifier** — runs after either source succeeds. Maps equity stock names →
@@ -172,19 +185,18 @@ docker compose exec web python manage.py ingest_holdings --delay 1.0
 > DB for old data but no longer usable for fresh ingestion.
 
 > **Note on mstarpy Selenium**: removed from ingestion. The Morningstar data is now
-> fetched directly from the REST API (no browser needed), provided `morningstar_id`
-> is populated via the one-time `build_mstar_ids` command.
+> fetched directly from the pure-HTTP REST API (no browser needed).
 
 **Prerequisites:**
 ```bash
-# One-time setup: populate morningstar_id for all active equity/hybrid funds
+# Optional one-time bulk setup: populate morningstar_id for all active equity/hybrid funds
 # Requires Chrome/Selenium (run on a machine with a display or headless Chrome)
 docker compose exec web python manage.py build_mstar_ids
-# After this, ingest_holdings uses pure-HTTP REST API with no browser
+# Even without running this command, ingest_holdings and the live runtime resolve missing SecIds dynamically.
 ```
 
 **Writes to:**
-- `Holding` — all stock/debt/cash positions per fund per month
+- `Holding` — all stock/debt/cash/commodity positions per fund per month
 - `SectorAllocation` — sector weights per fund per month
 - `MarketCapAllocation` — large/mid/small split per fund per month
 
@@ -196,6 +208,20 @@ docker compose exec web python manage.py build_mstar_ids
 - AMC Analysis → **Portfolio Insights** tab (top holdings, sectors, cap blend, exits)
 - AMC Analysis → **Portfolio Intelligence** tab data enrichment
 - Category Analysis → portfolio composition metrics
+
+---
+
+#### Live Fund Detail Portfolio Runtime Pipeline (`apps/funds/runtime.py`)
+
+When a user opens a fund detail page, the Portfolio tab renders via `get_portfolio_snapshot(scheme)` / `get_runtime_snapshot(scheme)` with the following hierarchy:
+
+1. **DB Disclosures (`Holding` & `SectorAllocation`)**: If `ingest_holdings` has previously populated the database, full disclosures (100+ holdings) are served immediately.
+2. **Live Morningstar REST (`fetch_mstarpy_data`)**: If DB is empty, queries `api-global.morningstar.com`.
+   - If `morningstar_id` is missing, runs `_resolve_morningstar_id_live(scheme)` on-the-fly via ISIN path parameter and name token search.
+   - Persists discovered SecId to `Scheme.morningstar_id` in the database so all subsequent requests are instant.
+   - Employs a 24-hour negative-result cache to avoid redundant network attempts for unindexed funds.
+3. **finapi (`fetch_finapi_portfolio`)**: Legacy fallback.
+4. **Live Yahoo Finance (`fetch_yahoo_data`)**: Dynamic ticker resolution via live Yahoo search and NAV proximity matching.
 
 ---
 
