@@ -850,8 +850,9 @@ def fetch_mstarpy_payload(scheme: Scheme, terms: list[str]) -> dict:
 
     for term in terms:
         sec_id = str(term or "").strip()
-        if not sec_id.startswith("F0"):
-            # Morningstar SecIds start with 'F0' (e.g. F00000SC5Y)
+        if not sec_id.startswith("F0") and not sec_id.startswith("0P"):
+            # Morningstar SecIds start with 'F0' for funds or '0P' for ETFs
+            # (e.g. F00000SC5Y for MFs, 0P0001IX52 for ETFs)
             continue
         try:
             # 1. Holdings

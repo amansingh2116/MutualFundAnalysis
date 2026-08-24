@@ -15,18 +15,17 @@ name: Monthly Data Pipeline
 #
 # PORTFOLIO HOLDINGS STRATEGY (ingest_holdings):
 #   Sources in priority order (no browser/Selenium required):
-#   1. Morningstar REST API  — plain HTTP using Scheme.morningstar_id (F0...SecId)
-#      Same API as the fund detail Portfolio tab. Requires morningstar_id populated.
-#   2. yahooquery FALLBACK   — Top-10 holdings + sector weights for ETFs or
-#      funds without a morningstar_id.
-#   3. CapClassifier         — Maps holdings → Large/Mid/Small cap via rapidfuzz
+#   1. Morningstar REST API  — plain HTTP using Scheme.morningstar_id (F0.../0P... SecId).
+#      Accepts both F0xxxx (mutual funds) and 0Pxxxx (ETFs) SecId formats.
+#      If morningstar_id is missing, auto-resolves via ISIN→SecId lookup and
+#      persists the result to Scheme.morningstar_id for future runs.
+#   2. finapi.upvaly.com    — Full holdings + sectors via AMFI code. Pure HTTP.
+#      Fallback when Morningstar data is unavailable.
+#   3. yahooquery FALLBACK  — Top-10 holdings + sector weights for ETFs or funds
+#      when both above fail. Resolved tickers are saved to Scheme.yahoo_ticker
+#      so subsequent CI runs skip re-resolution (no rate-limit spikes).
+#   4. CapClassifier        — Maps holdings → Large/Mid/Small cap via rapidfuzz
 #      fuzzy matching against data/nifty_caplist.json (runs after any source).
-#
-#   PREREQUISITE (one-time, not in this workflow):
-#     python manage.py build_mstar_ids
-#   This command uses mstarpy (Selenium) to populate Scheme.morningstar_id for
-#   all active equity/hybrid funds. Run once on any machine with Chrome, then
-#   ingest_holdings uses pure HTTP REST forever.
 #
 # DATA RETENTION:
 #   Holdings (Holding, SectorAllocation, MarketCapAllocation) retain last 3

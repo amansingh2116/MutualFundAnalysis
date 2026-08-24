@@ -7,12 +7,14 @@ point-in-time portfolio evolution tracking.
 
 Strategy (same as runtime.py / fund detail page):
   1. Morningstar REST API — Full holdings + sectors via plain HTTP using the
-     fund's morningstar_id (SecId starting with F0). This is the same call
-     that powers the fund detail Portfolio tab. Requires Scheme.morningstar_id.
+     fund's morningstar_id (SecId starting with F0 for funds, 0P for ETFs).
+     If morningstar_id is missing, auto-resolves via ISIN → SecId lookup
+     (no browser/Selenium needed). Updates Scheme.morningstar_id in the DB.
   2. finapi (finapi.upvaly.com) — Full holdings + sectors for funds where the
-     finapi portfolio endpoint returns data. Fallback when no morningstar_id.
+     finapi portfolio endpoint returns data. Fallback when Morningstar fails.
   3. yahooquery FALLBACK — Top-10 holdings + full sector data for ETFs or
-     funds with a yahoo_ticker when both above fail.
+     funds when both above fail. Resolved tickers are persisted to
+     Scheme.yahoo_ticker so CI re-runs skip re-resolution.
   4. CapClassifier — Maps equity holdings → Large/Mid/Small cap via rapidfuzz
      fuzzy matching against data/nifty_caplist.json (runs after any source).
 
@@ -26,6 +28,7 @@ Key features:
   - Non-equity handling: Debt, cash, commodity instruments stored with their type
   - Idempotent: update_or_create safe to re-run
   - No browser/Selenium required — pure HTTP fetches only
+  - ETF support: morningstar_id starting with 0P works same as F0
 
 Usage:
     python manage.py ingest_holdings
@@ -211,17 +214,30 @@ class Command(BaseCommand):
             use_yahoo       = source in ('auto', 'yahoo')
 
             # 1) Morningstar REST API (plain HTTP, same as fund detail page)
-            #    Requires Scheme.morningstar_id (SecId starting with F0)
-            if use_morningstar and scheme.morningstar_id:
-                try:
-                    hd, sd, ad = self._fetch_morningstar(scheme, delay)
-                    if hd is not None:
-                        holdings_data   = hd
-                        sector_data     = sd
-                        allocation_data = ad
-                        data_source     = 'morningstar'
-                except Exception as exc:
-                    logger.warning('[%s] morningstar fetch failed: %s', amfi, exc)
+            #    Accepts both F0xxxx (fund) and 0Pxxxx (ETF) SecIds.
+            #    If morningstar_id is missing, auto-resolves via ISIN lookup.
+            if use_morningstar:
+                # Auto-populate morningstar_id if missing
+                if not scheme.morningstar_id and scheme.isin_growth:
+                    try:
+                        sec_id = self._resolve_morningstar_id(scheme, delay)
+                        if sec_id:
+                            scheme.morningstar_id = sec_id
+                            scheme.save(update_fields=['morningstar_id'])
+                            logger.info('[%s] Resolved morningstar_id=%s via ISIN', amfi, sec_id)
+                    except Exception as exc:
+                        logger.debug('[%s] morningstar_id auto-resolve failed: %s', amfi, exc)
+
+                if scheme.morningstar_id:
+                    try:
+                        hd, sd, ad = self._fetch_morningstar(scheme, delay)
+                        if hd is not None:
+                            holdings_data   = hd
+                            sector_data     = sd
+                            allocation_data = ad
+                            data_source     = 'morningstar'
+                    except Exception as exc:
+                        logger.warning('[%s] morningstar fetch failed: %s', amfi, exc)
 
             # 2) finapi (plain HTTP, no browser) — fallback
             if holdings_data is None and use_finapi:
@@ -297,17 +313,105 @@ class Command(BaseCommand):
 
     # ── Morningstar REST fetch (same API as runtime.py fund detail page) ──────────
 
+    def _resolve_morningstar_id(self, scheme: Scheme, delay: float) -> str:
+        """Resolve Scheme.morningstar_id via ISIN → SecId lookup.
+
+        Tries multiple strategies (all pure HTTP, no browser required):
+         1. mstarpy.search.MorningstarSession.screener_universe() — REST-based
+            ISIN search via global.morningstar.com. Uses a short timeout so it
+            doesn't block the pipeline if the screener requires a browser.
+         2. Morningstar holdings API with ISIN as path parameter — the API
+            accepts ISINs and sometimes returns a `secId` in the response body.
+
+        Returns the SecId string (e.g. 'F00000SC5Y' or '0P0001IX52') or ''.
+        Note: Primary coverage gain comes from persisting resolved yahoo tickers
+        to Scheme.yahoo_ticker (in _fetch_yahoo) so CI re-runs avoid re-resolution.
+        """
+        isin = str(scheme.isin_growth or '').strip()
+        if not isin:
+            return ''
+
+        amfi = scheme.amfi_code
+        api_key = 'lstzFDEOhfFNMLikKa0am9mgEKLBl49T'
+        headers = {
+            'apikey':     api_key,
+            'Accept':     'application/json, text/plain, */*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+
+        # Strategy 1: mstarpy screener_universe — REST in newer versions.
+        # Wrapped in a thread with timeout so a hanging browser launcher won't
+        # block the whole pipeline for a long time.
+        try:
+            import concurrent.futures
+            from mstarpy.search import MorningstarSession
+
+            def _run_screener():
+                return MorningstarSession().screener_universe(
+                    isin, field=['isin', 'name'], pageSize=5,
+                )
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(_run_screener)
+                results = future.result(timeout=10)
+
+            if isinstance(results, list):
+                for item in results:
+                    meta   = item.get('meta', {}) if isinstance(item, dict) else {}
+                    sec_id = str(
+                        meta.get('securityID') or meta.get('SecId') or
+                        meta.get('secId') or meta.get('performanceID') or ''
+                    ).strip()
+                    fields     = item.get('fields', {}) if isinstance(item, dict) else {}
+                    isin_field = fields.get('isin', {})
+                    if isinstance(isin_field, dict):
+                        item_isin = str(isin_field.get('value', '')).strip().upper()
+                    else:
+                        item_isin = str(isin_field or '').strip().upper()
+                    if sec_id and (item_isin == isin.upper() or not item_isin):
+                        logger.debug('[%s] mstarpy resolved SecId=%s (ISIN=%s)',
+                                     amfi, sec_id, isin)
+                        return sec_id
+        except Exception as exc:
+            logger.debug('[%s] mstarpy screener_universe failed (will try next): %s', amfi, exc)
+
+        time.sleep(delay * 0.3)
+
+        # Strategy 2: Morningstar holdings API with ISIN as path param.
+        # The API accepts ISINs and may include secId in the response JSON.
+        try:
+            h_url = (f'https://api-global.morningstar.com/sal-service/v1/fund'
+                     f'/portfolio/holding/v2/{isin}/data')
+            h_resp = requests.get(
+                h_url, headers=headers,
+                params={'clientId': 'MDC', 'version': '4.71.0',
+                        'premiumNum': 10000, 'freeNum': 10000},
+                timeout=10,
+            )
+            if h_resp.status_code == 200:
+                body   = h_resp.json()
+                sec_id = str(body.get('secId') or body.get('masterPortfolioId') or '').strip()
+                if sec_id and (sec_id.startswith('F0') or sec_id.startswith('0P')):
+                    logger.debug('[%s] Mstar holdings returned secId=%s for ISIN=%s',
+                                 amfi, sec_id, isin)
+                    return sec_id
+        except Exception as exc:
+            logger.debug('[%s] Mstar ISIN path-param resolve error: %s', amfi, exc)
+
+        return ''
+
     def _fetch_morningstar(self, scheme: Scheme, delay: float):
         """Fetch full holdings + sectors from Morningstar REST API.
 
         Uses the same api-global.morningstar.com endpoints as runtime.py's
-        fetch_mstarpy_payload(). Requires Scheme.morningstar_id (SecId starting
-        with F0). Plain HTTP — no browser, no Selenium.
+        fetch_mstarpy_payload(). Accepts both F0xxxx (mutual fund) and 0Pxxxx
+        (ETF) SecId formats. Plain HTTP — no browser, no Selenium.
 
         Returns (holdings_list, sector_list, alloc_dict) or (None, None, None).
         """
         sec_id = str(scheme.morningstar_id or '').strip()
-        if not sec_id or not sec_id.startswith('F0'):
+        # Accept both F0xxxx (fund) and 0Pxxxx (ETF) Morningstar SecIds
+        if not sec_id or (not sec_id.startswith('F0') and not sec_id.startswith('0P')):
             return None, None, None
 
         amfi = scheme.amfi_code
@@ -610,6 +714,11 @@ class Command(BaseCommand):
             try:
                 from apps.funds.runtime import resolve_yahoo_ticker
                 ticker_sym = resolve_yahoo_ticker(scheme, None)
+                # Persist resolved ticker so CI re-runs skip re-resolution
+                if ticker_sym:
+                    scheme.yahoo_ticker = ticker_sym
+                    scheme.save(update_fields=['yahoo_ticker'])
+                    logger.debug('[%s] Persisted yahoo_ticker=%s', scheme.amfi_code, ticker_sym)
             except Exception:
                 ticker_sym = None
         if not ticker_sym:
