@@ -750,10 +750,12 @@ def data_monitor_view(request):
 
     from apps.funds.models import (
         Scheme, NAVHistory, FundScreenerSnapshot, FundModelScore, SchemeMeta,
-        CategorySnapshot,
+        CategorySnapshot, FundScoreTrend, SchemeAumSnapshot,
     )
     from apps.benchmarks.models import BenchmarkIndex, BenchmarkNAV, BenchmarkReturns
     from apps.analytics.models import TrailingReturn
+    from apps.holdings.models import Holding, SectorAllocation, MarketCapAllocation
+    from apps.funds.models import IndustryInflow
 
     today = date.today()
     seven_days_ago = today - timedelta(days=7)
@@ -816,6 +818,47 @@ def data_monitor_view(request):
     cat_snapshot_count  = CategorySnapshot.objects.count()
     latest_cat_ts       = CategorySnapshot.objects.aggregate(m=Max('updated_at'))['m']
 
+    # ── Monthly: Portfolio holdings ───────────────────────────────────────────
+    with_holdings       = Holding.objects.values('scheme').distinct().count()
+    total_holding_rows  = Holding.objects.count()
+    holding_months      = list(
+        Holding.objects.values_list('as_of_month', flat=True)
+        .distinct().order_by('-as_of_month')[:3]
+    )
+    latest_holding_month = holding_months[0] if holding_months else None
+    with_sectors        = SectorAllocation.objects.values('scheme').distinct().count()
+    with_cap            = MarketCapAllocation.objects.values('scheme').distinct().count()
+    # Source breakdown
+    holding_sources = dict(
+        Holding.objects.values_list('source')
+        .annotate(c=Count('pk'))
+        .values_list('source', 'c')
+    )
+
+    # ── Monthly: AUM snapshots ────────────────────────────────────────────────
+    with_aum_snapshot   = SchemeAumSnapshot.objects.values('scheme').distinct().count()
+    aum_snapshot_months = list(
+        SchemeAumSnapshot.objects.values_list('as_of_month', flat=True)
+        .distinct().order_by('-as_of_month')[:3]
+    )
+    latest_aum_month    = aum_snapshot_months[0] if aum_snapshot_months else None
+
+    # ── Weekly: Score trend ───────────────────────────────────────────────────
+    with_score_trend        = FundScoreTrend.objects.values('scheme').distinct().count()
+    latest_score_trend_week = FundScoreTrend.objects.aggregate(m=Max('as_of_week'))['m']
+    score_trend_weeks       = FundScoreTrend.objects.values_list('as_of_week', flat=True).distinct().count()
+
+    # ── Monthly: Industry inflows ─────────────────────────────────────────────
+    try:
+        inflow_months_available = (
+            IndustryInflow.objects.values_list('month', flat=True)
+            .distinct().order_by('-month')[:3]
+        )
+        latest_inflow_month = inflow_months_available[0] if inflow_months_available else None
+    except Exception:
+        latest_inflow_month = None
+        inflow_months_available = []
+
     # ── Benchmark freshness ───────────────────────────────────────────────────
     benchmarks = (
         BenchmarkIndex.objects
@@ -853,6 +896,11 @@ def data_monitor_view(request):
         'model':          pct(with_model_score,     total_dg),
         'trailing':       pct(with_trailing,        total_dg),
         'metadata':       pct(with_metadata,        total_dg),
+        'holdings':       pct(with_holdings,        total_dg),
+        'sectors':        pct(with_sectors,         total_dg),
+        'cap':            pct(with_cap,             total_dg),
+        'aum_snapshot':   pct(with_aum_snapshot,   total_dg),
+        'score_trend':    pct(with_score_trend,     total_dg),
     }
 
     # ── Weekly progress (resume-based cycle) ─────────────────────────────────
@@ -933,6 +981,25 @@ def data_monitor_view(request):
         # Categories
         'cat_snapshot_count':  cat_snapshot_count,
         'latest_cat_ts':       latest_cat_ts,
+        # Monthly: Portfolio holdings
+        'with_holdings':       with_holdings,
+        'total_holding_rows':  total_holding_rows,
+        'holding_months':      holding_months,
+        'latest_holding_month': latest_holding_month,
+        'with_sectors':        with_sectors,
+        'with_cap':            with_cap,
+        'holding_sources':     holding_sources,
+        # Monthly: AUM snapshots
+        'with_aum_snapshot':   with_aum_snapshot,
+        'aum_snapshot_months': aum_snapshot_months,
+        'latest_aum_month':    latest_aum_month,
+        # Weekly: Score trend
+        'with_score_trend':    with_score_trend,
+        'latest_score_trend_week': latest_score_trend_week,
+        'score_trend_weeks':   score_trend_weeks,
+        # Monthly: Industry inflows
+        'latest_inflow_month':    latest_inflow_month,
+        'inflow_months_available': list(inflow_months_available),
         # Benchmarks
         'benchmarks':          benchmarks,
         # 7-day activity bar chart

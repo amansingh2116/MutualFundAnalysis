@@ -77,7 +77,7 @@ GitHub (public repository)
    │     ├── gunicorn → serves the Django app (2 workers)
    │     └── sleeps after 15 min inactivity (free tier)
    │
-   ├── GitHub Actions (.github/workflows/daily_pipeline.yml)
+   ├── GitHub Actions (.github/workflows/weekly_pipeline.yml)
    │     ├── Runs Mon–Sat at 8:30 PM UTC (2 AM IST)
    │     ├── Each day processes 1 of 6 batches (~384 funds)
    │     ├── FREE for public repos (unlimited minutes)

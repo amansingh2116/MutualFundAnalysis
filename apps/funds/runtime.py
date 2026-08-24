@@ -47,15 +47,10 @@ BENCHMARK_TTL = 60 * 60 * 6
 
 def _normalize_portfolio_weights(holdings: list, sectors: list) -> tuple[list, list]:
     """
-    Detect and fix weight-unit bugs in holdings/sector data.
-
-    Data sources sometimes return weights in inconsistent units:
-      - Fraction form: 0.0843 should be 8.43%  (handled by per-source adapters)
-      - Already percentage: 8.43%               (correct)
-      - Double-multiplied: 843% or 84.3 still stored as-is but sum > 100
-
-    Strategy: if the total of all holding weights deviates far from 100,
-    normalize by rescaling to sum = 100.
+    Detect and fix unit bugs in holdings/sector data:
+      - Fraction form: 0.0843 (sum <= 1.5) -> multiply by 100 to make 8.43%
+      - Double-multiplied: sum >= 300 -> divide by 100
+      - Normal percentages: leave as is (DO NOT rescale partial top holdings to 100%)
     """
     def _fix(items, attr="weight_pct"):
         if not items:
@@ -63,11 +58,14 @@ def _normalize_portfolio_weights(holdings: list, sectors: list) -> tuple[list, l
         total = sum(getattr(h, attr, 0) or 0 for h in items)
         if total <= 0:
             return items
-        # Weights should sum to ~100. Allow 10% slack (90–110).
-        if 90 <= total <= 110:
-            return items  # already correct
-        # Normalize: scale each weight so total = 100
-        factor = 100.0 / total
+        # If weights are given as fractions (e.g. 0.0843 instead of 8.43%), multiply by 100
+        if total <= 1.5:
+            factor = 100.0
+        elif total >= 300:
+            factor = 0.01
+        else:
+            return items  # Already valid percentage values
+
         corrected = []
         for h in items:
             w = getattr(h, attr, None)
@@ -114,12 +112,25 @@ def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
     latest_nav = float(nav_series.iloc[-1]) if not nav_series.empty else _float(scheme.nav_latest)
 
     yahoo = fetch_yahoo_data(scheme, latest_nav)
+
+    # db_port has the full ingested disclosures — put it first so it wins over Yahoo stub
+    db_port = fetch_db_portfolio(scheme)
     mstar = fetch_mstarpy_data(scheme)
     finapi = fetch_finapi_portfolio(scheme)
 
-    portfolio = merge_portfolio_data(mstar, merge_portfolio_data(finapi, yahoo))
-    if not portfolio.get("holdings") and not portfolio.get("sectors"):
-        portfolio = fetch_db_portfolio(scheme)
+    db_holdings = db_port.get('holdings', [])
+    if db_holdings:
+        meta_fb = merge_portfolio_data(mstar, finapi)
+        portfolio = {
+            'source': db_port.get('source') or meta_fb.get('source'),
+            'holdings': db_holdings,
+            'sectors':  db_port.get('sectors') or meta_fb.get('sectors', []),
+            'asset_alloc': db_port.get('asset_alloc') or meta_fb.get('asset_alloc'),
+            'cap_alloc':   db_port.get('cap_alloc')   or meta_fb.get('cap_alloc'),
+            'as_of': db_port.get('as_of') or meta_fb.get('as_of'),
+        }
+    else:
+        portfolio = merge_portfolio_data(mstar, merge_portfolio_data(finapi, yahoo))
 
     raw_holdings = portfolio.get("holdings", [])
     raw_sectors  = portfolio.get("sectors", [])
@@ -129,6 +140,7 @@ def get_portfolio_snapshot(scheme: Scheme) -> SimpleNamespace:
         top_holdings=holdings_normalized,
         sector_alloc=sectors_normalized,
         asset_alloc=portfolio.get("asset_alloc"),
+        cap_alloc=portfolio.get("cap_alloc"),
         holdings_month=portfolio.get("as_of"),
         portfolio_source=portfolio.get("source", ""),
     )
@@ -162,15 +174,30 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
 
     captnemo = fetch_captnemo_meta(scheme)
     yahoo = fetch_yahoo_data(scheme, latest_nav)
-    
-    # Prioritize mstarpy (Morningstar) for portfolio and sector weightage, using FinAPI and Yahoo as fallbacks
+
+    # db_port has the full ingested disclosures (100+ holdings from ingest_holdings).
+    # We put it first so it always wins over Yahoo's 10-holding stub.
+    # mstar/finapi are merged in for cap_alloc/asset_alloc metadata they may provide.
+    db_port = fetch_db_portfolio(scheme)
     mstar = fetch_mstarpy_data(scheme)
     finapi = fetch_finapi_portfolio(scheme)
-    
-    portfolio = merge_portfolio_data(mstar, merge_portfolio_data(finapi, yahoo))
-    
-    if not portfolio.get("holdings") and not portfolio.get("sectors"):
-        portfolio = fetch_db_portfolio(scheme)
+
+    # Merge: db_port holdings win; mstar/finapi contribute metadata (cap/asset alloc) when db_port lacks them
+    meta_fallback = merge_portfolio_data(mstar, finapi)
+    db_holdings = db_port.get('holdings', [])
+    if db_holdings:
+        # Use DB holdings; fill in cap_alloc/asset_alloc from mstar/finapi/db if missing in db_port
+        portfolio = {
+            'source': db_port.get('source') or meta_fallback.get('source'),
+            'holdings': db_holdings,
+            'sectors':  db_port.get('sectors') or meta_fallback.get('sectors', []),
+            'asset_alloc': db_port.get('asset_alloc') or meta_fallback.get('asset_alloc'),
+            'cap_alloc':   db_port.get('cap_alloc')   or meta_fallback.get('cap_alloc'),
+            'as_of': db_port.get('as_of') or meta_fallback.get('as_of'),
+        }
+    else:
+        # DB is empty — fall back to mstar > finapi > yahoo
+        portfolio = merge_portfolio_data(mstar, merge_portfolio_data(finapi, yahoo))
 
     meta = build_meta(scheme, mfapi_meta, db_meta, captnemo, yahoo, nav_series)
     trailing = compute_trailing_returns(nav_series, benchmark_series) or fetch_db_trailing_returns(scheme)
@@ -236,6 +263,7 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
         top_holdings=holdings_normalized,
         sector_alloc=sectors_normalized,
         asset_alloc=portfolio.get("asset_alloc"),
+        cap_alloc=portfolio.get("cap_alloc"),
         holdings_month=portfolio.get("as_of"),
         top10_weight=_top10_weight,
         total_holdings_count=len(holdings_normalized),
@@ -326,7 +354,7 @@ def scheme_meta_dict(scheme: Scheme) -> dict:
 
 def fetch_db_portfolio(scheme: Scheme) -> dict:
     try:
-        from apps.holdings.models import Holding, SectorAllocation
+        from apps.holdings.models import Holding, SectorAllocation, MarketCapAllocation
 
         latest_holding_month = (
             Holding.objects.filter(scheme=scheme).order_by("-as_of_month").values_list("as_of_month", flat=True).first()
@@ -356,16 +384,38 @@ def fetch_db_portfolio(scheme: Scheme) -> dict:
                 for row in SectorAllocation.objects.filter(scheme=scheme, as_of_month=latest_sector_month).order_by("-weight_pct")
             ]
 
+        mcap = MarketCapAllocation.objects.filter(scheme=scheme).order_by("-as_of_month").first()
+        asset_alloc = None
+        cap_alloc = None
+        if mcap:
+            asset_rows = []
+            if mcap.equity_pct is not None:
+                asset_rows.append(ns(label="Equity", weight_pct=float(mcap.equity_pct)))
+            if mcap.debt_pct is not None:
+                asset_rows.append(ns(label="Debt", weight_pct=float(mcap.debt_pct)))
+            if mcap.cash_pct is not None:
+                asset_rows.append(ns(label="Cash", weight_pct=float(mcap.cash_pct)))
+            asset_alloc = asset_rows or None
+            if mcap.large_pct is not None or mcap.mid_pct is not None or mcap.small_pct is not None:
+                cap_alloc = ns(
+                    large_pct=_float(mcap.large_pct),
+                    mid_pct=_float(mcap.mid_pct),
+                    small_pct=_float(mcap.small_pct),
+                    other_pct=_float(mcap.other_pct),
+                    cap_method=mcap.cap_method or "database",
+                )
+
         return {
             "source": "database" if holdings or sectors else None,
             "holdings": holdings,
             "sectors": sectors,
-            "asset_alloc": None,
+            "asset_alloc": asset_alloc,
+            "cap_alloc": cap_alloc,
             "as_of": latest_holding_month or latest_sector_month,
         }
     except Exception as exc:
         logger.info("[%s] DB portfolio fallback unavailable: %s", scheme.amfi_code, exc)
-        return {"source": None, "holdings": [], "sectors": [], "asset_alloc": None, "as_of": None}
+        return {"source": None, "holdings": [], "sectors": [], "asset_alloc": None, "cap_alloc": None, "as_of": None}
 
 
 def fetch_db_trailing_returns(scheme: Scheme) -> list[SimpleNamespace]:
@@ -633,18 +683,20 @@ def fetch_finapi_portfolio(scheme: Scheme) -> dict:
         holdings = finapi_holdings(data.get("holdings"))
         sectors = finapi_sectors(data.get("sectors"))
         asset_alloc = finapi_asset_alloc(portfolio.get("assetAllocation"))
+        cap_alloc = finapi_cap_alloc(portfolio.get("marketCapWeightage"))
         as_of = _parse_yahoo_date(
             data.get("portfolioDate")
             or portfolio.get("portfolioDate")
             or data.get("latestNavDate")
             or data.get("navDate")
         )
-        if holdings or sectors or asset_alloc:
+        if holdings or sectors or asset_alloc or cap_alloc:
             result = {
                 "source": "finapi.upvaly",
                 "holdings": holdings,
                 "sectors": sectors,
                 "asset_alloc": asset_alloc,
+                "cap_alloc": cap_alloc,
                 "as_of": as_of,
             }
     except Exception as exc:
@@ -671,7 +723,7 @@ def finapi_holdings(raw: Any) -> list[SimpleNamespace]:
             ticker=str(row.get("ticker") or row.get("symbol") or ""),
             isin=str(row.get("isin") or row.get("isinCode") or ""),
             sector=sector,
-            weight_pct=weight * 100 if weight <= 1 else weight,
+            weight_pct=weight,
             forward_pe=_float(row.get("forwardPE") or row.get("forward_pe") or row.get("pe")),
             holding_type=finapi_holding_type(name, sector),
         ))
@@ -719,6 +771,30 @@ def finapi_asset_alloc(raw: Any):
     return [ns(label=label, weight_pct=weight) for label, weight in deduped.items()] or None
 
 
+def finapi_cap_alloc(raw: Any):
+    if not isinstance(raw, dict):
+        return None
+    large = _float(raw.get("largeCap") or raw.get("large_cap") or raw.get("large"))
+    mid = _float(raw.get("midCap") or raw.get("mid_cap") or raw.get("mid"))
+    small = _float(raw.get("smallCap") or raw.get("small_cap") or raw.get("small"))
+    other = _float(raw.get("others") or raw.get("other") or raw.get("otherCap"))
+    if large is None and mid is None and small is None:
+        return None
+    # Normalize if values were returned as fractions (<= 1)
+    if (large or 0) <= 1 and (mid or 0) <= 1 and (small or 0) <= 1 and (other or 0) <= 1 and ((large or 0) + (mid or 0) + (small or 0) > 0):
+        if large is not None: large *= 100
+        if mid is not None: mid *= 100
+        if small is not None: small *= 100
+        if other is not None: other *= 100
+    return ns(
+        large_pct=large,
+        mid_pct=mid,
+        small_pct=small,
+        other_pct=other,
+        cap_method="disclosure",
+    )
+
+
 def finapi_holding_type(name: str, sector: str) -> str:
     text = f"{name} {sector}".lower()
     if any(marker in text for marker in ["cash", "treasury", "clearing corporation", "ccil", "tri party", "t-bill"]):
@@ -732,9 +808,9 @@ def fetch_mstarpy_data(scheme: Scheme) -> dict:
     # Only attempt mstarpy when a verified Morningstar SecId is available.
     # Without it the subprocess always fails after a long timeout (403 Forbidden)
     # which would block the portfolio tab for 35+ seconds on every page load.
-    if not scheme.morningstar_id:
+    if not scheme.morningstar_id and not scheme.isin_growth:
         return {}
-    terms = [scheme.morningstar_id, scheme.isin_growth, clean_fund_name(scheme.scheme_name)]
+    terms = [scheme.morningstar_id, scheme.isin_growth]
     terms = [term for term in dict.fromkeys(str(t).strip() for t in terms if t)]
     if not terms:
         return {}
@@ -762,30 +838,84 @@ def fetch_mstarpy_data(scheme: Scheme) -> dict:
 
 
 def fetch_mstarpy_payload(scheme: Scheme, terms: list[str]) -> dict:
-    request = {
-        "terms": terms,
-        "expected_isin": scheme.isin_growth or "",
-        "family": fund_family_key(scheme.scheme_name),
+    """Fetch holdings, sectors, and asset allocation directly from Morningstar REST APIs."""
+    api_key = "lstzFDEOhfFNMLikKa0am9mgEKLBl49T"
+    headers = {
+        "apikey": api_key,
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     }
-    try:
-        completed = subprocess.run(
-            [sys.executable, "-m", "apps.funds.mstarpy_fetch", json.dumps(request)],
-            cwd=str(settings.BASE_DIR),
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
-        )
-        if completed.returncode != 0:
-            logger.info("[%s] mstarpy subprocess unavailable: %s", scheme.amfi_code, completed.stderr or completed.stdout)
-            return {}
-        response = json.loads(completed.stdout.strip().splitlines()[-1])
-        if response.get("ok"):
-            payload = response.get("payload") or {}
-            payload["term"] = response.get("term")
+    params_holdings = {"clientId": "MDC", "version": "4.71.0", "premiumNum": 10000, "freeNum": 10000}
+    params_default  = {"clientId": "MDC", "version": "4.71.0"}
+
+    for term in terms:
+        sec_id = str(term or "").strip()
+        if not sec_id.startswith("F0"):
+            # Morningstar SecIds start with 'F0' (e.g. F00000SC5Y)
+            continue
+        try:
+            # 1. Holdings
+            h_url = f"https://api-global.morningstar.com/sal-service/v1/fund/portfolio/holding/v2/{sec_id}/data"
+            h_resp = requests.get(h_url, headers=headers, params=params_holdings, timeout=12)
+            if h_resp.status_code != 200:
+                continue
+            h_json = h_resp.json()
+            if not isinstance(h_json, dict):
+                continue
+
+            eq_list = h_json.get("equityHoldingPage", {}).get("holdingList", []) or []
+            bd_list = h_json.get("boldHoldingPage", {}).get("holdingList", []) or []
+            ot_list = h_json.get("otherHoldingPage", {}).get("holdingList", []) or []
+            all_raw = eq_list + bd_list + ot_list
+            if not all_raw:
+                continue
+
+            holdings_raw = []
+            for row in all_raw:
+                holdings_raw.append({
+                    "securityName": row.get("securityName", ""),
+                    "weighting":    row.get("weighting"),
+                    "sector":       row.get("sector", ""),
+                    "isin":         row.get("isin", ""),
+                    "ticker":       row.get("ticker", ""),
+                    "holdingType":  row.get("holdingType", "equity"),
+                    "forwardPERatio": row.get("forwardPERatio"),
+                    "marketValue":  row.get("marketValue"),
+                    "country":      row.get("country", ""),
+                })
+
+            # 2. Sectors (best-effort)
+            sector_raw = {}
+            try:
+                s_url = f"https://api-global.morningstar.com/sal-service/v1/fund/portfolio/v2/sector/{sec_id}/data"
+                s_resp = requests.get(s_url, headers=headers, params=params_default, timeout=8)
+                if s_resp.status_code == 200:
+                    sector_raw = s_resp.json() or {}
+            except Exception:
+                pass
+
+            # 3. Asset Allocation (best-effort)
+            allocation_raw = {}
+            try:
+                a_url = f"https://api-global.morningstar.com/sal-service/v1/fund/process/asset/{sec_id}/data"
+                a_resp = requests.get(a_url, headers=headers, params=params_default, timeout=8)
+                if a_resp.status_code == 200:
+                    allocation_raw = a_resp.json() or {}
+            except Exception:
+                pass
+
+            payload = {
+                "meta": {"secId": sec_id},
+                "holdings": holdings_raw,
+                "sector":   sector_raw,
+                "allocation": allocation_raw,
+            }
             return payload
-    except Exception as exc:
-        logger.info("[%s] mstarpy subprocess failed: %s", scheme.amfi_code, exc)
+
+        except Exception as exc:
+            logger.debug("[morningstar_rest] sec_id=%s error: %s", sec_id, exc)
+            continue
+
     return {}
 
 
@@ -798,6 +928,7 @@ def merge_portfolio_data(primary: dict, secondary: dict) -> dict:
         "holdings": (primary.get("holdings") if primary else None) or secondary.get("holdings", []),
         "sectors": (primary.get("sectors") if primary else None) or secondary.get("sectors", []),
         "asset_alloc": (primary.get("asset_alloc") if primary else None) or secondary.get("asset_alloc"),
+        "cap_alloc": (primary.get("cap_alloc") if primary else None) or secondary.get("cap_alloc"),
         "as_of": (primary.get("as_of") if primary else None) or secondary.get("as_of"),
     }
 

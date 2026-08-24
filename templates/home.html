@@ -81,6 +81,18 @@
   }
 }
 
+/* ── Industry Capital Flows Grid ─────────────────────────────────────────── */
+.inflow-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .inflow-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Benchmark Monitor ───────────────────────────────────────────────────── */
 .bench-grid {
   display: grid;
@@ -377,6 +389,91 @@
 
 
 {# ─────────────────────────────────────────────────────────────────────────── #}
+{# Section: Industry Capital Flows (AMFI Monthly Inflow Data)                   #}
+{# ─────────────────────────────────────────────────────────────────────────── #}
+<div class="dash-section" id="section-industry-flows">
+  <div class="dash-section-header">
+    <div class="dash-section-title">🏦 Industry Capital Flows
+      <button type="button" class="info-btn" data-t-key="industry_capital_flows"
+        data-t-title="Industry Capital Flows"
+        data-t-what="Monthly gross purchase, gross redemption, and net inflow figures from AMFI across all mutual fund categories (Equity, Debt, Hybrid, ETF, etc.)."
+        data-t-interp="Net positive flow = fresh investor money entering the category. Large equity inflows signal bullish sentiment. Persistent outflows from a category can indicate macro concern or tax-selling pressure.">ⓘ</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="dash-section-badge" id="inflow-as-of-badge" style="display:none"></span>
+      <a href="https://www.amfiindia.com/research-information/amfi-data" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" title="Open official AMFI Monthly Industry Data portal in a new tab">Official AMFI Data ↗</a>
+    </div>
+  </div>
+
+  <div id="inflow-loading" style="text-align:center;padding:40px;color:var(--text-muted)">
+    <span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--indigo-500);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px"></span>
+    Loading industry flows…
+  </div>
+
+  <!-- Graceful Fallback / Unavailability Guidance -->
+  <div id="inflow-empty" style="display:none" class="card">
+    <div style="padding:28px 24px;text-align:center;max-width:700px;margin:0 auto">
+      <div style="font-size:36px;margin-bottom:12px">📊</div>
+      <h3 style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--text-primary)">AMFI Monthly Industry Flows Notice</h3>
+      <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:18px">
+        AMFI (Association of Mutual Funds in India) publishes official mutual fund category inflows and AUM figures on a monthly cycle (typically released around the 10th of each month). If the live automated sync is updating or AMFI source formatting is in transition, the latest official reports are accessible directly from AMFI.
+      </p>
+
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+        <a href="https://www.amfiindia.com/research-information/amfi-data" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+          <span>🏛</span> Open AMFI Data Portal ↗
+        </a>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleAmfiGuide()">
+          📖 How to find this data on AMFI
+        </button>
+      </div>
+
+      <div id="amfi-guide-box" style="display:none;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:left;font-size:12px;color:var(--text-secondary)">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:8px">📍 Direct Step-by-Step Navigation on AMFI India:</div>
+        <ol style="padding-left:20px;margin:0 0 10px;line-height:1.6">
+          <li>Go to the official AMFI website: <a href="https://www.amfiindia.com" target="_blank" rel="noopener noreferrer" style="color:var(--indigo-400)">www.amfiindia.com</a></li>
+          <li>In the top menu, select <strong>Research &amp; Information</strong> → <strong>AMFI Data</strong>.</li>
+          <li>Click on <strong>Monthly Industry Data / Trend Reports</strong>.</li>
+          <li>Choose your desired month &amp; year to see full Inflows, Redemptions, and Net Assets across Equity, Debt, Hybrid, and Index/ETF categories.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div id="inflow-content" style="display:none">
+    <div class="inflow-grid">
+
+      <!-- Category Bar Chart -->
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">Net Inflow by Category (₹ Cr)</div>
+          <span style="font-size:11px;color:var(--text-muted)">Latest AMFI Disclosure</span>
+        </div>
+        <div id="inflow-bars" style="padding:16px;display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+
+      <!-- Equity Trend Sparkline -->
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">Equity Net Inflow — 6-Month Trend</div>
+          <span style="font-size:11px;color:var(--text-muted)">₹ Crores / Month</span>
+        </div>
+        <div class="card-body" style="padding:16px">
+          <div id="inflow-trend-chart" style="height:220px"></div>
+          <div id="inflow-trend-empty" style="display:none;text-align:center;padding:30px;color:var(--text-muted);font-size:12px">Not enough monthly data yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-muted);flex-wrap:wrap;gap:8px">
+      <span>📊 Source: AMFI India Official Monthly Disclosures</span>
+      <a href="https://www.amfiindia.com/research-information/amfi-data" target="_blank" rel="noopener noreferrer" style="color:var(--text-muted);text-decoration:underline">Verify on AMFI Portal ↗</a>
+    </div>
+  </div>
+</div>
+
+
+{# ─────────────────────────────────────────────────────────────────────────── #}
 {# Section 1 — Benchmark Monitor                                               #}
 {# ─────────────────────────────────────────────────────────────────────────── #}
 <div class="dash-section">
@@ -666,52 +763,6 @@
   </div>
 </div>
 {% endif %}
-
-
-{# ─────────────────────────────────────────────────────────────────────────── #}
-{# Section 6 — Industry Capital Flows (AMFI Monthly Inflow Data)              #}
-{# ─────────────────────────────────────────────────────────────────────────── #}
-<div class="dash-section" id="section-industry-flows">
-  <div class="dash-section-header">
-    <div class="dash-section-title">🏦 Industry Capital Flows
-      <button type="button" class="info-btn" data-t-key="industry_capital_flows"
-        data-t-title="Industry Capital Flows"
-        data-t-what="Monthly gross purchase, gross redemption, and net inflow figures from AMFI across all mutual fund categories (Equity, Debt, Hybrid, ETF, etc.)."
-        data-t-interp="Net positive flow = fresh investor money entering the category. Large equity inflows signal bullish sentiment. Persistent outflows from a category can indicate macro concern or tax-selling pressure.">ⓘ</button>
-    </div>
-    <span class="dash-section-badge" id="inflow-as-of-badge" style="display:none"></span>
-  </div>
-
-  <div id="inflow-loading" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>
-  <div id="inflow-empty" style="display:none;text-align:center;padding:40px">
-    <div style="font-size:36px;margin-bottom:12px">📊</div>
-    <h3 style="margin:0 0 8px;font-size:15px">Industry flow data not yet available</h3>
-    <p style="font-size:12px;color:var(--text-muted)">Run <code>python manage.py ingest_industry_inflows --months 6</code> to fetch AMFI monthly data.</p>
-  </div>
-
-  <div id="inflow-content" style="display:none">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-
-      <!-- Category Bar Chart -->
-      <div class="card">
-        <div class="card-header"><div class="card-title">Net Inflow by Category (₹ Cr)</div></div>
-        <div id="inflow-bars" style="padding:16px;display:flex;flex-direction:column;gap:10px"></div>
-      </div>
-
-      <!-- Equity Trend Sparkline -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Equity Net Inflow — 6-Month Trend</div>
-        </div>
-        <div class="card-body" style="padding:16px">
-          <canvas id="inflow-trend-chart" style="max-height:180px"></canvas>
-          <div id="inflow-trend-empty" style="display:none;text-align:center;padding:20px;color:var(--text-muted);font-size:12px">Not enough monthly data yet.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 
 {% endblock %}
 
@@ -1066,9 +1117,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-{# ── Section 6 JS: Industry Capital Flows ── #}
+{# ── Section: Industry Capital Flows JS ── #}
 <script>
-let inflowTrendChart = null;
 function loadIndustryFlows() {
   fetch("{% url 'funds:home_industry_inflows_api' %}")
     .then(r => r.json())
@@ -1081,7 +1131,8 @@ function loadIndustryFlows() {
       document.getElementById('inflow-content').style.display = 'block';
       const badge = document.getElementById('inflow-as-of-badge');
       if (data.as_of_month) {
-        badge.textContent = 'As of ' + data.as_of_month;
+        const d = new Date(data.as_of_month);
+        badge.textContent = 'As of ' + d.toLocaleDateString('en-IN', {month: 'short', year: 'numeric'});
         badge.style.display = '';
       }
 
@@ -1109,37 +1160,37 @@ function loadIndustryFlows() {
         }).join('');
       }
 
-      // Equity trend sparkline
+      // Equity trend sparkline — using Plotly
       const trend = data.equity_trend || [];
+      const trendEl = document.getElementById('inflow-trend-chart');
       if (trend.length >= 2) {
-        const ctx = document.getElementById('inflow-trend-chart').getContext('2d');
-        if (inflowTrendChart) inflowTrendChart.destroy();
-        inflowTrendChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: trend.map(r => r.month),
-            datasets: [{
-              label: 'Equity Net Inflow (₹ Cr)',
-              data: trend.map(r => r.net_inflow_cr),
-              borderColor: '#6366f1',
-              backgroundColor: 'rgba(99,102,241,0.08)',
-              fill: true, tension: 0.35, pointRadius: 5,
-              pointBackgroundColor: trend.map(r => (r.net_inflow_cr||0) >= 0 ? '#6366f1' : '#ef4444'),
-            }]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { callbacks: {
-              label: c => (c.parsed.y >= 0 ? '+' : '') + '₹' + Number(c.parsed.y).toLocaleString('en-IN', {maximumFractionDigits:0}) + ' Cr'
-            }}},
-            scales: {
-              x: { ticks: { font: { size: 10 } } },
-              y: { ticks: { callback: v => '₹' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v) + ' Cr', font: { size: 10 } } }
-            }
-          }
+        const labels = trend.map(r => {
+          const d = new Date(r.month);
+          return d.toLocaleDateString('en-IN', {month: 'short', year: '2-digit'});
         });
+        const values = trend.map(r => r.net_inflow_cr || 0);
+        const barColors = values.map(v => v >= 0 ? '#6366f1' : '#ef4444');
+        Plotly.newPlot(trendEl, [{
+          x: labels,
+          y: values,
+          type: 'bar',
+          marker: { color: barColors, opacity: 0.85 },
+          hovertemplate: '%{x}<br><b>%{y:,.0f} Cr</b><extra></extra>',
+        }], {
+          margin: { t: 10, r: 10, b: 40, l: 60 },
+          paper_bgcolor: 'transparent',
+          plot_bgcolor: 'transparent',
+          font: { color: '#94a3b8', size: 11 },
+          xaxis: { showgrid: false, zeroline: false },
+          yaxis: {
+            showgrid: true, gridcolor: 'rgba(148,163,184,0.1)', zeroline: true,
+            zerolinecolor: 'rgba(148,163,184,0.3)',
+            tickprefix: '₹', ticksuffix: ' Cr',
+          },
+          bargap: 0.35,
+        }, { responsive: true, displayModeBar: false });
       } else {
-        document.getElementById('inflow-trend-chart').style.display = 'none';
+        trendEl.style.display = 'none';
         document.getElementById('inflow-trend-empty').style.display = 'block';
       }
     })
@@ -1147,6 +1198,13 @@ function loadIndustryFlows() {
       document.getElementById('inflow-loading').style.display = 'none';
       document.getElementById('inflow-empty').style.display = 'block';
     });
+}
+
+function toggleAmfiGuide() {
+  const el = document.getElementById('amfi-guide-box');
+  if (el) {
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
 }
 </script>
 {% endblock %}

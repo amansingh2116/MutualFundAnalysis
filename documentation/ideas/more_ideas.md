@@ -56,7 +56,7 @@ The fund detail page (`#tab-advanced` and `#tab-analysis`) features an instituti
 ### 2.5 Multi-Factor Scoring & Personalized Ranking (`#tab-analysis`)
 - ✅ **6-Pillar Fund Scoring Model (0–100):** Evaluates Performance (30%), Risk & Stability (25%), Cost Efficiency (15%), Portfolio Composition (15%), Manager Quality (15%), and Debt Quality (10%).
 - ✅ **Personalized Ranking Scorecard:** Interactive investor archetype presets (Balanced, Capital Preservation, Compounder, Momentum, Cost Optimizer), dynamic weight sliders (auto-normalized to 100%), 4-factor breakdown cards, Plotly radar comparison vs. SEBI category norms, and live arithmetic substitution formulas.
-- ✅ **Rank Trend History:** `FundScoreTrend` model captures weekly model score + category rank snapshots via `ingest_score_trend`. Shown as a dual-axis Score vs. Rank % chart on the Fund Detail Portfolio tab. `daily_pipeline.yml` runs `ingest_score_trend` every pipeline invocation (idempotent by `as_of_week`).
+- ✅ **Rank Trend History:** `FundScoreTrend` model captures weekly model score + category rank snapshots via `ingest_score_trend`. Shown as a dual-axis Score vs. Rank % chart on the Fund Detail Fund Score tab (`#tab-analysis`). `weekly_pipeline.yml` runs `ingest_score_trend` every pipeline invocation (idempotent by `as_of_week`).
 
 ---
 

@@ -5,17 +5,27 @@ Fetches fund portfolio holdings, sector allocation, and market cap breakdown
 for all active direct growth schemes and saves them to the DB for 3 months of
 point-in-time portfolio evolution tracking.
 
-Strategy:
-  1. mstarpy-FIRST  — Full holdings for schemes with morningstar_id (Selenium required)
-  2. yahooquery FALLBACK — Top-10 holdings + full sector data for all others
-  3. CapClassifier   — Maps equity holdings → Large/Mid/Small via rapidfuzz
+Strategy (same as runtime.py / fund detail page):
+  1. Morningstar REST API — Full holdings + sectors via plain HTTP using the
+     fund's morningstar_id (SecId starting with F0). This is the same call
+     that powers the fund detail Portfolio tab. Requires Scheme.morningstar_id.
+  2. finapi (finapi.upvaly.com) — Full holdings + sectors for funds where the
+     finapi portfolio endpoint returns data. Fallback when no morningstar_id.
+  3. yahooquery FALLBACK — Top-10 holdings + full sector data for ETFs or
+     funds with a yahoo_ticker when both above fail.
+  4. CapClassifier — Maps equity holdings → Large/Mid/Small cap via rapidfuzz
+     fuzzy matching against data/nifty_caplist.json (runs after any source).
+
+Note: mstarpy (Selenium/Chrome browser library) was removed. The Morningstar
+data is now fetched directly from the REST API (no browser needed).
 
 Key features:
-  - Resume support: checkpoints progress to a JSON file, skips already-processed schemes
-  - Rate limiting: 2s delay for mstarpy, 0.5s for yahooquery; exponential backoff on 429
+  - Resume support: checkpoints progress to a JSON file, skips already-done
+  - Rate limiting: configurable delay between calls; exponential backoff on 429
   - Batch transactions: DB writes in batches of 50 for CockroachDB compatibility
   - Non-equity handling: Debt, cash, commodity instruments stored with their type
   - Idempotent: update_or_create safe to re-run
+  - No browser/Selenium required — pure HTTP fetches only
 
 Usage:
     python manage.py ingest_holdings
@@ -23,17 +33,22 @@ Usage:
     python manage.py ingest_holdings --limit 10           # test on 10 funds
     python manage.py ingest_holdings --amfi 120503        # single fund
     python manage.py ingest_holdings --resume             # skip already-done funds
+    python manage.py ingest_holdings --source finapi      # finapi only
     python manage.py ingest_holdings --source yahoo       # yahooquery only
     python manage.py ingest_holdings --force              # overwrite existing data
+    python manage.py ingest_holdings --delay 1.0          # slower (be polite)
 """
 from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import time
 from datetime import date
 from decimal import Decimal, InvalidOperation
+
+import requests
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -47,8 +62,10 @@ logger = logging.getLogger('mfanalysis')
 # Management commands always run from the project root (where manage.py lives)
 _CHECKPOINT_PATH = os.path.join(os.getcwd(), '.cache', 'ingest_holdings_checkpoint.json')
 
+# finapi rate-limit retry settings
+_FINAPI_MAX_RETRIES = 3
+_FINAPI_BACKOFF_BASE = 5.0   # seconds — first retry waits 5s, next 10s, then 20s
 
-import math
 
 def _to_decimal(value, default=None) -> Decimal | None:
     if value is None:
@@ -84,7 +101,8 @@ def _load_checkpoint() -> dict:
 class Command(BaseCommand):
     help = (
         'Ingest fund portfolio holdings + sector + cap-wise data '
-        '(mstarpy-first, yahooquery fallback). Run monthly.'
+        '(morningstar REST first, finapi second, yahooquery fallback). '
+        'Run monthly. No browser required.'
     )
 
     def add_arguments(self, parser):
@@ -98,11 +116,12 @@ class Command(BaseCommand):
                             help='Re-fetch even if data exists for this month')
         parser.add_argument('--resume', action='store_true',
                             help='Skip AMFI codes already in checkpoint file')
-        parser.add_argument('--source', choices=['auto', 'mstarpy', 'yahoo'],
+        parser.add_argument('--source', choices=['auto', 'morningstar', 'finapi', 'yahoo'],
                             default='auto',
-                            help='Data source: auto (mstarpy-first), mstarpy, yahoo')
-        parser.add_argument('--delay', type=float, default=2.0,
-                            help='Seconds between mstarpy API calls (default 2.0)')
+                            help='Data source: auto (morningstar→finapi→yahoo), '
+                                 'morningstar (requires morningstar_id), finapi, yahoo')
+        parser.add_argument('--delay', type=float, default=0.5,
+                            help='Base seconds between API calls (default 0.5)')
         parser.add_argument('--batch-size', type=int, default=50,
                             help='DB write batch size (default 50)')
 
@@ -162,7 +181,6 @@ class Command(BaseCommand):
         success = 0
         failed  = 0
         skipped = 0
-        discovered = 0
 
         self.stdout.write(f'Processing {total} schemes ...')
 
@@ -173,25 +191,6 @@ class Command(BaseCommand):
             if resume and amfi in done_amfis:
                 skipped += 1
                 continue
-
-            # ── Auto-resolve morningstar_id if missing ──────────────────────────
-            if source in ('auto', 'mstarpy') and not scheme.morningstar_id:
-                try:
-                    from adapters.mstarpy_adapter import MstarpyAdapter
-                    _adapter = MstarpyAdapter()
-                    if _adapter.is_available():
-                        # Try ISIN first (more precise), fall back to fund name
-                        _term = scheme.isin_growth or scheme.scheme_name
-                        _results = _adapter.search_fund(_term, page_size=1)
-                        if _results and isinstance(_results, list):
-                            _sec_id = _results[0].get('SecId') or _results[0].get('secId')
-                            if _sec_id:
-                                scheme.morningstar_id = _sec_id
-                                scheme.save(update_fields=['morningstar_id'])
-                                logger.info('[%s] morningstar_id resolved: %s', amfi, _sec_id)
-                                discovered += 1
-                except Exception as _exc:
-                    logger.debug('[%s] morningstar_id auto-resolve failed: %s', amfi, _exc)
 
             # ── Skip if data exists and not forced ───────────────────────────
             if not force:
@@ -207,25 +206,37 @@ class Command(BaseCommand):
             allocation_data = None
             data_source     = 'none'
 
-            use_mstarpy = (source in ('auto', 'mstarpy')
-                           and scheme.morningstar_id
-                           and not scheme.morningstar_id.startswith('PLACEHOLDER'))
-            # Yahoo only works for ETFs with explicit yahoo_ticker (e.g. NIFTYBEES.NS).
-            # isin_growth-based lookup does NOT return Indian MF holdings from Yahoo Finance.
-            use_yahoo   = (source in ('auto', 'yahoo') and scheme.yahoo_ticker)
+            use_morningstar = source in ('auto', 'morningstar')
+            use_finapi      = source in ('auto', 'finapi')
+            use_yahoo       = source in ('auto', 'yahoo')
 
-            if use_mstarpy:
+            # 1) Morningstar REST API (plain HTTP, same as fund detail page)
+            #    Requires Scheme.morningstar_id (SecId starting with F0)
+            if use_morningstar and scheme.morningstar_id:
                 try:
-                    hd, sd, ad = self._fetch_mstarpy(scheme, delay)
+                    hd, sd, ad = self._fetch_morningstar(scheme, delay)
                     if hd is not None:
                         holdings_data   = hd
                         sector_data     = sd
                         allocation_data = ad
-                        data_source     = 'mstarpy'
+                        data_source     = 'morningstar'
                 except Exception as exc:
-                    logger.warning('[%s] mstarpy fetch failed: %s', amfi, exc)
+                    logger.warning('[%s] morningstar fetch failed: %s', amfi, exc)
 
-            if holdings_data is None and (source in ('auto', 'yahoo')) and use_yahoo:
+            # 2) finapi (plain HTTP, no browser) — fallback
+            if holdings_data is None and use_finapi:
+                try:
+                    hd, sd, ad = self._fetch_finapi(scheme, delay)
+                    if hd is not None:
+                        holdings_data   = hd
+                        sector_data     = sd
+                        allocation_data = ad
+                        data_source     = 'finapi'
+                except Exception as exc:
+                    logger.warning('[%s] finapi fetch failed: %s', amfi, exc)
+
+            # 3) yahooquery — fallback when both above return nothing
+            if holdings_data is None and use_yahoo:
                 try:
                     hd, sd, ad = self._fetch_yahoo(scheme, delay)
                     if hd is not None:
@@ -235,6 +246,7 @@ class Command(BaseCommand):
                         data_source     = 'yahoo'
                 except Exception as exc:
                     logger.warning('[%s] yahooquery fetch failed: %s', amfi, exc)
+
 
             if holdings_data is None:
                 logger.info('[%s] No portfolio data available.', amfi)
@@ -280,76 +292,326 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'\n=== Holdings Ingestion Complete ===\n'
             f'Month: {as_of_month} | Total: {total}\n'
-            f'Success: {success} | Failed: {failed} | Skipped: {skipped}\n'
-            f'morningstar_id discovered: {discovered}'
+            f'Success: {success} | Failed: {failed} | Skipped: {skipped}'
         ))
 
-    # ── mstarpy fetch ────────────────────────────────────────────────────────────
+    # ── Morningstar REST fetch (same API as runtime.py fund detail page) ──────────
 
-    def _fetch_mstarpy(self, scheme: Scheme, delay: float):
-        """Fetch holdings, sector, allocation from mstarpy. Returns (holdings, sectors, allocation)."""
-        from adapters.mstarpy_adapter import MstarpyAdapter
-        import pandas as pd
+    def _fetch_morningstar(self, scheme: Scheme, delay: float):
+        """Fetch full holdings + sectors from Morningstar REST API.
 
-        adapter = MstarpyAdapter()
-        ms_id   = scheme.morningstar_id
+        Uses the same api-global.morningstar.com endpoints as runtime.py's
+        fetch_mstarpy_payload(). Requires Scheme.morningstar_id (SecId starting
+        with F0). Plain HTTP — no browser, no Selenium.
 
-        holdings_df = adapter.fetch_holdings(ms_id)
-        time.sleep(delay)
-
-        if holdings_df is None or (hasattr(holdings_df, 'empty') and holdings_df.empty):
+        Returns (holdings_list, sector_list, alloc_dict) or (None, None, None).
+        """
+        sec_id = str(scheme.morningstar_id or '').strip()
+        if not sec_id or not sec_id.startswith('F0'):
             return None, None, None
 
-        # Parse holdings DataFrame
-        holdings_list = []
-        for _, row in holdings_df.iterrows():
-            name   = str(row.get('securityName') or row.get('name') or '')
-            weight = _to_decimal(row.get('weighting') or row.get('weight') or row.get('weighting%'))
-            htype  = str(row.get('holdingType', 'equity') or 'equity').lower()
-            isin   = str(row.get('isin', '') or '')
-            ticker = str(row.get('ticker', '') or '')
-            sector = str(row.get('sector', '') or '')
-            pe     = _to_decimal(row.get('forwardPERatio') or row.get('pe'))
-            mval   = _to_decimal(row.get('marketValue'))
+        amfi = scheme.amfi_code
+        api_key = 'lstzFDEOhfFNMLikKa0am9mgEKLBl49T'
+        headers = {
+            'apikey':       api_key,
+            'Accept':       'application/json, text/plain, */*',
+            'User-Agent':   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
 
+        try:
+            # ── 1. Holdings ───────────────────────────────────────────────────
+            h_url = (f'https://api-global.morningstar.com/sal-service/v1/fund'
+                     f'/portfolio/holding/v2/{sec_id}/data')
+            h_resp = requests.get(
+                h_url, headers=headers,
+                params={'clientId': 'MDC', 'version': '4.71.0',
+                        'premiumNum': 10000, 'freeNum': 10000},
+                timeout=15,
+            )
+            time.sleep(delay)
+
+            if h_resp.status_code == 429:
+                wait = _FINAPI_BACKOFF_BASE
+                logger.warning('[%s] morningstar 429. Waiting %.0fs', amfi, wait)
+                time.sleep(wait)
+                h_resp = requests.get(h_url, headers=headers,
+                                      params={'clientId': 'MDC', 'version': '4.71.0',
+                                              'premiumNum': 10000, 'freeNum': 10000},
+                                      timeout=15)
+
+            if h_resp.status_code != 200:
+                logger.debug('[%s] morningstar holdings HTTP %s', amfi, h_resp.status_code)
+                return None, None, None
+
+            h_json = h_resp.json()
+            if not isinstance(h_json, dict):
+                return None, None, None
+
+            eq_list = h_json.get('equityHoldingPage', {}).get('holdingList', []) or []
+            bd_list = h_json.get('boldHoldingPage', {}).get('holdingList', []) or []
+            ot_list = h_json.get('otherHoldingPage', {}).get('holdingList', []) or []
+            all_raw = eq_list + bd_list + ot_list
+            if not all_raw:
+                return None, None, None
+
+            holdings_list = []
+            for row in all_raw:
+                name   = str(row.get('securityName') or '').strip()
+                weight = _to_decimal(row.get('weighting'))
+                if not name or weight is None:
+                    continue
+                sector = str(row.get('sector') or '').strip()
+                isin   = str(row.get('isin') or '')
+                ticker = str(row.get('ticker') or '')
+                htype  = str(row.get('holdingType') or 'equity').lower()
+                if htype not in ('equity', 'debt', 'cash'):
+                    htype = _finapi_holding_type(name, sector)
+                holdings_list.append({
+                    'security_name': name,
+                    'weight_pct':    weight,
+                    'holding_type':  htype,
+                    'isin':          isin[:15],
+                    'ticker':        ticker[:20],
+                    'sector':        sector[:100],
+                    'forward_pe':    _to_decimal(row.get('forwardPERatio')),
+                    'market_value':  _to_decimal(row.get('marketValue')),
+                })
+
+            if not holdings_list:
+                return None, None, None
+
+            # ── 2. Sectors (best-effort) ──────────────────────────────────────
+            sector_list = []
+            try:
+                s_url = (f'https://api-global.morningstar.com/sal-service/v1/fund'
+                         f'/portfolio/v2/sector/{sec_id}/data')
+                s_resp = requests.get(s_url, headers=headers,
+                                      params={'clientId': 'MDC', 'version': '4.71.0'},
+                                      timeout=10)
+                time.sleep(delay * 0.5)
+                if s_resp.status_code == 200:
+                    s_json = s_resp.json() or {}
+                    # Morningstar sector response: nested under EQUITY → fundPortfolio
+                    eq_data = (s_json.get('EQUITY') or {}).get('fundPortfolio') or {}
+                    _SECTOR_MAP = {
+                        'basicMaterials': 'Basic Materials',
+                        'consumerCyclical': 'Consumer Cyclical',
+                        'financialServices': 'Financial Services',
+                        'realEstate': 'Real Estate',
+                        'communicationServices': 'Communication Services',
+                        'energy': 'Energy',
+                        'industrials': 'Industrials',
+                        'technology': 'Technology',
+                        'consumerDefensive': 'Consumer Defensive',
+                        'healthcare': 'Healthcare',
+                        'utilities': 'Utilities',
+                    }
+                    for raw_key, raw_val in eq_data.items():
+                        if raw_key in ('portfolioDate', 'assetType'):
+                            continue
+                        w = _to_decimal(raw_val)
+                        if w and w > 0:
+                            sector_list.append({
+                                'sector':     _SECTOR_MAP.get(raw_key, raw_key.replace('_', ' ').title()),
+                                'weight_pct': w,
+                            })
+            except Exception as exc:
+                logger.debug('[%s] morningstar sectors error: %s', amfi, exc)
+
+            # ── 3. Asset Allocation (best-effort) ─────────────────────────────
+            alloc: dict = {'equity_pct': None, 'debt_pct': None, 'cash_pct': None}
+            try:
+                a_url = (f'https://api-global.morningstar.com/sal-service/v1/fund'
+                         f'/process/asset/{sec_id}/data')
+                a_resp = requests.get(a_url, headers=headers,
+                                      params={'clientId': 'MDC', 'version': '4.71.0'},
+                                      timeout=10)
+                time.sleep(delay * 0.5)
+                if a_resp.status_code == 200:
+                    a_json = a_resp.json() or {}
+                    alloc_map = (a_json.get('allocationMap') or {})
+                    for key, field in [('AssetAllocStock', 'equity_pct'),
+                                       ('INDAssetAllocStock', 'equity_pct'),
+                                       ('AssetAllocBond',  'debt_pct'),
+                                       ('INDAssetAllocBond', 'debt_pct'),
+                                       ('AssetAllocCash',  'cash_pct'),
+                                       ('INDAssetAllocCash', 'cash_pct')]:
+                        item = alloc_map.get(key)
+                        if isinstance(item, dict) and alloc[field] is None:
+                            alloc[field] = _to_decimal(item.get('netAllocation'))
+            except Exception as exc:
+                logger.debug('[%s] morningstar asset alloc error: %s', amfi, exc)
+
+            return holdings_list, sector_list, alloc
+
+        except Exception as exc:
+            logger.warning('[%s] morningstar REST fetch error: %s', amfi, exc)
+            return None, None, None
+
+    # ── finapi fetch ─────────────────────────────────────────────────────────────
+
+    def _fetch_finapi(self, scheme: Scheme, delay: float):
+        """Fetch full holdings + sectors from finapi.upvaly.com by AMFI code.
+
+        Plain HTTP — no browser, no special ID. Works for all active MF schemes.
+        Retries up to 3 times on 429 (rate limited) with exponential backoff.
+
+        Returns (holdings_list, sector_list, alloc_dict) or (None, None, None).
+        """
+
+        amfi = str(scheme.amfi_code or '').strip()
+        if not amfi:
+            return None, None, None
+
+        response = None
+        for attempt in range(1, _FINAPI_MAX_RETRIES + 1):
+            try:
+                response = requests.get(
+                    f'https://finapi.upvaly.com/api/mf/scheme-code/{amfi}',
+                    params={'fields': 'schemeCode,schemeName,latestNavDate,portfolio,holdings,sectors'},
+                    headers={
+                        'Accept': 'application/json',
+                        'User-Agent': 'MFAnalysis/1.0 (+https://github.com)',
+                    },
+                    timeout=20,
+                )
+
+                if response.status_code == 429:
+                    wait = _FINAPI_BACKOFF_BASE * (2 ** (attempt - 1))
+                    logger.warning('[%s] finapi 429 rate-limited. Waiting %.0fs (attempt %d/%d)',
+                                   amfi, wait, attempt, _FINAPI_MAX_RETRIES)
+                    time.sleep(wait)
+                    continue
+
+                response.raise_for_status()
+                break  # success
+
+            except requests.exceptions.HTTPError as exc:
+                if attempt < _FINAPI_MAX_RETRIES:
+                    wait = _FINAPI_BACKOFF_BASE * (2 ** (attempt - 1))
+                    logger.warning('[%s] finapi HTTP %s, retrying in %.0fs',
+                                   amfi, exc.response.status_code if exc.response else '?', wait)
+                    time.sleep(wait)
+                else:
+                    logger.warning('[%s] finapi HTTP error after %d attempts: %s',
+                                   amfi, _FINAPI_MAX_RETRIES, exc)
+                    return None, None, None
+            except Exception as exc:
+                logger.warning('[%s] finapi request error: %s', amfi, exc)
+                return None, None, None
+            finally:
+                time.sleep(delay)
+
+        if response is None:
+            return None, None, None
+
+        try:
+            payload = response.json()
+        except Exception:
+            return None, None, None
+
+        data = payload.get('data') if isinstance(payload, dict) else payload
+        if isinstance(data, list):
+            data = data[0] if data else {}
+        if not isinstance(data, dict):
+            return None, None, None
+
+        # ── Holdings ─────────────────────────────────────────────────────────
+        holdings_list = []
+        for row in (data.get('holdings') or []):
+            if not isinstance(row, dict):
+                continue
+            name   = str(row.get('name') or row.get('securityName') or row.get('holdingName') or '').strip()
+            weight = _to_decimal(row.get('weightage') or row.get('weight') or row.get('holdingPercent'))
             if not name or weight is None:
                 continue
-
+            sector = str(row.get('sector') or row.get('industry') or '').strip()
+            isin   = str(row.get('isin') or row.get('isinCode') or '')
+            ticker = str(row.get('ticker') or row.get('symbol') or '')
+            htype  = _finapi_holding_type(name, sector)
             holdings_list.append({
                 'security_name': name,
                 'weight_pct':    weight,
-                'holding_type':  htype if htype in ('equity', 'debt', 'cash', 'other') else 'equity',
-                'isin':          isin[:15] if isin else '',
-                'ticker':        ticker[:20] if ticker else '',
-                'sector':        sector[:100] if sector else '',
-                'forward_pe':    pe,
-                'market_value':  mval,
+                'holding_type':  htype,
+                'isin':          isin[:15],
+                'ticker':        ticker[:20],
+                'sector':        sector[:100],
+                'forward_pe':    _to_decimal(row.get('forwardPE') or row.get('forward_pe') or row.get('pe')),
+                'market_value':  None,
             })
 
-        # Sector allocation
-        sector_df = adapter.fetch_sector_allocation(ms_id)
-        time.sleep(max(delay * 0.5, 0.5))
-        sector_list = _parse_sector_df(sector_df)
+        if not holdings_list:
+            return None, None, None
 
-        # Asset allocation
-        port_stats = adapter.fetch_portfolio_statistics(ms_id)
-        time.sleep(max(delay * 0.5, 0.5))
-        alloc = _parse_allocation_mstarpy(port_stats)
+        # ── Sector allocation ─────────────────────────────────────────────────
+        sector_list = []
+        for row in (data.get('sectors') or []):
+            if not isinstance(row, dict):
+                continue
+            name   = str(row.get('sector') or row.get('name') or '').strip()
+            weight = _to_decimal(row.get('weightage') or row.get('weight'))
+            if name and weight is not None:
+                if weight <= 1:
+                    weight = weight * 100
+                sector_list.append({'sector': name, 'weight_pct': weight})
+
+        # ── Asset allocation & Cap Weightage ──────────────────────────────────
+        alloc = {
+            'equity_pct': None, 'debt_pct': None, 'cash_pct': None,
+            'large_pct': None, 'mid_pct': None, 'small_pct': None, 'other_pct': None,
+        }
+        portfolio = data.get('portfolio') if isinstance(data.get('portfolio'), dict) else {}
+        asset_alloc_raw = portfolio.get('assetAllocation') or {}
+        label_map = {
+            'equity': 'equity_pct', 'stock': 'equity_pct',
+            'debt':   'debt_pct',   'bond':  'debt_pct', 'fixed': 'debt_pct',
+            'cash':   'cash_pct',   'money': 'cash_pct',
+        }
+        for key, val in asset_alloc_raw.items():
+            pct = _to_decimal(val)
+            if pct is None:
+                continue
+            if pct <= 1:
+                pct = pct * 100
+            lower = str(key).lower()
+            for marker, field in label_map.items():
+                if marker in lower:
+                    alloc[field] = pct
+                    break
+
+        # Market Cap weightage from SEBI disclosure (if provided by finapi)
+        mcap_raw = portfolio.get('marketCapWeightage') or {}
+        if isinstance(mcap_raw, dict):
+            for k, f in [('largeCap', 'large_pct'), ('midCap', 'mid_pct'),
+                          ('smallCap', 'small_pct'), ('others', 'other_pct')]:
+                v = _to_decimal(mcap_raw.get(k))
+                if v is not None:
+                    if 0 < v <= 1:
+                        v = v * 100
+                    alloc[f] = v
 
         return holdings_list, sector_list, alloc
 
     # ── yahooquery fetch ─────────────────────────────────────────────────────────
 
     def _fetch_yahoo(self, scheme: Scheme, delay: float):
-        """Fetch top-10 holdings + sector weights from yahooquery."""
+        """Fetch top-10 holdings + sector weights from yahooquery.
+
+        Used as fallback when finapi returns no data (e.g. for ETFs or
+        very new funds). Note: yahooquery only returns top-10 holdings.
+        """
         try:
             from yahooquery import Ticker
         except ImportError:
             return None, None, None
 
-        # Only use a Yahoo ticker if we have an explicit mapping.
-        # Using {amfi_code}.BO as a fallback is unreliable for mutual funds.
         ticker_sym = scheme.yahoo_ticker
+        if not ticker_sym:
+            try:
+                from apps.funds.runtime import resolve_yahoo_ticker
+                ticker_sym = resolve_yahoo_ticker(scheme, None)
+            except Exception:
+                ticker_sym = None
         if not ticker_sym:
             return None, None, None
 
@@ -402,12 +664,7 @@ class Command(BaseCommand):
                         })
 
             # ── Asset allocation ──────────────────────────────────────────────
-            alloc = {
-                'equity_pct': _to_decimal(finfo.get('equityHoldings', {}).get('priceToBook')),
-                'debt_pct':   None,
-                'cash_pct':   None,
-            }
-            # cashPosition, bondPosition, stockPosition from top-level
+            alloc: dict = {'equity_pct': None, 'debt_pct': None, 'cash_pct': None}
             for key in ('cashPosition', 'bondPosition', 'stockPosition', 'otherPosition'):
                 val = finfo.get(key)
                 if val is not None:
@@ -511,8 +768,20 @@ class Command(BaseCommand):
                 'debt_pct':   _to_decimal(alloc.get('debt_pct')),
                 'cash_pct':   _to_decimal(alloc.get('cash_pct')),
             })
+            # If finapi provided SEBI-disclosed cap breakdown, use it directly
+            if (alloc.get('large_pct') is not None
+                    or alloc.get('mid_pct') is not None
+                    or alloc.get('small_pct') is not None):
+                mcap_defaults.update({
+                    'large_pct':  _to_decimal(alloc.get('large_pct')),
+                    'mid_pct':    _to_decimal(alloc.get('mid_pct')),
+                    'small_pct':  _to_decimal(alloc.get('small_pct')),
+                    'other_pct':  _to_decimal(alloc.get('other_pct')),
+                    'cap_method': 'disclosure',
+                })
 
-        if cap_result:
+        # If no cap disclosure from source, use CapClassifier on the holdings list
+        if mcap_defaults.get('large_pct') is None and cap_result:
             mcap_defaults.update({
                 'large_pct':  _to_decimal(cap_result['large_pct']),
                 'mid_pct':    _to_decimal(cap_result['mid_pct']),
@@ -528,59 +797,13 @@ class Command(BaseCommand):
 
 # ── Helper parsers ────────────────────────────────────────────────────────────────
 
-def _parse_sector_df(sector_df) -> list[dict]:
-    """Parse mstarpy sector allocation DataFrame or dict to list of dicts."""
-    if sector_df is None:
-        return []
-    try:
-        import pandas as pd
-        if isinstance(sector_df, pd.DataFrame):
-            result = []
-            # mstarpy typically returns columns: 'name', 'equity' (or similar weight col)
-            weight_col = next(
-                (c for c in sector_df.columns if 'weight' in c.lower() or 'equity' in c.lower()),
-                None
-            )
-            name_col = next(
-                (c for c in sector_df.columns if 'name' in c.lower() or 'sector' in c.lower()),
-                None
-            )
-            if weight_col and name_col:
-                for _, row in sector_df.iterrows():
-                    sector = str(row.get(name_col, ''))
-                    weight = _to_decimal(row.get(weight_col))
-                    if sector and weight:
-                        result.append({'sector': sector, 'weight_pct': weight})
-            return result
-        if isinstance(sector_df, dict):
-            return [
-                {'sector': k, 'weight_pct': _to_decimal(v)}
-                for k, v in sector_df.items() if v
-            ]
-    except Exception as exc:
-        logger.warning('Sector parse error: %s', exc)
-    return []
-
-
-def _parse_allocation_mstarpy(port_stats) -> dict:
-    """Parse mstarpy portfolioStatistics for asset class breakdown."""
-    result = {'equity_pct': None, 'debt_pct': None, 'cash_pct': None}
-    if port_stats is None:
-        return result
-    try:
-        # Port stats is usually a dict of period -> metrics
-        # Look for 'portfolioDate' row or flat dict
-        data = port_stats
-        if isinstance(data, dict):
-            # Try to find equity/bond/cash keys
-            for k, v in data.items():
-                kl = str(k).lower()
-                if 'equity' in kl or 'stock' in kl:
-                    result['equity_pct'] = _to_decimal(v)
-                elif 'bond' in kl or 'debt' in kl or 'fixed' in kl:
-                    result['debt_pct'] = _to_decimal(v)
-                elif 'cash' in kl:
-                    result['cash_pct'] = _to_decimal(v)
-    except Exception as exc:
-        logger.warning('Allocation parse error: %s', exc)
-    return result
+def _finapi_holding_type(name: str, sector: str) -> str:
+    """Classify a holding as equity/debt/cash from its name and sector."""
+    text = f'{name} {sector}'.lower()
+    if any(m in text for m in ['cash', 'treasury', 'clearing corporation', 'ccil',
+                                'tri party', 't-bill']):
+        return 'cash'
+    if any(m in text for m in ['bond', 'debenture', 'government securities', 'g-sec',
+                                'securit', 'ncd', 'commercial paper', 'cp ']):
+        return 'debt'
+    return 'equity'

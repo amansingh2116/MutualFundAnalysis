@@ -105,7 +105,13 @@ class HomeView(TemplateView):
 
             if self.request.user.is_authenticated:
                 profile = UserBenchmarkProfile.objects.filter(user=self.request.user).first()
-                watchlist_ids = profile.watchlist if (profile and profile.watchlist) else []
+                raw_wl = profile.watchlist if (profile and profile.watchlist) else []
+                if isinstance(raw_wl, str):
+                    try:
+                        raw_wl = json.loads(raw_wl)
+                    except Exception:
+                        raw_wl = []
+                watchlist_ids = [int(x) for x in raw_wl if str(x).isdigit()]
                 if watchlist_ids:
                     ctx['benchmark_returns'] = [r for r in all_bench if r.index_id in watchlist_ids]
                 else:
@@ -915,6 +921,123 @@ class FundDetailView(DetailView):
             'nav_range_options': NAV_RANGE_OPTIONS,
         })
 
+        # -- Cap Blend ----------------------------------------------------------
+        # Priority:
+        #   1. Direct disclosure from runtime snapshot (finapi marketCapWeightage)
+        #   2. DB MarketCapAllocation (from ingest_holdings)
+        #   3. Algorithmic CapClassifier on runtime.top_holdings
+        #   4. None
+        cap_blend = getattr(runtime, 'cap_alloc', None)
+
+        if cap_blend and getattr(cap_blend, 'large_pct', None) is not None:
+            _as_of = (
+                runtime.holdings_month.strftime('%b %Y')
+                if runtime.holdings_month else 'Current'
+            )
+            eq_pct = db_pct = cs_pct = None
+            for item in (getattr(runtime, 'asset_alloc', []) or []):
+                lbl = str(getattr(item, 'label', '')).lower()
+                wt = getattr(item, 'weight_pct', None)
+                if 'equity' in lbl:
+                    eq_pct = wt
+                elif 'debt' in lbl or 'bond' in lbl:
+                    db_pct = wt
+                elif 'cash' in lbl:
+                    cs_pct = wt
+
+            from types import SimpleNamespace as _NS
+            cap_blend = _NS(
+                large_pct   = getattr(cap_blend, 'large_pct', None),
+                mid_pct     = getattr(cap_blend, 'mid_pct', None),
+                small_pct   = getattr(cap_blend, 'small_pct', None),
+                other_pct   = getattr(cap_blend, 'other_pct', None),
+                equity_pct  = eq_pct,
+                debt_pct    = db_pct,
+                cash_pct    = cs_pct,
+                cap_method  = 'disclosure',
+                as_of_month = _as_of,
+            )
+
+        if cap_blend is None or getattr(cap_blend, 'large_pct', None) is None:
+            try:
+                from apps.holdings.models import MarketCapAllocation
+                db_cap = (
+                    MarketCapAllocation.objects
+                    .filter(scheme=scheme)
+                    .order_by('-as_of_month')
+                    .first()
+                )
+                if db_cap and db_cap.large_pct is not None:
+                    cap_blend = db_cap
+            except Exception:
+                pass
+
+        if cap_blend is None or getattr(cap_blend, 'large_pct', None) is None:
+            try:
+                from apps.holdings.cap_classifier import get_classifier
+                from types import SimpleNamespace as _NS
+                clf = get_classifier()
+                if clf._loaded and runtime.top_holdings:
+                    _holdings_dicts = [
+                        {
+                            'security_name': getattr(h, 'security_name', ''),
+                            'weight_pct':    getattr(h, 'weight_pct', 0),
+                            'holding_type':  getattr(h, 'holding_type', 'equity'),
+                        }
+                        for h in runtime.top_holdings
+                    ]
+                    _res = clf.classify_portfolio(_holdings_dicts)
+                    _as_of = (
+                        runtime.holdings_month.strftime('%b %Y')
+                        if runtime.holdings_month else 'live'
+                    )
+                    eq_pct = db_pct = cs_pct = None
+                    for item in (getattr(runtime, 'asset_alloc', []) or []):
+                        lbl = str(getattr(item, 'label', '')).lower()
+                        wt = getattr(item, 'weight_pct', None)
+                        if 'equity' in lbl:
+                            eq_pct = wt
+                        elif 'debt' in lbl or 'bond' in lbl:
+                            db_pct = wt
+                        elif 'cash' in lbl:
+                            cs_pct = wt
+
+                    target_eq = eq_pct if (eq_pct and 0 < eq_pct <= 100) else 100.0
+                    analyzed_eq = _res.get('equity_weight') or (_res['large_pct'] + _res['mid_pct'] + _res['small_pct'])
+                    
+                    if analyzed_eq > 0 and analyzed_eq < (target_eq - 5):
+                        # Partial portfolio (e.g. only top 10 holdings available).
+                        # Under SEBI rules, all unlisted residual equity holdings are small cap.
+                        residual_eq = max(0.0, target_eq - analyzed_eq)
+                        l_pct = round(_res['large_pct'], 2)
+                        m_pct = round(_res['mid_pct'], 2)
+                        s_pct = round(_res['small_pct'] + residual_eq, 2)
+                    elif analyzed_eq > 0:
+                        scale = target_eq / analyzed_eq
+                        l_pct = round(_res['large_pct'] * scale, 2)
+                        m_pct = round(_res['mid_pct'] * scale, 2)
+                        s_pct = round(_res['small_pct'] * scale, 2)
+                    else:
+                        l_pct = m_pct = s_pct = 0.0
+
+                    o_pct = round(max(0.0, 100.0 - (l_pct + m_pct + s_pct)), 2)
+
+                    cap_blend = _NS(
+                        large_pct   = l_pct,
+                        mid_pct     = m_pct,
+                        small_pct   = s_pct,
+                        other_pct   = o_pct,
+                        equity_pct  = eq_pct,
+                        debt_pct    = db_pct,
+                        cash_pct    = cs_pct,
+                        cap_method  = 'classifier',
+                        as_of_month = _as_of,
+                    )
+            except Exception:
+                pass
+
+        ctx['cap_blend'] = cap_blend
+
         # ── Category Average & Min/Max lookup ────────────────────────────────
         try:
             sub_cat = (
@@ -1111,7 +1234,13 @@ class ResearchBenchmarksView(TemplateView):
             if self.request.user.is_authenticated:
                 profile = UserBenchmarkProfile.objects.filter(user=self.request.user).first()
                 if profile and profile.watchlist:
-                    watchlist_ids = profile.watchlist
+                    raw_wl = profile.watchlist
+                    if isinstance(raw_wl, str):
+                        try:
+                            raw_wl = json.loads(raw_wl)
+                        except Exception:
+                            raw_wl = []
+                    watchlist_ids = [int(x) for x in raw_wl if str(x).isdigit()]
 
             # If user has a watchlist, filter to those; else default to 5 curated benchmarks
             if watchlist_ids:
@@ -2430,7 +2559,17 @@ def category_list_api(request):
             def fv(x):
                 return round(float(x), 4) if x is not None else None
 
-            rolling = snap.rolling_returns_json or {}
+            rolling_raw = snap.rolling_returns_json
+            if isinstance(rolling_raw, str):
+                try:
+                    import json as _json
+                    rolling = _json.loads(rolling_raw) if rolling_raw else {}
+                except Exception:
+                    rolling = {}
+            elif isinstance(rolling_raw, dict):
+                rolling = rolling_raw
+            else:
+                rolling = {}
             data.append({
                 'name': snap.scheme_sub_category,
                 'slug': _make_slug(snap.scheme_sub_category),
@@ -2596,13 +2735,13 @@ def fund_portfolio_timeline_api(request, amfi_code: str):
     try:
         scheme    = get_object_or_404(Scheme, amfi_code=amfi_code)
         aum_trend = list(SchemeAumSnapshot.objects.filter(scheme=scheme).order_by('as_of_month').values('as_of_month', 'aum_cr'))
-        cap_trend = list(MarketCapAllocation.objects.filter(scheme=scheme).order_by('as_of_month').values('as_of_month', 'large_pct', 'mid_pct', 'small_pct', 'equity_pct', 'debt_pct', 'cash_pct', 'cap_method'))
+        cap_trend = list(MarketCapAllocation.objects.filter(scheme=scheme).order_by('as_of_month').values('as_of_month', 'large_pct', 'mid_pct', 'small_pct', 'other_pct', 'equity_pct', 'debt_pct', 'cash_pct', 'cap_method'))
         latest_sa_month = SectorAllocation.objects.filter(scheme=scheme).values_list('as_of_month', flat=True).order_by('-as_of_month').first()
         sectors = list(SectorAllocation.objects.filter(scheme=scheme, as_of_month=latest_sa_month).order_by('-weight_pct').values('sector', 'weight_pct')) if latest_sa_month else []
         return JsonResponse({
             'amfi_code': amfi_code,
             'aum_trend': [{'month': str(r['as_of_month']), 'aum_cr': round(float(r['aum_cr'] or 0), 2)} for r in aum_trend],
-            'cap_trend': [{'month': str(r['as_of_month']), 'large_pct': _flt(r['large_pct']), 'mid_pct': _flt(r['mid_pct']), 'small_pct': _flt(r['small_pct']), 'equity_pct': _flt(r['equity_pct']), 'debt_pct': _flt(r['debt_pct']), 'cash_pct': _flt(r['cash_pct']), 'cap_method': r.get('cap_method', 'unknown')} for r in cap_trend],
+            'cap_trend': [{'month': str(r['as_of_month']), 'large_pct': _flt(r['large_pct']), 'mid_pct': _flt(r['mid_pct']), 'small_pct': _flt(r['small_pct']), 'other_pct': _flt(r.get('other_pct')), 'equity_pct': _flt(r['equity_pct']), 'debt_pct': _flt(r['debt_pct']), 'cash_pct': _flt(r['cash_pct']), 'cap_method': r.get('cap_method', 'unknown')} for r in cap_trend],
             'sectors': [{'sector': s['sector'], 'weight_pct': _flt(s['weight_pct'])} for s in sectors],
             'sector_as_of': str(latest_sa_month) if latest_sa_month else None,
         })

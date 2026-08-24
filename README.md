@@ -89,10 +89,12 @@
 ---
 
 ### 7. 🛡️ Data Status Dashboard
-- **Real-time Pipeline Transparency**: See coverage %, last pipeline run time, and weekly batch schedule.
+- **Real-time Pipeline Transparency**: See coverage %, last pipeline run time, and weekly/monthly batch schedule.
 - **7-Day Activity Chart**: Bar chart showing how many funds were refreshed each day this week.
+- **Monthly Portfolio Data**: Holdings coverage, sector allocation coverage, market-cap breakdown coverage, AUM snapshot months, and data source breakdown (Morningstar / finapi / yahoo).
+- **Score & Rank Trend Coverage**: Weeks of score trend data available, latest snapshot date.
 - **Benchmark Status Table**: Freshness and row counts for all 51 benchmark indices.
-- **Coverage Metrics**: NAV coverage, screener snapshot coverage, model score coverage, trailing return coverage.
+- **Coverage Metrics**: NAV coverage, screener snapshot coverage, model score coverage, trailing return coverage, holdings/sector/cap coverage.
 - Accessible at `/data-status/` — linked from the Explore section of the sidebar.
 
 ---
@@ -126,8 +128,8 @@
 | **Database** | SQLite (dev) / CockroachDB -- PostgreSQL-compatible (production, free 10 GB) / PostgreSQL 16 (Docker dev) |
 | **Containerization** | Docker + Docker Compose (multi-stage build; PostgreSQL 16 service for local dev) |
 | **Auth & Email** | Django built-in auth, rate-limited login, email verification, SMTP (Sender.net / Gmail) |
-| **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), yfinance (equity benchmarks), FRED API (macro), AMFI NAVAll.txt (8-col format auto-detected), World Bank API (CPI) |
-| **Deployment** | Render (web service, free tier), GitHub Actions (weekly data pipeline + Kaggle publish, free for public repos) |
+| **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), yfinance + yahooquery (equity benchmarks & portfolio fallback), FRED API (macro), AMFI NAVAll.txt (8-col format), World Bank API (CPI), Morningstar REST API (portfolio holdings — plain HTTP) |
+| **Deployment** | Render (web service, free tier), GitHub Actions (weekly pipeline every 6h + monthly portfolio pipeline on 5th, free for public repos) |
 | **Data Distribution** | Kaggle dataset (manual publish via `push_to_kaggle` command or Actions workflow) |
 
 ---
@@ -228,9 +230,11 @@ Two options: **native Python** (SQLite, fast for UI work) or **Docker** (Postgre
 
 > **Subsequent starts:** `docker compose up` (no rebuild needed unless requirements.txt changes). DB data persists across restarts in a named Docker volume. Use `docker compose down -v` to wipe and start fresh.
 
-## 🔄 Data Pipeline — Self-Completing Weekly Cycle
+## 🔄 Data Pipeline — Automated Weekly + Monthly
 
-The pipeline runs **every 6 hours** via GitHub Actions (free for public repos). Each run uses `--resume --resume-hours=167` to skip funds already updated in the last 7 days.
+Two automated pipelines keep the database fresh via GitHub Actions (free for public repos).
+
+### Weekly Pipeline (every 6 hours, self-completing)
 
 ```
 Run 1  (~Day 1, +0h):   Processes 250–350 stale funds → hits 5h 10min limit → exits
@@ -242,31 +246,58 @@ Next Monday:            7-day window expires → automatic full restart 🔄
 
 > **Public repo = FREE unlimited GitHub Actions minutes.** 4 runs/day × 7 days × 52 weeks = 1,456 invocations/year; completely free for public repositories.
 
+### Monthly Pipeline (5th of each month at 3 AM UTC)
+
+Handles SEBI-mandated monthly portfolio disclosures and point-in-time AUM snapshots:
+
+```
+1. update_nifty_caplist      — refresh Nifty cap classification list (NSE)
+2. ingest_holdings           — portfolio holdings (Morningstar REST → yahooquery fallback)
+3. ingest_aum_snapshots      — point-in-time AUM for all schemes
+4. ingest_industry_inflows   — AMFI category-level net inflows (Capital Flows widget)
+5. ingest_score_trend        — weekly fund score & rank snapshot
+```
+
 ### Key management commands:
 
 ```bash
-# 1. Sync fund universe (AMFI master list)
+# ─── Weekly commands ─────────────────────────────────────────────────────────
+# Sync fund universe (AMFI master list)
 python manage.py build_scheme_master
 
-# 2. Ingest benchmark NAVs (51 indices, incremental)
+# Ingest benchmark NAVs (51 indices, incremental)
 python manage.py ingest_benchmarks
 
-# 3. Compute benchmark return snapshots
+# Compute benchmark return snapshots
 python manage.py populate_benchmark_returns
 
-# 4. Full fund pipeline — NAV + metadata + analytics + scoring
+# Full fund pipeline — NAV + metadata + analytics + scoring
 python manage.py populate_screener
 
-# Resume a run (skips funds updated in the last 7 days — same as pipeline uses)
+# Resume (skips funds updated in the last 7 days — same as pipeline uses)
 python manage.py populate_screener --resume --resume-hours=167
 
-# Run with time limit (exits gracefully before GitHub Actions 6h hard cap)
+# Exits gracefully before GitHub Actions 6h hard cap
 python manage.py populate_screener --time-limit-minutes=310
 
-# Force re-process all funds regardless of when they were last updated
-python manage.py populate_screener --resume-hours=0
+# Weekly score & rank trend snapshot (keyed by week, idempotent)
+python manage.py ingest_score_trend
 
-# Sync Learn section (PDF guides and blog posts from Resources/)
+# ─── Monthly commands ────────────────────────────────────────────────────────
+# Portfolio holdings (Morningstar REST → yahooquery fallback, no browser)
+python manage.py ingest_holdings --source auto --resume
+
+# AUM snapshots (point-in-time per scheme per month)
+python manage.py ingest_aum_snapshots
+
+# AMFI category-level net inflows (last 3 months)
+python manage.py ingest_industry_inflows --months 3
+
+# ─── One-time setup ──────────────────────────────────────────────────────────
+# Populate morningstar_id (ISIN → SecId mapping) — needs Chrome, run once
+python manage.py build_mstar_ids
+
+# ─── Sync Learn section (PDF guides and blog posts from Resources/) ─────────
 python manage.py sync_content
 ```
 
@@ -279,7 +310,8 @@ See [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md)
 | Document | Contents |
 |---|---|
 | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) | Full production deployment guide -- Render + CockroachDB + GitHub Actions |
-| [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md) | All management commands, flags, weekly pipeline, Docker setup, Kaggle publish |
+| [DATA_PIPELINE_AND_COMMANDS.md](documentation/DATA_PIPELINE_AND_COMMANDS.md) | All management commands (weekly + monthly), pipeline diagram, Docker setup, Kaggle publish |
+| [pipeline.md](documentation/pipeline.md) | Quick-reference: weekly vs monthly schedule, ingest_holdings source hierarchy, command flags |
 | [docker/README.md](docker/README.md) | Docker Compose quick reference and troubleshooting |
 | [INSTITUTIONAL_REPORT.md](documentation/INSTITUTIONAL_REPORT.md) | Institutional PDF Research Report engine |
 | [SCREENER.md](documentation/SCREENER.md) | Fund Screener user & developer guide |

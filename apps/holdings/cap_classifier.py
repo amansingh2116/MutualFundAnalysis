@@ -1,4 +1,4 @@
-﻿"""
+"""
 apps/holdings/cap_classifier.py
 ================================
 SEBI Market-Cap Classifier for mutual fund portfolio holdings.
@@ -35,28 +35,23 @@ _CAPLIST_PATH = os.path.join(_REPO_ROOT, 'data', 'nifty_caplist.json')
 # Fuzzy match threshold (rapidfuzz WRatio 0-100)
 _SCORE_THRESHOLD = 82
 
-# Words to strip before comparing (common corporate suffixes / sector words)
-_STRIP_WORDS = re.compile(
-    r'\b(ltd|limited|pvt|private|corp|corporation|co|company|industries|'
-    r'industry|holdings|holding|enterprises|enterprise|technologies|technology|'
-    r'services|service|solutions|solution|systems|system|group|india|'
-    r'communications|communication|chemicals|chemical|pharma|pharmaceuticals|'
-    r'pharmaceutical|infrastructure|bank|banks|finance|financial|insurance|'
-    r'energy|power|auto|automotive|motors|steel|textiles|textile|foods|'
-    r'beverages|beverage|cement|paints|paint|gas|oil|petro|petroleum)\b',
+# Legal entity suffixes to strip (DO NOT strip substantive words like bank, power, energy, etc.)
+_LEGAL_SUFFIXES = re.compile(
+    r'\b(ltd|limited|pvt|private|inc|incorporated|corp|corporation|co|company|llc|plc|'
+    r'ordinary shares|ord shs|class a|class b|shares|dr|adr|gdr)\b',
     re.IGNORECASE,
 )
 _TICKER_SUFFIX = re.compile(r'\.(NS|BO|NSE|BSE|IN)$', re.IGNORECASE)
-_PUNCTUATION   = re.compile(r'[.\-_&\',()]')
+_PUNCTUATION   = re.compile(r'[.\-_&\',()/]')
 _EXTRA_SPACES  = re.compile(r'\s{2,}')
 
 
 def _normalize(name: str) -> str:
-    """Lowercase, strip ticker suffixes, punctuation, and filler words."""
-    name = name.strip()
+    """Lowercase, strip ticker suffixes, punctuation, and corporate entity suffixes."""
+    name = str(name or '').strip()
     name = _TICKER_SUFFIX.sub('', name)
     name = _PUNCTUATION.sub(' ', name)
-    name = _STRIP_WORDS.sub(' ', name)
+    name = _LEGAL_SUFFIXES.sub(' ', name)
     name = _EXTRA_SPACES.sub(' ', name)
     return name.lower().strip()
 
@@ -79,7 +74,7 @@ class CapClassifier:
             with open(self._path, 'r', encoding='utf-8') as fh:
                 data = json.load(fh)
             stocks: dict = data.get('stocks', {})
-            self._raw    = {_normalize(k): v for k, v in stocks.items()}
+            self._raw    = {_normalize(k): v for k, v in stocks.items() if _normalize(k)}
             self._keys   = list(self._raw.keys())
             self._loaded = True
             logger.debug("CapClassifier loaded %d stocks from %s", len(self._keys), self._path)
@@ -113,27 +108,28 @@ class CapClassifier:
             return 'small'
 
         norm = _normalize(security_name)
-        if not norm:
+        if not norm or len(norm) < 3:
             return 'small'
 
         # Exact match (fast path)
         if norm in self._raw:
             return self._raw[norm]
 
-        # Fuzzy match
+        # Fuzzy match using token_sort_ratio with strict score cutoff
         result = rfprocess.extractOne(
-            norm, self._keys, scorer=fuzz.WRatio, score_cutoff=_SCORE_THRESHOLD
+            norm, self._keys, scorer=fuzz.token_sort_ratio, score_cutoff=90
         )
-        if result is None:
-            return 'small'
+        if result is not None:
+            matched_key, score, _ = result
+            if len(matched_key) >= 4 and len(norm) >= 4:
+                category = self._raw[matched_key]
+                logger.debug(
+                    "Cap classify: '%s' -> '%s' -> %s  (score=%s)",
+                    security_name, matched_key, category, score,
+                )
+                return category
 
-        matched_key, score, _ = result
-        category = self._raw[matched_key]
-        logger.debug(
-            "Cap classify: '%s' -> '%s' -> %s  (score=%s)",
-            security_name, matched_key, category, score,
-        )
-        return category
+        return 'small'
 
     def classify_portfolio(
         self,
@@ -184,11 +180,12 @@ class CapClassifier:
                 # 'small' includes unmatched names (SEBI residual rule)
                 unclassified += 1
 
+        total_classified = sum(caps.values())
         return {
             'large_pct':          round(caps['large'], 4),
             'mid_pct':            round(caps['mid'],   4),
             'small_pct':          round(caps['small'], 4),
-            'other_pct':          round(max(0.0, total_equity_weight - sum(caps.values())), 4),
+            'other_pct':          0.0,
             'equity_weight':      round(total_equity_weight, 4),
             'classified_count':   classified,
             'unclassified_count': unclassified,

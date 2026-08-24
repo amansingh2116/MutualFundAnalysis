@@ -163,6 +163,103 @@ Learn content source files:
 
 See `documentation/LEARN_CONTENT.md` for the full metadata format.
 
+### 8. `ingest_holdings` (Monthly Portfolio Ingestion)
+**Purpose:** Ingests SEBI-mandated monthly portfolio disclosures — stock holdings, sector allocation, and market-cap breakdown — for all active direct-growth equity/hybrid funds and ETFs.
+**When to run:** Monthly (automated on the 5th via `monthly_pipeline.yml`). Safe to re-run (idempotent via `update_or_create`).
+
+**Sources (priority order — all plain HTTP, no browser required):**
+1. **Morningstar REST API** (`api-global.morningstar.com`) — full 100+ stock holdings, sector weights, asset allocation. Requires `Scheme.morningstar_id` (SecId, F0...) to be populated — see `build_mstar_ids` below.
+2. **yahooquery** — top-10 holdings + sector weights. Fallback for ETFs or funds without a `morningstar_id`.
+3. **CapClassifier** — runs after either source. Maps stock names → Large/Mid/Small cap via rapidfuzz fuzzy matching against `data/nifty_caplist.json`.
+
+> [!NOTE]
+> `finapi.upvaly.com` was the previous primary source but dropped portfolio fields from their API. Old data ingested via finapi remains in the DB (`source='finapi'`). New ingestion uses Morningstar REST + yahooquery.
+
+**Writes to:**
+- `Holding` — all stock/bond/cash positions per fund per month
+- `SectorAllocation` — sector weights per fund per month  
+- `MarketCapAllocation` — Large/Mid/Small/Other % per fund per month
+
+**Data retention:** Last 3 months retained; older snapshots auto-pruned.
+
+```bash
+# Monthly run (skip funds already updated this month)
+python manage.py ingest_holdings --resume
+
+# Specific data source
+python manage.py ingest_holdings --source morningstar   # Morningstar REST only
+python manage.py ingest_holdings --source yahoo         # yahooquery only
+python manage.py ingest_holdings --source auto          # morningstar → yahoo (default)
+
+# Single fund
+python manage.py ingest_holdings --amfi 120503
+
+# Force re-fetch even if already ingested this month
+python manage.py ingest_holdings --force
+
+# Rate limiting (default 0.5s between calls)
+python manage.py ingest_holdings --delay 1.0
+```
+
+### 9. `build_mstar_ids` (One-time Morningstar SecId Setup)
+**Purpose:** One-time command to populate `Scheme.morningstar_id` (Morningstar SecId, e.g. `F0GBR04SGI`) for all active equity/hybrid funds. Once populated, `ingest_holdings` uses the Morningstar REST API (pure HTTP, no browser) for all subsequent monthly ingestion runs forever.
+
+**When to run:** Once after a fresh DB setup, or when new funds are added. Requires Chrome/Selenium via `mstarpy` to query the Morningstar global screener for the ISIN → SecId mapping.
+
+```bash
+# Map all active equity/hybrid funds (long — ~2,300 funds × 2s = ~1.3 hours)
+python manage.py build_mstar_ids
+
+# Test first 50 funds
+python manage.py build_mstar_ids --limit 50
+
+# Single fund
+python manage.py build_mstar_ids --amfi 120503
+
+# Re-lookup even if morningstar_id is already set
+python manage.py build_mstar_ids --force
+
+# Adjust rate limit (default 2.0s between calls)
+python manage.py build_mstar_ids --delay 1.5
+```
+
+> [!IMPORTANT]
+> Run `build_mstar_ids` **before** running `ingest_holdings` for the first time. Without `morningstar_id` populated, `ingest_holdings` falls back to yahooquery (top-10 only) for all funds.
+
+### 10. `ingest_aum_snapshots` (Monthly AUM Trend)
+**Purpose:** Takes a point-in-time AUM snapshot from AMFI for all active schemes into `SchemeAumSnapshot`. Used for the fund AUM trend chart (shows last 3 months) and the `aum_1m_change_pct` screener column.
+**When to run:** Monthly (automated in `monthly_pipeline.yml`). Idempotent via `update_or_create` keyed by `(scheme, as_of_month)`.
+
+```bash
+python manage.py ingest_aum_snapshots
+```
+
+### 11. `ingest_score_trend` (Weekly Score & Rank Snapshot)
+**Purpose:** Stores each fund's model score and category rank for the current week in `FundScoreTrend` (keyed by `as_of_week` — idempotent). Powers the **Score & Rank Trend** chart on the fund detail Portfolio tab (last 12 weeks).
+**When to run:** Weekly (automated in `weekly_pipeline.yml` step 8). Safe to re-run.
+
+```bash
+python manage.py ingest_score_trend
+
+# Backfill a specific week
+python manage.py ingest_score_trend --week 2026-08-18
+
+# Limit scope
+python manage.py ingest_score_trend --limit 100
+```
+
+### 12. `ingest_industry_inflows` (Monthly AMFI Category Inflows)
+**Purpose:** Fetches AMFI category-level gross purchase, gross redemption, and net inflow data into `IndustryInflow`. Powers the **Capital Flows** widget on the Home page.
+**When to run:** Monthly (automated in `monthly_pipeline.yml`). Idempotent.
+
+```bash
+# Fetch last 3 months (default)
+python manage.py ingest_industry_inflows --months 3
+
+# Fetch last 12 months (full year backfill)
+python manage.py ingest_industry_inflows --months 12
+```
+
 ---
 
 ## Daily Operations Workflow
@@ -237,6 +334,27 @@ populate_home_dashboard → CategorySnapshot (DB)
                 ↓
 populate_benchmark_returns → BenchmarkReturns (DB)
   [rolling_returns_json includes avg, median, min, max, pos_pct]
+
+── MONTHLY PIPELINE (runs 5th of each month) ────────────────────────────────
+
+NSE (nselib) → update_nifty_caplist → data/nifty_caplist.json
+                ↓
+Morningstar REST (api-global.morningstar.com) ─┐
+  [requires Scheme.morningstar_id]              │→ ingest_holdings
+yahooquery (fallback for ETFs / new funds)    ─┘   → Holding (DB)
+                                                    → SectorAllocation (DB)
+                                                    → MarketCapAllocation (DB)
+                ↓
+AMFI AUM API → ingest_aum_snapshots → SchemeAumSnapshot (DB)
+                ↓
+AMFI Inflows → ingest_industry_inflows → IndustryInflow (DB)
+                ↓
+ingest_score_trend → FundScoreTrend (DB)   [weekly score/rank snapshot]
+
+── ONE-TIME SETUP ────────────────────────────────────────────────────────────
+
+mstarpy (Selenium) → build_mstar_ids → Scheme.morningstar_id (DB)
+  [run once on a machine with Chrome; enables Morningstar REST forever]
 ```
 
 ---
@@ -316,11 +434,17 @@ Use this file to:
 
 ---
 
-## Weekly Automation via GitHub Actions
+## GitHub Actions Automation
 
-The file `.github/workflows/daily_pipeline.yml` runs **every 6 hours** (4 times per day), 365 days a year. No day-of-week logic — every run is identical.
+Two automated pipelines run via GitHub Actions (free for public repos).
 
-### How it self-completes
+---
+
+### Weekly Pipeline (`weekly_pipeline.yml` — runs every 6 hours)
+
+The file `.github/workflows/weekly_pipeline.yml` runs **every 6 hours** (4 times per day), 365 days a year. No day-of-week logic — every run is identical.
+
+#### How it self-completes
 
 | Run # | When | What happens |
 |---|---|---|
@@ -332,22 +456,23 @@ The file `.github/workflows/daily_pipeline.yml` runs **every 6 hours** (4 times 
 
 The key mechanism: `--resume --resume-hours=167` skips any fund whose `FundScreenerSnapshot.updated_at` is newer than 167 hours (7 days). Once all funds are refreshed, every subsequent run processes 0 funds and exits immediately.
 
-### What each run does (in order):
-1. **Check data source contracts** (`check_data_sources --skip-nse`) — validates live AMFI, mfapi.in, captnemo schemas before anything writes to DB. Emits GitHub Actions warnings on format changes. `continue-on-error: true`
+#### What each weekly run does (in order):
+1. **Check data source contracts** (`check_data_sources --skip-nse`) — warns on format changes. `continue-on-error: true`
 2. Apply pending database migrations
-3. `build_scheme_master` — refresh AMFI fund universe (8-column format auto-detected)
+3. `build_scheme_master` — refresh AMFI fund universe
 4. `ingest_benchmarks` — incremental benchmark NAV sync
 5. `populate_benchmark_returns` — benchmark analytics
 6. `populate_screener --resume --resume-hours=167 --time-limit-minutes=310`
 7. `sync_content` — sync PDF guides and blog posts
+8. `ingest_score_trend` — weekly fund score & rank snapshot (idempotent, fast)
 
-### Self-healing properties
+#### Self-healing properties
 - **If a run fails** (network error, API timeout): next run 6 hours later picks up automatically
 - **If a run is delayed** (GitHub Actions queue): no problem — next run processes all pending funds
-- **If data is added mid-week**: new funds get processed in the next run (not yet in the 7-day window)
+- **If data is added mid-week**: new funds get processed in the next run
 - **No manual intervention ever needed** week to week
 
-### Triggering Manually
+#### Triggering Manually
 Go to **GitHub → Actions → Weekly Data Pipeline → Run workflow**. Optional inputs:
 
 | Input | Default | Description |
@@ -356,7 +481,36 @@ Go to **GitHub → Actions → Weekly Data Pipeline → Run workflow**. Optional
 | `resume_hours` | `167` | Skip funds updated in last N hours (0 = reprocess all) |
 | `limit` | `0` | Cap funds per run (0 = no cap; useful for quick tests) |
 
-> **Force full re-run of all funds:** Set `resume_hours=0` to ignore the resume window and reprocess every fund. Useful after a DB reset or analytics model change.
+> **Force full re-run of all funds:** Set `resume_hours=0` to ignore the resume window and reprocess every fund.
+
+---
+
+### Monthly Pipeline (`monthly_pipeline.yml` — runs 5th of each month)
+
+Runs at **3:00 AM UTC on the 5th of each month**. Handles portfolio disclosures and AUM snapshots that are published monthly by AMFI/SEBI.
+
+#### What it does (in order):
+1. `update_nifty_caplist` — refresh NSE large/mid/small cap classification list
+2. `ingest_holdings --source auto --resume` — portfolio disclosures (Morningstar REST → yahooquery fallback)
+3. `ingest_aum_snapshots` — point-in-time AUM for all schemes
+4. `ingest_industry_inflows --months 3` — AMFI category-level net inflow data
+5. `ingest_score_trend` — score/rank snapshot (idempotent)
+
+#### Notes:
+- `ingest_holdings` is `continue-on-error: true` — pipeline continues even if portfolio ingestion partially fails
+- Timeout: 180 minutes (extended to handle ~2,300 funds at ~2–4s each)
+- `update_or_create` keyed by `(scheme, as_of_month)` — all steps are safe to re-run
+- Old data for the current month is overwritten; prior months' data is kept (3-month window)
+
+#### Triggering Manually:
+Go to **GitHub → Actions → Monthly Data Pipeline → Run workflow**.
+
+| Input | Default | Description |
+|---|---|---|
+| `inflow_months` | `3` | Months of industry inflow data to fetch |
+| `holdings_source` | `auto` | `auto` (morningstar→yahoo), `morningstar`, `yahoo` |
+
+---
 
 ### Required GitHub Secrets
 | Secret | Description |

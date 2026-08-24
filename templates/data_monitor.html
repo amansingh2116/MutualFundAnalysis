@@ -444,6 +444,119 @@
         </span>
       </div>
 
+      <div class="dm-check-row">
+        <span class="dm-check-icon">{% if with_score_trend > 0 %}✅{% else %}⏳{% endif %}</span>
+        <div class="dm-check-main">
+          <div class="dm-check-title">Score &amp; Rank Trend <span style="color:var(--text-muted);font-weight:400">(Weekly Fund Score + Category Rank snapshots — powers trend charts)</span></div>
+          <div class="dm-check-ts">
+            {{ with_score_trend }}/{{ total_dg }} funds ({{ coverage.score_trend }}% coverage)
+            &nbsp;·&nbsp; {{ score_trend_weeks }} week{{ score_trend_weeks|pluralize }} recorded
+            {% if latest_score_trend_week %}&nbsp;·&nbsp; Latest: {{ latest_score_trend_week|date:"d M Y" }}{% endif %}
+          </div>
+        </div>
+        <span class="dm-check-badge {% if coverage.score_trend >= 80 %}ok{% elif coverage.score_trend > 0 %}warn{% else %}none{% endif %}">
+          {{ coverage.score_trend }}%
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Monthly Portfolio Data ────────────────────────────────────────────── -->
+  <div class="dm-section">
+    <div class="dm-section-head">
+      <h2>📂 Monthly Portfolio Data</h2>
+      <span class="dm-badge">Updated 5th of each month via GitHub Actions</span>
+    </div>
+
+    <div class="dm-grid-4">
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,hsl(270 70% 55%),hsl(220 70% 55%))"></div>
+        <div class="dm-card-label">Funds with Holdings</div>
+        <div class="dm-card-value">{{ with_holdings|default:"0" }}</div>
+        <div class="dm-card-sub">{{ coverage.holdings }}% coverage &nbsp;·&nbsp; {{ total_holding_rows|default:"0" }} rows</div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,hsl(160 60% 45%),hsl(200 70% 55%))"></div>
+        <div class="dm-card-label">Sector Allocation</div>
+        <div class="dm-card-value">{{ with_sectors|default:"0" }}</div>
+        <div class="dm-card-sub">{{ coverage.sectors }}% coverage</div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,hsl(35 80% 55%),hsl(10 70% 55%))"></div>
+        <div class="dm-card-label">Market Cap Breakdown</div>
+        <div class="dm-card-value">{{ with_cap|default:"0" }}</div>
+        <div class="dm-card-sub">{{ coverage.cap }}% coverage</div>
+      </div>
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,hsl(200 60% 45%),hsl(240 60% 55%))"></div>
+        <div class="dm-card-label">AUM Snapshots</div>
+        <div class="dm-card-value">{{ with_aum_snapshot|default:"0" }}</div>
+        <div class="dm-card-sub">{{ coverage.aum_snapshot }}% coverage</div>
+      </div>
+    </div>
+
+    <div class="dm-grid-2">
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,hsl(270 70% 55%),hsl(160 60% 45%))"></div>
+        <div class="dm-card-label">Portfolio Months Available</div>
+        {% if holding_months %}
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+            {% for month in holding_months %}
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:8px;height:8px;border-radius:50%;background:{% if forloop.first %}hsl(270 70% 60%){% else %}hsl(230 40% 45%){% endif %};flex-shrink:0"></span>
+              <span style="font-size:13px;font-weight:{% if forloop.first %}700{% else %}400{% endif %};color:{% if forloop.first %}var(--text-primary){% else %}var(--text-muted){% endif %}">
+                {{ month|date:"F Y" }}{% if forloop.first %} <span style="color:hsl(270 70% 60%);font-size:11px">LATEST</span>{% endif %}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="color:var(--text-muted);font-size:13px;margin-top:8px">
+            No portfolio data yet. Run: <code style="font-size:11px">python manage.py ingest_holdings</code>
+          </div>
+        {% endif %}
+        {% if aum_snapshot_months %}
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:6px">AUM Snapshot Months</div>
+          {% for month in aum_snapshot_months %}
+          <div style="font-size:12px;color:{% if forloop.first %}var(--text-primary){% else %}var(--text-muted){% endif %}">
+            {{ month|date:"F Y" }}{% if forloop.first %} (latest){% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="dm-card">
+        <div class="dm-card-accent" style="background:linear-gradient(90deg,hsl(200 70% 45%),hsl(270 60% 55%))"></div>
+        <div class="dm-card-label">Holdings Data Sources</div>
+        {% if holding_sources %}
+          <div class="dm-bar-row" style="margin-top:8px">
+            {% for source, count in holding_sources.items %}
+            <div class="dm-bar-item">
+              <div class="dm-bar-head">
+                <span class="dm-bar-label">{{ source|title }}</span>
+                <span class="dm-bar-val">{{ count }} rows</span>
+              </div>
+              <div class="dm-bar-track">
+                <div class="dm-bar-fill"
+                     style="width:{% widthratio count total_holding_rows 100 %}%;background:{% if source == 'morningstar' %}hsl(270 70% 55%){% elif source == 'finapi' %}hsl(200 70% 55%){% elif source == 'yahoo' %}hsl(35 70% 55%){% else %}hsl(230 40% 45%){% endif %}"></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="color:var(--text-muted);font-size:13px;margin-top:8px">No holdings data yet.</div>
+        {% endif %}
+        {% if latest_inflow_month %}
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:6px">AMFI Industry Inflows</div>
+          <div style="font-size:13px;color:var(--text-primary);font-weight:600">Latest: {{ latest_inflow_month|date:"F Y" }}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ inflow_months_available|length }} month{{ inflow_months_available|length|pluralize }} available</div>
+        </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 

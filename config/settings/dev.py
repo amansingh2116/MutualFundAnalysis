@@ -26,6 +26,15 @@ STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 # Show emails in console during dev
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# Use DummyCache in dev so stale in-memory snapshots never mask fresh DB data.
+# Holdings ingestion writes to the DB; LocMemCache inside the dev server process
+# would otherwise serve stale 10-holding Yahoo snapshots even after ingest_holdings runs.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
+
 # Django Debug Toolbar (install separately if needed)
 # INSTALLED_APPS += ['debug_toolbar']
 # MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE
