@@ -46,9 +46,9 @@ on:
   workflow_dispatch:
     inputs:
       inflow_months:
-        description: 'Months of industry inflow data to fetch (default 3)'
+        description: 'Months of industry inflow data to fetch (default 6)'
         required: false
-        default: '3'
+        default: '6'
       holdings_source:
         description: 'Holdings data source: auto (morningstar→yahoo), morningstar, yahoo'
         required: false
@@ -116,7 +116,7 @@ jobs:
       - name: Ingest AMFI industry inflows
         run: |
           INFLOW_MONTHS="${{ github.event.inputs.inflow_months }}"
-          INFLOW_MONTHS="${INFLOW_MONTHS:-3}"
+          INFLOW_MONTHS="${INFLOW_MONTHS:-6}"
           echo "=== AMFI Industry Inflows: last ${INFLOW_MONTHS} months ==="
           python manage.py ingest_industry_inflows --months="${INFLOW_MONTHS}"
         continue-on-error: true
