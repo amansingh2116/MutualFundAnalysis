@@ -564,6 +564,20 @@ class Command(BaseCommand):
             except Exception as exc:
                 logger.debug('[%s] morningstar sectors error: %s', amfi, exc)
 
+            # If sector endpoint returned empty, synthesize sectors from holdings_list
+            if not sector_list and holdings_list:
+                sec_totals = {}
+                for h in holdings_list:
+                    sec = (h.get('sector') or '').strip()
+                    w = _to_decimal(h.get('weight_pct'))
+                    if sec and w and w > 0:
+                        sec_totals[sec] = sec_totals.get(sec, Decimal('0')) + w
+                if sec_totals:
+                    sector_list = [
+                        {'sector': k, 'weight_pct': v}
+                        for k, v in sorted(sec_totals.items(), key=lambda x: x[1], reverse=True)
+                    ]
+
             # ── 3. Asset Allocation (best-effort) ─────────────────────────────
             alloc: dict = {'equity_pct': None, 'debt_pct': None, 'cash_pct': None}
             try:
@@ -880,6 +894,19 @@ class Command(BaseCommand):
             )
 
         # ── Sector Allocations ────────────────────────────────────────────────────
+        if not sector_list and holdings_list:
+            sec_totals = {}
+            for h in holdings_list:
+                sec = (h.get('sector') or '').strip()
+                w = _to_decimal(h.get('weight_pct'))
+                if sec and w and w > 0:
+                    sec_totals[sec] = sec_totals.get(sec, Decimal('0')) + w
+            if sec_totals:
+                sector_list = [
+                    {'sector': k, 'weight_pct': v}
+                    for k, v in sorted(sec_totals.items(), key=lambda x: x[1], reverse=True)
+                ]
+
         if sector_list:
             SectorAllocation.objects.filter(
                 scheme=scheme, as_of_month=as_of_month

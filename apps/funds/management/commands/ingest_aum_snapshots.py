@@ -16,13 +16,17 @@ from datetime import date
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from decimal import Decimal
+from django.db.models import Sum
+
 from apps.funds.models import Scheme, SchemeAumSnapshot
+from apps.holdings.models import Holding
 
 logger = logging.getLogger('mfanalysis')
 
 
 class Command(BaseCommand):
-    help = 'Snapshot current AUM from SchemeMeta into SchemeAumSnapshot (monthly).'
+    help = 'Snapshot current AUM into SchemeAumSnapshot (monthly).'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -53,7 +57,7 @@ class Command(BaseCommand):
             self.style.NOTICE(f'=== AUM Snapshot: {as_of_month} ===')
         )
 
-        qs = Scheme.objects.filter(is_active=True).select_related('meta')
+        qs = Scheme.objects.filter(is_active=True).select_related('meta', 'screener_snapshot')
         if amfi:
             qs = qs.filter(amfi_code=amfi)
 
@@ -64,13 +68,27 @@ class Command(BaseCommand):
 
         for scheme in qs.iterator(chunk_size=500):
             total += 1
-            try:
-                meta = scheme.meta
-            except Exception:
-                no_aum += 1
-                continue
+            meta = getattr(scheme, 'meta', None)
 
             aum_value = getattr(meta, 'aum', None) or scheme.aum_cr
+            source = 'captnemo'
+
+            # Fallback 1: check FundScreenerSnapshot
+            if aum_value is None:
+                snap = getattr(scheme, 'screener_snapshot', None)
+                if snap and snap.aum_cr:
+                    aum_value = snap.aum_cr
+                    source = 'screener'
+
+            # Fallback 2: check sum of holding market values (INR / 1e7 = Cr)
+            if aum_value is None:
+                mkt_sum = Holding.objects.filter(
+                    scheme=scheme, as_of_month=as_of_month, market_value__isnull=False
+                ).aggregate(total=Sum('market_value'))['total']
+                if mkt_sum and mkt_sum > 0:
+                    aum_value = round(Decimal(str(mkt_sum)) / Decimal('10000000'), 2)
+                    source = 'morningstar_holdings'
+
             if aum_value is None:
                 no_aum += 1
                 continue
@@ -85,7 +103,7 @@ class Command(BaseCommand):
             SchemeAumSnapshot.objects.update_or_create(
                 scheme=scheme,
                 as_of_month=as_of_month,
-                defaults={'aum_cr': aum_value, 'source': 'captnemo'},
+                defaults={'aum_cr': aum_value, 'source': source},
             )
             saved += 1
 

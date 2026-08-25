@@ -167,7 +167,12 @@ def get_runtime_snapshot(scheme: Scheme) -> SimpleNamespace:
     latest_date = nav_series.index[-1].date() if not nav_series.empty else scheme.nav_date
 
     db_meta = scheme_meta_dict(scheme)
-    category = mfapi_meta.get("scheme_category") or db_meta.get("scheme_category") or scheme.scheme_category or infer_category(scheme.scheme_name)
+    stype_cat = ''
+    if scheme.scheme_type:
+        m = re.search(r'\((.*?)\)', scheme.scheme_type)
+        if m:
+            stype_cat = m.group(1).strip()
+    category = mfapi_meta.get("scheme_category") or db_meta.get("scheme_category") or scheme.scheme_category or stype_cat or infer_category(scheme.scheme_name)
     benchmark_name = benchmark_for(category, scheme.scheme_name)
     benchmark_result = fetch_benchmark_result(benchmark_name, nav_series) if benchmark_name else empty_benchmark_result()
     benchmark_series = benchmark_result.series
@@ -383,6 +388,18 @@ def fetch_db_portfolio(scheme: Scheme) -> dict:
                 ns(sector=row.sector, weight_pct=float(row.weight_pct))
                 for row in SectorAllocation.objects.filter(scheme=scheme, as_of_month=latest_sector_month).order_by("-weight_pct")
             ]
+        if not sectors and holdings:
+            sec_totals = {}
+            for h in holdings:
+                s = (getattr(h, "sector", "") or "").strip()
+                w = getattr(h, "weight_pct", 0) or 0
+                if s and w > 0:
+                    sec_totals[s] = sec_totals.get(s, 0.0) + float(w)
+            if sec_totals:
+                sectors = [
+                    ns(sector=k, weight_pct=round(v, 4))
+                    for k, v in sorted(sec_totals.items(), key=lambda x: x[1], reverse=True)
+                ]
 
         mcap = MarketCapAllocation.objects.filter(scheme=scheme).order_by("-as_of_month").first()
         asset_alloc = None

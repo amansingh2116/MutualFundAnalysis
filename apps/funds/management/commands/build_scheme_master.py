@@ -17,6 +17,7 @@ What it does:
     5. Reports count of new vs updated records
 """
 import logging
+import re
 from datetime import datetime
 
 from django.core.management.base import BaseCommand, CommandError
@@ -133,14 +134,16 @@ class Command(BaseCommand):
                 except (ValueError, TypeError):
                     nav_val = None
 
-                etf = is_etf_scheme(scheme_name)
+                stype_raw = raw.get('scheme_type', '')
+                cat_match = re.search(r'\((.*?)\)', stype_raw)
+                extracted_cat = cat_match.group(1).strip() if cat_match else ''
+
                 defaults = {
                     'isin_growth':   raw.get('isin_growth'),
                     'isin_idcw':     raw.get('isin_idcw'),
                     'scheme_name':   scheme_name,
                     'fund_house':    raw.get('amc_name', ''),
-                    'scheme_type':   raw.get('scheme_type', ''),
-                    'scheme_category': '',   # will be filled by ingest_metadata
+                    'scheme_type':   stype_raw,
                     'plan':          plan,
                     'is_direct':     is_direct,
                     'is_etf':        etf,
@@ -149,14 +152,19 @@ class Command(BaseCommand):
                     'nav_date':      nav_date,
                 }
 
-                _, created = Scheme.objects.update_or_create(
+                obj, created = Scheme.objects.get_or_create(
                     amfi_code=raw['amfi_code'],
-                    defaults=defaults,
+                    defaults={**defaults, 'scheme_category': extracted_cat},
                 )
-                if created:
-                    created_count += 1
-                else:
+                if not created:
+                    if not obj.scheme_category and extracted_cat:
+                        defaults['scheme_category'] = extracted_cat
+                    for k, v in defaults.items():
+                        setattr(obj, k, v)
+                    obj.save()
                     updated_count += 1
+                else:
+                    created_count += 1
 
             except Exception as e:
                 error_count += 1

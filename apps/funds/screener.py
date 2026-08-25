@@ -550,10 +550,18 @@ def _latest_rows_by_key(rows, key: str) -> dict[str, object]:
     return result
 
 
+def _extract_category_from_type(scheme_type: str | None) -> str:
+    if not scheme_type:
+        return ""
+    m = re.search(r"\((.*?)\)", scheme_type)
+    return m.group(1).strip() if m else ""
+
+
 def _category_text(scheme, meta) -> str:
     return (
         getattr(meta, "ms_category", "")
         or scheme.scheme_category
+        or _extract_category_from_type(scheme.scheme_type)
         or infer_category(scheme.scheme_name)
         or ""
     )
