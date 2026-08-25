@@ -69,6 +69,21 @@ _CHECKPOINT_PATH = os.path.join(os.getcwd(), '.cache', 'ingest_holdings_checkpoi
 _FINAPI_MAX_RETRIES = 3
 _FINAPI_BACKOFF_BASE = 5.0   # seconds — first retry waits 5s, next 10s, then 20s
 
+_SECID_MAP_PATH = os.path.join(os.getcwd(), 'data', 'morningstar_secids.json')
+
+
+def _load_secid_map() -> dict[str, str]:
+    """Load precomputed ISIN -> Morningstar SecId mapping (data/morningstar_secids.json)."""
+    if os.path.exists(_SECID_MAP_PATH):
+        try:
+            with open(_SECID_MAP_PATH, 'r', encoding='utf-8') as fh:
+                data = json.load(fh)
+                if isinstance(data, dict):
+                    return data
+        except Exception as exc:
+            logger.warning('Failed to load morningstar_secids.json: %s', exc)
+    return {}
+
 
 def _to_decimal(value, default=None) -> Decimal | None:
     if value is None:
@@ -180,6 +195,11 @@ class Command(BaseCommand):
         if limit:
             qs = qs[:limit]
 
+        # ── Load SecId mapping ───────────────────────────────────────────────────
+        secid_map = _load_secid_map()
+        if secid_map:
+            self.stdout.write(f'Loaded {len(secid_map)} SecId mappings from morningstar_secids.json.')
+
         total   = qs.count()
         success = 0
         failed  = 0
@@ -215,18 +235,26 @@ class Command(BaseCommand):
 
             # 1) Morningstar REST API (plain HTTP, same as fund detail page)
             #    Accepts both F0xxxx (fund) and 0Pxxxx (ETF) SecIds.
-            #    If morningstar_id is missing, auto-resolves via ISIN lookup.
+            #    If morningstar_id is missing, checks static mapping or auto-resolves via ISIN lookup.
             if use_morningstar:
                 # Auto-populate morningstar_id if missing
                 if not scheme.morningstar_id and scheme.isin_growth:
-                    try:
-                        sec_id = self._resolve_morningstar_id(scheme, delay)
-                        if sec_id:
-                            scheme.morningstar_id = sec_id
+                    isin = scheme.isin_growth.strip().upper()
+                    if isin in secid_map:
+                        scheme.morningstar_id = secid_map[isin]
+                        try:
                             scheme.save(update_fields=['morningstar_id'])
-                            logger.info('[%s] Resolved morningstar_id=%s via ISIN', amfi, sec_id)
-                    except Exception as exc:
-                        logger.debug('[%s] morningstar_id auto-resolve failed: %s', amfi, exc)
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            sec_id = self._resolve_morningstar_id(scheme, delay)
+                            if sec_id:
+                                scheme.morningstar_id = sec_id
+                                scheme.save(update_fields=['morningstar_id'])
+                                logger.info('[%s] Resolved morningstar_id=%s via ISIN', amfi, sec_id)
+                        except Exception as exc:
+                            logger.debug('[%s] morningstar_id auto-resolve failed: %s', amfi, exc)
 
                 if scheme.morningstar_id:
                     try:

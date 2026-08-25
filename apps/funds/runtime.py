@@ -809,22 +809,47 @@ def finapi_holding_type(name: str, sector: str) -> str:
 _MSTAR_RESOLVE_NEG_TTL = 60 * 60 * 24  # 24h negative-result cache — don't retry unindexed ISINs too often
 
 
-def _resolve_morningstar_id_live(scheme: Scheme) -> str:
-    """Attempt to resolve morningstar_id on-the-fly for the live fund detail page.
+def _load_static_secid_map() -> dict[str, str]:
+    """Load precomputed ISIN -> Morningstar SecId mapping (data/morningstar_secids.json)."""
+    path = os.path.join(os.getcwd(), "data", "morningstar_secids.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+    return {}
 
-    Uses the same pure-HTTP strategies as ingest_holdings._resolve_morningstar_id():
-      1. ISIN as path parameter to the Morningstar holdings endpoint — the API
-         sometimes returns a secId in the response body even when the ISIN itself
-         has no holdings data.
-      2. Name-based token search — catches newly-launched funds whose ISINs are
-         not yet indexed by Morningstar's ISIN search.
+
+_STATIC_SECID_MAP: dict[str, str] = _load_static_secid_map()
+
+
+def _resolve_morningstar_id_live(scheme: Scheme) -> str:
+    """Resolve Scheme.morningstar_id via ISIN on-the-fly for the live fund detail page.
+
+    1. Checks precomputed static mapping from data/morningstar_secids.json (instant).
+    2. Falls back to pure-HTTP discovery:
+       - ISIN as path parameter to the Morningstar holdings endpoint.
+       - Name-based token search.
 
     Results are cached (both hits and misses) so each AMFI code is only attempted
-    once per 24 hours.  On success the SecId is persisted to Scheme.morningstar_id.
+    once per 24 hours. On success the SecId is persisted to Scheme.morningstar_id.
     """
-    isin = str(scheme.isin_growth or "").strip()
+    isin = str(scheme.isin_growth or "").strip().upper()
     if not isin:
         return ""
+
+    # Strategy 0: Static precomputed mapping (O(1), zero network overhead)
+    if isin in _STATIC_SECID_MAP:
+        sec_id = _STATIC_SECID_MAP[isin]
+        try:
+            scheme.morningstar_id = sec_id
+            Scheme.objects.filter(pk=scheme.pk).update(morningstar_id=sec_id)
+        except Exception:
+            pass
+        return sec_id
 
     neg_cache_key = f"fund:mstar_resolve:neg:v1:{scheme.amfi_code}"
     if cache.get(neg_cache_key):
