@@ -314,18 +314,18 @@ class Command(BaseCommand):
     # ── Morningstar REST fetch (same API as runtime.py fund detail page) ──────────
 
     def _resolve_morningstar_id(self, scheme: Scheme, delay: float) -> str:
-        """Resolve Scheme.morningstar_id via ISIN → SecId lookup.
+        """Resolve Scheme.morningstar_id via ISIN → SecId lookup (pure HTTP, no browser).
 
-        Tries multiple strategies (all pure HTTP, no browser required):
-         1. mstarpy.search.MorningstarSession.screener_universe() — REST-based
-            ISIN search via global.morningstar.com. Uses a short timeout so it
-            doesn't block the pipeline if the screener requires a browser.
-         2. Morningstar holdings API with ISIN as path parameter — the API
-            accepts ISINs and sometimes returns a `secId` in the response body.
+        Tries two pure-HTTP strategies in order:
+         1. Morningstar holdings API with ISIN as path parameter — the API
+            accepts ISINs and returns a `secId` in the response body when the
+            fund is indexed by Morningstar.
+         2. Morningstar token/search by fund name — used for newly-issued ISINs
+            not yet indexed by the holdings endpoint.
 
         Returns the SecId string (e.g. 'F00000SC5Y' or '0P0001IX52') or ''.
-        Note: Primary coverage gain comes from persisting resolved yahoo tickers
-        to Scheme.yahoo_ticker (in _fetch_yahoo) so CI re-runs avoid re-resolution.
+        Note: Resolved SecIds are persisted to Scheme.morningstar_id so CI
+        re-runs skip re-resolution entirely.
         """
         isin = str(scheme.isin_growth or '').strip()
         if not isin:
@@ -339,45 +339,7 @@ class Command(BaseCommand):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
 
-        # Strategy 1: mstarpy screener_universe — REST in newer versions.
-        # Wrapped in a thread with timeout so a hanging browser launcher won't
-        # block the whole pipeline for a long time.
-        try:
-            import concurrent.futures
-            from mstarpy.search import MorningstarSession
-
-            def _run_screener():
-                return MorningstarSession().screener_universe(
-                    isin, field=['isin', 'name'], pageSize=5,
-                )
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                future = ex.submit(_run_screener)
-                results = future.result(timeout=10)
-
-            if isinstance(results, list):
-                for item in results:
-                    meta   = item.get('meta', {}) if isinstance(item, dict) else {}
-                    sec_id = str(
-                        meta.get('securityID') or meta.get('SecId') or
-                        meta.get('secId') or meta.get('performanceID') or ''
-                    ).strip()
-                    fields     = item.get('fields', {}) if isinstance(item, dict) else {}
-                    isin_field = fields.get('isin', {})
-                    if isinstance(isin_field, dict):
-                        item_isin = str(isin_field.get('value', '')).strip().upper()
-                    else:
-                        item_isin = str(isin_field or '').strip().upper()
-                    if sec_id and (item_isin == isin.upper() or not item_isin):
-                        logger.debug('[%s] mstarpy resolved SecId=%s (ISIN=%s)',
-                                     amfi, sec_id, isin)
-                        return sec_id
-        except Exception as exc:
-            logger.debug('[%s] mstarpy screener_universe failed (will try next): %s', amfi, exc)
-
-        time.sleep(delay * 0.3)
-
-        # Strategy 2: Morningstar holdings API with ISIN as path param.
+        # Strategy 1: Morningstar holdings API with ISIN as path param.
         # The API accepts ISINs and sometimes returns a `secId` in the response body.
         try:
             h_url = (f'https://api-global.morningstar.com/sal-service/v1/fund'
@@ -400,8 +362,8 @@ class Command(BaseCommand):
 
         time.sleep(delay * 0.3)
 
-        # Strategy 3: Name-based token search — used when token/search returns 400
-        # for newly-issued ISINs not yet indexed by Morningstar's ISIN lookup.
+        # Strategy 2: Name-based token search — used when the ISIN holdings endpoint
+        # returns non-200 (e.g. newly-issued ISINs not yet indexed by Morningstar).
         try:
             name = str(scheme.scheme_name or '').strip()
             # Strip common suffixes for a cleaner search term
