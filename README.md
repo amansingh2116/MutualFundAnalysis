@@ -128,7 +128,7 @@
 | **Database** | SQLite (dev) / CockroachDB -- PostgreSQL-compatible (production, free 10 GB) / PostgreSQL 16 (Docker dev) |
 | **Containerization** | Docker + Docker Compose (multi-stage build; PostgreSQL 16 service for local dev) |
 | **Auth & Email** | Django built-in auth, rate-limited login, email verification, SMTP (Sender.net / Gmail) |
-| **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), yfinance + yahooquery (equity benchmarks & portfolio fallback), FRED API (macro), AMFI NAVAll.txt (8-col format), World Bank API (CPI), Morningstar REST API (portfolio holdings — plain HTTP) |
+| **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), yfinance + yahooquery (equity benchmarks & portfolio fallback), FRED API (macro), AMFI NAVAll.txt (8-col format), World Bank API (CPI), Morningstar REST API (portfolio holdings — plain HTTP, no Selenium), finapi (portfolio fallback) |
 | **Deployment** | Render (web service, free tier), GitHub Actions (weekly pipeline every 6h + monthly portfolio pipeline on 5th, free for public repos) |
 | **Data Distribution** | Kaggle dataset (manual publish via `push_to_kaggle` command or Actions workflow) |
 
@@ -252,7 +252,7 @@ Handles SEBI-mandated monthly portfolio disclosures and point-in-time AUM snapsh
 
 ```
 1. update_nifty_caplist      — refresh Nifty cap classification list (NSE)
-2. ingest_holdings           — portfolio holdings (Morningstar REST [all SecIds] → yahooquery fallback)
+2. ingest_holdings           — portfolio holdings (Morningstar REST [static SecId map, 13,654 ISINs, no Selenium] → finapi → yahooquery fallback)
 3. ingest_aum_snapshots      — point-in-time AUM for all schemes
 4. ingest_industry_inflows   — AMFI category-level net inflows (Capital Flows widget)
 5. ingest_score_trend        — weekly fund score & rank snapshot
