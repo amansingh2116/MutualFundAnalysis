@@ -3,6 +3,7 @@
 {% block meta_description %}Deep-dive analysis of {{ fund_house }}: AUM, fund performance, portfolio intelligence, fund managers and more.{% endblock %}
 
 {% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 /* ── Tabs ── */
 .amc-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:24px; }
@@ -482,10 +483,12 @@ function loadPortfolioInsights() {
     .then(r => r.json())
     .then(data => {
       document.getElementById('pi-loading').style.display = 'none';
-      if (!data.has_data) {
+      if (!data || !data.has_data) {
+        document.getElementById('pi-content').style.display = 'none';
         document.getElementById('pi-no-data').style.display = 'block';
         return;
       }
+      document.getElementById('pi-no-data').style.display = 'none';
       document.getElementById('pi-content').style.display = 'block';
 
       // As-of date
@@ -493,117 +496,145 @@ function loadPortfolioInsights() {
       document.getElementById('pi-as-of-month').textContent = mo ? 'as of ' + mo : '';
 
       // AUM Trend (Chart.js line)
-      if (data.aum_trend && data.aum_trend.length > 0) {
-        const ctx = document.getElementById('pi-aum-chart').getContext('2d');
-        if (piAumChart) piAumChart.destroy();
-        piAumChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: data.aum_trend.map(r => r.month),
-            datasets: [{
-              label: 'AUM (₹ Cr)', data: data.aum_trend.map(r => r.aum_cr),
-              borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)',
-              fill: true, tension: 0.35, pointRadius: 4,
-            }]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              x: { ticks: { font: { size: 10 } } },
-              y: { ticks: { callback: v => '₹' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) + ' Cr', font: { size: 10 } } }
+      try {
+        if (typeof Chart !== 'undefined' && data.aum_trend && data.aum_trend.length > 0) {
+          const ctx = document.getElementById('pi-aum-chart').getContext('2d');
+          if (piAumChart) piAumChart.destroy();
+          piAumChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.aum_trend.map(r => r.month),
+              datasets: [{
+                label: 'AUM (₹ Cr)', data: data.aum_trend.map(r => r.aum_cr),
+                borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)',
+                fill: true, tension: 0.35, pointRadius: 4,
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { font: { size: 10 } } },
+                y: { ticks: { callback: v => '₹' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) + ' Cr', font: { size: 10 } } }
+              }
             }
-          }
-        });
-      } else {
+          });
+          document.getElementById('pi-aum-chart').style.display = 'block';
+          document.getElementById('pi-aum-empty').style.display = 'none';
+        } else {
+          document.getElementById('pi-aum-chart').style.display = 'none';
+          document.getElementById('pi-aum-empty').style.display = 'block';
+        }
+      } catch (cErr) {
+        console.warn('Chart render error:', cErr);
         document.getElementById('pi-aum-chart').style.display = 'none';
         document.getElementById('pi-aum-empty').style.display = 'block';
       }
 
       // Cap Blend bars
-      const capEl = document.getElementById('pi-cap-blend-bars');
-      const cb = data.cap_blend;
-      if (cb && (cb.large_pct || cb.mid_pct || cb.small_pct)) {
-        const total = (cb.large_pct||0) + (cb.mid_pct||0) + (cb.small_pct||0);
-        const mkBar = (label, val, color) => {
-          const pct = total > 0 ? ((val||0)/total*100).toFixed(1) : 0;
-          return `<div style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-              <span style="font-weight:600;color:var(--text-primary)">${label}</span>
-              <span style="color:${color};font-weight:700">${(val||0).toFixed(1)}% <span style="color:var(--text-muted);font-weight:400">of equity</span></span>
-            </div>
-            <div style="background:var(--surface-3);border-radius:6px;height:10px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${color};border-radius:6px;transition:width 0.6s"></div>
-            </div>
-          </div>`;
-        };
-        capEl.innerHTML = mkBar('Large Cap (Nifty 50 + Next 50)', cb.large_pct, '#6366f1') +
-                          mkBar('Mid Cap (Nifty Midcap 150)', cb.mid_pct, '#f59e0b') +
-                          mkBar('Small Cap (Residual)', cb.small_pct, '#ec4899') +
-                          `<p style="font-size:10px;color:var(--text-muted);margin-top:8px">ⓘ Based on ${cb.count||'?'} schemes. SEBI classification via cap-list matching.</p>`;
-      } else {
-        document.getElementById('pi-cap-empty').style.display = 'block';
+      try {
+        const capEl = document.getElementById('pi-cap-blend-bars');
+        const cb = data.cap_blend;
+        if (cb && (cb.large_pct || cb.mid_pct || cb.small_pct)) {
+          const total = (cb.large_pct||0) + (cb.mid_pct||0) + (cb.small_pct||0);
+          const mkBar = (label, val, color) => {
+            const pct = total > 0 ? ((val||0)/total*100).toFixed(1) : 0;
+            return `<div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                <span style="font-weight:600;color:var(--text-primary)">${label}</span>
+                <span style="color:${color};font-weight:700">${(val||0).toFixed(1)}% <span style="color:var(--text-muted);font-weight:400">of equity</span></span>
+              </div>
+              <div style="background:var(--surface-3);border-radius:6px;height:10px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${color};border-radius:6px;transition:width 0.6s"></div>
+              </div>
+            </div>`;
+          };
+          capEl.innerHTML = mkBar('Large Cap (Nifty 50 + Next 50)', cb.large_pct, '#6366f1') +
+                            mkBar('Mid Cap (Nifty Midcap 150)', cb.mid_pct, '#f59e0b') +
+                            mkBar('Small Cap (Residual)', cb.small_pct, '#ec4899') +
+                            `<p style="font-size:10px;color:var(--text-muted);margin-top:8px">ⓘ Based on ${cb.count||'?'} schemes. SEBI classification via cap-list matching.</p>`;
+          capEl.style.display = 'block';
+          document.getElementById('pi-cap-empty').style.display = 'none';
+        } else {
+          document.getElementById('pi-cap-empty').style.display = 'block';
+        }
+      } catch (cbErr) {
+        console.warn('Cap blend render error:', cbErr);
       }
 
       // Top Holdings bars
-      const hEl = document.getElementById('pi-holdings-list');
-      if (data.top_holdings && data.top_holdings.length) {
-        const maxW = data.top_holdings[0].weight_pct;
-        hEl.innerHTML = data.top_holdings.map((h, i) => {
-          const pct = maxW > 0 ? (h.weight_pct / maxW * 100).toFixed(0) : 0;
-          return `<div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:11px;color:var(--text-muted);width:18px;text-align:right">${i+1}</span>
-            <div style="flex:1">
-              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                <span style="font-weight:600;color:var(--text-primary)">${h.name}</span>
-                <span style="color:var(--accent);font-weight:700">${h.weight_pct.toFixed(2)}%</span>
+      try {
+        const hEl = document.getElementById('pi-holdings-list');
+        if (data.top_holdings && data.top_holdings.length) {
+          const maxW = data.top_holdings[0].weight_pct;
+          hEl.innerHTML = data.top_holdings.map((h, i) => {
+            const pct = maxW > 0 ? (h.weight_pct / maxW * 100).toFixed(0) : 0;
+            return `<div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:11px;color:var(--text-muted);width:18px;text-align:right">${i+1}</span>
+              <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                  <span style="font-weight:600;color:var(--text-primary)">${h.name}</span>
+                  <span style="color:#6366f1;font-weight:700">${h.weight_pct.toFixed(2)}%</span>
+                </div>
+                <div style="background:var(--surface-3);border-radius:4px;height:5px">
+                  <div style="height:100%;width:${pct}%;background:#6366f1;border-radius:4px"></div>
+                </div>
               </div>
-              <div style="background:var(--surface-3);border-radius:4px;height:5px">
-                <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px"></div>
-              </div>
-            </div>
-          </div>`;
-        }).join('');
-      } else {
-        hEl.innerHTML = '<p style="color:var(--text-muted);font-size:12px">No holdings data available</p>';
+            </div>`;
+          }).join('');
+        } else {
+          hEl.innerHTML = '<p style="color:var(--text-muted);font-size:12px">No holdings data available</p>';
+        }
+      } catch (hErr) {
+        console.warn('Holdings render error:', hErr);
       }
 
       // Sector bars
-      const sEl = document.getElementById('pi-sector-bars');
-      if (data.sectors && data.sectors.length) {
-        const maxS = data.sectors[0].weight_pct;
-        const COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#a855f7'];
-        sEl.innerHTML = data.sectors.slice(0, 12).map((s, i) => {
-          const pct = maxS > 0 ? (s.weight_pct / maxS * 100).toFixed(0) : 0;
-          return `<div style="display:flex;align-items:center;gap:10px">
-            <div style="flex:1">
-              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                <span style="font-weight:500">${s.sector}</span>
-                <span style="color:${COLORS[i%COLORS.length]};font-weight:700">${s.weight_pct.toFixed(1)}%</span>
+      try {
+        const sEl = document.getElementById('pi-sector-bars');
+        if (data.sectors && data.sectors.length) {
+          const maxS = data.sectors[0].weight_pct;
+          const COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#a855f7'];
+          sEl.innerHTML = data.sectors.slice(0, 12).map((s, i) => {
+            const pct = maxS > 0 ? (s.weight_pct / maxS * 100).toFixed(0) : 0;
+            return `<div style="display:flex;align-items:center;gap:10px">
+              <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                  <span style="font-weight:500">${s.sector}</span>
+                  <span style="color:${COLORS[i%COLORS.length]};font-weight:700">${s.weight_pct.toFixed(1)}%</span>
+                </div>
+                <div style="background:var(--surface-3);border-radius:4px;height:5px">
+                  <div style="height:100%;width:${pct}%;background:${COLORS[i%COLORS.length]};border-radius:4px"></div>
+                </div>
               </div>
-              <div style="background:var(--surface-3);border-radius:4px;height:5px">
-                <div style="height:100%;width:${pct}%;background:${COLORS[i%COLORS.length]};border-radius:4px"></div>
-              </div>
-            </div>
-          </div>`;
-        }).join('');
-      } else {
-        sEl.innerHTML = '<p style="color:var(--text-muted);font-size:12px">No sector data available</p>';
+            </div>`;
+          }).join('');
+        } else {
+          sEl.innerHTML = '<p style="color:var(--text-muted);font-size:12px">No sector data available</p>';
+        }
+      } catch (sErr) {
+        console.warn('Sector render error:', sErr);
       }
 
       // Exits
-      const exList = document.getElementById('pi-exits-list');
-      const exEmpty = document.getElementById('pi-exits-empty');
-      if (data.exits && data.exits.length) {
-        exList.innerHTML = data.exits.map(name =>
-          `<span style="padding:4px 12px;border-radius:20px;background:rgba(239,68,68,0.12);color:var(--danger);font-size:12px;font-weight:600;border:1px solid rgba(239,68,68,0.25)">✕ ${name}</span>`
-        ).join('');
-      } else {
-        exEmpty.style.display = 'block';
+      try {
+        const exList = document.getElementById('pi-exits-list');
+        const exEmpty = document.getElementById('pi-exits-empty');
+        if (data.exits && data.exits.length) {
+          exList.innerHTML = data.exits.map(name =>
+            `<span style="padding:4px 12px;border-radius:20px;background:rgba(239,68,68,0.12);color:var(--danger);font-size:12px;font-weight:600;border:1px solid rgba(239,68,68,0.25)">✕ ${name}</span>`
+          ).join('');
+          exEmpty.style.display = 'none';
+        } else {
+          exEmpty.style.display = 'block';
+        }
+      } catch (exErr) {
+        console.warn('Exits render error:', exErr);
       }
     })
     .catch(e => {
       document.getElementById('pi-loading').style.display = 'none';
+      document.getElementById('pi-content').style.display = 'none';
       document.getElementById('pi-no-data').style.display = 'block';
       console.error('Portfolio Insights fetch error:', e);
     });
