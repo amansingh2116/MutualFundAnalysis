@@ -196,6 +196,10 @@ See `documentation/LEARN_CONTENT.md` for the full metadata format.
 - `SectorAllocation` — sector weights per fund per month  
 - `MarketCapAllocation` — Large/Mid/Small/Other % per fund per month
 
+**Downstream Analytics Integration:**
+- **AMC Analysis (`/research/amcs/<slug>/`)**: Ingested holdings feed the Portfolio Insights tab (AUM-weighted Top 20 holdings, cap blend, macro sector exposures, full portfolio exits) and the Intelligence tab (cross-fund high-conviction positions held in 3+ schemes, unique stock universe size).
+- **Category Deep Dive (`/research/categories/<slug>/`)**: Sector allocations populate the category Portfolio Analysis tab. For Debt/Liquid/Arbitrage categories where equity sectors do not apply, the UI automatically falls back to Asset Allocation (`Equity %`, `Debt %`, `Cash %`), Market Cap mix (`Large %`, `Mid %`, `Small %`), Top 10 concentration, and Portfolio Turnover.
+
 **Data retention:** Last 3 months retained; older snapshots auto-pruned.
 
 ```bash

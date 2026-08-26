@@ -79,7 +79,22 @@
 
 ---
 
-### 6. 🧮 Financial Calculators & Research Suite (18 Tools)
+### 6. 🏛️ AMC & Category Research Hub
+- **AMC Analysis Suite (`/research/amcs/` & `/research/amcs/<slug>/`)**:
+  - **Comprehensive Fund House Profiling**: Complete metrics across all ~50 Indian asset management companies (AUM, fund counts, active/ETF split, 3Y returns, Jensen's Alpha, expense ratios, composite model score distribution).
+  - **Portfolio Insights Tab**: Historical monthly AMC AUM trend chart, AUM-weighted SEBI market-cap blend (Large/Mid/Small), Top 20 high-conviction holdings, sector concentration, and recent full portfolio exits.
+  - **Portfolio Intelligence & High Conviction Bets**: Cross-fund consensus stock holdings (held across 3+ schemes), revealed macro sector biases, and total unique stock universe count.
+  - **Fund Manager Registry**: Track records and complete fund management rosters for each fund manager at the AMC.
+  - **Side-by-Side AMC Comparison**: Compare 2–4 AMCs across AUM, returns, risk ratios, manager breadth, and fees.
+- **Category Deep Dive & Mandate Tracker (`/research/categories/<slug>/`)**:
+  - **Official SEBI Mandate Badges**: Precise investment rules and asset allocation constraints for all 80+ SEBI categories.
+  - **21-KPI Summary Strip**: Averages, medians, Sharpe, Sortino, rolling 3Y positive windows, alpha, beta, and max drawdowns.
+  - **Interactive 6-Tab Workspace**: Snapshot, Returns (Trailing, Calendar Year, and Rolling Return sub-tabs), Risk Analytics, Portfolio Analysis (Equity sector breakdowns with asset allocation fallback for Debt/Liquid categories), Fees & Details, and Intelligence.
+  - **Side-by-Side Category Comparison (`/research/categories/compare/`)**: 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with winner badges (★ Best).
+
+---
+
+### 7. 🧮 Financial Calculators & Research Suite (18 Tools)
 - **Growth & Wealth**: SIP, Lumpsum, SWP, Step-Up SIP, STP, XIRR, and Rolling Returns.
 - **Research & Peer Comparison**: Research Report Generator, Peer Comparison Calculator, Fund Comparison, Overlap Checker, AMC Comparison, and Category Comparison.
 - **Life Event Planning**: Goal Planner, Retirement Planner (25x FIRE rule & 4% SWR), Child Education Planner, and SWP Pension Longevity.
@@ -88,7 +103,7 @@
 
 ---
 
-### 7. 🛡️ Data Status Dashboard
+### 8. 🛡️ Data Status Dashboard
 - **Real-time Pipeline Transparency**: See coverage %, last pipeline run time, and weekly/monthly batch schedule.
 - **7-Day Activity Chart**: Bar chart showing how many funds were refreshed each day this week.
 - **Monthly Portfolio Data**: Holdings coverage, sector allocation coverage, market-cap breakdown coverage, AUM snapshot months, and data source breakdown (Morningstar / finapi / yahoo).

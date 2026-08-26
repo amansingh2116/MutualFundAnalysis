@@ -447,8 +447,22 @@ function renderTable(data) {
               Object.keys(f.sectors).forEach(s => sectorAgg[s] = (sectorAgg[s]||0) + f.sectors[s]);
           }
       });
-      topSectors = Object.keys(sectorAgg).sort((a,b)=>sectorAgg[b]-sectorAgg[a]).slice(0, 8);
-      headers = ['Fund Name', ...topSectors];
+      topSectors = Object.keys(sectorAgg).filter(s => sectorAgg[s] > 0).sort((a,b)=>sectorAgg[b]-sectorAgg[a]).slice(0, 8);
+      if (topSectors.length > 0) {
+          headers = ['Fund Name', ...topSectors];
+      } else {
+          headers = [
+            'Fund Name',
+            'Equity% <button type="button" class="info-btn" aria-label="Info" data-t-title="Equity Allocation" data-t-key="equity_pct">ⓘ</button>',
+            'Debt% <button type="button" class="info-btn" aria-label="Info" data-t-title="Debt Allocation" data-t-key="debt_pct">ⓘ</button>',
+            'Cash% <button type="button" class="info-btn" aria-label="Info" data-t-title="Cash Allocation" data-t-key="cash_pct">ⓘ</button>',
+            'Large Cap% <button type="button" class="info-btn" aria-label="Info" data-t-title="Large Cap" data-t-key="large_pct">ⓘ</button>',
+            'Mid Cap% <button type="button" class="info-btn" aria-label="Info" data-t-title="Mid Cap" data-t-key="mid_pct">ⓘ</button>',
+            'Small Cap% <button type="button" class="info-btn" aria-label="Info" data-t-title="Small Cap" data-t-key="small_pct">ⓘ</button>',
+            'Top 10 Conc <button type="button" class="info-btn" aria-label="Info" data-t-title="Top 10 Concentration" data-t-key="top10_conc">ⓘ</button>',
+            'Turnover <button type="button" class="info-btn" aria-label="Info" data-t-title="Turnover" data-t-key="turnover">ⓘ</button>'
+          ];
+      }
   } else if (currentTab === 'returns' && currentReturnsSubTab === 'calendar') {
       const yrSet = new Set();
       data.forEach(f => { if(f.calendar) Object.keys(f.calendar).forEach(y => yrSet.add(y)); });
@@ -468,7 +482,7 @@ function renderTable(data) {
   
   // Compute category averages for portfolio
   const catAverages = {};
-  if (currentTab === 'portfolio') {
+  if (currentTab === 'portfolio' && topSectors.length > 0) {
       topSectors.forEach(s => {
           let sum = 0, count = 0;
           data.forEach(f => { if(f.sectors && f.sectors[s] !== undefined) { sum += f.sectors[s]; count++; } });
@@ -524,11 +538,23 @@ function renderTable(data) {
           <td>${rankCell(f.rank_5y,f.total)}</td>`;
       }
     } else if (currentTab === 'portfolio') {
-        cells = `<td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>` +
-                topSectors.map(s => {
-                    const val = f.sectors && f.sectors[s] ? f.sectors[s] : 0;
-                    return `<td><div style="background:rgba(59,130,246,${Math.min(val/50, 0.5)}); border-radius:4px; padding:2px 4px; display:inline-block">${val.toFixed(2)}%</div></td>`;
-                }).join('');
+        if (topSectors.length > 0) {
+            cells = `<td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>` +
+                    topSectors.map(s => {
+                        const val = f.sectors && f.sectors[s] ? f.sectors[s] : 0;
+                        return `<td><div style="background:rgba(59,130,246,${Math.min(val/50, 0.5)}); border-radius:4px; padding:2px 4px; display:inline-block">${val.toFixed(2)}%</div></td>`;
+                    }).join('');
+        } else {
+            cells = `<td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
+                     <td>${f.equity_pct != null ? f.equity_pct.toFixed(1)+'%' : '—'}</td>
+                     <td>${f.debt_pct != null ? f.debt_pct.toFixed(1)+'%' : '—'}</td>
+                     <td>${f.cash_pct != null ? f.cash_pct.toFixed(1)+'%' : '—'}</td>
+                     <td>${f.large_pct != null ? f.large_pct.toFixed(1)+'%' : '—'}</td>
+                     <td>${f.mid_pct != null ? f.mid_pct.toFixed(1)+'%' : '—'}</td>
+                     <td>${f.small_pct != null ? f.small_pct.toFixed(1)+'%' : '—'}</td>
+                     <td>${f.top10_conc != null ? f.top10_conc.toFixed(1)+'%' : '—'}</td>
+                     <td>${f.turnover != null ? f.turnover.toFixed(0)+'%' : '—'}</td>`;
+        }
     } else if (currentTab === 'risk') {
       cells = `
         <td><a href="/funds/${f.amfi}/" style="color:var(--indigo-400);font-weight:600;text-decoration:none">${f.name}</a></td>
@@ -572,8 +598,25 @@ function renderTable(data) {
       const tr = document.createElement('tr');
       tr.style.fontWeight = '700';
       tr.style.background = 'var(--surface-2)';
-      tr.innerHTML = `<td>Category Average</td>` + 
-                     topSectors.map(s => `<td>${catAverages[s].toFixed(2)}%</td>`).join('');
+      if (topSectors.length > 0) {
+          tr.innerHTML = `<td>Category Average</td>` + 
+                         topSectors.map(s => `<td>${catAverages[s].toFixed(2)}%</td>`).join('');
+      } else {
+          const avg = (k) => {
+              let s = 0, c = 0;
+              data.forEach(f => { if (f[k] != null && !isNaN(f[k])) { s += f[k]; c++; } });
+              return c ? (s/c).toFixed(1)+'%' : '—';
+          };
+          tr.innerHTML = `<td>Category Average</td>
+                          <td>${avg('equity_pct')}</td>
+                          <td>${avg('debt_pct')}</td>
+                          <td>${avg('cash_pct')}</td>
+                          <td>${avg('large_pct')}</td>
+                          <td>${avg('mid_pct')}</td>
+                          <td>${avg('small_pct')}</td>
+                          <td>${avg('top10_conc')}</td>
+                          <td>${avg('turnover')}</td>`;
+      }
       tbody.appendChild(tr);
   }
 }

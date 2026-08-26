@@ -1598,6 +1598,13 @@ def category_detail_funds_api(request, slug):
                     'sectors': alloc_map.get(f.scheme_id, {}),
                     'top10_conc': _flt(f.port_top10_concentration),
                     'top5_conc': _flt(f.port_top5_concentration),
+                    'equity_pct': _flt(f.port_equity_pct),
+                    'debt_pct': _flt(f.port_debt_pct),
+                    'cash_pct': _flt(f.port_cash_pct),
+                    'large_pct': _flt(f.large_pct),
+                    'mid_pct': _flt(f.mid_pct),
+                    'small_pct': _flt(f.small_pct),
+                    'turnover': _flt(f.portfolio_turnover),
                 })
             elif tab == 'intelligence':
                 base.update({
@@ -1934,9 +1941,24 @@ def _compute_amc_metrics(fund_house: str) -> dict:
         .order_by('scheme_sub_category')
     )
 
+    # ── Scheme IDs for this AMC ────────────────────────────────────────────
+    scheme_ids = list(
+        FundScreenerSnapshot.objects.filter(direct_q)
+        .values_list('scheme_id', flat=True)
+    )
+    if not scheme_ids:
+        scheme_ids = list(
+            Scheme.objects.filter(
+                Q(fund_house=fund_house) |
+                Q(fund_house=f"{fund_house} Mutual Fund") |
+                Q(fund_house__istartswith=fund_house),
+                is_active=True
+            ).values_list('id', flat=True)
+        )
+
     # ── Fund managers ──────────────────────────────────────────────────────
     manager_text_list = list(
-        SchemeMeta.objects.filter(scheme__fund_house=fund_house, scheme__is_active=True)
+        SchemeMeta.objects.filter(scheme_id__in=scheme_ids)
         .values_list('fund_manager', flat=True)
     )
     all_managers: set[str] = set()
@@ -1946,12 +1968,15 @@ def _compute_amc_metrics(fund_house: str) -> dict:
                 m = m.strip()
                 if m:
                     all_managers.add(m)
+    for text in FundScreenerSnapshot.objects.filter(direct_q).values_list('fund_manager', flat=True):
+        if text:
+            for m in text.split(';'):
+                m = m.strip()
+                if m:
+                    all_managers.add(m)
     unique_manager_count = len(all_managers)
 
     # ── Portfolio Intelligence from Holding table ──────────────────────────
-    scheme_ids = list(
-        Scheme.objects.filter(fund_house=fund_house, is_active=True).values_list('id', flat=True)
-    )
     has_holdings = False
     high_conviction_stocks = []
     sector_data = []
@@ -1969,13 +1994,18 @@ def _compute_amc_metrics(fund_house: str) -> dict:
         )
         if latest_month:
             has_holdings = True
-            # High-conviction: equity stocks held across 3+ funds
+            # High-conviction: equity stocks held across 3+ funds (excluding cash/treps)
+            NON_EQUITY_PATTERNS = ['treps', 'net current asset', 'reverse repo', 'cash', 'triparty repo', 'clearing corporation']
+            hc_qs = Holding.objects.filter(
+                scheme_id__in=scheme_ids,
+                as_of_month=latest_month,
+                holding_type='equity',
+            )
+            for pat in NON_EQUITY_PATTERNS:
+                hc_qs = hc_qs.exclude(security_name__icontains=pat)
+
             hc = list(
-                Holding.objects.filter(
-                    scheme_id__in=scheme_ids,
-                    as_of_month=latest_month,
-                    holding_type='equity',
-                ).values('security_name', 'isin').annotate(
+                hc_qs.values('security_name', 'isin').annotate(
                     fund_count=Count('scheme_id', distinct=True),
                     total_value=Sum('market_value'),
                     avg_weight=Avg('weight_pct'),
@@ -2017,7 +2047,9 @@ def _compute_amc_metrics(fund_house: str) -> dict:
                     scheme_id__in=scheme_ids,
                     as_of_month=latest_month,
                     holding_type='equity',
-                ).values('security_name').distinct().count()
+                ).exclude(security_name__icontains='treps')
+                .exclude(security_name__icontains='net current asset')
+                .values('security_name').distinct().count()
             )
     except Exception as e:
         pass
@@ -2177,12 +2209,25 @@ class ResearchAMCDetailView(LoginRequiredMixin, TemplateView):
 
         try:
             metrics = _compute_amc_metrics(fund_house)
+            direct_q = Q(fund_house=fund_house) & (Q(is_direct=True) | Q(is_etf=True))
+            scheme_ids = list(
+                FundScreenerSnapshot.objects.filter(direct_q).values_list('scheme_id', flat=True)
+            )
+            if not scheme_ids:
+                scheme_ids = list(
+                    Scheme.objects.filter(
+                        Q(fund_house=fund_house) |
+                        Q(fund_house=f"{fund_house} Mutual Fund") |
+                        Q(fund_house__istartswith=fund_house),
+                        is_active=True
+                    ).values_list('id', flat=True)
+                )
 
             # Build manager-to-funds map
             manager_funds: dict[str, list] = {}
             meta_qs = list(
                 SchemeMeta.objects.filter(
-                    scheme__fund_house=fund_house, scheme__is_active=True
+                    scheme_id__in=scheme_ids
                 ).select_related('scheme').values(
                     'fund_manager', 'scheme__scheme_name', 'scheme__amfi_code',
                     'scheme__scheme_category',
@@ -2200,6 +2245,19 @@ class ResearchAMCDetailView(LoginRequiredMixin, TemplateView):
                         'amfi': row['scheme__amfi_code'],
                         'category': row['scheme__scheme_category'],
                     })
+            if not manager_funds:
+                for f in FundScreenerSnapshot.objects.filter(direct_q):
+                    if not f.fund_manager:
+                        continue
+                    for mgr in f.fund_manager.split(';'):
+                        mgr = mgr.strip()
+                        if not mgr:
+                            continue
+                        manager_funds.setdefault(mgr, []).append({
+                            'name': f.fund_name,
+                            'amfi': f.scheme.amfi_code if f.scheme else '',
+                            'category': f.scheme_sub_category,
+                        })
 
             # Category group breakdown
             cat_groups = {}
@@ -2644,13 +2702,28 @@ def amc_portfolio_api(request, slug: str):
         return JsonResponse({'error': 'AMC not found'}, status=404)
 
     try:
-        scheme_qs = Scheme.objects.filter(
-            Q(is_direct=True, plan='GROWTH') | Q(is_etf=True),
-            fund_house=fund_house, is_active=True,
+        direct_q = Q(fund_house=fund_house) & (Q(is_direct=True) | Q(is_etf=True))
+        scheme_ids = list(
+            FundScreenerSnapshot.objects.filter(direct_q).values_list('scheme_id', flat=True)
         )
-        scheme_ids = list(scheme_qs.values_list('id', flat=True))
-        scheme_aum = {s.id: float(s.aum_cr or 0) for s in scheme_qs.only('id', 'aum_cr')}
-        total_aum  = sum(scheme_aum.values()) or 1
+        if not scheme_ids:
+            scheme_ids = list(
+                Scheme.objects.filter(
+                    Q(is_direct=True, plan='GROWTH') | Q(is_etf=True),
+                    Q(fund_house=fund_house) | Q(fund_house=f"{fund_house} Mutual Fund") | Q(fund_house__istartswith=fund_house),
+                    is_active=True,
+                ).values_list('id', flat=True)
+            )
+
+        scheme_qs = Scheme.objects.filter(id__in=scheme_ids)
+        screener_aum = dict(
+            FundScreenerSnapshot.objects.filter(scheme_id__in=scheme_ids).values_list('scheme_id', 'aum_cr')
+        )
+        scheme_aum = {
+            s.id: float(screener_aum.get(s.id) or s.aum_cr or 0)
+            for s in scheme_qs.only('id', 'aum_cr')
+        }
+        total_aum = sum(scheme_aum.values()) or 1
 
         latest_month = (
             Holding.objects.filter(scheme_id__in=scheme_ids)
@@ -2666,10 +2739,15 @@ def amc_portfolio_api(request, slug: str):
             return JsonResponse(result)
 
         # Top holdings (AUM-weighted)
-        holdings_by_stock = defaultdict(float)
-        for h in Holding.objects.filter(
+        NON_EQUITY_PATTERNS = ['treps', 'net current asset', 'reverse repo', 'cash', 'triparty repo', 'clearing corporation']
+        h_qs = Holding.objects.filter(
             scheme_id__in=scheme_ids, as_of_month=latest_month, holding_type='equity'
-        ).values('scheme_id', 'security_name', 'weight_pct'):
+        )
+        for pat in NON_EQUITY_PATTERNS:
+            h_qs = h_qs.exclude(security_name__icontains=pat)
+
+        holdings_by_stock = defaultdict(float)
+        for h in h_qs.values('scheme_id', 'security_name', 'weight_pct'):
             aum_share = scheme_aum.get(h['scheme_id'], 0) / total_aum
             holdings_by_stock[h['security_name']] += float(h['weight_pct'] or 0) * aum_share
         result['top_holdings'] = sorted(
@@ -2715,8 +2793,11 @@ def amc_portfolio_api(request, slug: str):
             .values_list('as_of_month', flat=True).order_by('-as_of_month').distinct()
         )
         if len(prev_months) >= 2:
-            curr_names = set(Holding.objects.filter(scheme_id__in=scheme_ids, as_of_month=latest_month, holding_type='equity').values_list('security_name', flat=True))
-            prev_names = set(Holding.objects.filter(scheme_id__in=scheme_ids, as_of_month=prev_months[1], holding_type='equity').values_list('security_name', flat=True))
+            curr_names = set(h_qs.values_list('security_name', flat=True))
+            prev_qs = Holding.objects.filter(scheme_id__in=scheme_ids, as_of_month=prev_months[1], holding_type='equity')
+            for pat in NON_EQUITY_PATTERNS:
+                prev_qs = prev_qs.exclude(security_name__icontains=pat)
+            prev_names = set(prev_qs.values_list('security_name', flat=True))
             result['exits'] = sorted(list(prev_names - curr_names))[:15]
 
         return JsonResponse(result)

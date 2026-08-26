@@ -94,16 +94,20 @@ apps/
 
 ---
 
-## 6. Category Analysis & Comparison Suite
-
-1. **Directory (`/research/categories/`)**:
-   - Group tabs: Equity, Debt, Hybrid, Other.
-   - Card grid with total AUM, 1Y/3Y/5Y CAGR averages, average Sharpe, TER, % positive 3Y rolling windows, SEBI 2017 mandate descriptions, fund quality score distribution bar, search, and float bar for 2–4 category comparison.
-2. **Detail Page (`/research/categories/<slug>/`)**:
-   - Official SEBI mandate badge, 21-KPI snapshot strip, 6 interactive tabs (Snapshot, Returns, Risk, Portfolio Analysis, Fees & Details, 🔍 Intelligence).
-   - Cleanly excludes schemes with < 1 year of NAV history from aggregate category stats to prevent skewing averages.
-3. **Comparison (`/research/categories/compare/`)**:
-   - 6-dimension evaluation matrix comparing 2–4 categories side-by-side on 35+ metrics with direction-calibrated winner badges (★ Best), progress bars, and URL state persistence.
+## 6. Category & AMC Analysis Suite
+ 
+ 1. **Category Analysis & Comparison**:
+    - **Directory (`/research/categories/`)**: Group tabs (Equity, Debt, Hybrid, Other), card grid with AUM, CAGR averages, average Sharpe, TER, % positive 3Y rolling windows, SEBI 2017 mandate descriptions, fund quality score distribution bar, search, and float bar for 2–4 category comparison.
+    - **Detail Page (`/research/categories/<slug>/`)**: Official SEBI mandate badge, 21-KPI snapshot strip, 6 interactive tabs (Snapshot, Returns with trailing/calendar/rolling subtabs, Risk, Portfolio Analysis with sector breakdown for equity funds and asset allocation/concentration fallback for debt/liquid funds, Fees & Details, and Intelligence).
+    - **Comparison (`/research/categories/compare/`)**: 6-dimension evaluation matrix comparing 2–4 categories side-by-side on 35+ metrics with direction-calibrated winner badges (★ Best), progress bars, and URL state persistence.
+ 2. **AMC Analysis & Comparison**:
+    - **Directory (`/research/amcs/`)**: Browse all ~50 fund houses with aggregate AUM, fund count, 3Y returns, expense ratios, quality scores, and multi-select 2–4 AMC comparison.
+    - **Detail Page (`/research/amcs/<slug>/`)**:
+      - **KPI Overview**: AUM, fund count (active vs ETF), 3Y return, Jensen's Alpha, TER, model score, Sharpe, and unique manager count.
+      - **Portfolio Insights Tab**: Historical AMC monthly AUM trend line, AUM-weighted SEBI market-cap blend (Large/Mid/Small), top 20 holdings, sector exposure, and recent full exits.
+      - **Intelligence Tab**: Cross-fund high conviction stock holdings (stocks in 3+ schemes), revealed sector tilts, and unique stock universe size.
+      - **Philosophy & Categories**: Turnover, active vs passive ratio, category breadth, and manager-to-fund rosters.
+    - **Comparison (`/research/amcs/compare/`)**: Side-by-side comparison of 2–4 AMCs across all core metrics.
 
 ---
 
