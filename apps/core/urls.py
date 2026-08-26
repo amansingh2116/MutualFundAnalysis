@@ -22,6 +22,14 @@ urlpatterns = [
     path('learn/resources/blog/<slug:slug>/', views.learn_blog_detail_view, name='learn_blog_detail'),
     path('learn/resources/blog/ipo-analysis/images/<path:filename>/', views.learn_blog_image_view, name='learn_blog_image'),
     path('learn/community/', views.learn_community_view, name='learn_community'),
+    path('learn/community/api/posts/', views.community_create_post_api, name='community_create_post_api'),
+    path('learn/community/api/posts/<int:post_id>/like/', views.community_like_api, name='community_like_api'),
+    path('learn/community/api/posts/<int:post_id>/reply/', views.community_reply_api, name='community_reply_api'),
+    path('learn/community/api/users/<int:user_id>/follow/', views.community_follow_api, name='community_follow_api'),
+    path('learn/community/api/users/<int:user_id>/profile/', views.community_user_profile_api, name='community_user_profile_api'),
+    path('learn/community/api/users/<int:user_id>/network/', views.community_user_network_api, name='community_user_network_api'),
+    path('learn/community/api/profile/update/', views.community_update_my_profile_api, name='community_update_my_profile_api'),
+
 
     # ── Legal / Info pages ─────────────────────────────────────────────────────
     path('about/',   views.about_view,   name='about'),

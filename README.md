@@ -111,8 +111,6 @@
 - **Tax & Wealth**: Capital Gains Tax Calculator (FY 2025-26 rules) and Net Worth Tracker.
 - *See [CALCULATORS.md](documentation/CALCULATORS.md).*
 
----
-
 ### 9. 🛡️ Data Status Dashboard
 - **Real-time Pipeline Transparency**: See coverage %, last pipeline run time, and weekly/monthly batch schedule.
 - **7-Day Activity Chart**: Bar chart showing how many funds were refreshed each day this week.
@@ -121,6 +119,21 @@
 - **Benchmark Status Table**: Freshness and row counts for all 51 benchmark indices.
 - **Coverage Metrics**: NAV coverage, screener snapshot coverage, model score coverage, trailing return coverage, holdings/sector/cap coverage.
 - Accessible at `/data-status/` — linked from the Explore section of the sidebar.
+
+---
+
+### 10. 💬 Investor Community Discussion Feed
+- **Interactive Discussion Hub (`/learn/community/`)**: Verified space for Indian mutual fund investors, DIY enthusiasts, RIAs, and quants to share analyses and discuss investing strategies.
+- **Dual Live Feeds**:
+  - `Explore Feed`: All recent community posts and pinned discussion threads.
+  - `Following Feed`: Personalized feed with posts exclusively from fellow investors you follow.
+- **Post Composer & Media Upload**: Post titles, long-form discussion markdown/text, hashtags, and optional chart/visual image attachments.
+- **Likes, Threaded Replies & Social Sharing**: Real-time optimistic likes counter, collapsible discussion replies drawer, and 1-click share links.
+- **Investor Profiles & Follow Network**:
+  - Popover modal displaying investor bios, custom style badges (*SEBI RIA*, *Quant Researcher*, *DIY Investor*, etc.), follower counts, and 1-click follow/unfollow toggle.
+  - Profile customization modal (display name, bio, investor tag, avatar color theme).
+  - Network browser modal for inspecting followers and following lists.
+- **Dynamic Trending Topics & Stats**: Live calculations of total community members, posts, replies, reactions, and top trending hashtags.
 
 ---
 

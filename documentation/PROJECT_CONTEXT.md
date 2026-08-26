@@ -124,8 +124,31 @@ apps/
 
 ---
 
-## 8. Developer Guidelines
+---
+
+## 9. Investor Community & Discussion Feed Architecture
+
+1. **Data Model (`apps/core/models.py`)**:
+   - **`CommunityProfile`**: Extends Django's `User` via 1-to-1 relationship. Contains `display_name`, `bio`, `investor_tag` (*SEBI RIA*, *Quant Researcher*, *DIY Investor*, *Portfolio Investor*), `avatar_color`, and `avatar_initials`. Auto-created on user sign-up via signals.
+   - **`CommunityPost`**: Stores discussion threads with title, content, `ImageField` (uploaded to `media/community/posts/`), `tags` (comma-separated or JSON list of hashtags), `is_pinned` flag, and denormalized `likes_count` and `replies_count` (`sync_counts()` helper).
+   - **`CommunityComment`**: Threaded replies attached to posts with author and timestamps.
+   - **`CommunityLike`**: Unique `(post, user)` like mapping.
+   - **`CommunityFollow`**: Unique `(follower, following)` relationship graph.
+2. **Views & REST APIs (`apps/core/views.py`)**:
+   - `learn_community_view`: Login-required interactive feed with automatic initial discussion seeding, dual tabs (`Explore` and `Following`), dynamic trending hashtags ranking, and who-to-follow suggestions.
+   - `POST /learn/community/api/posts/`: Multipart upload for publishing posts with images and tags.
+   - `POST /learn/community/api/posts/<id>/like/`: Atomic 1-click optimistic like toggle.
+   - `POST /learn/community/api/posts/<id>/reply/`: Real-time discussion reply submission.
+   - `POST /learn/community/api/users/<id>/follow/`: Follow / unfollow toggle.
+   - `GET /learn/community/api/users/<id>/profile/`: Returns JSON investor profile card data and recent posts.
+   - `POST /learn/community/api/profile/update/`: Profile customization endpoint.
+   - `GET /learn/community/api/users/<id>/network/`: Returns followers / followings list.
+
+---
+
+## 10. Developer Guidelines
 
 - **Never mutate private third-party DOM properties**.
 - **Always use explicit UTF-8 encoding** when updating template files containing emojis.
 - **Inspect `python manage.py check`** after any template or view changes.
+

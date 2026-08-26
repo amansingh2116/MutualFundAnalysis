@@ -257,11 +257,17 @@ If the database is temporarily unavailable in local development, the views fall 
 
 ## Community Page
 
-The Community page (`/learn/community/`) is a **login-required** realistic static mockup featuring:
-- Post composer (UI only, coming soon)
-- Explore / Following tab feed with sample posts, replies, and reactions
-- Who to Follow panel and Trending Topics
-- Community stats and moderation notices
+The Community page (`/learn/community/`) is a **login-required** full-stack interactive social and discussion platform for mutual fund investors featuring:
+- **Live Post Composer**: Publish discussion threads with rich text, hashtags, and optional chart/visual image attachments.
+- **Dual Dynamic Feeds**:
+  - `Explore Feed`: Live chronological and pinned discussions across all community members.
+  - `Following Feed`: Tailored feed displaying discussions only from investors you follow.
+- **Interactive Engagements**: Optimistic likes, threaded collapsible replies drawer, and social link sharing.
+- **Investor Profiles & Follow Mechanics**:
+  - Clickable author avatars/names pop up an interactive **Investor Profile Card** with bio, investor style badges (SEBI RIA, Quant Researcher, DIY Investor), stats, and live follow/unfollow toggle.
+  - **My Profile Customization**: Users can edit their display name, investor role/tag, bio, and avatar color theme.
+  - **Network Browser**: View followers and following lists with instant connection toggles.
+- **Dynamic Trending Topics & Stats**: Live calculations of total members, posts, replies, reactions, and top trending hashtags with 1-click feed filtering.
 
 Unauthenticated users are redirected to `/accounts/login/?next=/learn/community/` and returned after login.
 

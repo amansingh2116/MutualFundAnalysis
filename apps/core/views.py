@@ -13,13 +13,14 @@ from django.contrib.auth.views import LoginView
 from django.utils.decorators import method_decorator
 from django.core.mail import EmailMultiAlternatives, send_mail
 from django.db import DatabaseError
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.text import slugify
+from django.views.decorators.http import require_POST, require_GET
 try:
     from django_ratelimit.decorators import ratelimit
 except ImportError:
@@ -48,7 +49,16 @@ from .content import (
     resolve_resource_relative,
 )
 from .forms import ContactForm, RegistrationForm
-from .models import LearnBlogPost, LearnPDFGuide
+from .models import (
+    LearnBlogPost,
+    LearnPDFGuide,
+    CommunityProfile,
+    CommunityPost,
+    CommunityComment,
+    CommunityLike,
+    CommunityFollow,
+)
+
 
 User = get_user_model()
 logger = logging.getLogger('mfanalysis')
@@ -595,9 +605,476 @@ def learn_blog_image_view(request, filename):
     return learn_resource_asset_view(request, path_to_base_relative(legacy_path))
 
 
+def _seed_community_data():
+    """Seeds initial community discussions and active investor profiles if the database has no posts."""
+    if CommunityPost.objects.exists():
+        return
+
+    seed_profiles = [
+        {
+            'username': 'deepika_k',
+            'email': 'deepika@community.local',
+            'display_name': 'Deepika K.',
+            'bio': 'SEBI Registered Investment Adviser (RIA). Passionate about disciplined retirement planning and asset allocation.',
+            'investor_tag': 'SEBI RIA',
+            'avatar_color': 'av-green',
+            'avatar_initials': 'DK',
+        },
+        {
+            'username': 'nikhil_p',
+            'email': 'nikhil@community.local',
+            'display_name': 'Nikhil P.',
+            'bio': 'Quant researcher focused on factor investing, valuation models, and systematic portfolio risk management.',
+            'investor_tag': 'Quant Researcher',
+            'avatar_color': 'av-amber',
+            'avatar_initials': 'NP',
+        },
+        {
+            'username': 'shruti_n',
+            'email': 'shruti@community.local',
+            'display_name': 'Shruti N.',
+            'bio': 'Long-term equity investor. Analyzing category persistence, overlap, and smart-beta strategies.',
+            'investor_tag': 'Factor Investor',
+            'avatar_color': 'av-violet',
+            'avatar_initials': 'SN',
+        },
+        {
+            'username': 'meera_j',
+            'email': 'meera@community.local',
+            'display_name': 'Meera J.',
+            'bio': 'Goal-based DIY investor. Building compounding wealth for education & financial freedom.',
+            'investor_tag': 'DIY Investor',
+            'avatar_color': 'av-cyan',
+            'avatar_initials': 'MJ',
+        },
+        {
+            'username': 'rahul_s',
+            'email': 'rahul@community.local',
+            'display_name': 'Rahul S.',
+            'bio': 'Deep value & smallcap investor. Searching for resilient business models with strong cash flows.',
+            'investor_tag': 'Value Investor',
+            'avatar_color': 'av-rose',
+            'avatar_initials': 'RS',
+        },
+        {
+            'username': 'mf_community',
+            'email': 'moderator@community.local',
+            'display_name': 'MF Analysis Community',
+            'bio': 'Official platform channel for mutual fund research, market discussions, and educational insights.',
+            'investor_tag': 'Official Moderator',
+            'avatar_color': 'av-amber',
+            'avatar_initials': 'MF',
+            'is_moderator': True,
+        },
+    ]
+
+    users_map = {}
+    for p in seed_profiles:
+        u, _ = User.objects.get_or_create(username=p['username'], defaults={'email': p['email']})
+        cp, _ = CommunityProfile.objects.get_or_create(user=u)
+        cp.display_name = p['display_name']
+        cp.bio = p['bio']
+        cp.investor_tag = p['investor_tag']
+        cp.avatar_color = p['avatar_color']
+        cp.avatar_initials = p['avatar_initials']
+        cp.is_moderator = p.get('is_moderator', False)
+        cp.save()
+        users_map[p['username']] = u
+
+    # 1. Pinned post
+    p1 = CommunityPost.objects.create(
+        author=users_map['mf_community'],
+        title='What is your most important investing lesson from the last market correction?',
+        content='Share your biggest takeaway from navigating a drawdown — whether it was about staying invested, rebalancing decisions, or learning to tune out noise. This thread stays open permanently.',
+        tags='investinglessons, marketcorrections, communitydiscussion',
+        is_pinned=True,
+    )
+    CommunityComment.objects.create(
+        post=p1,
+        author=users_map['deepika_k'],
+        content='Lesson 1: Your actual risk tolerance is revealed only during a real drawdown, not during the KYC risk questionnaire. Staying prepared with asset allocation prevents panic selling.',
+    )
+    CommunityComment.objects.create(
+        post=p1,
+        author=users_map['meera_j'],
+        content='Stopped checking portfolio daily during corrections. Monthly checks only. That one change reduced anxiety 10x and improved returns indirectly.',
+    )
+
+    # 2. Deepika's post
+    p2 = CommunityPost.objects.create(
+        author=users_map['deepika_k'],
+        title='My SIP rebalancing rules — what works for me',
+        content="After 8 years of tracking, here's what I do: 1) Rebalance annually, not more. 2) Only if equity allocation drifts >5% from target. 3) Never sell in a down year — just redirect fresh SIPs. 4) Smallcap % capped at 15% of total portfolio at all times. Happy to discuss tradeoffs.",
+        tags='SIP, rebalancing, portfoliomanagement',
+    )
+    CommunityComment.objects.create(
+        post=p2,
+        author=users_map['rahul_s'],
+        content="The 'no sell in a down year' rule is controversial but I've found it psychologically much easier. The portfolio usually recovers before you'd want to sell anyway.",
+    )
+    CommunityComment.objects.create(
+        post=p2,
+        author=users_map['meera_j'],
+        content='Do you use goal-based buckets or a single combined view for rebalancing? I find that mixing goals makes rebalancing decisions ambiguous.',
+    )
+
+    # 3. Nikhil's post
+    p3 = CommunityPost.objects.create(
+        author=users_map['nikhil_p'],
+        title='PE ratio of Nifty 50 — are we expensive right now?',
+        content='Current trailing PE is sitting at ~22.5x. Historical median is ~20x. That is not bubble territory but not cheap either. More importantly, forward earnings growth estimates are being revised upward. Sharing our research notes.',
+        tags='Nifty, valuation, PERatio, marketresearch',
+    )
+    CommunityComment.objects.create(
+        post=p3,
+        author=users_map['shruti_n'],
+        content='PE as a market timing tool has very low predictive power at 1–2 year horizons. What matters is earnings growth, not multiple expansion.',
+    )
+
+    # 4. Shruti's post
+    CommunityPost.objects.create(
+        author=users_map['shruti_n'],
+        title='How do you decide between index and active funds in Indian Equities?',
+        content="I've been comparing cost, category rank persistence, and downside behavior across rolling windows. Index consistently wins in large-cap, but mid/small-cap still shows alpha in select active funds. Would love to hear practical frameworks from other long-term investors.",
+        tags='mutualfunds, indexfunds, activevspassive, portfolio',
+    )
+
+    # Sync counts
+    for p in CommunityPost.objects.all():
+        p.sync_counts()
+
+
 @login_required(login_url='/accounts/login/')
 def learn_community_view(request):
-    return render(request, 'learn/community.html', {})
+    """Interactive Community Discussion Feed for logged-in investors."""
+    # Ensure CommunityProfile exists for current user
+    my_profile, _ = CommunityProfile.objects.get_or_create(user=request.user)
+
+    # Seed data if empty
+    _seed_community_data()
+
+    tab = request.GET.get('tab', 'explore').lower()
+    if tab not in ['explore', 'following']:
+        tab = 'explore'
+
+    tag_filter = request.GET.get('tag', '').strip().lstrip('#')
+
+    # Get followings
+    following_ids = list(CommunityFollow.objects.filter(follower=request.user).values_list('following_id', flat=True))
+
+    # Base Queryset
+    base_qs = CommunityPost.objects.select_related(
+        'author', 'author__community_profile'
+    ).prefetch_related(
+        'replies', 'replies__author', 'replies__author__community_profile', 'likes'
+    )
+
+    if tag_filter:
+        base_qs = base_qs.filter(tags__icontains=tag_filter)
+
+    explore_posts = list(base_qs.order_by('-is_pinned', '-created_at')[:40])
+    following_posts = list(base_qs.filter(author_id__in=following_ids).order_by('-created_at')[:40])
+
+    # Compute liked and followed status for all posts
+    user_liked_post_ids = set(CommunityLike.objects.filter(user=request.user).values_list('post_id', flat=True))
+
+    def _decorate_posts(post_list):
+        for p in post_list:
+            p.is_liked = (p.id in user_liked_post_ids)
+            p.is_author_followed = (p.author_id in following_ids)
+            p.is_own_post = (p.author_id == request.user.id)
+            p.tag_items = p.tag_list()
+        return post_list
+
+    explore_posts = _decorate_posts(explore_posts)
+    following_posts = _decorate_posts(following_posts)
+
+    # Community Stats
+    total_members = max(User.objects.count(), 14)
+    total_posts = CommunityPost.objects.count()
+    total_replies = CommunityComment.objects.count()
+    total_reactions = CommunityLike.objects.count()
+
+    # Dynamic Trending Topics
+    all_tags = []
+    for post in CommunityPost.objects.all():
+        for t in post.tag_list():
+            if t:
+                all_tags.append(t.strip().lstrip('#'))
+
+    from collections import Counter
+    tag_counter = Counter(all_tags)
+    base_popular = ['IndexFunds', 'SIP', 'SmallCap', 'MutualFunds', 'PERatio', 'Rebalancing', 'ValueInvesting', 'Portfolio', 'ActiveVsPassive', 'MidCap']
+    for bp in base_popular:
+        if bp not in tag_counter:
+            tag_counter[bp] = 1
+
+    trending_topics = []
+    for tag_name, cnt in tag_counter.most_common(12):
+        trending_topics.append({
+            'name': tag_name,
+            'tag': f"#{tag_name}",
+            'count': cnt,
+            'is_active': (tag_filter.lower() == tag_name.lower()) if tag_filter else False
+        })
+
+
+    # Who to Follow (exclude current user and already followed users)
+    who_to_follow_users = User.objects.exclude(id=request.user.id).exclude(id__in=following_ids).select_related('community_profile')[:6]
+
+    context = {
+        'active_tab': tab,
+        'tag_filter': tag_filter,
+        'explore_posts': explore_posts,
+        'following_posts': following_posts,
+        'my_profile': my_profile,
+        'my_followers_count': request.user.follower_relationships.count(),
+        'my_following_count': len(following_ids),
+        'my_posts_count': request.user.community_posts.count(),
+        'community_stats': {
+            'members': total_members,
+            'posts': total_posts,
+            'replies': total_replies,
+            'reactions': total_reactions,
+        },
+        'trending_topics': trending_topics,
+        'who_to_follow': who_to_follow_users,
+    }
+    return render(request, 'learn/community.html', context)
+
+
+# ── Community AJAX / REST API Endpoints ─────────────────────────
+
+@login_required
+@require_POST
+def community_create_post_api(request):
+    """Publish a new post in the Community Feed."""
+    title = request.POST.get('title', '').strip()
+    content = request.POST.get('content', '').strip()
+    tags = request.POST.get('tags', '').strip()
+    image = request.FILES.get('image')
+
+    if not title:
+        return JsonResponse({'success': False, 'error': 'Please provide a title for your post.'}, status=400)
+    if not content:
+        return JsonResponse({'success': False, 'error': 'Please provide description / content for your post.'}, status=400)
+
+    # Format tags
+    cleaned_tags = [t.strip().lstrip('#') for t in tags.replace(',', ' ').split() if t.strip()]
+
+    post = CommunityPost.objects.create(
+        author=request.user,
+        title=title,
+        content=content,
+        image=image,
+        tags=', '.join(cleaned_tags),
+    )
+    return JsonResponse({
+        'success': True,
+        'post_id': post.id,
+        'message': 'Your post has been published to the community!'
+    })
+
+
+@login_required
+@require_POST
+def community_like_api(request, post_id):
+    """Toggle like on a community post."""
+    try:
+        post = CommunityPost.objects.get(id=post_id)
+    except CommunityPost.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Post not found'}, status=404)
+
+    like, created = CommunityLike.objects.get_or_create(post=post, user=request.user)
+    if not created:
+        like.delete()
+        is_liked = False
+    else:
+        is_liked = True
+
+    post.sync_counts()
+    return JsonResponse({
+        'success': True,
+        'liked': is_liked,
+        'likes_count': post.likes_count
+    })
+
+
+@login_required
+@require_POST
+def community_reply_api(request, post_id):
+    """Post a reply / comment on a community discussion thread."""
+    try:
+        post = CommunityPost.objects.get(id=post_id)
+    except CommunityPost.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Post not found'}, status=404)
+
+    body = request.POST.get('content', '').strip()
+    if not body:
+        return JsonResponse({'success': False, 'error': 'Reply cannot be empty'}, status=400)
+
+    reply = CommunityComment.objects.create(
+        post=post,
+        author=request.user,
+        content=body
+    )
+    post.sync_counts()
+
+    profile, _ = CommunityProfile.objects.get_or_create(user=request.user)
+    return JsonResponse({
+        'success': True,
+        'reply': {
+            'id': reply.id,
+            'author_id': request.user.id,
+            'author_name': profile.get_display_name(),
+            'author_initials': profile.get_initials(),
+            'author_color': profile.avatar_color,
+            'content': reply.content,
+            'created_at': 'Just now',
+        },
+        'replies_count': post.replies_count
+    })
+
+
+@login_required
+@require_POST
+def community_follow_api(request, user_id):
+    """Toggle follow / unfollow for another investor."""
+    if int(user_id) == request.user.id:
+        return JsonResponse({'success': False, 'error': 'You cannot follow yourself.'}, status=400)
+
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+
+    follow, created = CommunityFollow.objects.get_or_create(
+        follower=request.user,
+        following=target_user
+    )
+    if not created:
+        follow.delete()
+        is_following = False
+    else:
+        is_following = True
+
+    return JsonResponse({
+        'success': True,
+        'is_following': is_following,
+        'followers_count': target_user.follower_relationships.count(),
+        'message': f"You {'are now following' if is_following else 'unfollowed'} {target_user.community_profile.get_display_name()}."
+    })
+
+
+@login_required
+@require_GET
+def community_user_profile_api(request, user_id):
+    """Fetch user profile popup card data and recent posts."""
+    try:
+        target_user = User.objects.select_related('community_profile').get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+
+    cp, _ = CommunityProfile.objects.get_or_create(user=target_user)
+    is_following = CommunityFollow.objects.filter(follower=request.user, following=target_user).exists()
+
+    recent_posts = list(CommunityPost.objects.filter(author=target_user).order_by('-created_at')[:3].values(
+        'id', 'title', 'likes_count', 'replies_count', 'created_at'
+    ))
+    for p in recent_posts:
+        p['created_at_str'] = p['created_at'].strftime('%d %b %Y') if p.get('created_at') else ''
+
+    return JsonResponse({
+        'success': True,
+        'user': {
+            'id': target_user.id,
+            'username': target_user.username,
+            'display_name': cp.get_display_name(),
+            'bio': cp.bio or 'Active community member & mutual fund investor.',
+            'investor_tag': cp.investor_tag,
+            'avatar_color': cp.avatar_color,
+            'avatar_initials': cp.get_initials(),
+            'followers_count': target_user.follower_relationships.count(),
+            'following_count': target_user.following_relationships.count(),
+            'posts_count': target_user.community_posts.count(),
+            'is_following': is_following,
+            'is_self': (target_user.id == request.user.id),
+            'recent_posts': recent_posts,
+        }
+    })
+
+
+@login_required
+@require_POST
+def community_update_my_profile_api(request):
+    """Update current user's community profile details."""
+    cp, _ = CommunityProfile.objects.get_or_create(user=request.user)
+
+    display_name = request.POST.get('display_name', '').strip()
+    bio = request.POST.get('bio', '').strip()
+    investor_tag = request.POST.get('investor_tag', '').strip()
+    avatar_color = request.POST.get('avatar_color', 'av-indigo').strip()
+
+    if display_name:
+        cp.display_name = display_name
+    cp.bio = bio
+    if investor_tag:
+        cp.investor_tag = investor_tag
+    if avatar_color in dict(CommunityProfile.AVATAR_COLOR_CHOICES):
+        cp.avatar_color = avatar_color
+
+    cp.save()
+    return JsonResponse({
+        'success': True,
+        'message': 'Profile updated successfully!',
+        'profile': {
+            'display_name': cp.get_display_name(),
+            'bio': cp.bio,
+            'investor_tag': cp.investor_tag,
+            'avatar_color': cp.avatar_color,
+            'avatar_initials': cp.get_initials(),
+        }
+    })
+
+
+@login_required
+@require_GET
+def community_user_network_api(request, user_id):
+    """Returns list of followers or followings for a user."""
+    net_type = request.GET.get('type', 'followers').lower()
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+
+    my_followings = set(CommunityFollow.objects.filter(follower=request.user).values_list('following_id', flat=True))
+
+    users_list = []
+    if net_type == 'following':
+        rel_users = User.objects.filter(follower_relationships__follower=target_user).select_related('community_profile')
+    else:
+        rel_users = User.objects.filter(following_relationships__following=target_user).select_related('community_profile')
+
+    for u in rel_users[:50]:
+        cp, _ = CommunityProfile.objects.get_or_create(user=u)
+        users_list.append({
+            'id': u.id,
+            'username': u.username,
+            'display_name': cp.get_display_name(),
+            'bio': cp.bio,
+            'investor_tag': cp.investor_tag,
+            'avatar_color': cp.avatar_color,
+            'avatar_initials': cp.get_initials(),
+            'is_following': (u.id in my_followings),
+            'is_self': (u.id == request.user.id),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'type': net_type,
+        'users': users_list
+    })
+
 
 
 # ── Legal / Info pages ────────────────────────────────────────────────────────

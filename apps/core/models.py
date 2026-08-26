@@ -128,3 +128,160 @@ class LearnBlogPost(BaseModel):
             except (ValueError, TypeError):
                 pass
         return [t.strip() for t in raw.split(',') if t.strip()]
+
+
+# ── Investor Community Feed Models ──────────────────────────────
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+
+class CommunityProfile(BaseModel):
+    """Profile attributes and investor identity for Community members."""
+    AVATAR_COLOR_CHOICES = [
+        ('av-indigo', 'Indigo'),
+        ('av-green',  'Emerald'),
+        ('av-amber',  'Amber'),
+        ('av-rose',   'Rose'),
+        ('av-cyan',   'Cyan'),
+        ('av-violet', 'Violet'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='community_profile')
+    display_name = models.CharField(max_length=100, blank=True)
+    bio = models.CharField(max_length=300, blank=True)
+    investor_tag = models.CharField(max_length=100, default='Portfolio Investor', help_text='e.g. SEBI RIA, Quant Researcher, DIY Investor')
+    avatar_color = models.CharField(max_length=30, choices=AVATAR_COLOR_CHOICES, default='av-indigo')
+    avatar_initials = models.CharField(max_length=6, blank=True)
+    is_moderator = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['user__username']
+
+    def __str__(self):
+        return self.get_display_name()
+
+    def get_display_name(self):
+        if self.display_name:
+            return self.display_name
+        full = self.user.get_full_name()
+        if full:
+            return full
+        return self.user.username
+
+    def get_initials(self):
+        if self.avatar_initials:
+            return self.avatar_initials[:3].upper()
+        name = self.get_display_name().strip()
+        parts = [p for p in name.split() if p]
+        if len(parts) >= 2:
+            return f"{parts[0][0]}{parts[-1][0]}".upper()
+        elif len(parts) == 1:
+            return parts[0][:2].upper()
+        return "IN"
+
+    def followers_count(self):
+        return self.user.follower_relationships.count()
+
+    def following_count(self):
+        return self.user.following_relationships.count()
+
+    def posts_count(self):
+        return self.user.community_posts.count()
+
+
+@receiver(post_save, sender=User)
+def create_or_save_community_profile(sender, instance, created, **kwargs):
+    if created:
+        CommunityProfile.objects.create(user=instance)
+    else:
+        if not hasattr(instance, 'community_profile'):
+            CommunityProfile.objects.create(user=instance)
+
+
+class CommunityFollow(BaseModel):
+    """Tracks follow/following relationships between users."""
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following_relationships')
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='follower_relationships')
+
+    class Meta:
+        unique_together = ('follower', 'following')
+        indexes = [
+            models.Index(fields=['follower', 'following']),
+            models.Index(fields=['following']),
+        ]
+
+    def __str__(self):
+        return f"{self.follower.username} follows {self.following.username}"
+
+
+class CommunityPost(BaseModel):
+    """User generated discussion thread in the community feed."""
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_posts')
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    image = models.ImageField(upload_to='community/posts/', blank=True, null=True)
+    tags = models.TextField(blank=True, default='', help_text='Comma-separated or JSON list of hashtags')
+    is_pinned = models.BooleanField(default=False)
+    likes_count = models.PositiveIntegerField(default=0)
+    replies_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-is_pinned', '-created_at']
+        indexes = [
+            models.Index(fields=['-is_pinned', '-created_at']),
+            models.Index(fields=['author', '-created_at']),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    def tag_list(self):
+        raw = self.tags.strip()
+        if not raw:
+            return []
+        if raw.startswith('['):
+            import json
+            try:
+                return [t.strip().lstrip('#') for t in json.loads(raw) if t.strip()]
+            except (ValueError, TypeError):
+                pass
+        return [t.strip().lstrip('#') for t in raw.split(',') if t.strip()]
+
+    def sync_counts(self):
+        self.likes_count = self.likes.count()
+        self.replies_count = self.replies.count()
+        self.save(update_fields=['likes_count', 'replies_count'])
+
+
+class CommunityComment(BaseModel):
+    """Reply / comment on a community discussion post."""
+    post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE, related_name='replies')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_replies')
+    content = models.TextField()
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post', 'created_at']),
+            models.Index(fields=['author']),
+        ]
+
+    def __str__(self):
+        return f"Reply by {self.author.username} on #{self.post_id}"
+
+
+class CommunityLike(BaseModel):
+    """Tracks post likes by users."""
+    post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_likes')
+
+    class Meta:
+        unique_together = ('post', 'user')
+        indexes = [
+            models.Index(fields=['post', 'user']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} liked #{self.post_id}"
+

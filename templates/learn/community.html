@@ -1,130 +1,197 @@
 {% extends "base.html" %}
-{% block title %}Community - Investor Feed{% endblock %}
-{% block meta_description %}A community space for investors to share ideas, ask questions, discuss mutual funds, and learn from each other. Explore posts and follow fellow investors.{% endblock %}
+{% load static %}
+{% block title %}Community - Investor Discussion Feed{% endblock %}
+{% block meta_description %}Interactive investor community to share mutual fund research, market analysis, ask questions, follow peers, and discuss portfolio strategies.{% endblock %}
 
 {% block extra_head %}
 <style>
-/* ── Shell ── */
-.comm-shell { max-width:1200px;margin:0 auto; }
-.comm-header { display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:24px;flex-wrap:wrap; }
-.comm-kicker { color:var(--indigo-400);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px; }
-.comm-title { font-size:28px;font-weight:800;line-height:1.15;color:var(--text-primary); }
-.comm-subtitle { color:var(--text-secondary);font-size:13px;max-width:640px;margin-top:8px; }
+/* ── Shell & Base ── */
+.comm-shell { max-width: 1240px; margin: 0 auto; padding-bottom: 40px; }
+.comm-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 24px; flex-wrap: wrap; }
+.comm-kicker { color: var(--indigo-400); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.comm-title { font-size: 28px; font-weight: 800; line-height: 1.15; color: var(--text-primary); margin: 0; }
+.comm-subtitle { color: var(--text-secondary); font-size: 13px; max-width: 640px; margin-top: 8px; margin-bottom: 0; }
 
 /* ── Layout ── */
-.comm-layout { display:grid;grid-template-columns:260px minmax(0,1fr) 240px;gap:18px;align-items:start; }
+.comm-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr) 270px; gap: 20px; align-items: start; }
 
-/* ── Sidebar panels ── */
-.comm-panel { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden; }
-.panel-head { padding:14px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px; }
-.panel-title { font-size:13px;font-weight:750;color:var(--text-primary); }
-.panel-body { padding:14px 15px; }
+/* ── Sidebar Panels ── */
+.comm-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.panel-head { padding: 13px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-title { font-size: 13px; font-weight: 750; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.panel-body { padding: 14px 16px; }
 
-/* ── Composer (left panel) ── */
-.composer-wrap { display:flex;flex-direction:column;gap:0; }
-.composer-field { width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;background:var(--bg-elevated);color:var(--text-primary);font-size:13px;font-family:inherit;resize:none;outline:none;transition:border-color .15s;margin-bottom:8px; }
-.composer-field::placeholder { color:var(--text-muted); }
-.composer-field:focus { border-color:var(--indigo-500); }
-.composer-textarea { min-height:100px; }
-.composer-image-row { display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px dashed var(--border);border-radius:7px;background:rgba(255,255,255,.02);margin-bottom:10px;cursor:default; }
-.composer-image-icon { font-size:18px; }
-.composer-image-text { font-size:11px;color:var(--text-muted);line-height:1.4; }
-.composer-image-text strong { display:block;color:var(--text-secondary);font-weight:650; }
-.composer-guidelines { font-size:10.5px;color:var(--text-muted);line-height:1.55;margin-top:10px;padding-top:10px;border-top:1px solid var(--border); }
-.composer-guidelines a { color:var(--indigo-400);text-decoration:none; }
-.btn-post { width:100%;justify-content:center;opacity:.55;cursor:not-allowed; }
+/* ── Composer (Left Column) ── */
+.composer-wrap { display: flex; flex-direction: column; gap: 10px; }
+.composer-field { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; font-family: inherit; resize: none; outline: none; transition: border-color .15s, box-shadow .15s; }
+.composer-field::placeholder { color: var(--text-muted); }
+.composer-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.composer-textarea { min-height: 110px; line-height: 1.5; }
 
-/* ── Who to follow (right panel) ── */
-.follow-list { display:flex;flex-direction:column;gap:0; }
-.follow-item { display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border); }
-.follow-item:last-child { border-bottom:none; }
-.follow-avatar { width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0; }
-.follow-info { flex:1;min-width:0; }
-.follow-name { font-size:12.5px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.follow-bio { font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.btn-follow { padding:4px 11px;border-radius:999px;border:1px solid var(--indigo-500);background:rgba(99,102,241,.12);color:var(--indigo-300);font-size:11px;font-weight:700;cursor:not-allowed;opacity:.7; }
+.composer-image-drop { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; background: rgba(255,255,255,0.015); cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 10px; }
+.composer-image-drop:hover { background: rgba(99,102,241,0.06); border-color: var(--accent); }
+.composer-img-preview-wrap { position: relative; margin-top: 8px; display: none; }
+.composer-img-preview { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.btn-remove-preview { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.75); color: #fff; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; }
 
-/* ── Community stats ── */
-.stats-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
-.stat-box { background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:7px;padding:10px 12px; }
-.stat-val { font-size:18px;font-weight:800;color:var(--text-primary);line-height:1; }
-.stat-label { font-size:10px;color:var(--text-muted);margin-top:3px; }
+.btn-post { width: 100%; justify-content: center; padding: 9px 14px; font-weight: 700; font-size: 13px; border-radius: 8px; }
 
-/* ── Feed tabs ── */
-.feed-tabs { display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px; }
-.feed-tab { flex:1;padding:9px 12px;text-align:center;font-size:12px;font-weight:700;color:var(--text-muted);cursor:pointer;transition:background .15s,color .15s;background:rgba(255,255,255,.01); }
-.feed-tab.active { background:rgba(99,102,241,.14);color:var(--indigo-300);border-bottom:2px solid var(--indigo-500); }
-.feed-tab:hover:not(.active) { background:rgba(255,255,255,.03);color:var(--text-secondary); }
+/* ── My Profile Card (Left Column) ── */
+.my-prof-card { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; }
+.my-prof-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; text-align: center; margin-bottom: 12px; }
+.my-stat-box { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; cursor: pointer; transition: background .12s; }
+.my-stat-box:hover { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); }
+.my-stat-val { font-size: 14px; font-weight: 800; color: var(--text-primary); }
+.my-stat-lbl { font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
 
-/* ── Guidelines banner ── */
-.guidelines-banner { display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.22);border-radius:8px;margin-bottom:16px; }
-.guidelines-icon { font-size:18px;flex-shrink:0; }
-.guidelines-text { font-size:11.5px;color:var(--text-secondary);line-height:1.6; }
-.guidelines-text strong { color:var(--text-primary);font-weight:700; }
+/* ── Community Stats Grid ── */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat-box { background: rgba(255,255,255,.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.stat-val { font-size: 18px; font-weight: 800; color: var(--text-primary); line-height: 1; }
+.stat-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .04em; }
 
-/* ── Post feed ── */
-.post-feed { display:flex;flex-direction:column;gap:12px; }
-.post-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .18s; }
-.post-card:hover { border-color:var(--border-accent); }
-.post-card-inner { padding:16px; }
-.post-top { display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px; }
-.post-author { display:flex;align-items:center;gap:9px; }
-.post-avatar { width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0; }
-.post-author-info { flex:1; }
-.post-author-name { font-size:13px;font-weight:750;color:var(--text-primary); }
-.post-author-sub { font-size:11px;color:var(--text-muted); }
-.post-time { font-size:11px;color:var(--text-muted);white-space:nowrap; }
-.post-follow-btn { padding:4px 11px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:10.5px;font-weight:700;cursor:not-allowed;white-space:nowrap;transition:border-color .15s; }
-.post-title { font-size:15px;font-weight:750;color:var(--text-primary);margin-bottom:6px;line-height:1.3; }
-.post-body { font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:10px; }
-.post-image { width:100%;max-height:280px;object-fit:cover;border-radius:7px;display:block;margin-bottom:12px;border:1px solid var(--border); }
-.post-tags { display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px; }
-.post-tag { display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;border:1px solid rgba(129,140,248,.24);color:var(--indigo-400);background:rgba(99,102,241,.07);font-size:10px;font-weight:650; }
-.post-actions { display:flex;align-items:center;gap:0;border-top:1px solid var(--border);padding-top:10px; }
-.post-action-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:6px;font-size:12px;font-weight:650;color:var(--text-muted);cursor:not-allowed;transition:background .15s,color .15s;border:none;background:none; }
-.post-action-btn:hover { background:rgba(255,255,255,.04);color:var(--text-secondary); }
-.post-action-btn.liked { color:#f87171; }
-.post-action-sep { width:1px;height:18px;background:var(--border);margin:0 2px; }
+/* ── Trending Tags Ribbon ── */
+.trending-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all .15s ease;
+}
+.trending-pill:hover {
+  background: rgba(99,102,241,0.15);
+  color: #818cf8;
+  border-color: rgba(99,102,241,0.4);
+}
+.trending-pill.active {
+  background: rgba(99,102,241,0.25);
+  color: #c7d2fe;
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(99,102,241,0.3);
+}
+.trending-pill-count {
+  font-size: 9.5px;
+  background: rgba(255,255,255,0.08);
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.trending-pill.active .trending-pill-count {
+  background: var(--accent);
+  color: #fff;
+}
 
-/* ── Reply section ── */
-.reply-toggle { width:100%;text-align:left;padding:10px 16px;background:rgba(255,255,255,.015);border-top:1px solid var(--border);color:var(--text-muted);font-size:11.5px;font-weight:650;cursor:pointer;transition:background .15s;border-left:none;border-right:none;border-bottom:none;display:flex;align-items:center;gap:6px; }
-.reply-toggle:hover { background:rgba(255,255,255,.03);color:var(--text-secondary); }
-.reply-section { padding:12px 16px;background:rgba(255,255,255,.01);border-top:1px solid var(--border);display:none; }
-.reply-section.open { display:block; }
-.reply-item { display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04); }
-.reply-item:last-child { border-bottom:none; }
-.reply-avatar { width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0; }
-.reply-body { flex:1; }
-.reply-author { font-size:11.5px;font-weight:700;color:var(--text-primary);margin-bottom:2px; }
-.reply-text { font-size:12px;color:var(--text-secondary);line-height:1.6; }
-.reply-input-row { display:flex;gap:8px;align-items:center;margin-top:10px; }
-.reply-input { flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-elevated);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none; }
-.reply-input::placeholder { color:var(--text-muted); }
-.btn-reply { padding:6px 12px;border-radius:6px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.30);color:var(--indigo-300);font-size:11px;font-weight:700;cursor:not-allowed;opacity:.7; }
+/* ── Feed Tabs & Filter Banner ── */
+.feed-tabs { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 16px; background: var(--bg-card); }
+.feed-tab { flex: 1; padding: 10px 16px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.feed-tab.active { background: rgba(99,102,241,.16); color: #818cf8; border-bottom: 2px solid var(--accent); }
+.feed-tab:hover:not(.active) { background: rgba(255,255,255,.03); color: var(--text-primary); }
 
-/* ── Following empty ── */
-.following-empty { text-align:center;padding:28px 16px;color:var(--text-muted); }
-.following-empty-icon { font-size:32px;margin-bottom:10px; }
-.following-empty-text { font-size:13px;line-height:1.6; }
+.tag-filter-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 10px; margin-bottom: 16px; font-size: 12.5px; }
 
-/* ── Avatar colours ── */
-.av-indigo { background:rgba(99,102,241,.30);color:#a5b4fc; }
-.av-green  { background:rgba(16,185,129,.28);color:#6ee7b7; }
-.av-amber  { background:rgba(245,158,11,.28);color:#fcd34d; }
-.av-rose   { background:rgba(239,68,68,.26);color:#fca5a5; }
-.av-cyan   { background:rgba(6,182,212,.26);color:#67e8f9; }
-.av-violet { background:rgba(139,92,246,.28);color:#c4b5fd; }
 
-/* ── Moderation notice ── */
-.mod-notice { display:flex;align-items:flex-start;gap:10px;padding:11px 13px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.20);border-radius:7px;margin-top:12px; }
-.mod-notice-icon { font-size:16px;flex-shrink:0; }
-.mod-notice-text { font-size:10.5px;color:var(--text-muted);line-height:1.6; }
+/* ── Post Cards ── */
+.post-feed { display: flex; flex-direction: column; gap: 14px; }
+.post-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: border-color .18s, box-shadow .18s; box-shadow: 0 4px 20px rgba(0,0,0,0.18); }
+.post-card:hover { border-color: rgba(99,102,241,0.4); }
+.post-card.pinned { border-color: rgba(245,158,11,0.4); background: linear-gradient(180deg, rgba(245,158,11,0.03) 0%, var(--bg-card) 100%); }
+.post-card-inner { padding: 18px 20px; }
 
-/* ── Coming soon overlay ── */
-.soon-overlay { display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.28);color:#fcd34d;font-size:10px;font-weight:750;letter-spacing:.04em;text-transform:uppercase; }
+.post-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.post-author { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.post-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13.5px; font-weight: 800; flex-shrink: 0; transition: transform .12s; }
+.post-author:hover .post-avatar { transform: scale(1.06); }
+.post-author-name { font-size: 13.5px; font-weight: 750; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.post-author-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
-@media (max-width:1024px) { .comm-layout { grid-template-columns:220px minmax(0,1fr); } .right-col { display:none; } }
-@media (max-width:768px) { .comm-layout { grid-template-columns:1fr; } .left-col { order:2; } .feed-col { order:1; } }
+.post-follow-btn { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-secondary); font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.post-follow-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.post-follow-btn.following { background: rgba(99,102,241,0.15); color: #818cf8; border-color: rgba(99,102,241,0.4); }
+.post-follow-btn.following:hover { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.4); }
+
+.post-title { font-size: 16px; font-weight: 750; color: var(--text-primary); margin-bottom: 8px; line-height: 1.35; }
+.post-body { font-size: 13.5px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 12px; white-space: pre-line; word-break: break-word; }
+.post-image { width: 100%; max-height: 380px; object-fit: cover; border-radius: 10px; display: block; margin-bottom: 14px; border: 1px solid var(--border); cursor: pointer; transition: opacity .15s; }
+.post-image:hover { opacity: 0.95; }
+
+.post-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.post-tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(129,140,248,0.25); color: #818cf8; background: rgba(99,102,241,0.08); font-size: 11px; font-weight: 650; text-decoration: none; transition: all .12s; }
+.post-tag:hover { background: rgba(99,102,241,0.22); color: #c7d2fe; border-color: rgba(129,140,248,0.5); }
+
+.post-actions { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--border); padding-top: 12px; }
+.post-action-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 650; color: var(--text-muted); cursor: pointer; transition: all .15s; border: none; background: transparent; }
+.post-action-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+.post-action-btn.liked { color: #f87171; font-weight: 700; }
+.post-action-btn.liked svg { fill: #f87171; }
+.post-action-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+
+/* ── Reply Drawer ── */
+.reply-toggle { width: 100%; text-align: left; padding: 11px 20px; background: rgba(255,255,255,0.015); border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; font-weight: 650; cursor: pointer; transition: all .15s; border-left: none; border-right: none; border-bottom: none; display: flex; align-items: center; justify-content: space-between; }
+.reply-toggle:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+.reply-section { padding: 14px 20px; background: rgba(0,0,0,0.15); border-top: 1px solid var(--border); display: none; }
+.reply-section.open { display: block; }
+.reply-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.reply-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg-elevated); border: 1px solid var(--border); }
+.reply-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; flex-shrink: 0; cursor: pointer; }
+.reply-body { flex: 1; min-width: 0; }
+.reply-author-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.reply-author { font-size: 12px; font-weight: 750; color: var(--text-primary); cursor: pointer; }
+.reply-time { font-size: 10.5px; color: var(--text-muted); }
+.reply-text { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; white-space: pre-line; word-break: break-word; }
+
+.reply-input-row { display: flex; gap: 8px; align-items: center; }
+.reply-input { flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated); color: var(--text-primary); font-size: 12.5px; font-family: inherit; outline: none; transition: border-color .15s; }
+.reply-input:focus { border-color: var(--accent); }
+.btn-reply-send { padding: 8px 14px; border-radius: 8px; background: var(--accent); color: #fff; border: none; font-size: 12px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+.btn-reply-send:hover { opacity: 0.9; }
+
+/* ── Who to Follow (Right Column) ── */
+.follow-list { display: flex; flex-direction: column; gap: 0; }
+.follow-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.follow-item:last-child { border-bottom: none; }
+.follow-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 800; flex-shrink: 0; cursor: pointer; }
+.follow-info { flex: 1; min-width: 0; }
+.follow-name { font-size: 12.5px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.follow-bio { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Trending Tags (Right Column) ── */
+.trending-tag-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; text-decoration: none; transition: transform .12s; }
+.trending-tag-row:hover { transform: translateX(3px); }
+.trending-tag-name { color: #818cf8; font-size: 12.5px; font-weight: 650; }
+.trending-tag-count { font-size: 10.5px; color: var(--text-muted); background: var(--bg-elevated); padding: 2px 6px; border-radius: 99px; border: 1px solid var(--border); }
+
+/* ── Avatar Colours ── */
+.av-indigo { background: rgba(99,102,241,.30); color: #a5b4fc; }
+.av-green  { background: rgba(16,185,129,.28); color: #6ee7b7; }
+.av-amber  { background: rgba(245,158,11,.28); color: #fcd34d; }
+.av-rose   { background: rgba(239,68,68,.26); color: #fca5a5; }
+.av-cyan   { background: rgba(6,182,212,.26); color: #67e8f9; }
+.av-violet { background: rgba(139,92,246,.28); color: #c4b5fd; }
+
+/* ── Modals ── */
+.comm-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); z-index: 1050; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.comm-modal-card { background: #111827; border: 1px solid rgba(99,102,241,0.3); border-radius: 16px; box-shadow: 0 24px 48px rgba(0,0,0,0.6); padding: 24px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; }
+.comm-modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+.comm-modal-close:hover { color: var(--text-primary); }
+
+/* ── Responsive ── */
+@media (max-width: 1060px) {
+  .comm-layout { grid-template-columns: 260px minmax(0, 1fr); }
+  .right-col { display: none; }
+}
+@media (max-width: 768px) {
+  .comm-layout { grid-template-columns: 1fr; }
+  .left-col { order: 2; }
+  .feed-col { order: 1; }
+}
 </style>
 {% endblock %}
 
@@ -132,44 +199,102 @@
 <div class="comm-shell">
   <header class="comm-header">
     <div>
-      <div class="comm-kicker">Community</div>
+      <div class="comm-kicker">COMMUNITY</div>
       <h1 class="comm-title">Investor Community Feed</h1>
-      <p class="comm-subtitle">Share ideas, ask questions, and learn from fellow investors. A space for mutual fund discussion, market insights, and practical investing knowledge.</p>
+      <p class="comm-subtitle">Share ideas, ask questions, and learn from fellow investors. A verified space for mutual fund research, market insights, and portfolio discussion.</p>
     </div>
-    <a href="{% url 'core:learn_resources' %}" class="btn btn-secondary btn-sm">← Resources</a>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="openMyProfileModal()">
+        <span>👤</span> My Profile
+      </button>
+      <a href="{% url 'core:learn_resources' %}" class="btn btn-secondary btn-sm">← Resources</a>
+    </div>
   </header>
 
   <div class="comm-layout">
 
-    {# ── LEFT COL — Composer + Stats ── #}
+    {# ── LEFT COL: Composer, My Profile, Stats ── #}
     <div class="left-col">
 
-      {# Composer #}
-      <div class="comm-panel" style="margin-bottom:14px;">
+      {# Create Post Composer #}
+      <div class="comm-panel">
         <div class="panel-head">
           <span class="panel-title">✏️ Create Post</span>
-          <span class="soon-overlay">Coming Soon</span>
+          <span style="font-size:11px; color:var(--text-muted);">Live Feed</span>
         </div>
         <div class="panel-body">
-          <div class="composer-wrap">
-            <input class="composer-field" type="text" placeholder="Post title…" disabled>
-            <textarea class="composer-field composer-textarea" placeholder="Share a thought, question, analysis, or insight with the community…" disabled></textarea>
-            <div class="composer-image-row">
-              <div class="composer-image-icon">🖼️</div>
-              <div class="composer-image-text">
-                <strong>Attach an image</strong>
-                Optional — charts, screenshots, or visuals
+          <form id="composer-form" enctype="multipart/form-data" onsubmit="handleCreatePost(event)" class="composer-wrap">
+            {% csrf_token %}
+            <input class="composer-field" type="text" id="post-title" name="title" placeholder="Post title…" required maxlength="255">
+            <textarea class="composer-field composer-textarea" id="post-content" name="content" placeholder="Share a thought, question, analysis, or insight with the community…" required></textarea>
+            
+            <input type="text" class="composer-field" id="post-tags" name="tags" placeholder="Hashtags (e.g. #IndexFunds #SmallCap #SIP)" style="font-size:12px;">
+
+            {# Image upload dropzone #}
+            <input type="file" id="post-image-input" name="image" accept="image/*" style="display:none;" onchange="handleImageSelected(this)">
+            <div class="composer-image-drop" onclick="document.getElementById('post-image-input').click()">
+              <div style="font-size: 20px;">🖼️</div>
+              <div style="flex:1; min-width:0; font-size:11.5px; line-height:1.35; color:var(--text-muted);">
+                <strong style="color:var(--text-secondary); display:block;">Attach an image (Optional)</strong>
+                Charts, screenshots, or visuals
               </div>
             </div>
-            <button class="btn btn-primary btn-sm btn-post" disabled>Post to Community</button>
-            <div class="composer-guidelines">
-              📋 <strong style="color:var(--text-secondary)">Community Guidelines:</strong> No spam, hate speech, or financial misinformation. All posts are reviewed before publishing. Repeated violations result in a ban.
+
+            <div id="composer-img-preview-box" class="composer-img-preview-wrap">
+              <img id="composer-img-preview" class="composer-img-preview" src="" alt="Preview">
+              <button type="button" class="btn-remove-preview" onclick="clearSelectedImage()">✕</button>
+            </div>
+
+            <button type="submit" id="btn-submit-post" class="btn btn-primary btn-sm btn-post">
+              Post to Community
+            </button>
+
+            <div style="font-size:10.5px; color:var(--text-muted); line-height:1.5; margin-top:4px; padding-top:8px; border-top:1px solid var(--border);">
+              📋 <strong style="color:var(--text-secondary)">Guidelines:</strong> Be respectful, factual, and constructive. No spam, unverified financial claims, or hate speech.
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {# My Profile Quick Card #}
+      <div class="comm-panel">
+        <div class="panel-head">
+          <span class="panel-title">👤 My Community Card</span>
+          <button type="button" onclick="openMyProfileModal()" style="background:transparent; border:none; color:var(--indigo-400); font-size:11px; font-weight:700; cursor:pointer;">Edit</button>
+        </div>
+        <div class="panel-body">
+          <div class="my-prof-card">
+            <div class="post-avatar {{ my_profile.avatar_color }}" style="cursor:default;">{{ my_profile.get_initials }}</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:13px; font-weight:750; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                {{ my_profile.get_display_name }}
+              </div>
+              <div style="font-size:11px; color:var(--indigo-400); font-weight:600;">
+                {{ my_profile.investor_tag }}
+              </div>
             </div>
           </div>
-          <div class="mod-notice">
-            <div class="mod-notice-icon">🛡️</div>
-            <div class="mod-notice-text">Posts are screened for spam, hate speech, and off-topic content using automated moderation + manual review before going live.</div>
+
+          <div class="my-prof-stats">
+            <div class="my-stat-box" onclick="openNetworkModal({{ user.id }}, 'following')">
+              <div class="my-stat-val">{{ my_following_count }}</div>
+              <div class="my-stat-lbl">Following</div>
+            </div>
+            <div class="my-stat-box" onclick="openNetworkModal({{ user.id }}, 'followers')">
+              <div class="my-stat-val">{{ my_followers_count }}</div>
+              <div class="my-stat-lbl">Followers</div>
+            </div>
+            <div class="my-stat-box">
+              <div class="my-stat-val">{{ my_posts_count }}</div>
+              <div class="my-stat-lbl">Posts</div>
+            </div>
           </div>
+
+          {% if my_profile.bio %}
+          <div style="font-size:11.5px; color:var(--text-secondary); line-height:1.45; margin-bottom:8px;">
+            {{ my_profile.bio }}
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -178,382 +303,815 @@
         <div class="panel-head"><span class="panel-title">📊 Community Stats</span></div>
         <div class="panel-body">
           <div class="stats-grid">
-            <div class="stat-box"><div class="stat-val">2.4K</div><div class="stat-label">Members</div></div>
-            <div class="stat-box"><div class="stat-val">480</div><div class="stat-label">Posts</div></div>
-            <div class="stat-box"><div class="stat-val">3.1K</div><div class="stat-label">Replies</div></div>
-            <div class="stat-box"><div class="stat-val">18K</div><div class="stat-label">Reactions</div></div>
+            <div class="stat-box"><div class="stat-val">{{ community_stats.members }}</div><div class="stat-label">Members</div></div>
+            <div class="stat-box"><div class="stat-val">{{ community_stats.posts }}</div><div class="stat-label">Posts</div></div>
+            <div class="stat-box"><div class="stat-val">{{ community_stats.replies }}</div><div class="stat-label">Replies</div></div>
+            <div class="stat-box"><div class="stat-val">{{ community_stats.reactions }}</div><div class="stat-label">Reactions</div></div>
           </div>
-          <div style="margin-top:12px;font-size:11px;color:var(--text-muted);line-height:1.55;">
-            📌 Most discussed this week: <span style="color:var(--indigo-400)">Smallcap allocation, SIP vs lump sum, index vs active</span>
+          <div style="margin-top:12px; font-size:11px; color:var(--text-muted); line-height:1.55;">
+            📌 Trending focus: <span style="color:var(--indigo-400)">Smallcap allocation, SIP discipline, index vs active</span>
           </div>
         </div>
       </div>
 
-    </div>
+    </div>{# /left-col #}
 
-    {# ── MIDDLE COL — Feed ── #}
+    {# ── MIDDLE COL: Feed (Explore & Following) ── #}
     <div class="feed-col">
 
-      {# Guidelines banner #}
-      <div class="guidelines-banner">
-        <div class="guidelines-icon">⚠️</div>
-        <div class="guidelines-text">
-          <strong>Community Guidelines:</strong> Be respectful, factual, and constructive. No spam, self-promotion, or unverified financial claims. Violating guidelines will result in removal of posts and potential bans.
-          Anti-spam filters, rate limiting, and AI-based content moderation are active at all times.
+      {# Tag Filter Banner (if active) #}
+      {% if tag_filter %}
+      <div class="tag-filter-banner">
+        <div>
+          <span>🏷️ Showing posts tagged: </span>
+          <strong style="color:var(--indigo-300);">#{{ tag_filter }}</strong>
+        </div>
+        <a href="{% url 'core:learn_community' %}?tab={{ active_tab }}" class="btn btn-secondary btn-sm" style="font-size:11px; padding:3px 8px;">
+          ✕ Clear Filter
+        </a>
+      </div>
+      {% endif %}
+
+      {# ── TRENDING HASHTAGS RIBBON ── #}
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; overflow-x: auto;">
+        <div style="display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0;">
+          <span>🔥</span> Trending:
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+          {% for item in trending_topics %}
+          <a href="?tag={{ item.name }}&tab={{ active_tab }}" class="trending-pill {% if item.is_active %}active{% endif %}" title="{{ item.count }} discussion posts">
+            <span>{{ item.tag }}</span>
+            <span class="trending-pill-count">{{ item.count }}</span>
+          </a>
+          {% endfor %}
         </div>
       </div>
 
-      {# Tabs #}
+      {# Feed Tabs #}
       <div class="feed-tabs">
-        <div class="feed-tab active" id="tab-explore" onclick="switchTab('explore')">🌐 Explore</div>
-        <div class="feed-tab" id="tab-following" onclick="switchTab('following')">👥 Following</div>
+        <a href="?tab=explore{% if tag_filter %}&tag={{ tag_filter }}{% endif %}" class="feed-tab {% if active_tab == 'explore' %}active{% endif %}" id="tab-explore">
+          🌐 Explore Live Feed
+        </a>
+        <a href="?tab=following{% if tag_filter %}&tag={{ tag_filter }}{% endif %}" class="feed-tab {% if active_tab == 'following' %}active{% endif %}" id="tab-following">
+          👥 Following ({{ my_following_count }})
+        </a>
       </div>
+
 
       {# ── EXPLORE FEED ── #}
+      {% if active_tab == 'explore' %}
       <div id="feed-explore" class="post-feed">
-
-        {# Post 1 #}
-        <div class="post-card">
+        {% for post in explore_posts %}
+        <div class="post-card {% if post.is_pinned %}pinned{% endif %}" id="post-card-{{ post.id }}">
           <div class="post-card-inner">
+            
+            {% if post.is_pinned %}
+            <div style="display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:999px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; font-size:10px; font-weight:800; margin-bottom:10px;">
+              📌 Pinned Thread
+            </div>
+            {% endif %}
+
             <div class="post-top">
-              <div class="post-author">
-                <div class="post-avatar av-indigo">AS</div>
+              <div class="post-author" onclick="openUserProfileModal({{ post.author.id }})">
+                <div class="post-avatar {{ post.author.community_profile.avatar_color }}">
+                  {{ post.author.community_profile.get_initials }}
+                </div>
                 <div class="post-author-info">
-                  <div class="post-author-name">Aman Singh</div>
-                  <div class="post-author-sub">Portfolio Investor · 234 followers</div>
+                  <div class="post-author-name">
+                    {{ post.author.community_profile.get_display_name }}
+                    {% if post.author.community_profile.is_moderator %}
+                    <span style="font-size:9.5px; background:rgba(99,102,241,0.2); color:#c7d2fe; padding:1px 5px; border-radius:4px; font-weight:700;">Mod</span>
+                    {% endif %}
+                  </div>
+                  <div class="post-author-sub">
+                    {{ post.author.community_profile.investor_tag }} &middot; {{ post.author.community_profile.followers_count }} followers
+                  </div>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span class="post-time">2h ago</span>
-                <button class="post-follow-btn" disabled>+ Follow</button>
-              </div>
-            </div>
-            <div class="post-title">How do you decide between index and active funds?</div>
-            <div class="post-body">I've been comparing cost, category rank persistence, and downside behavior across rolling windows. Index consistently wins in large-cap, but mid/small-cap still shows alpha in select active funds. Would love to hear practical frameworks from other long-term investors.</div>
-            <div class="post-tags">
-              <span class="post-tag">mutual funds</span>
-              <span class="post-tag">index funds</span>
-              <span class="post-tag">active vs passive</span>
-              <span class="post-tag">portfolio</span>
-            </div>
-            <div class="post-actions">
-              <button class="post-action-btn liked" disabled>❤️ 42</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>💬 12 Replies</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>🔗 Share</button>
-            </div>
-          </div>
-          <button class="reply-toggle" onclick="toggleReplies(this)">▶ Show 3 replies</button>
-          <div class="reply-section">
-            <div class="reply-item">
-              <div class="reply-avatar av-green">PR</div>
-              <div class="reply-body">
-                <div class="reply-author">Priya R.</div>
-                <div class="reply-text">Look at rolling returns and category rank persistence, not just one-year performance. A fund that consistently ranks in Q1–Q2 over 7+ years is worth the expense ratio premium.</div>
-              </div>
-            </div>
-            <div class="reply-item">
-              <div class="reply-avatar av-amber">KM</div>
-              <div class="reply-body">
-                <div class="reply-author">Karan M.</div>
-                <div class="reply-text">For core allocation, index all the way. For satellite (10–20%), I compare fund manager track record across market cycles. Mid-cap active still has room to beat Nifty Midcap 150.</div>
-              </div>
-            </div>
-            <div class="reply-item">
-              <div class="reply-avatar av-violet">SN</div>
-              <div class="reply-body">
-                <div class="reply-author">Shruti N.</div>
-                <div class="reply-text">Also check for overlap. Many "diversified" active funds in large-cap hold 60%+ of Nifty 50 stocks anyway. The alpha claim barely holds after survivorship bias is corrected.</div>
-              </div>
-            </div>
-            <div class="reply-input-row">
-              <input class="reply-input" type="text" placeholder="Write a reply… (login to participate)" disabled>
-              <button class="btn-reply" disabled>Reply</button>
-            </div>
-          </div>
-        </div>
 
-        {# Post 2 #}
-        <div class="post-card">
-          <div class="post-card-inner">
-            <div class="post-top">
-              <div class="post-author">
-                <div class="post-avatar av-green">DK</div>
-                <div class="post-author-info">
-                  <div class="post-author-name">Deepika K.</div>
-                  <div class="post-author-sub">SEBI RIA · 1.2K followers</div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; color:var(--text-muted);">{{ post.created_at|timesince }} ago</span>
+                {% if not post.is_own_post %}
+                <button type="button" class="post-follow-btn {% if post.is_author_followed %}following{% endif %}" onclick="toggleFollowUser({{ post.author.id }}, this)">
+                  {% if post.is_author_followed %}Following{% else %}+ Follow{% endif %}
+                </button>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="post-title">{{ post.title }}</div>
+            <div class="post-body">{{ post.content }}</div>
+
+            {% if post.image %}
+            <img src="{{ post.image.url }}" class="post-image" alt="Post attachment" onclick="openImageModal(this.src)">
+            {% endif %}
+
+            {% if post.tag_items %}
+            <div class="post-tags">
+              {% for tag in post.tag_items %}
+              <a href="?tag={{ tag }}&tab={{ active_tab }}" class="post-tag">#{{ tag }}</a>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="post-actions">
+              <button type="button" class="post-action-btn {% if post.is_liked %}liked{% endif %}" id="like-btn-{{ post.id }}" onclick="toggleLikePost({{ post.id }})">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+                <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
+              </button>
+              <div class="post-action-sep"></div>
+              <button type="button" class="post-action-btn" onclick="toggleRepliesSection({{ post.id }})">
+                <span>💬</span>
+                <span id="reply-count-btn-{{ post.id }}">{{ post.replies_count }} Replies</span>
+              </button>
+              <div class="post-action-sep"></div>
+              <button type="button" class="post-action-btn" onclick="sharePost({{ post.id }}, '{{ post.title|escapejs }}')">
+                <span>🔗</span> Share
+              </button>
+            </div>
+
+          </div>{# /post-card-inner #}
+
+          {# Collapsible Replies Drawer #}
+          <button type="button" class="reply-toggle" id="reply-toggle-btn-{{ post.id }}" onclick="toggleRepliesSection({{ post.id }})">
+            <span>💬 Discussion ({{ post.replies_count }})</span>
+            <span id="reply-arrow-{{ post.id }}">▼</span>
+          </button>
+
+          <div class="reply-section" id="replies-section-{{ post.id }}">
+            <div class="reply-list" id="replies-list-{{ post.id }}">
+              {% for reply in post.replies.all %}
+              <div class="reply-item">
+                <div class="reply-avatar {{ reply.author.community_profile.avatar_color }}" onclick="openUserProfileModal({{ reply.author.id }})">
+                  {{ reply.author.community_profile.get_initials }}
+                </div>
+                <div class="reply-body">
+                  <div class="reply-author-line">
+                    <span class="reply-author" onclick="openUserProfileModal({{ reply.author.id }})">{{ reply.author.community_profile.get_display_name }}</span>
+                    <span class="reply-time">{{ reply.created_at|timesince }} ago</span>
+                  </div>
+                  <div class="reply-text">{{ reply.content }}</div>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span class="post-time">5h ago</span>
-                <button class="post-follow-btn" disabled>+ Follow</button>
+              {% empty %}
+              <div id="no-replies-msg-{{ post.id }}" style="font-size:12px; color:var(--text-muted); padding:6px 0; text-align:center;">
+                No replies yet. Be the first to start the conversation!
               </div>
+              {% endfor %}
             </div>
-            <div class="post-title">My SIP rebalancing rules — what works for me</div>
-            <div class="post-body">After 8 years of tracking, here's what I do: 1) Rebalance annually, not more. 2) Only if equity allocation drifts >5% from target. 3) Never sell in a down year — just redirect fresh SIPs. 4) Smallcap % capped at 15% of total portfolio at all times. Happy to discuss tradeoffs.</div>
-            <div class="post-tags">
-              <span class="post-tag">SIP</span>
-              <span class="post-tag">rebalancing</span>
-              <span class="post-tag">portfolio management</span>
-            </div>
-            <div class="post-actions">
-              <button class="post-action-btn" disabled>🤍 87</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>💬 24 Replies</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>🔗 Share</button>
-            </div>
-          </div>
-          <button class="reply-toggle" onclick="toggleReplies(this)">▶ Show 3 replies</button>
-          <div class="reply-section">
-            <div class="reply-item">
-              <div class="reply-avatar av-rose">RS</div>
-              <div class="reply-body">
-                <div class="reply-author">Rahul S.</div>
-                <div class="reply-text">The "no sell in a down year" rule is controversial but I've found it psychologically much easier. The portfolio usually recovers before you'd want to sell anyway.</div>
-              </div>
-            </div>
-            <div class="reply-item">
-              <div class="reply-avatar av-cyan">MJ</div>
-              <div class="reply-body">
-                <div class="reply-author">Meera J.</div>
-                <div class="reply-text">Do you use goal-based buckets or a single combined view for rebalancing? I find that mixing goals makes rebalancing decisions ambiguous.</div>
-              </div>
-            </div>
-            <div class="reply-item">
-              <div class="reply-avatar av-indigo">VT</div>
-              <div class="reply-body">
-                <div class="reply-author">Vivek T.</div>
-                <div class="reply-text">15% smallcap cap is conservative. At what age / stage did you set this and how does it adjust as you approach retirement?</div>
-              </div>
-            </div>
-            <div class="reply-input-row">
-              <input class="reply-input" type="text" placeholder="Write a reply… (login to participate)" disabled>
-              <button class="btn-reply" disabled>Reply</button>
-            </div>
-          </div>
-        </div>
 
-        {# Post 3 #}
-        <div class="post-card">
-          <div class="post-card-inner">
-            <div class="post-top">
-              <div class="post-author">
-                <div class="post-avatar av-amber">NP</div>
-                <div class="post-author-info">
-                  <div class="post-author-name">Nikhil P.</div>
-                  <div class="post-author-sub">Quant Researcher · 560 followers</div>
-                </div>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span class="post-time">Yesterday</span>
-                <button class="post-follow-btn" disabled>+ Follow</button>
-              </div>
-            </div>
-            <div class="post-title">PE ratio of Nifty 50 — are we expensive right now?</div>
-            <div class="post-body">Current trailing PE is sitting at ~22.5x. Historical median is ~20x. That's not bubble territory but not cheap either. More importantly, forward earnings growth estimates are being revised upward. Sharing a chart of Nifty PE bands since 2010.</div>
-            <div class="post-tags">
-              <span class="post-tag">Nifty</span>
-              <span class="post-tag">valuation</span>
-              <span class="post-tag">PE ratio</span>
-              <span class="post-tag">market research</span>
-            </div>
-            <div class="post-actions">
-              <button class="post-action-btn" disabled>🤍 124</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>💬 38 Replies</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>🔗 Share</button>
-            </div>
+            <form onsubmit="handleSendReply(event, {{ post.id }})" class="reply-input-row">
+              {% csrf_token %}
+              <input type="text" id="reply-input-{{ post.id }}" class="reply-input" placeholder="Write a constructive reply…" required>
+              <button type="submit" class="btn-reply-send">Reply</button>
+            </form>
           </div>
-          <button class="reply-toggle" onclick="toggleReplies(this)">▶ Show 2 replies</button>
-          <div class="reply-section">
-            <div class="reply-item">
-              <div class="reply-avatar av-green">AP</div>
-              <div class="reply-body">
-                <div class="reply-author">Arjun P.</div>
-                <div class="reply-text">PE as a market timing tool has very low predictive power at 1–2 year horizons. What matters is earnings growth, not multiple expansion. At 22x with 15% earnings growth, we're actually not that expensive.</div>
-              </div>
-            </div>
-            <div class="reply-item">
-              <div class="reply-avatar av-violet">TK</div>
-              <div class="reply-body">
-                <div class="reply-author">Tanya K.</div>
-                <div class="reply-text">The smallcap and midcap PE ratios are more concerning. Nifty 50 at 22x is fine but quality names in mid/small are trading at 40–60x with no earnings growth to justify it.</div>
-              </div>
-            </div>
-            <div class="reply-input-row">
-              <input class="reply-input" type="text" placeholder="Write a reply… (login to participate)" disabled>
-              <button class="btn-reply" disabled>Reply</button>
-            </div>
-          </div>
-        </div>
 
-        {# Post 4 — Pinned #}
-        <div class="post-card" style="border-color:rgba(245,158,11,.28);background:rgba(245,158,11,.03);">
-          <div class="post-card-inner">
-            <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.28);color:#fcd34d;font-size:10px;font-weight:800;margin-bottom:8px;">📌 Pinned Prompt</div>
-            <div class="post-top">
-              <div class="post-author">
-                <div class="post-avatar av-amber">MF</div>
-                <div class="post-author-info">
-                  <div class="post-author-name">MF Analysis Community</div>
-                  <div class="post-author-sub">Moderator · Official</div>
-                </div>
-              </div>
-              <span class="post-time">Pinned</span>
-            </div>
-            <div class="post-title">What is your most important investing lesson from the last market correction?</div>
-            <div class="post-body">Share your biggest takeaway from navigating a drawdown — whether it was about staying invested, rebalancing decisions, or learning to tune out noise. This thread stays open permanently.</div>
-            <div class="post-tags">
-              <span class="post-tag">investing lessons</span>
-              <span class="post-tag">market corrections</span>
-              <span class="post-tag">community discussion</span>
-            </div>
-            <div class="post-actions">
-              <button class="post-action-btn" disabled>🤍 312</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>💬 96 Replies</button>
-              <div class="post-action-sep"></div>
-              <button class="post-action-btn" disabled>🔗 Share</button>
-            </div>
-          </div>
-          <button class="reply-toggle" onclick="toggleReplies(this)">▶ Show replies</button>
-          <div class="reply-section">
-            <div class="reply-item">
-              <div class="reply-avatar av-indigo">SD</div>
-              <div class="reply-body">
-                <div class="reply-author">Suresh D.</div>
-                <div class="reply-text">Lesson 1: Your actual risk tolerance is revealed only during a real drawdown, not during the KYC risk questionnaire. I thought I was aggressive; I wasn't.</div>
-              </div>
-            </div>
-            <div class="reply-item">
-              <div class="reply-avatar av-cyan">LM</div>
-              <div class="reply-body">
-                <div class="reply-author">Leena M.</div>
-                <div class="reply-text">Stopped checking portfolio daily during corrections. Monthly checks only. That one change reduced anxiety 10x and improved returns indirectly.</div>
-              </div>
-            </div>
-            <div class="reply-input-row">
-              <input class="reply-input" type="text" placeholder="Share your lesson… (login to participate)" disabled>
-              <button class="btn-reply" disabled>Reply</button>
-            </div>
-          </div>
+        </div>{# /post-card #}
+        {% empty %}
+        <div class="comm-panel" style="padding:40px 20px; text-align:center;">
+          <div style="font-size:42px; margin-bottom:12px;">💬</div>
+          <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin:0 0 6px 0;">No posts found</h3>
+          <p style="font-size:13px; color:var(--text-muted); max-width:400px; margin:0 auto 16px auto;">
+            {% if tag_filter %}No discussions found matching #{{ tag_filter }}. Try browsing other topics or create a post.{% else %}Be the first to publish a post in the investor community!{% endif %}
+          </p>
         </div>
-
-      </div>{# /feed-explore #}
-
-      {# ── FOLLOWING FEED (hidden by default) ── #}
-      <div id="feed-following" class="post-feed" style="display:none;">
-        <div class="following-empty">
-          <div class="following-empty-icon">👥</div>
-          <div class="following-empty-text">
-            <strong style="color:var(--text-primary);display:block;margin-bottom:4px;">Follow investors to see their posts here</strong>
-            Use the "Who to Follow" panel to discover other investors. Their posts will appear in this feed once you follow them.<br><br>
-            <span style="color:var(--indigo-400);font-size:11px;">Following feature available soon.</span>
-          </div>
-        </div>
+        {% endfor %}
       </div>
+      {% endif %}
+
+      {# ── FOLLOWING FEED ── #}
+      {% if active_tab == 'following' %}
+      <div id="feed-following" class="post-feed">
+        {% for post in following_posts %}
+        <div class="post-card" id="post-card-{{ post.id }}">
+          <div class="post-card-inner">
+            <div class="post-top">
+              <div class="post-author" onclick="openUserProfileModal({{ post.author.id }})">
+                <div class="post-avatar {{ post.author.community_profile.avatar_color }}">
+                  {{ post.author.community_profile.get_initials }}
+                </div>
+                <div class="post-author-info">
+                  <div class="post-author-name">{{ post.author.community_profile.get_display_name }}</div>
+                  <div class="post-author-sub">{{ post.author.community_profile.investor_tag }}</div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; color:var(--text-muted);">{{ post.created_at|timesince }} ago</span>
+                <button type="button" class="post-follow-btn following" onclick="toggleFollowUser({{ post.author.id }}, this)">
+                  Following
+                </button>
+              </div>
+            </div>
+
+            <div class="post-title">{{ post.title }}</div>
+            <div class="post-body">{{ post.content }}</div>
+
+            {% if post.image %}
+            <img src="{{ post.image.url }}" class="post-image" alt="Post attachment" onclick="openImageModal(this.src)">
+            {% endif %}
+
+            {% if post.tag_items %}
+            <div class="post-tags">
+              {% for tag in post.tag_items %}
+              <a href="?tag={{ tag }}&tab={{ active_tab }}" class="post-tag">#{{ tag }}</a>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="post-actions">
+              <button type="button" class="post-action-btn {% if post.is_liked %}liked{% endif %}" id="like-btn-{{ post.id }}" onclick="toggleLikePost({{ post.id }})">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+                <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
+              </button>
+              <div class="post-action-sep"></div>
+              <button type="button" class="post-action-btn" onclick="toggleRepliesSection({{ post.id }})">
+                <span>💬</span>
+                <span id="reply-count-btn-{{ post.id }}">{{ post.replies_count }} Replies</span>
+              </button>
+              <div class="post-action-sep"></div>
+              <button type="button" class="post-action-btn" onclick="sharePost({{ post.id }}, '{{ post.title|escapejs }}')">
+                <span>🔗</span> Share
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="reply-toggle" onclick="toggleRepliesSection({{ post.id }})">
+            <span>💬 Discussion ({{ post.replies_count }})</span>
+            <span>▼</span>
+          </button>
+
+          <div class="reply-section" id="replies-section-{{ post.id }}">
+            <div class="reply-list" id="replies-list-{{ post.id }}">
+              {% for reply in post.replies.all %}
+              <div class="reply-item">
+                <div class="reply-avatar {{ reply.author.community_profile.avatar_color }}" onclick="openUserProfileModal({{ reply.author.id }})">
+                  {{ reply.author.community_profile.get_initials }}
+                </div>
+                <div class="reply-body">
+                  <div class="reply-author-line">
+                    <span class="reply-author" onclick="openUserProfileModal({{ reply.author.id }})">{{ reply.author.community_profile.get_display_name }}</span>
+                    <span class="reply-time">{{ reply.created_at|timesince }} ago</span>
+                  </div>
+                  <div class="reply-text">{{ reply.content }}</div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
+            <form onsubmit="handleSendReply(event, {{ post.id }})" class="reply-input-row">
+              {% csrf_token %}
+              <input type="text" id="reply-input-{{ post.id }}" class="reply-input" placeholder="Write a constructive reply…" required>
+              <button type="submit" class="btn-reply-send">Reply</button>
+            </form>
+          </div>
+        </div>
+        {% empty %}
+        <div class="comm-panel" style="padding:48px 24px; text-align:center;">
+          <div style="font-size:42px; margin-bottom:12px;">👥</div>
+          <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin:0 0 6px 0;">Your Following feed is quiet</h3>
+          <p style="font-size:13px; color:var(--text-muted); max-width:440px; margin:0 auto 20px auto; line-height:1.6;">
+            Discover and follow insightful investors from the <strong>Who to Follow</strong> suggestions or from the <strong>Explore Feed</strong> to see their research and discussions here.
+          </p>
+          <a href="?tab=explore" class="btn btn-primary btn-sm">Explore Community Posts</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
 
     </div>{# /feed-col #}
 
-    {# ── RIGHT COL — Who to Follow ── #}
+    {# ── RIGHT COL: Who to Follow & Trending Topics ── #}
     <div class="right-col">
+      
+      {# Who to Follow #}
       <div class="comm-panel">
         <div class="panel-head">
           <span class="panel-title">👥 Who to Follow</span>
-          <span class="soon-overlay">Soon</span>
         </div>
         <div class="panel-body">
           <div class="follow-list">
-            <div class="follow-item">
-              <div class="follow-avatar av-green">DK</div>
-              <div class="follow-info">
-                <div class="follow-name">Deepika K.</div>
-                <div class="follow-bio">SEBI RIA · Retirement planning</div>
+            {% for u in who_to_follow %}
+            <div class="follow-item" id="follow-row-{{ u.id }}">
+              <div class="follow-avatar {{ u.community_profile.avatar_color }}" onclick="openUserProfileModal({{ u.id }})">
+                {{ u.community_profile.get_initials }}
               </div>
-              <button class="btn-follow" disabled>Follow</button>
-            </div>
-            <div class="follow-item">
-              <div class="follow-avatar av-amber">NP</div>
               <div class="follow-info">
-                <div class="follow-name">Nikhil P.</div>
-                <div class="follow-bio">Quant researcher · Market data</div>
+                <div class="follow-name" onclick="openUserProfileModal({{ u.id }})">{{ u.community_profile.get_display_name }}</div>
+                <div class="follow-bio">{{ u.community_profile.investor_tag }}</div>
               </div>
-              <button class="btn-follow" disabled>Follow</button>
-            </div>
-            <div class="follow-item">
-              <div class="follow-avatar av-violet">SN</div>
-              <div class="follow-info">
-                <div class="follow-name">Shruti N.</div>
-                <div class="follow-bio">Factor investing · Long-term</div>
-              </div>
-              <button class="btn-follow" disabled>Follow</button>
-            </div>
-            <div class="follow-item">
-              <div class="follow-avatar av-cyan">MJ</div>
-              <div class="follow-info">
-                <div class="follow-name">Meera J.</div>
-                <div class="follow-bio">Goal-based investing · DIY</div>
-              </div>
-              <button class="btn-follow" disabled>Follow</button>
-            </div>
-            <div class="follow-item">
-              <div class="follow-avatar av-rose">RS</div>
-              <div class="follow-info">
-                <div class="follow-name">Rahul S.</div>
-                <div class="follow-bio">Smallcap · Value investing</div>
-              </div>
-              <button class="btn-follow" disabled>Follow
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {# Trending Tags #}
-      <div class="comm-panel" style="margin-top:14px;">
-        <div class="panel-head"><span class="panel-title">🔥 Trending Topics</span></div>
-        <div class="panel-body">
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            {% for item in trending_topics %}
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="color:var(--indigo-400);font-size:12px;font-weight:650;">{{ item.tag }}</span>
-              <span style="font-size:10px;color:var(--text-muted);">{{ item.count }} posts</span>
+              <button type="button" class="post-follow-btn" onclick="toggleFollowUser({{ u.id }}, this)" style="padding:3px 10px; font-size:10.5px;">
+                + Follow
+              </button>
             </div>
             {% empty %}
-            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:var(--indigo-400);font-size:12px;font-weight:650;">#IndexFunds</span><span style="font-size:10px;color:var(--text-muted);">24K posts</span></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:var(--indigo-400);font-size:12px;font-weight:650;">#SIP</span><span style="font-size:10px;color:var(--text-muted);">21K posts</span></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:var(--indigo-400);font-size:12px;font-weight:650;">#SmallCap</span><span style="font-size:10px;color:var(--text-muted);">18K posts</span></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:var(--indigo-400);font-size:12px;font-weight:650;">#MutualFunds</span><span style="font-size:10px;color:var(--text-muted);">17K posts</span></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:var(--indigo-400);font-size:12px;font-weight:650;">#PERatio</span><span style="font-size:10px;color:var(--text-muted);">14K posts</span></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:var(--indigo-400);font-size:12px;font-weight:650;">#Rebalancing</span><span style="font-size:10px;color:var(--text-muted);">11K posts</span></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:var(--indigo-400);font-size:12px;font-weight:650;">#ValueInvesting</span><span style="font-size:10px;color:var(--text-muted);">9K posts</span></div>
+            <div style="font-size:12px; color:var(--text-muted); text-align:center; padding:10px 0;">
+              You are connected with all active investors!
+            </div>
             {% endfor %}
           </div>
-
         </div>
       </div>
-    </div>
+
+      {# Trending Topics #}
+      <div class="comm-panel">
+        <div class="panel-head"><span class="panel-title">🔥 Trending Topics</span></div>
+        <div class="panel-body">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            {% for item in trending_topics %}
+            <a href="?tag={{ item.name }}&tab={{ active_tab }}" class="trending-tag-row {% if item.is_active %}active{% endif %}">
+              <span class="trending-tag-name">{{ item.tag }}</span>
+              <span class="trending-tag-count">{{ item.count }} posts</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+    </div>{# /right-col #}
 
   </div>
 </div>
+
+<!-- Modal: User Profile Card -->
+<div id="modal-user-profile" class="comm-modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-user-profile')">
+  <div class="comm-modal-card">
+    <button type="button" class="comm-modal-close" onclick="closeModal('modal-user-profile')">✕</button>
+    <div id="user-profile-modal-body">
+      <div style="text-align:center; padding:20px 0;">Loading profile…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: My Profile Edit -->
+<div id="modal-edit-my-profile" class="comm-modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-edit-my-profile')">
+  <div class="comm-modal-card">
+    <button type="button" class="comm-modal-close" onclick="closeModal('modal-edit-my-profile')">✕</button>
+    <h3 style="margin:0 0 16px 0; font-size:17px; font-weight:750; color:var(--text-primary);">✏️ Edit My Community Profile</h3>
+    <form onsubmit="handleSaveMyProfile(event)" style="display:flex; flex-direction:column; gap:12px;">
+      {% csrf_token %}
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:5px;">Display Name</label>
+        <input type="text" id="edit-display-name" class="composer-field" value="{{ my_profile.get_display_name }}" required maxlength="100">
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:5px;">Investor Style / Role</label>
+        <select id="edit-investor-tag" class="composer-field">
+          <option value="Portfolio Investor" {% if my_profile.investor_tag == 'Portfolio Investor' %}selected{% endif %}>Portfolio Investor</option>
+          <option value="DIY Investor" {% if my_profile.investor_tag == 'DIY Investor' %}selected{% endif %}>DIY Investor</option>
+          <option value="SEBI RIA" {% if my_profile.investor_tag == 'SEBI RIA' %}selected{% endif %}>SEBI RIA</option>
+          <option value="Quant Researcher" {% if my_profile.investor_tag == 'Quant Researcher' %}selected{% endif %}>Quant Researcher</option>
+          <option value="Factor Investor" {% if my_profile.investor_tag == 'Factor Investor' %}selected{% endif %}>Factor Investor</option>
+          <option value="Value Investor" {% if my_profile.investor_tag == 'Value Investor' %}selected{% endif %}>Value Investor</option>
+          <option value="Retirement Planner" {% if my_profile.investor_tag == 'Retirement Planner' %}selected{% endif %}>Retirement Planner</option>
+          <option value="Long-term Compounder" {% if my_profile.investor_tag == 'Long-term Compounder' %}selected{% endif %}>Long-term Compounder</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:5px;">About / Bio</label>
+        <textarea id="edit-bio" class="composer-field" rows="3" placeholder="Share your investment philosophy, asset allocation strategy, or experience…" maxlength="300">{{ my_profile.bio }}</textarea>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:6px;">Avatar Color Theme</label>
+        <div style="display:flex; gap:8px;">
+          {% for code, label in my_profile.AVATAR_COLOR_CHOICES %}
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-secondary); cursor:pointer;">
+            <input type="radio" name="avatar_color" value="{{ code }}" {% if my_profile.avatar_color == code %}checked{% endif %}>
+            <span class="post-avatar {{ code }}" style="width:22px; height:22px; font-size:9px;">●</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-my-profile')">Cancel</button>
+        <button type="submit" id="btn-save-profile" class="btn btn-primary">Save Profile</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Network (Followers / Following) -->
+<div id="modal-user-network" class="comm-modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-user-network')">
+  <div class="comm-modal-card">
+    <button type="button" class="comm-modal-close" onclick="closeModal('modal-user-network')">✕</button>
+    <h3 id="network-modal-title" style="margin:0 0 14px 0; font-size:16px; font-weight:750; color:var(--text-primary);">Network</h3>
+    <div id="network-modal-list" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto;">
+      Loading…
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Lightbox Image Preview -->
+<div id="modal-image-preview" class="comm-modal-overlay" style="display:none;" onclick="closeModal('modal-image-preview')">
+  <div style="max-width:90vw; max-height:90vh; position:relative;">
+    <button type="button" class="comm-modal-close" style="top:-30px; right:-10px; color:#fff;" onclick="closeModal('modal-image-preview')">✕</button>
+    <img id="lightbox-img" src="" alt="Fullscreen view" style="max-width:100%; max-height:85vh; border-radius:10px; box-shadow:0 24px 48px rgba(0,0,0,0.8); border:1px solid rgba(255,255,255,0.2);">
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function switchTab(tab) {
-  document.getElementById('feed-explore').style.display = tab === 'explore' ? 'flex' : 'none';
-  document.getElementById('feed-following').style.display = tab === 'following' ? 'flex' : 'none';
-  document.getElementById('tab-explore').classList.toggle('active', tab === 'explore');
-  document.getElementById('tab-following').classList.toggle('active', tab === 'following');
+const CREATE_POST_URL = "{% url 'core:community_create_post_api' %}";
+const UPDATE_PROFILE_URL = "{% url 'core:community_update_my_profile_api' %}";
+
+function getCsrfToken() {
+  const match = document.cookie.match(/(^|;)\s*csrftoken\s*=\s*([^;]+)/);
+  if (match) return match[2];
+  const input = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (input) return input.value;
+  return '{{ csrf_token }}';
 }
 
-function toggleReplies(btn) {
-  var section = btn.nextElementSibling;
-  var isOpen = section.classList.contains('open');
+function toast(msg, type = 'info') {
+  let container = document.getElementById('global-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'global-toast-container';
+    container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none;';
+    document.body.appendChild(container);
+  }
+  const el = document.createElement('div');
+  const bg = type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#4f46e5');
+  const icon = type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ');
+  el.style.cssText = `background:${bg};color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;pointer-events:auto;transition:all 0.3s ease;`;
+  el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-10px)';
+    setTimeout(() => el.remove(), 300);
+  }, 2800);
+}
+
+// ── Image Selection & Preview ──
+function handleImageSelected(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('composer-img-preview').src = e.target.result;
+      document.getElementById('composer-img-preview-box').style.display = 'block';
+    }
+    reader.readAsDataURL(file);
+  }
+}
+
+function clearSelectedImage() {
+  const input = document.getElementById('post-image-input');
+  if (input) input.value = '';
+  document.getElementById('composer-img-preview-box').style.display = 'none';
+  document.getElementById('composer-img-preview').src = '';
+}
+
+// ── Create Post ──
+async function handleCreatePost(e) {
+  e.preventDefault();
+  const form = document.getElementById('composer-form');
+  const btn = document.getElementById('btn-submit-post');
+  
+  const title = document.getElementById('post-title').value.trim();
+  const content = document.getElementById('post-content').value.trim();
+  if (!title || !content) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Publishing…';
+
+  const formData = new FormData(form);
+
+  try {
+    const res = await fetch(CREATE_POST_URL, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast('Post published to Community!', 'success');
+      form.reset();
+      clearSelectedImage();
+      setTimeout(() => window.location.reload(), 400);
+    } else {
+      toast(data.error || 'Failed to publish post', 'error');
+    }
+  } catch (err) {
+    toast('Network error publishing post', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Post to Community';
+  }
+}
+
+// ── Toggle Like ──
+async function toggleLikePost(postId) {
+  const btn = document.getElementById(`like-btn-${postId}`);
+  const countSpan = document.getElementById(`like-count-${postId}`);
+  try {
+    const res = await fetch(`/learn/community/api/posts/${postId}/like/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (data.liked) {
+        btn.classList.add('liked');
+      } else {
+        btn.classList.remove('liked');
+      }
+      if (countSpan) countSpan.textContent = data.likes_count;
+    }
+  } catch (err) {
+    console.error('Like error', err);
+  }
+}
+
+// ── Toggle Replies Section ──
+function toggleRepliesSection(postId) {
+  const section = document.getElementById(`replies-section-${postId}`);
+  const arrow = document.getElementById(`reply-arrow-${postId}`);
+  if (!section) return;
+  const isOpen = section.classList.contains('open');
   section.classList.toggle('open', !isOpen);
-  btn.textContent = (isOpen ? '▶ Show replies' : '▼ Hide replies');
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
+
+// ── Send Reply ──
+async function handleSendReply(e, postId) {
+  e.preventDefault();
+  const input = document.getElementById(`reply-input-${postId}`);
+  const body = input.value.trim();
+  if (!body) return;
+
+  const btn = e.target.querySelector('button[type=submit]');
+  if (btn) btn.disabled = true;
+
+  const formData = new FormData();
+  formData.append('content', body);
+
+  try {
+    const res = await fetch(`/learn/community/api/posts/${postId}/reply/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      input.value = '';
+      const list = document.getElementById(`replies-list-${postId}`);
+      const noMsg = document.getElementById(`no-replies-msg-${postId}`);
+      if (noMsg) noMsg.remove();
+
+      const r = data.reply;
+      const el = document.createElement('div');
+      el.className = 'reply-item';
+      el.innerHTML = `
+        <div class="reply-avatar ${r.author_color}" onclick="openUserProfileModal(${r.author_id})">
+          ${r.author_initials}
+        </div>
+        <div class="reply-body">
+          <div class="reply-author-line">
+            <span class="reply-author" onclick="openUserProfileModal(${r.author_id})">${r.author_name}</span>
+            <span class="reply-time">${r.created_at}</span>
+          </div>
+          <div class="reply-text">${r.content.replace(/</g, '&lt;')}</div>
+        </div>
+      `;
+      list.appendChild(el);
+
+      const countBtn = document.getElementById(`reply-count-btn-${postId}`);
+      if (countBtn) countBtn.textContent = `${data.replies_count} Replies`;
+      const toggleSpan = document.getElementById(`reply-toggle-btn-${postId}`)?.querySelector('span');
+      if (toggleSpan) toggleSpan.textContent = `💬 Discussion (${data.replies_count})`;
+
+      toast('Reply added!', 'success');
+    } else {
+      toast(data.error || 'Failed to add reply', 'error');
+    }
+  } catch (err) {
+    toast('Network error adding reply', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Toggle Follow ──
+async function toggleFollowUser(userId, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/learn/community/api/users/${userId}/follow/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (data.is_following) {
+        btn.classList.add('following');
+        btn.textContent = 'Following';
+      } else {
+        btn.classList.remove('following');
+        btn.textContent = '+ Follow';
+      }
+      toast(data.message, 'info');
+    } else {
+      toast(data.error || 'Failed to update follow status', 'error');
+    }
+  } catch (err) {
+    toast('Network error updating follow status', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── User Profile Modal ──
+async function openUserProfileModal(userId) {
+  const modal = document.getElementById('modal-user-profile');
+  const body = document.getElementById('user-profile-modal-body');
+  modal.style.display = 'flex';
+  body.innerHTML = '<div style="text-align:center; padding:30px 0; color:var(--text-muted);">Loading investor profile…</div>';
+
+  try {
+    const res = await fetch(`/learn/community/api/users/${userId}/profile/`);
+    const data = await res.json();
+    if (!res.ok) {
+      body.innerHTML = `<div style="color:var(--red-400);">${data.error || 'Error loading profile'}</div>`;
+      return;
+    }
+    const u = data.user;
+    body.innerHTML = `
+      <div style="text-align:center; margin-bottom:18px;">
+        <div class="post-avatar ${u.avatar_color}" style="width:64px; height:64px; font-size:22px; margin:0 auto 12px auto; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+          ${u.avatar_initials}
+        </div>
+        <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);">${u.display_name}</h3>
+        <div style="font-size:12px; color:var(--indigo-400); font-weight:650; margin-top:2px;">${u.investor_tag}</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; margin-bottom:16px;">
+        <div class="my-stat-box" onclick="openNetworkModal(${u.id}, 'following')">
+          <div class="my-stat-val">${u.following_count}</div>
+          <div class="my-stat-lbl">Following</div>
+        </div>
+        <div class="my-stat-box" onclick="openNetworkModal(${u.id}, 'followers')">
+          <div class="my-stat-val">${u.followers_count}</div>
+          <div class="my-stat-lbl">Followers</div>
+        </div>
+        <div class="my-stat-box">
+          <div class="my-stat-val">${u.posts_count}</div>
+          <div class="my-stat-lbl">Posts</div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:13px; color:var(--text-secondary); line-height:1.55;">
+        ${u.bio}
+      </div>
+
+      ${!u.is_self ? `
+      <div style="text-align:center; margin-bottom:18px;">
+        <button type="button" class="post-follow-btn ${u.is_following ? 'following' : ''}" style="padding:6px 24px; font-size:13px;" onclick="toggleFollowUser(${u.id}, this)">
+          ${u.is_following ? 'Following' : '+ Follow Investor'}
+        </button>
+      </div>
+      ` : ''}
+
+      ${u.recent_posts && u.recent_posts.length ? `
+      <div style="border-top:1px solid var(--border); padding-top:14px;">
+        <div style="font-size:12px; font-weight:750; color:var(--text-primary); margin-bottom:8px;">Recent Posts</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${u.recent_posts.map(p => `
+            <div style="padding:8px 10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; font-size:12px;">
+              <div style="font-weight:650; color:var(--text-primary);">${p.title}</div>
+              <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">
+                ${p.created_at_str} &middot; ❤️ ${p.likes_count} &middot; 💬 ${p.replies_count}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+    `;
+  } catch (err) {
+    body.innerHTML = '<div style="color:var(--red-400);">Error connecting to profile service.</div>';
+  }
+}
+
+// ── My Profile Edit ──
+function openMyProfileModal() {
+  document.getElementById('modal-edit-my-profile').style.display = 'flex';
+}
+
+async function handleSaveMyProfile(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-save-profile');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const formData = new FormData();
+  formData.append('display_name', document.getElementById('edit-display-name').value.trim());
+  formData.append('investor_tag', document.getElementById('edit-investor-tag').value);
+  formData.append('bio', document.getElementById('edit-bio').value.trim());
+  
+  const selectedColor = document.querySelector('input[name="avatar_color"]:checked');
+  if (selectedColor) formData.append('avatar_color', selectedColor.value);
+
+  try {
+    const res = await fetch(UPDATE_PROFILE_URL, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast('Profile updated!', 'success');
+      setTimeout(() => window.location.reload(), 350);
+    } else {
+      toast(data.error || 'Failed to update profile', 'error');
+    }
+  } catch (err) {
+    toast('Network error updating profile', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Profile';
+  }
+}
+
+// ── Network Modal (Followers / Following List) ──
+async function openNetworkModal(userId, type) {
+  const modal = document.getElementById('modal-user-network');
+  const title = document.getElementById('network-modal-title');
+  const list = document.getElementById('network-modal-list');
+  modal.style.display = 'flex';
+  title.textContent = type === 'following' ? '👥 Following List' : '👥 Followers List';
+  list.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Loading members…</div>';
+
+  try {
+    const res = await fetch(`/learn/community/api/users/${userId}/network/?type=${type}`);
+    const data = await res.json();
+    if (res.ok && data.users) {
+      if (!data.users.length) {
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12.5px;">No ${type} found.</div>`;
+        return;
+      }
+      list.innerHTML = data.users.map(u => `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px;">
+          <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="openUserProfileModal(${u.id})">
+            <div class="post-avatar ${u.avatar_color}" style="width:30px; height:30px; font-size:11px;">${u.avatar_initials}</div>
+            <div>
+              <div style="font-size:12.5px; font-weight:700; color:var(--text-primary);">${u.display_name}</div>
+              <div style="font-size:10.5px; color:var(--text-muted);">${u.investor_tag}</div>
+            </div>
+          </div>
+          ${!u.is_self ? `
+          <button type="button" class="post-follow-btn ${u.is_following ? 'following' : ''}" style="font-size:10.5px; padding:3px 9px;" onclick="toggleFollowUser(${u.id}, this)">
+            ${u.is_following ? 'Following' : '+ Follow'}
+          </button>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    list.innerHTML = '<div style="color:var(--red-400);">Error loading network.</div>';
+  }
+}
+
+// ── Lightbox Image Modal ──
+function openImageModal(src) {
+  const modal = document.getElementById('modal-image-preview');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  modal.style.display = 'flex';
+}
+
+// ── Share Post Link ──
+function sharePost(postId, title) {
+  const url = `${window.location.origin}/learn/community/#post-card-${postId}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url);
+    toast(`Post link copied to clipboard!`, 'success');
+  } else {
+    toast(`Post URL: ${url}`, 'info');
+  }
+}
+
+function closeModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.style.display = 'none';
 }
 </script>
 {% endblock %}
