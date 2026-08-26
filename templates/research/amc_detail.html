@@ -181,11 +181,11 @@
 
 {# ── Tabs ── #}
 <div class="amc-tabs" id="amc-tabs">
-  <button class="amc-tab active" onclick="switchTab('funds')">📋 All Funds</button>
-  <button class="amc-tab" onclick="switchTab('portfolio')">📊 Portfolio Insights</button>
-  <button class="amc-tab" onclick="switchTab('intel')">🧠 Intelligence</button>
-  <button class="amc-tab" onclick="switchTab('philosophy')">📐 Philosophy</button>
-  <button class="amc-tab" onclick="switchTab('categories')">📂 Categories</button>
+  <button class="amc-tab active" id="tab-btn-funds" onclick="switchTab('funds')">📋 All Funds</button>
+  <button class="amc-tab" id="tab-btn-portfolio" onclick="switchTab('portfolio')">📊 Portfolio Analysis</button>
+  <button class="amc-tab" id="tab-btn-intel" onclick="switchTab('intel')">🧠 Intelligence</button>
+  <button class="amc-tab" id="tab-btn-philosophy" onclick="switchTab('philosophy')">📐 Philosophy</button>
+  <button class="amc-tab" id="tab-btn-categories" onclick="switchTab('categories')">📂 Categories</button>
 </div>
 
 {# ── Funds Tab ── #}
@@ -194,7 +194,6 @@
     <div style="display:flex;gap:4px;background:var(--surface-3);border-radius:10px;padding:3px">
       <button class="fund-tab-btn active" id="ftab-returns" onclick="loadFundsTab('returns')">Returns</button>
       <button class="fund-tab-btn" id="ftab-risk" onclick="loadFundsTab('risk')">Risk</button>
-      <button class="fund-tab-btn" id="ftab-portfolio" onclick="loadFundsTab('portfolio')">Portfolio</button>
       <button class="fund-tab-btn" id="ftab-fees" onclick="loadFundsTab('fees')">Fees</button>
     </div>
     <input id="fund-search" type="text" placeholder="Search funds…" oninput="debouncedSearch()"
@@ -211,125 +210,150 @@
   </div>
 </div>
 
-{# ── Portfolio Insights Tab (new — AJAX) ── #}
+{# ── Portfolio Analysis Tab (Fund-level Capwise & Sector Breakdown Table) ── #}
 <div class="tab-panel" id="panel-portfolio">
-  <div id="pi-loading" style="padding:60px;text-align:center;color:var(--text-muted)">
-    <div style="font-size:36px;margin-bottom:12px">⏳</div>
-    <div>Loading portfolio data…</div>
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="port-fund-search" type="text" placeholder="Filter portfolio funds…" oninput="debouncedPortSearch()"
+             style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px;min-width:220px">
+      <select id="port-cat-filter" onchange="filterPortTable()"
+              style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="exportPortCsv()" class="btn-ghost" style="padding:6px 12px;font-size:12px;border-radius:8px;display:flex;align-items:center;gap:4px">
+        📥 Export CSV
+      </button>
+    </div>
   </div>
-  <div id="pi-no-data" style="display:none;padding:60px;text-align:center">
+
+  <div id="port-container" style="max-height:75vh;overflow:auto">
+    <div id="port-loading" style="padding:40px;text-align:center;color:var(--text-muted)">Loading portfolio data…</div>
+    <table class="data-table" id="port-table" style="display:none">
+      <thead id="port-thead"><tr></tr></thead>
+      <tbody id="port-tbody"></tbody>
+      <tfoot id="port-tfoot" style="background:var(--surface-2);font-weight:700"></tfoot>
+    </table>
+    <div id="port-empty" style="display:none;padding:40px;text-align:center;color:var(--text-muted)">No funds match the portfolio filters.</div>
+  </div>
+</div>
+
+{# ── Intelligence Tab (Aggregate Portfolio Intelligence: Cap Blend, Sectors, Top Holdings, High Conviction, Exits) ── #}
+<div class="tab-panel" id="panel-intel">
+  <div id="intel-loading" style="padding:60px;text-align:center;color:var(--text-muted)">
+    <div style="font-size:36px;margin-bottom:12px">⏳</div>
+    <div>Loading portfolio intelligence…</div>
+  </div>
+  <div id="intel-no-data" style="display:none;padding:60px;text-align:center">
     <div style="font-size:40px;margin-bottom:12px">📊</div>
-    <h3 style="margin:0 0 8px">Portfolio data not yet available</h3>
+    <h3 style="margin:0 0 8px">Holdings data not yet available</h3>
     <p style="color:var(--text-muted);font-size:13px">Run <code>python manage.py ingest_holdings</code> to populate portfolio disclosures for this AMC's funds.</p>
   </div>
-  <div id="pi-content" style="display:none">
-    <!-- Row 1: AUM Trend + Cap Blend -->
+  <div id="intel-content" style="display:none">
+    <!-- Row 1: Cap Blend + Dominant Sectors -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-
-      <!-- AUM Trend -->
-      <div class="metric-card" style="padding:20px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:4px">📈 AMC AUM Trend
-          <button type="button" class="info-btn" aria-label="Info" data-t-title="AMC AUM Trend" data-t-what="Total AUM aggregated across all direct-growth schemes of this AMC, sampled monthly." data-t-interp="A growing AUM trend indicates investor confidence and net inflows into the fund house. Declining AUM may signal redemptions or NAV depreciation." data-t-link="AMC AUM trend mutual fund">ⓘ</button>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Monthly snapshots — total across all active direct schemes</div>
-        <canvas id="pi-aum-chart" height="140"></canvas>
-        <div id="pi-aum-empty" style="display:none;color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No AUM history yet</div>
-      </div>
-
       <!-- Cap Blend -->
       <div class="metric-card" style="padding:20px">
         <div style="font-weight:700;font-size:14px;margin-bottom:4px">🏗️ Market-Cap Blend
           <button type="button" class="info-btn" aria-label="Info" data-t-title="Market Cap Blend" data-t-what="AUM-weighted Large/Mid/Small cap allocation across all equity schemes of this AMC." data-t-interp="Reveals whether the fund house leans large-cap (stability), mid-cap (growth), or small-cap (high-risk alpha). SEBI classification: Nifty 50 + Next 50 = Large, Nifty Midcap 150 = Mid, rest = Small." data-t-link="SEBI market cap classification mutual fund">ⓘ</button>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">SEBI classification — AUM-weighted across equity schemes</div>
-        <div id="pi-cap-blend-bars"></div>
-        <div id="pi-cap-empty" style="display:none;color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No cap data yet</div>
+        <div id="intel-cap-blend-bars"></div>
+        <div id="intel-cap-empty" style="display:none;color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No cap data yet</div>
+      </div>
+
+      <!-- Sector Allocation -->
+      <div class="metric-card" style="padding:20px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">🏭 Dominant Sector Exposure
+          <button type="button" class="info-btn" aria-label="Info" data-t-title="AMC Sector Allocation" data-t-what="AUM-weighted sector concentration across the AMC's equity schemes." data-t-interp="Shows the fund house's macro sector biases — overweights vs Nifty benchmark. Concentrated sector bets increase both upside potential and drawdown risk during sector downturns." data-t-link="AMC sector allocation India mutual fund">ⓘ</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">AUM-weighted across all equity schemes</div>
+        <div id="intel-sector-bars" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div id="intel-sector-empty" style="display:none;color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No sector data available</div>
       </div>
     </div>
 
-    <!-- Row 2: Top Holdings + Sectors -->
+    <!-- Row 2: Top 20 Holdings + High Conviction Bets -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-
       <!-- Top 20 Holdings -->
       <div class="metric-card" style="padding:20px">
         <div style="font-weight:700;font-size:14px;margin-bottom:4px">🎯 Top Holdings
           <button type="button" class="info-btn" aria-label="Info" data-t-title="AMC Top Holdings" data-t-what="Top 20 equity holdings by AUM-weighted portfolio weight across all direct-growth schemes." data-t-interp="Stocks that appear here with high weights indicate the AMC's highest-conviction equity bets. This is the aggregate portfolio bias of the fund house, not a single fund." data-t-link="AMC portfolio top holdings mutual fund India">ⓘ</button>
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">AUM-weighted across all equity schemes · <span id="pi-as-of-month"></span></div>
-        <div id="pi-holdings-list" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">AUM-weighted across all equity schemes · <span id="intel-as-of-month"></span></div>
+        <div id="intel-holdings-list" style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;padding-right:4px"></div>
+        <div id="intel-holdings-empty" style="display:none;color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No holdings data available</div>
       </div>
 
-      <!-- Sector Allocation -->
+      <!-- High Conviction Positions (held in 3+ funds) -->
       <div class="metric-card" style="padding:20px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:4px">🏭 Sector Allocation
-          <button type="button" class="info-btn" aria-label="Info" data-t-title="AMC Sector Allocation" data-t-what="AUM-weighted sector concentration across the AMC's equity schemes." data-t-interp="Shows the fund house's macro sector biases — overweights vs Nifty benchmark. Concentrated sector bets increase both upside potential and drawdown risk during sector downturns." data-t-link="AMC sector allocation India mutual fund">ⓘ</button>
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">🎯 High-Conviction Stocks
+          <button type="button" class="info-btn" aria-label="Info" data-t-title="High-Conviction Stocks" data-t-what="Stocks held across 3 or more funds within this AMC simultaneously." data-t-interp="Shows cross-fund internal research consensus among managers at this fund house." data-t-link="mutual fund high conviction stocks">ⓘ</button>
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">AUM-weighted across all equity schemes</div>
-        <div id="pi-sector-bars" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Stocks held across 3+ schemes of this AMC — consensus bets</div>
+        <div id="intel-conviction-list" style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;padding-right:4px"></div>
+        <div id="intel-conviction-empty" style="display:none;color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No stocks held across 3+ funds found.</div>
       </div>
     </div>
 
-    <!-- Row 3: Exits -->
-    <div class="metric-card" style="padding:20px">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px">🚪 Recent Full Exits
-        <button type="button" class="info-btn" aria-label="Info" data-t-title="AMC Portfolio Exits" data-t-what="Stocks that were held last month but are absent from this month's portfolio across the AMC's schemes." data-t-interp="Full exits indicate collective selling conviction by the AMC's research desk. It can reflect deteriorating fundamentals, valuation concerns, or mandate realignment." data-t-link="mutual fund portfolio exit sell decision AMC">ⓘ</button>
+    <!-- Row 3: Exits + Portfolio Breadth Summary -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <!-- Exits -->
+      <div class="metric-card" style="padding:20px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">🚪 Recent Full Exits
+          <button type="button" class="info-btn" aria-label="Info" data-t-title="AMC Portfolio Exits" data-t-what="Stocks that were held last month but are absent from this month's portfolio across the AMC's schemes." data-t-interp="Full exits indicate collective selling conviction by the AMC's research desk. It can reflect deteriorating fundamentals, valuation concerns, or mandate realignment." data-t-link="mutual fund portfolio exit sell decision AMC">ⓘ</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Stocks present last month but absent this month across this AMC's equity schemes</div>
+        <div id="intel-exits-list" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        <div id="intel-exits-empty" style="display:none;color:var(--text-muted);font-size:12px">No full exits detected between the two most recent disclosure months.</div>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Stocks present last month but absent this month across this AMC's equity schemes</div>
-      <div id="pi-exits-list" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-      <div id="pi-exits-empty" style="display:none;color:var(--text-muted);font-size:12px">No full exits detected between the two most recent disclosure months.</div>
+
+      <!-- Portfolio Breadth Card -->
+      <div class="metric-card" style="padding:20px;display:flex;flex-direction:column;justify-content:center;gap:16px">
+        <div style="font-weight:700;font-size:14px">📊 Portfolio Breadth Summary</div>
+        <div style="display:flex;gap:32px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted)">Unique Stock Universe <button type="button" class="info-btn" aria-label="Info" data-t-title="Unique Stocks" data-t-what="Total count of distinct equity holdings across all funds of the AMC." data-t-interp="Focused stock count = high conviction; large count = broad diversification." data-t-link="mutual fund portfolio stock universe">ⓘ</button></div>
+            <div style="font-size:24px;font-weight:800;color:var(--text-primary)" id="intel-unique-stocks">{{ metrics.unique_stock_count|default:"—" }}</div>
+            <div style="font-size:11px;color:var(--text-muted)">distinct equity holdings</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted)">Consensus Holdings <button type="button" class="info-btn" aria-label="Info" data-t-title="High-Conviction Positions" data-t-what="Number of stocks present in 3+ funds of this AMC." data-t-interp="Higher count indicates stronger central research consensus." data-t-link="high conviction stock picks mutual fund">ⓘ</button></div>
+            <div style="font-size:24px;font-weight:800;color:var(--indigo-400)" id="intel-conviction-count">{{ metrics.high_conviction_stocks|length }}</div>
+            <div style="font-size:11px;color:var(--text-muted)">held in 3+ funds simultaneously</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-{# ── Portfolio Intelligence Tab (existing static data) ── #}
-<div class="tab-panel" id="panel-intel">
-  {% if not metrics.has_holdings %}
-  <div style="padding:60px 24px;text-align:center">
-    <div style="font-size:40px;margin-bottom:12px">📊</div>
-    <h3 style="margin:0 0 8px">Holdings data not yet loaded</h3>
-    <p style="color:var(--text-muted);font-size:13px">Portfolio intelligence requires holdings data ingestion for this AMC's funds.</p>
-  </div>
-  {% else %}
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex-wrap:wrap">
-
-    {# High Conviction Stocks #}
-    <div>
-      <h3 style="font-size:15px;font-weight:700;margin:0 0 14px">🎯 High-Conviction Stocks <button type="button" class="info-btn" aria-label="Info" data-t-title="High-Conviction Stocks" data-t-what="Stocks held across 3 or more funds within this AMC simultaneously." data-t-interp="Shows cross-fund internal research consensus among managers at this fund house." data-t-link="mutual fund high conviction stocks">ⓘ</button></h3>
-      <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">Stocks held across 3+ funds of this AMC — signals cross-fund consensus</p>
-      <div style="display:flex;flex-direction:column;gap:8px" id="conviction-list">
-        <div style="color:var(--text-muted);font-size:13px">Loading…</div>
-      </div>
-    </div>
-
-    {# Sector Allocation #}
-    <div>
-      <h3 style="font-size:15px;font-weight:700;margin:0 0 14px">🏭 Dominant Sector Exposure <button type="button" class="info-btn" aria-label="Info" data-t-title="Dominant Sector Exposure" data-t-what="Average sector weighting across active equity schemes of this AMC." data-t-interp="Reveals the AMC's structural macro sector tilts and investment preferences." data-t-link="mutual fund sector exposure weighting">ⓘ</button></h3>
-      <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">Average allocation across active funds — the AMC's revealed preferences</p>
-      <div id="sector-bars">
-        <div style="color:var(--text-muted);font-size:13px">Loading…</div>
-      </div>
-    </div>
-  </div>
-
-  <div style="margin-top:24px">
-    <div class="metric-card" style="display:inline-flex;gap:32px;flex-wrap:wrap">
-      <div>
-        <div style="font-size:11px;color:var(--text-muted)">Unique Stocks <button type="button" class="info-btn" aria-label="Info" data-t-title="Unique Stocks" data-t-what="Total count of distinct equity holdings across all funds of the AMC." data-t-interp="Focused stock count = high conviction; large count = broad diversification." data-t-link="mutual fund portfolio stock universe">ⓘ</button></div>
-        <div style="font-size:20px;font-weight:800">{{ metrics.unique_stock_count }}</div>
-        <div style="font-size:11px;color:var(--text-muted)">across all active equity funds</div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text-muted)">High-conviction positions <button type="button" class="info-btn" aria-label="Info" data-t-title="High-Conviction Positions" data-t-what="Number of stocks present in 3+ funds of this AMC." data-t-interp="Higher count indicates stronger central research consensus." data-t-link="high conviction stock picks mutual fund">ⓘ</button></div>
-        <div style="font-size:20px;font-weight:800">{{ metrics.high_conviction_stocks|length }}</div>
-        <div style="font-size:11px;color:var(--text-muted)">held in 3+ funds simultaneously</div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-</div>
-
-{# ── Philosophy Tab ── #}
+{# ── Philosophy Tab (AUM Trend + Philosophy & Style Metrics) ── #}
 <div class="tab-panel" id="panel-philosophy">
+  <!-- AUM Trend Card (strictly bounded container, no infinite expanding) -->
+  <div class="metric-card" style="padding:20px;margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-weight:700;font-size:15px;display:flex;align-items:center;gap:6px">
+          📈 AMC Total AUM & Trend
+          <button type="button" class="info-btn" aria-label="Info" data-t-title="AMC AUM Trend" data-t-what="Total AUM aggregated across all direct-growth schemes of this AMC, sampled monthly." data-t-interp="A growing AUM trend indicates investor confidence and net inflows into the fund house. Declining AUM may signal redemptions or NAV depreciation." data-t-link="AMC AUM trend mutual fund">ⓘ</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)">Current Total AUM: <strong style="color:var(--text-primary);font-size:14px" id="phil-total-aum">{{ metrics.total_aum|default:0|floatformat:0 }} Cr</strong> across {{ metrics.fund_count }} active schemes</div>
+      </div>
+      <div id="phil-aum-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+
+    <!-- Strictly sized container to prevent infinite canvas resizing -->
+    <div style="position:relative;height:180px;max-height:180px;width:100%;overflow:hidden">
+      <canvas id="phil-aum-chart"></canvas>
+    </div>
+    <div id="phil-aum-empty" style="display:none;color:var(--text-muted);font-size:12px;text-align:center;padding:24px">
+      Monthly point-in-time snapshots are active. Historical trend line will display as successive months accumulate.
+    </div>
+  </div>
+
+  <!-- Investment Philosophy KPIs Grid -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px">
     <div class="metric-card">
       <div class="metric-card-label">Avg Portfolio Turnover <button type="button" class="info-btn" aria-label="Info" data-t-key="turnover">ⓘ</button></div>
@@ -414,6 +438,7 @@ const MANAGER_FUNDS = {{ manager_funds_json|safe }};
 const SLUG = "{{ slug }}";
 const ALL_AMCS_RAW = {{ all_amcs_json|safe }};
 const CURRENT_FUND_HOUSE = {{ fund_house_json|safe }};
+
 // Build slug map
 const AMC_SLUG_MAP = {};
 ALL_AMCS_RAW.forEach(function(name) {
@@ -456,191 +481,36 @@ function fmtAum(v) {
 }
 
 // KPI AUM
-document.getElementById('kpi-aum').textContent = fmtAum(METRICS.total_aum);
+const kpiAumEl = document.getElementById('kpi-aum');
+if (kpiAumEl) kpiAumEl.textContent = fmtAum(METRICS.total_aum);
+
+const philAumEl = document.getElementById('phil-total-aum');
+if (philAumEl) philAumEl.textContent = fmtAum(METRICS.total_aum);
 
 // ── Tab switching ──
 let activeTab = 'funds';
-let portfolioLoaded = false;
+let portLoaded = false;
+let intelLoaded = false;
+let philLoaded = false;
+let cachedPortfolioData = null;
+
 function switchTab(tab) {
   activeTab = tab;
   const tabs = ['funds','portfolio','intel','philosophy','categories'];
-  document.querySelectorAll('.amc-tab').forEach((btn, i) => {
-    btn.classList.toggle('active', tabs[i] === tab);
+  tabs.forEach(t => {
+    const btn = document.getElementById('tab-btn-' + t);
+    const panel = document.getElementById('panel-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+    if (panel) panel.classList.toggle('active', t === tab);
   });
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + tab).classList.add('active');
 
-  if (tab === 'portfolio' && !portfolioLoaded) { portfolioLoaded = true; loadPortfolioInsights(); }
-  if (tab === 'intel') renderPortfolioIntel();
+  if (tab === 'portfolio' && !portLoaded) { portLoaded = true; loadPortfolioAnalysis(); }
+  if (tab === 'intel' && !intelLoaded) { intelLoaded = true; loadPortfolioIntel(); }
+  if (tab === 'philosophy' && !philLoaded) { philLoaded = true; loadPhilosophyAum(); }
   if (tab === 'funds' && !fundsLoaded) loadFundsTab('returns');
 }
 
-// ── Portfolio Insights (new AJAX tab) ──
-let piAumChart = null;
-function loadPortfolioInsights() {
-  const slug = '{{ slug|escapejs }}';
-  fetch(`/research/amcs/${slug}/portfolio/`)
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('pi-loading').style.display = 'none';
-      if (!data || !data.has_data) {
-        document.getElementById('pi-content').style.display = 'none';
-        document.getElementById('pi-no-data').style.display = 'block';
-        return;
-      }
-      document.getElementById('pi-no-data').style.display = 'none';
-      document.getElementById('pi-content').style.display = 'block';
-
-      // As-of date
-      const mo = data.latest_month || '';
-      document.getElementById('pi-as-of-month').textContent = mo ? 'as of ' + mo : '';
-
-      // AUM Trend (Chart.js line)
-      try {
-        if (typeof Chart !== 'undefined' && data.aum_trend && data.aum_trend.length > 0) {
-          const ctx = document.getElementById('pi-aum-chart').getContext('2d');
-          if (piAumChart) piAumChart.destroy();
-          piAumChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: data.aum_trend.map(r => r.month),
-              datasets: [{
-                label: 'AUM (₹ Cr)', data: data.aum_trend.map(r => r.aum_cr),
-                borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)',
-                fill: true, tension: 0.35, pointRadius: 4,
-              }]
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
-              scales: {
-                x: { ticks: { font: { size: 10 } } },
-                y: { ticks: { callback: v => '₹' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) + ' Cr', font: { size: 10 } } }
-              }
-            }
-          });
-          document.getElementById('pi-aum-chart').style.display = 'block';
-          document.getElementById('pi-aum-empty').style.display = 'none';
-        } else {
-          document.getElementById('pi-aum-chart').style.display = 'none';
-          document.getElementById('pi-aum-empty').style.display = 'block';
-        }
-      } catch (cErr) {
-        console.warn('Chart render error:', cErr);
-        document.getElementById('pi-aum-chart').style.display = 'none';
-        document.getElementById('pi-aum-empty').style.display = 'block';
-      }
-
-      // Cap Blend bars
-      try {
-        const capEl = document.getElementById('pi-cap-blend-bars');
-        const cb = data.cap_blend;
-        if (cb && (cb.large_pct || cb.mid_pct || cb.small_pct)) {
-          const total = (cb.large_pct||0) + (cb.mid_pct||0) + (cb.small_pct||0);
-          const mkBar = (label, val, color) => {
-            const pct = total > 0 ? ((val||0)/total*100).toFixed(1) : 0;
-            return `<div style="margin-bottom:12px">
-              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-                <span style="font-weight:600;color:var(--text-primary)">${label}</span>
-                <span style="color:${color};font-weight:700">${(val||0).toFixed(1)}% <span style="color:var(--text-muted);font-weight:400">of equity</span></span>
-              </div>
-              <div style="background:var(--surface-3);border-radius:6px;height:10px;overflow:hidden">
-                <div style="height:100%;width:${pct}%;background:${color};border-radius:6px;transition:width 0.6s"></div>
-              </div>
-            </div>`;
-          };
-          capEl.innerHTML = mkBar('Large Cap (Nifty 50 + Next 50)', cb.large_pct, '#6366f1') +
-                            mkBar('Mid Cap (Nifty Midcap 150)', cb.mid_pct, '#f59e0b') +
-                            mkBar('Small Cap (Residual)', cb.small_pct, '#ec4899') +
-                            `<p style="font-size:10px;color:var(--text-muted);margin-top:8px">ⓘ Based on ${cb.count||'?'} schemes. SEBI classification via cap-list matching.</p>`;
-          capEl.style.display = 'block';
-          document.getElementById('pi-cap-empty').style.display = 'none';
-        } else {
-          document.getElementById('pi-cap-empty').style.display = 'block';
-        }
-      } catch (cbErr) {
-        console.warn('Cap blend render error:', cbErr);
-      }
-
-      // Top Holdings bars
-      try {
-        const hEl = document.getElementById('pi-holdings-list');
-        if (data.top_holdings && data.top_holdings.length) {
-          const maxW = data.top_holdings[0].weight_pct;
-          hEl.innerHTML = data.top_holdings.map((h, i) => {
-            const pct = maxW > 0 ? (h.weight_pct / maxW * 100).toFixed(0) : 0;
-            return `<div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:11px;color:var(--text-muted);width:18px;text-align:right">${i+1}</span>
-              <div style="flex:1">
-                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                  <span style="font-weight:600;color:var(--text-primary)">${h.name}</span>
-                  <span style="color:#6366f1;font-weight:700">${h.weight_pct.toFixed(2)}%</span>
-                </div>
-                <div style="background:var(--surface-3);border-radius:4px;height:5px">
-                  <div style="height:100%;width:${pct}%;background:#6366f1;border-radius:4px"></div>
-                </div>
-              </div>
-            </div>`;
-          }).join('');
-        } else {
-          hEl.innerHTML = '<p style="color:var(--text-muted);font-size:12px">No holdings data available</p>';
-        }
-      } catch (hErr) {
-        console.warn('Holdings render error:', hErr);
-      }
-
-      // Sector bars
-      try {
-        const sEl = document.getElementById('pi-sector-bars');
-        if (data.sectors && data.sectors.length) {
-          const maxS = data.sectors[0].weight_pct;
-          const COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#a855f7'];
-          sEl.innerHTML = data.sectors.slice(0, 12).map((s, i) => {
-            const pct = maxS > 0 ? (s.weight_pct / maxS * 100).toFixed(0) : 0;
-            return `<div style="display:flex;align-items:center;gap:10px">
-              <div style="flex:1">
-                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                  <span style="font-weight:500">${s.sector}</span>
-                  <span style="color:${COLORS[i%COLORS.length]};font-weight:700">${s.weight_pct.toFixed(1)}%</span>
-                </div>
-                <div style="background:var(--surface-3);border-radius:4px;height:5px">
-                  <div style="height:100%;width:${pct}%;background:${COLORS[i%COLORS.length]};border-radius:4px"></div>
-                </div>
-              </div>
-            </div>`;
-          }).join('');
-        } else {
-          sEl.innerHTML = '<p style="color:var(--text-muted);font-size:12px">No sector data available</p>';
-        }
-      } catch (sErr) {
-        console.warn('Sector render error:', sErr);
-      }
-
-      // Exits
-      try {
-        const exList = document.getElementById('pi-exits-list');
-        const exEmpty = document.getElementById('pi-exits-empty');
-        if (data.exits && data.exits.length) {
-          exList.innerHTML = data.exits.map(name =>
-            `<span style="padding:4px 12px;border-radius:20px;background:rgba(239,68,68,0.12);color:var(--danger);font-size:12px;font-weight:600;border:1px solid rgba(239,68,68,0.25)">✕ ${name}</span>`
-          ).join('');
-          exEmpty.style.display = 'none';
-        } else {
-          exEmpty.style.display = 'block';
-        }
-      } catch (exErr) {
-        console.warn('Exits render error:', exErr);
-      }
-    })
-    .catch(e => {
-      document.getElementById('pi-loading').style.display = 'none';
-      document.getElementById('pi-content').style.display = 'none';
-      document.getElementById('pi-no-data').style.display = 'block';
-      console.error('Portfolio Insights fetch error:', e);
-    });
-}
-
-// ── Fund tabs ──
+// ── 1. All Funds Tab Logic ──
 const FUND_TAB_STYLES = {
   padding:'7px 14px', border:'none', background:'transparent', color:'var(--text-muted)',
   fontSize:'13px', fontWeight:'600', cursor:'pointer', borderRadius:'8px', transition:'all 0.15s'
@@ -663,19 +533,14 @@ function loadFundsTab(tab) {
   currentFundTab = tab;
   fundsLoaded = true;
   document.querySelectorAll('.fund-tab-btn').forEach(b => {
-    b.classList.toggle('active', b.id === 'ftab-' + tab);
-    if (b.id === 'ftab-' + tab) {
-      b.style.background = 'var(--surface-2)';
-      b.style.color = 'var(--text-primary)';
-      b.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
-    } else {
-      b.style.background = 'transparent';
-      b.style.color = 'var(--text-muted)';
-      b.style.boxShadow = '';
-    }
+    const active = b.id === 'ftab-' + tab;
+    b.classList.toggle('active', active);
+    b.style.background = active ? 'var(--surface-2)' : 'transparent';
+    b.style.color = active ? 'var(--text-primary)' : 'var(--text-muted)';
+    b.style.boxShadow = active ? '0 1px 3px rgba(0,0,0,0.2)' : '';
   });
 
-  const q = document.getElementById('fund-search').value;
+  const q = document.getElementById('fund-search') ? document.getElementById('fund-search').value : '';
   const url = `/research/amcs/${SLUG}/funds/?tab=${tab}&q=${encodeURIComponent(q)}&sort=${sortKey}&direction=${sortDir}`;
 
   document.getElementById('funds-loading').style.display = '';
@@ -717,6 +582,10 @@ function getColInfoBtn(key) {
     vol_3y: { title: 'Volatility (3Y)', what: 'Annualized standard deviation of daily returns.', interp: 'Lower means smoother, less volatile NAV movement.' },
     upside: { title: 'Upside Capture (3Y)', what: 'Percentage of benchmark gains captured during rally months.', interp: '>100% means the fund outperformed in bull markets.' },
     downside: { title: 'Downside Capture (3Y)', what: 'Percentage of benchmark losses captured during decline months.', interp: '<100% means the fund protected capital in bear markets.' },
+    large_pct: { title: 'Large Cap %', what: 'Percentage of fund portfolio in Large Cap equities (top 100 stocks).', interp: 'Provides portfolio stability and large-cap market exposure.' },
+    mid_pct: { title: 'Mid Cap %', what: 'Percentage of fund portfolio in Mid Cap equities (101-250 stocks).', interp: 'Provides higher growth potential with moderate risk.' },
+    small_pct: { title: 'Small Cap %', what: 'Percentage of fund portfolio in Small Cap equities (251+ stocks).', interp: 'High-growth alpha potential with elevated volatility.' },
+    top_sector: { title: 'Top Sector', what: 'The largest sector exposure in this fund\'s portfolio.', interp: 'Reveals the fund\'s primary macroeconomic driver.' },
     turnover: { title: 'Portfolio Turnover', what: 'Annual percentage of fund portfolio bought/sold.', interp: 'High (>100%) indicates active trading; low (<50%) indicates buy-and-hold.' },
     equity_pct: { title: 'Equity Allocation %', what: 'Percentage of net assets invested in equity shares.', interp: 'Measures stock market exposure.' },
     debt_pct: { title: 'Debt Allocation %', what: 'Percentage of net assets invested in bonds/fixed income.', interp: 'Measures fixed income exposure.' },
@@ -764,16 +633,6 @@ function renderFundsTable(funds, tab) {
       {key:'upside', label:'Up Capture', pct:true},
       {key:'downside', label:'Dn Capture', pct:true},
     ],
-    portfolio: [
-      {key:'name', label:'Fund', align:'left'},
-      {key:'aum', label:'AUM'},
-      {key:'turnover', label:'Turnover', pct:true},
-      {key:'equity_pct', label:'Equity %', pct:true},
-      {key:'debt_pct', label:'Debt %', pct:true},
-      {key:'cash_pct', label:'Cash %', pct:true},
-      {key:'top10_conc', label:'Top 10 Conc', pct:true},
-      {key:'manager', label:'Manager', align:'left'},
-    ],
     fees: [
       {key:'name', label:'Fund', align:'left'},
       {key:'aum', label:'AUM'},
@@ -804,10 +663,6 @@ function renderFundsTable(funds, tab) {
         const clr = s >= 75 ? 'var(--success)' : s >= 55 ? '#3b82f6' : s >= 40 ? 'var(--warning)' : 'var(--danger)';
         return `<td style="text-align:right"><span style="color:${s!=null?clr:'var(--text-muted)'};font-weight:700">${s != null ? s.toFixed(0) : '—'}</span></td>`;
       }
-      if (c.key === 'manager') {
-        const mgr = f.manager || '—';
-        return `<td style="font-size:11px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mgr.split(';')[0].trim()}</td>`;
-      }
       const v = f[c.key];
       if (v == null) return `<td style="text-align:right;color:var(--text-muted)">—</td>`;
 
@@ -830,60 +685,420 @@ function sortFunds(key) {
   loadFundsTab(currentFundTab);
 }
 
-// ── Portfolio Intelligence ──
-function renderPortfolioIntel() {
-  if (!METRICS.has_holdings) return;
+// ── 2. Portfolio Analysis Tab (Fund-level Capwise & Sector breakdown) ──
+let allPortFunds = [];
+let portSortKey = 'aum', portSortDir = 'desc';
+let portSearchTimer;
 
-  // High conviction
-  const list = document.getElementById('conviction-list');
-  if (METRICS.high_conviction_stocks && METRICS.high_conviction_stocks.length) {
-    list.innerHTML = METRICS.high_conviction_stocks.map((s, i) => `
-      <div class="conviction-card">
-        <div class="conviction-rank">${i+1}</div>
-        <div style="flex:1">
-          <div class="conviction-name">${s.name}</div>
-          <div class="conviction-meta">
-            In <strong>${s.fund_count}</strong> funds
-            ${s.total_value ? ' · ₹' + (s.total_value/100).toFixed(0) + ' Cr combined' : ''}
-            ${s.avg_weight ? ' · Avg weight: ' + s.avg_weight.toFixed(2) + '%' : ''}
-          </div>
-        </div>
-        <div style="font-size:18px;font-weight:800;color:var(--indigo-400)">${s.fund_count} <span style="font-size:11px;font-weight:500;color:var(--text-muted)">funds</span></div>
-      </div>
-    `).join('');
-  } else {
-    list.innerHTML = '<p style="color:var(--text-muted);font-size:13px">No stocks held across 3+ funds found.</p>';
-  }
+function debouncedPortSearch() {
+  clearTimeout(portSearchTimer);
+  portSearchTimer = setTimeout(filterPortTable, 250);
+}
 
-  // Sector bars
-  const bars = document.getElementById('sector-bars');
-  if (METRICS.sector_data && METRICS.sector_data.length) {
-    const maxW = Math.max(...METRICS.sector_data.map(s => s.avg_weight));
-    bars.innerHTML = METRICS.sector_data.map(s => `
-      <div class="sector-row">
-        <div class="sector-label" title="${s.sector}">${s.sector}</div>
-        <div class="sector-bar-wrap">
-          <div class="sector-bar-fill" style="width:${(s.avg_weight/maxW*100).toFixed(1)}%"></div>
-        </div>
-        <div class="sector-pct">${s.avg_weight.toFixed(1)}%</div>
-        <div style="font-size:10px;color:var(--text-muted);width:50px">${s.fund_count}f</div>
-      </div>
-    `).join('');
+function loadPortfolioAnalysis() {
+  document.getElementById('port-loading').style.display = '';
+  document.getElementById('port-table').style.display = 'none';
+  document.getElementById('port-empty').style.display = 'none';
+
+  fetch(`/research/amcs/${SLUG}/funds/?tab=portfolio&sort=${portSortKey}&direction=${portSortDir}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('port-loading').style.display = 'none';
+      allPortFunds = data.funds || [];
+      if (!allPortFunds.length) {
+        document.getElementById('port-empty').style.display = '';
+        return;
+      }
+      // Populate category dropdown
+      const catSelect = document.getElementById('port-cat-filter');
+      const cats = Array.from(new Set(allPortFunds.map(f => f.category).filter(Boolean))).sort();
+      catSelect.innerHTML = '<option value="">All Categories (' + allPortFunds.length + ')</option>' +
+        cats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+      filterPortTable();
+    })
+    .catch(e => {
+      document.getElementById('port-loading').style.display = 'none';
+      document.getElementById('port-empty').innerHTML = '<span style="color:var(--danger)">Failed to load portfolio breakdown.</span>';
+      document.getElementById('port-empty').style.display = '';
+      console.error('Portfolio table load error:', e);
+    });
+}
+
+function filterPortTable() {
+  const q = (document.getElementById('port-fund-search').value || '').trim().toLowerCase();
+  const selectedCat = document.getElementById('port-cat-filter').value;
+
+  let filtered = allPortFunds.filter(f => {
+    const matchName = !q || (f.name && f.name.toLowerCase().includes(q)) || (f.category && f.category.toLowerCase().includes(q)) || (f.top_sector && f.top_sector.toLowerCase().includes(q));
+    const matchCat = !selectedCat || f.category === selectedCat;
+    return matchName && matchCat;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    let va = a[portSortKey], vb = b[portSortKey];
+    if (va == null) va = portSortDir === 'asc' ? 999999 : -999999;
+    if (vb == null) vb = portSortDir === 'asc' ? 999999 : -999999;
+    if (typeof va === 'string') return portSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    return portSortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  if (!filtered.length) {
+    document.getElementById('port-table').style.display = 'none';
+    document.getElementById('port-empty').style.display = '';
   } else {
-    bars.innerHTML = '<p style="color:var(--text-muted);font-size:13px">No sector data available.</p>';
+    document.getElementById('port-empty').style.display = 'none';
+    renderPortTable(filtered);
+    document.getElementById('port-table').style.display = '';
   }
 }
 
+function sortPortTable(key) {
+  if (portSortKey === key) {
+    portSortDir = portSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    portSortKey = key;
+    portSortDir = 'desc';
+  }
+  filterPortTable();
+}
+
+function renderPortTable(funds) {
+  const thead = document.getElementById('port-thead');
+  const tbody = document.getElementById('port-tbody');
+  const tfoot = document.getElementById('port-tfoot');
+
+  const COLS = [
+    {key:'name', label:'Fund Name', align:'left'},
+    {key:'category', label:'Category', align:'left'},
+    {key:'aum', label:'AUM (Cr)'},
+    {key:'large_pct', label:'Large Cap %', pct:true},
+    {key:'mid_pct', label:'Mid Cap %', pct:true},
+    {key:'small_pct', label:'Small Cap %', pct:true},
+    {key:'top_sector', label:'Top Sector', align:'left'},
+    {key:'equity_pct', label:'Equity %', pct:true},
+    {key:'debt_pct', label:'Debt %', pct:true},
+    {key:'cash_pct', label:'Cash %', pct:true},
+    {key:'top10_conc', label:'Top 10 Conc', pct:true},
+    {key:'turnover', label:'Turnover', pct:true},
+    {key:'manager', label:'Fund Manager', align:'left'},
+  ];
+
+  thead.innerHTML = '<tr>' + COLS.map(c =>
+    `<th style="text-align:${c.align||'right'}" onclick="sortPortTable('${c.key}')" title="Sort by ${c.label}">${c.label}${portSortKey===c.key?(' '+(portSortDir==='asc'?'↑':'↓')):''}${getColInfoBtn(c.key)}</th>`
+  ).join('') + '</tr>';
+
+  tbody.innerHTML = funds.map(f => {
+    return '<tr>' + COLS.map(c => {
+      if (c.key === 'name') {
+        const badge = f.is_etf ? '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(99,102,241,0.15);color:var(--indigo-400);margin-left:4px">ETF</span>' : '';
+        return `<td><a href="/funds/${f.amfi}/" style="text-decoration:none;color:var(--text-primary);font-weight:600;font-size:12px">${f.name.replace(/Mutual Fund|Direct|Growth/gi,'').trim()}${badge}</a></td>`;
+      }
+      if (c.key === 'category') {
+        return `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap">${f.category || '—'}</td>`;
+      }
+      if (c.key === 'top_sector') {
+        return `<td style="font-size:11px;color:var(--indigo-400);font-weight:600;white-space:nowrap">${f.top_sector || '—'}</td>`;
+      }
+      if (c.key === 'aum') {
+        return `<td style="text-align:right;font-size:12px;color:var(--text-muted)">${f.aum != null ? '₹'+f.aum.toFixed(0)+' Cr' : '—'}</td>`;
+      }
+      if (c.key === 'manager') {
+        const mgr = f.manager || '—';
+        return `<td style="font-size:11px;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mgr.split(';')[0].trim()}</td>`;
+      }
+      const v = f[c.key];
+      if (v == null) return `<td style="text-align:right;color:var(--text-muted)">—</td>`;
+      return `<td style="text-align:right;font-size:12px;font-weight:600;color:var(--text-primary)">${v.toFixed(1)}%</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  // Averages Footer Row
+  const avg = (k) => {
+    const valid = funds.map(f => f[k]).filter(v => v != null && !isNaN(v));
+    return valid.length ? (valid.reduce((a,b)=>a+b,0)/valid.length).toFixed(1)+'%' : '—';
+  };
+  const totalAum = funds.reduce((acc, f) => acc + (f.aum || 0), 0);
+
+  tfoot.innerHTML = `<tr>
+    <td style="font-weight:700">Average / Total (${funds.length} funds)</td>
+    <td>—</td>
+    <td style="text-align:right;font-weight:700;color:var(--text-primary)">₹${totalAum.toFixed(0)} Cr</td>
+    <td style="text-align:right;color:var(--indigo-400)">${avg('large_pct')}</td>
+    <td style="text-align:right;color:var(--warning)">${avg('mid_pct')}</td>
+    <td style="text-align:right;color:var(--danger)">${avg('small_pct')}</td>
+    <td>—</td>
+    <td style="text-align:right">${avg('equity_pct')}</td>
+    <td style="text-align:right">${avg('debt_pct')}</td>
+    <td style="text-align:right">${avg('cash_pct')}</td>
+    <td style="text-align:right">${avg('top10_conc')}</td>
+    <td style="text-align:right">${avg('turnover')}</td>
+    <td>—</td>
+  </tr>`;
+
+  if (window.initInfoTooltips) window.initInfoTooltips(document.getElementById('port-table'));
+}
+
+function exportPortCsv() {
+  if (!allPortFunds.length) return;
+  const headers = ['Fund Name','Category','AUM (Cr)','Large Cap %','Mid Cap %','Small Cap %','Top Sector','Equity %','Debt %','Cash %','Top 10 Conc %','Turnover %','Fund Manager'];
+  const rows = allPortFunds.map(f => [
+    `"${(f.name||'').replace(/"/g, '""')}"`,
+    `"${(f.category||'').replace(/"/g, '""')}"`,
+    f.aum != null ? f.aum : '',
+    f.large_pct != null ? f.large_pct : '',
+    f.mid_pct != null ? f.mid_pct : '',
+    f.small_pct != null ? f.small_pct : '',
+    `"${(f.top_sector||'').replace(/"/g, '""')}"`,
+    f.equity_pct != null ? f.equity_pct : '',
+    f.debt_pct != null ? f.debt_pct : '',
+    f.cash_pct != null ? f.cash_pct : '',
+    f.top10_conc != null ? f.top10_conc : '',
+    f.turnover != null ? f.turnover : '',
+    `"${(f.manager||'').replace(/"/g, '""')}"`
+  ]);
+  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `${SLUG}_portfolio_analysis.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// ── 3. Intelligence Tab Logic (Cap Blend, Sectors, Top Holdings, High Conviction, Exits) ──
+function loadPortfolioIntel() {
+  document.getElementById('intel-loading').style.display = '';
+  document.getElementById('intel-content').style.display = 'none';
+  document.getElementById('intel-no-data').style.display = 'none';
+
+  const fetchPromise = cachedPortfolioData ? Promise.resolve(cachedPortfolioData) :
+    fetch(`/research/amcs/${SLUG}/portfolio/`).then(r => r.json()).then(d => { cachedPortfolioData = d; return d; });
+
+  fetchPromise.then(data => {
+    document.getElementById('intel-loading').style.display = 'none';
+    if (!data || !data.has_data) {
+      document.getElementById('intel-no-data').style.display = 'block';
+      return;
+    }
+    document.getElementById('intel-content').style.display = 'block';
+
+    // As of date
+    const mo = data.latest_month || '';
+    const dateEl = document.getElementById('intel-as-of-month');
+    if (dateEl) dateEl.textContent = mo ? 'as of ' + mo : '';
+
+    // Cap Blend bars
+    try {
+      const capEl = document.getElementById('intel-cap-blend-bars');
+      const cb = data.cap_blend;
+      if (cb && (cb.large_pct || cb.mid_pct || cb.small_pct)) {
+        const total = (cb.large_pct||0) + (cb.mid_pct||0) + (cb.small_pct||0);
+        const mkBar = (label, val, color) => {
+          const pct = total > 0 ? ((val||0)/total*100).toFixed(1) : 0;
+          return `<div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="font-weight:600;color:var(--text-primary)">${label}</span>
+              <span style="color:${color};font-weight:700">${(val||0).toFixed(1)}% <span style="color:var(--text-muted);font-weight:400">of equity</span></span>
+            </div>
+            <div style="background:var(--surface-3);border-radius:6px;height:10px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${color};border-radius:6px;transition:width 0.6s"></div>
+            </div>
+          </div>`;
+        };
+        capEl.innerHTML = mkBar('Large Cap (Nifty 50 + Next 50)', cb.large_pct, '#6366f1') +
+                          mkBar('Mid Cap (Nifty Midcap 150)', cb.mid_pct, '#f59e0b') +
+                          mkBar('Small Cap (Residual)', cb.small_pct, '#ec4899') +
+                          `<p style="font-size:10px;color:var(--text-muted);margin-top:8px">ⓘ Based on ${cb.count||'?'} schemes. SEBI classification via cap-list matching.</p>`;
+        capEl.style.display = 'block';
+        document.getElementById('intel-cap-empty').style.display = 'none';
+      } else {
+        document.getElementById('intel-cap-empty').style.display = 'block';
+      }
+    } catch (cbErr) {
+      console.warn('Cap blend render error:', cbErr);
+    }
+
+    // Dominant Sectors
+    try {
+      const sEl = document.getElementById('intel-sector-bars');
+      if (data.sectors && data.sectors.length) {
+        const maxS = data.sectors[0].weight_pct;
+        const COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#a855f7'];
+        sEl.innerHTML = data.sectors.slice(0, 12).map((s, i) => {
+          const pct = maxS > 0 ? (s.weight_pct / maxS * 100).toFixed(0) : 0;
+          return `<div style="display:flex;align-items:center;gap:10px">
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                <span style="font-weight:500">${s.sector}</span>
+                <span style="color:${COLORS[i%COLORS.length]};font-weight:700">${s.weight_pct.toFixed(1)}%</span>
+              </div>
+              <div style="background:var(--surface-3);border-radius:4px;height:5px">
+                <div style="height:100%;width:${pct}%;background:${COLORS[i%COLORS.length]};border-radius:4px"></div>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+        sEl.style.display = 'flex';
+        document.getElementById('intel-sector-empty').style.display = 'none';
+      } else {
+        document.getElementById('intel-sector-empty').style.display = 'block';
+      }
+    } catch (sErr) {
+      console.warn('Sector render error:', sErr);
+    }
+
+    // Top 20 Holdings
+    try {
+      const hEl = document.getElementById('intel-holdings-list');
+      if (data.top_holdings && data.top_holdings.length) {
+        const maxW = data.top_holdings[0].weight_pct;
+        hEl.innerHTML = data.top_holdings.map((h, i) => {
+          const pct = maxW > 0 ? (h.weight_pct / maxW * 100).toFixed(0) : 0;
+          return `<div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:11px;color:var(--text-muted);width:18px;text-align:right">${i+1}</span>
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                <span style="font-weight:600;color:var(--text-primary)">${h.name}</span>
+                <span style="color:#6366f1;font-weight:700">${h.weight_pct.toFixed(2)}%</span>
+              </div>
+              <div style="background:var(--surface-3);border-radius:4px;height:5px">
+                <div style="height:100%;width:${pct}%;background:#6366f1;border-radius:4px"></div>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+        hEl.style.display = 'flex';
+        document.getElementById('intel-holdings-empty').style.display = 'none';
+      } else {
+        document.getElementById('intel-holdings-empty').style.display = 'block';
+      }
+    } catch (hErr) {
+      console.warn('Holdings render error:', hErr);
+    }
+
+    // High Conviction (held in 3+ funds)
+    try {
+      const cEl = document.getElementById('intel-conviction-list');
+      const convList = METRICS.high_conviction_stocks || [];
+      if (convList.length) {
+        cEl.innerHTML = convList.map((s, i) => `
+          <div class="conviction-card" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
+            <div class="conviction-rank" style="font-size:12px;font-weight:700;color:var(--indigo-400);width:20px">${i+1}</div>
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:12px;color:var(--text-primary)">${s.name}</div>
+              <div style="font-size:11px;color:var(--text-muted)">
+                In <strong>${s.fund_count}</strong> funds
+                ${s.total_value ? ' · ₹' + (s.total_value/100).toFixed(0) + ' Cr' : ''}
+                ${s.avg_weight ? ' · Avg: ' + s.avg_weight.toFixed(2) + '%' : ''}
+              </div>
+            </div>
+            <div style="font-size:14px;font-weight:800;color:var(--indigo-400)">${s.fund_count}f</div>
+          </div>
+        `).join('');
+        cEl.style.display = 'flex';
+        document.getElementById('intel-conviction-empty').style.display = 'none';
+      } else {
+        document.getElementById('intel-conviction-empty').style.display = 'block';
+      }
+    } catch (cErr) {
+      console.warn('Conviction render error:', cErr);
+    }
+
+    // Exits
+    try {
+      const exList = document.getElementById('intel-exits-list');
+      const exEmpty = document.getElementById('intel-exits-empty');
+      if (data.exits && data.exits.length) {
+        exList.innerHTML = data.exits.map(name =>
+          `<span style="padding:4px 12px;border-radius:20px;background:rgba(239,68,68,0.12);color:var(--danger);font-size:12px;font-weight:600;border:1px solid rgba(239,68,68,0.25)">✕ ${name}</span>`
+        ).join('');
+        exEmpty.style.display = 'none';
+      } else {
+        exEmpty.style.display = 'block';
+      }
+    } catch (exErr) {
+      console.warn('Exits render error:', exErr);
+    }
+  }).catch(e => {
+    document.getElementById('intel-loading').style.display = 'none';
+    document.getElementById('intel-no-data').style.display = 'block';
+    console.error('Portfolio intel fetch error:', e);
+  });
+}
+
+// ── 4. Philosophy Tab Logic (AUM Trend Line Chart inside strictly bounded container) ──
+let philChart = null;
+function loadPhilosophyAum() {
+  const fetchPromise = cachedPortfolioData ? Promise.resolve(cachedPortfolioData) :
+    fetch(`/research/amcs/${SLUG}/portfolio/`).then(r => r.json()).then(d => { cachedPortfolioData = d; return d; });
+
+  fetchPromise.then(data => {
+    const trend = data && data.aum_trend ? data.aum_trend : [];
+    const pillsEl = document.getElementById('phil-aum-pills');
+    const chartEl = document.getElementById('phil-aum-chart');
+    const emptyEl = document.getElementById('phil-aum-empty');
+
+    if (trend.length > 0) {
+      if (pillsEl) {
+        pillsEl.innerHTML = trend.map(t =>
+          `<span style="padding:3px 10px;border-radius:12px;background:var(--surface-3);font-size:11px;color:var(--text-secondary);font-weight:600">${t.month}: ${fmtAum(t.aum_cr)}</span>`
+        ).join('');
+      }
+
+      try {
+        if (typeof Chart !== 'undefined') {
+          const ctx = chartEl.getContext('2d');
+          if (philChart) philChart.destroy();
+          philChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: trend.map(r => r.month),
+              datasets: [{
+                label: 'AUM (₹ Cr)',
+                data: trend.map(r => r.aum_cr),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99,102,241,0.08)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: 4,
+                pointBackgroundColor: '#6366f1',
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { font: { size: 10 } } },
+                y: { ticks: { callback: v => '₹' + (v >= 100000 ? (v/100000).toFixed(1) + 'L' : v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) + ' Cr', font: { size: 10 } } }
+              }
+            }
+          });
+          chartEl.style.display = 'block';
+          if (emptyEl) emptyEl.style.display = 'none';
+        }
+      } catch (cErr) {
+        console.warn('Philosophy AUM Chart render warning:', cErr);
+      }
+    } else {
+      if (chartEl) chartEl.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'block';
+    }
+  }).catch(e => {
+    console.warn('Philosophy AUM fetch warning:', e);
+  });
+}
 
 // ── Initialise ──
 loadFundsTab('returns');
 if (window.initInfoTooltips) window.initInfoTooltips(document);
 
-// Pre-select for comparison from list page
 const presel = sessionStorage.getItem('amc_presel');
 if (presel) {
   sessionStorage.removeItem('amc_presel');
-  // navigated from list page with compare intent
 }
 </script>
 

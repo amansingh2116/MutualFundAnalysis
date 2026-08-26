@@ -2349,6 +2349,21 @@ def amc_detail_funds_api(request, slug: str):
             sort_expr = '-' + sort_expr
         qs = qs.order_by(sort_expr)
 
+        cap_map = {}
+        top_sector_map = {}
+        if tab == 'portfolio':
+            from apps.holdings.models import MarketCapAllocation, SectorAllocation
+            scheme_ids = [f.scheme_id for f in qs[:200] if f.scheme_id]
+            for m in MarketCapAllocation.objects.filter(scheme_id__in=scheme_ids):
+                cap_map[m.scheme_id] = (
+                    float(m.large_pct) if m.large_pct is not None else None,
+                    float(m.mid_pct) if m.mid_pct is not None else None,
+                    float(m.small_pct) if m.small_pct is not None else None,
+                )
+            for sec in SectorAllocation.objects.filter(scheme_id__in=scheme_ids).order_by('scheme_id', '-weight_pct'):
+                if sec.scheme_id not in top_sector_map and sec.sector:
+                    top_sector_map[sec.scheme_id] = sec.sector
+
         funds = []
         for f in qs[:200]:
             base = {
@@ -2386,7 +2401,17 @@ def amc_detail_funds_api(request, slug: str):
                     'downside': _flt(f.downside_capture_3y),
                 })
             elif tab == 'portfolio':
+                cap_tuple = cap_map.get(f.scheme_id)
+                large_val = _flt(f.large_pct) if f.large_pct is not None else (cap_tuple[0] if cap_tuple else None)
+                mid_val = _flt(f.mid_pct) if f.mid_pct is not None else (cap_tuple[1] if cap_tuple else None)
+                small_val = _flt(f.small_pct) if f.small_pct is not None else (cap_tuple[2] if cap_tuple else None)
+                top_sec = f.top_sector or top_sector_map.get(f.scheme_id, '')
+
                 base.update({
+                    'large_pct': large_val,
+                    'mid_pct': mid_val,
+                    'small_pct': small_val,
+                    'top_sector': top_sec,
                     'turnover': _flt(f.portfolio_turnover),
                     'equity_pct': _flt(f.port_equity_pct),
                     'debt_pct': _flt(f.port_debt_pct),
