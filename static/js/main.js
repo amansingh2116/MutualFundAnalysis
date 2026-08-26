@@ -413,6 +413,31 @@ function getCookie(name) {
   return document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(name+'='))?.split('=')[1] || '';
 }
 
+function toast(msg, type = 'info') {
+  let container = document.getElementById('global-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'global-toast-container';
+    container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none;';
+    document.body.appendChild(container);
+  }
+  const el = document.createElement('div');
+  const bg = type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#4f46e5');
+  const icon = type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ');
+  el.style.cssText = `background:${bg};color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;pointer-events:auto;transition:all 0.3s ease;`;
+  el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-10px)';
+    setTimeout(() => el.remove(), 300);
+  }, 2800);
+}
+window.toast = toast;
+window.showToast = toast;
+window.getCookie = getCookie;
+
+
 // ── File Upload Drag & Drop ────────────────────────────────────
 function initDropZone(zoneId, inputId) {
   const zone = document.getElementById(zoneId);

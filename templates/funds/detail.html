@@ -250,8 +250,19 @@
       {% endif %}
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <a href="{% url 'calculators:compare' %}?funds={{ scheme.amfi_code }}" class="btn btn-secondary btn-sm">⚖️ Compare</a>
-      <a href="{% url 'calculators:research_report' %}?scheme={{ scheme.amfi_code }}&auto=1" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📄 Get Research Report</a>
+      <div style="display:flex;gap:6px;">
+        <a href="{% url 'calculators:compare' %}?funds={{ scheme.amfi_code }}" class="btn btn-secondary btn-sm" style="flex:1;text-align:center;">⚖️ Compare</a>
+        {% if user.is_authenticated %}
+        <button type="button" id="fund-watchlist-btn" class="btn btn-secondary btn-sm" onclick="handleDetailWatchlistClick('{{ scheme.amfi_code }}')" style="display:inline-flex;align-items:center;gap:4px;" title="Add to / remove from Watchlist">
+          <span id="fund-wl-icon">⭐</span> <span id="fund-wl-text">Watchlist</span>
+        </button>
+        {% else %}
+        <a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:4px;" title="Sign in to save to Watchlist">
+          <span>⭐</span> <span>Watchlist</span>
+        </a>
+        {% endif %}
+      </div>
+      <a href="{% url 'calculators:research_report' %}?scheme={{ scheme.amfi_code }}&auto=1" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">📄 Get Research Report</a>
     </div>
 
   </div>
@@ -7625,6 +7636,142 @@ window.runStrategyLabLocal = function() {
 
 }());
 /* END ADVANCED ANALYSIS TAB v3 */
+
+{% if user.is_authenticated %}
+// ── Fund Detail Watchlist Script ──
+const DETAIL_WL_TOGGLE_URL = "{% url 'portfolio:watchlist_toggle_api' %}";
+const AMFI_CODE_CURRENT = "{{ scheme.amfi_code }}";
+
+function getDetailCsrfToken() {
+  const match = document.cookie.match(/(^|;)\s*csrftoken\s*=\s*([^;]+)/);
+  if (match) return match[2];
+  const input = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (input) return input.value;
+  return '{{ csrf_token }}';
+}
+
+async function checkDetailWatchlistStatus() {
+  try {
+    const res = await fetch(`${DETAIL_WL_TOGGLE_URL}?amfi_code=${AMFI_CODE_CURRENT}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    updateDetailWatchlistButton(data.is_in_any);
+  } catch(e) {}
+}
+
+function updateDetailWatchlistButton(isInWatchlist) {
+  const btn = document.getElementById('fund-watchlist-btn');
+  const icon = document.getElementById('fund-wl-icon');
+  const text = document.getElementById('fund-wl-text');
+  if (!btn) return;
+  if (isInWatchlist) {
+    btn.style.background = 'rgba(99,102,241,0.2)';
+    btn.style.borderColor = 'rgba(99,102,241,0.5)';
+    btn.style.color = '#818cf8';
+    if (text) text.textContent = 'Saved';
+  } else {
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    if (text) text.textContent = 'Watchlist';
+  }
+}
+
+async function handleDetailWatchlistClick(amfiCode) {
+  try {
+    const res = await fetch(`${DETAIL_WL_TOGGLE_URL}?amfi_code=${amfiCode}`);
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Watchlist error', 'error');
+      return;
+    }
+
+    // If user has only 1 watchlist (or default only), simple 1-click toggle
+    if (data.watchlists.length <= 1) {
+      const toggleRes = await fetch(DETAIL_WL_TOGGLE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getDetailCsrfToken()
+        },
+        body: JSON.stringify({
+          amfi_code: amfiCode,
+          action: 'toggle'
+        })
+      });
+      const toggleData = await toggleRes.json();
+      if (toggleRes.ok) {
+        updateDetailWatchlistButton(toggleData.is_watched);
+        toast(toggleData.is_watched ? 'Added to Watchlist!' : 'Removed from Watchlist', 'success');
+      }
+      return;
+    }
+
+    // Multiple watchlists: show modal
+    showDetailWatchlistMultiModal(amfiCode, data.watchlists);
+  } catch(err) {
+    toast('Network error updating watchlist', 'error');
+  }
+}
+
+function showDetailWatchlistMultiModal(amfiCode, watchlists) {
+  let modal = document.getElementById('modal-fund-detail-wl');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-fund-detail-wl';
+    modal.className = 'modal-overlay';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="background:#111827;border:1px solid rgba(99,102,241,0.3);border-radius:16px;box-shadow:0 24px 48px rgba(0,0,0,0.6);padding:20px 24px;max-width:380px;width:92%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+          <span>⭐</span> Add to Watchlists
+        </h3>
+        <button type="button" onclick="document.getElementById('modal-fund-detail-wl').style.display='none'" style="background:transparent;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;max-height:240px;overflow-y:auto;">
+        ${watchlists.map(w => `
+          <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;cursor:pointer;">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">${w.name} ${w.is_default ? '<span style="font-size:10px;color:var(--text-muted);">(Default)</span>' : ''}</span>
+            <input type="checkbox" ${w.is_active ? 'checked' : ''} onchange="toggleSpecificWatchlist('${amfiCode}', ${w.id}, this.checked)" style="accent-color:var(--accent);width:16px;height:16px;">
+          </label>
+        `).join('')}
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('modal-fund-detail-wl').style.display='none'">Done</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+}
+
+async function toggleSpecificWatchlist(amfiCode, watchlistId, shouldAdd) {
+  try {
+    const res = await fetch(DETAIL_WL_TOGGLE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getDetailCsrfToken()
+      },
+      body: JSON.stringify({
+        amfi_code: amfiCode,
+        watchlist_id: watchlistId,
+        action: shouldAdd ? 'add' : 'remove'
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      checkDetailWatchlistStatus();
+      toast(shouldAdd ? `Added to ${data.watchlist_name}` : `Removed from ${data.watchlist_name}`, 'info');
+    }
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', checkDetailWatchlistStatus);
+{% endif %}
 
 </script>
 

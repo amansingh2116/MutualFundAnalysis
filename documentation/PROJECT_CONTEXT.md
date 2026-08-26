@@ -68,7 +68,7 @@ apps/
 │   └── models.py           ← BenchmarkIndex, BenchmarkNAV, UserMarketStripProfile, UserApiKey
 ├── calculators/    ← Stateless calculator views (SIP, SWP, XIRR, Tax, Goal, Overlap)
 ├── recommendations/← Risk questionnaire + fund recommendation engine
-└── portfolio/      ← Portfolio upload, analysis dashboard, overlap, benchmark, backtester V2
+└── portfolio/      ← Portfolio upload, analysis dashboard, overlap, benchmark, backtester V2, Watchlist & WatchlistItem suite
 ```
 
 ---

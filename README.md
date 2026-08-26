@@ -70,7 +70,17 @@
 
 ---
 
-### 5. ⚡ Strategy Backtester V2
+### 5. ⭐ Fund & ETF Multi-Watchlists
+- **Personalized Default & Custom Watchlists**: Create, customize, rename, and manage custom themed watchlists (e.g. *Core Equity*, *High Conviction Small Caps*, *Tech ETFs*, *SIP Candidates*).
+- **Live Auto-Complete Search & Add**: Real-time dropdown search over 1,500+ mutual funds and direct ETFs to quickly add to any active watchlist.
+- **Interactive Watchlist Workspace**: Clean, sortable table linking directly to fund details with custom inline editable notes/allocation targets and instant 1-click removal.
+- **1-Click Quick Toggle**: Add or remove funds/ETFs directly from the fund detail header or via a multi-watchlist selector modal.
+- **Top Bar & Sidebar Access**: Global `⭐ Watchlist` button on the top bar and sidebar navigation under the `Account` section.
+- **CSV Data Export**: One-click download of saved watchlist assets with custom user notes.
+
+---
+
+### 6. ⚡ Strategy Backtester V2
 - **Multi-Asset Strategy Builder**: Simulate custom portfolios containing mutual funds and NSE benchmark indices.
 - **Investment Modes**: Simulate SIP, Step-Up SIP, Lumpsum, SWP, and Switch strategies.
 - **Conditional Triggers**: Attach rule-based triggers (Drawdown from ATH, 200 DMA, RSI thresholds, Valuation bounds, Calendar dates).
@@ -79,7 +89,7 @@
 
 ---
 
-### 6. 🏛️ AMC & Category Research Hub
+### 7. 🏛️ AMC & Category Research Hub
 - **AMC Analysis Suite (`/research/amcs/` & `/research/amcs/<slug>/`)**:
   - **Comprehensive Fund House Profiling**: Complete metrics across all ~50 Indian asset management companies (AUM, fund counts, active/ETF split, 3Y returns, Jensen's Alpha, expense ratios, composite model score distribution).
   - **Portfolio Insights Tab**: Historical monthly AMC AUM trend chart, AUM-weighted SEBI market-cap blend (Large/Mid/Small), Top 20 high-conviction holdings, sector concentration, and recent full portfolio exits.
@@ -94,7 +104,7 @@
 
 ---
 
-### 7. 🧮 Financial Calculators & Research Suite (18 Tools)
+### 8. 🧮 Financial Calculators & Research Suite (18 Tools)
 - **Growth & Wealth**: SIP, Lumpsum, SWP, Step-Up SIP, STP, XIRR, and Rolling Returns.
 - **Research & Peer Comparison**: Research Report Generator, Peer Comparison Calculator, Fund Comparison, Overlap Checker, AMC Comparison, and Category Comparison.
 - **Life Event Planning**: Goal Planner, Retirement Planner (25x FIRE rule & 4% SWR), Child Education Planner, and SWP Pension Longevity.
@@ -103,7 +113,7 @@
 
 ---
 
-### 8. 🛡️ Data Status Dashboard
+### 9. 🛡️ Data Status Dashboard
 - **Real-time Pipeline Transparency**: See coverage %, last pipeline run time, and weekly/monthly batch schedule.
 - **7-Day Activity Chart**: Bar chart showing how many funds were refreshed each day this week.
 - **Monthly Portfolio Data**: Holdings coverage, sector allocation coverage, market-cap breakdown coverage, AUM snapshot months, and data source breakdown (Morningstar / finapi / yahoo).

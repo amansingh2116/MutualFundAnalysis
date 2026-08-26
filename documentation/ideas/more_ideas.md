@@ -131,6 +131,7 @@ Integrating AI capabilities into research workflows while preserving strict data
 - ✅ **52-Week & Multi-Year Range Barometer (Fund Detail):** Integrated directly into the fund detail page Advanced Quant Suite with 52W/3Y/5Y visual channel indicators and behavioral guidance (![52-Week High/Low Tracker](images/image-14.png)).
 - ✅ **All-Time High / Low Tracker & Drawdown Matrix (Fund Detail):** Integrated directly into the fund detail page Advanced Quant Suite tracking ATH peak dates, days since peak, recovery multiples, and secular expansion status (![All-Time High/Low Tracker](images/image-15.png)).
 - ✅ **Multi-Platform One-Click Social Sharing:** Fixed overlaying floating share widget across all pages with modal popups for 1-click sharing to WhatsApp, LinkedIn, Instagram, SMS/Message, Email, Copy Link, and native device share sheet.
+- ✅ **Fund & ETF Multi-Watchlist Suite:** Personalized default and custom themed watchlists for logged-in users with topbar and sidebar navigation, real-time fund/ETF search and add, KPI summary metrics (1Y, 3Y CAGR, TER, AUM), CSV exports, notes, and 1-click toggling from fund detail pages.
 - ⬜ **Community Discussion Feed:** Backend integration enabling real user discussion threads, question posting, and research sharing.
 - ✅ **Mobile Breakpoint Optimization:** Comprehensive UI & UX responsive layout polishing across all hubs, horizontal tab scrolling, table containers, touch controls, and mobile-adaptive Plotly chart sizing.
 

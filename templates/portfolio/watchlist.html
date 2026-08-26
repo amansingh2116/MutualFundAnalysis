@@ -1,0 +1,722 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ active_watchlist.name }} — Fund & ETF Watchlist{% endblock %}
+{% block meta_description %}Manage and track your personalized mutual fund and ETF watchlists with real-time performance and risk analytics.{% endblock %}
+
+{% block content %}
+<div class="page-container" style="max-width: 1360px; margin: 0 auto; padding: 12px 16px 40px;">
+
+  <!-- Breadcrumb & Header -->
+  <div style="margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+      <a href="{% url 'funds:home' %}" style="color: var(--text-muted); text-decoration: none;">Home</a>
+      <span>&rsaquo;</span>
+      <a href="{% url 'core:user_dashboard' %}" style="color: var(--text-muted); text-decoration: none;">Account</a>
+      <span>&rsaquo;</span>
+      <span style="color: var(--indigo-400); font-weight: 600;">Watchlist</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+      <div>
+        <h1 style="font-size: 24px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 10px;">
+          <span>⭐</span> Fund & ETF Watchlists
+        </h1>
+        <p style="font-size: 13px; color: var(--text-secondary); margin: 4px 0 0 0;">
+          Monitor, organize, and analyze your favorite mutual funds and ETFs across customized watchlists.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="openCreateWatchlistModal()" style="display: flex; align-items: center; gap: 6px;">
+          <span>➕</span> New Watchlist
+        </button>
+        {% if not active_watchlist.is_default %}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openEditWatchlistModal({{ active_watchlist.id }}, '{{ active_watchlist.name|escapejs }}', '{{ active_watchlist.description|escapejs }}')" style="display: flex; align-items: center; gap: 6px;">
+          <span>✏️</span> Rename
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="deleteWatchlist({{ active_watchlist.id }}, '{{ active_watchlist.name|escapejs }}')" style="color: var(--red-400); border-color: rgba(248,113,113,0.3);">
+          <span>🗑️</span> Delete
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Watchlist Switcher Bar -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 8px 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;">
+      {% for wl in watchlists %}
+      <a href="?w={{ wl.id }}" class="watchlist-tab-pill {% if wl.id == active_watchlist.id %}active{% endif %}">
+        {% if wl.is_default %}⭐{% else %}📁{% endif %}
+        <span>{{ wl.name }}</span>
+        <span class="watchlist-pill-count">{{ wl.item_count }}</span>
+      </a>
+      {% endfor %}
+    </div>
+
+    <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; padding-right: 4px;">
+      Total Watched: <strong style="color: var(--text-primary);">{{ total_watched_unique }}</strong> unique funds
+    </div>
+  </div>
+
+
+
+  <!-- Live Fund/ETF Search & Add Bar -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; position: relative;">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+      <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+        <span>🔍</span> Add Funds or ETFs to <span style="color: var(--indigo-400);">{{ active_watchlist.name }}</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted);">Search over 1,500+ mutual funds & direct ETFs</div>
+    </div>
+
+    <div style="position: relative;">
+      <input type="text" id="watchlist-fund-search" class="form-control" placeholder="Type fund name, AMC, category, or AMFI code (e.g. Parag Parikh, HDFC Small Cap, Nifty 50 ETF)…" autocomplete="off" style="width: 100%; padding-left: 36px; height: 42px; border-radius: 10px; background: var(--bg-elevated); border: 1px solid var(--border);">
+      <span style="position: absolute; left: 12px; top: 12px; font-size: 14px; opacity: 0.5;">🔍</span>
+      <div id="watchlist-search-results" class="watchlist-search-dropdown"></div>
+    </div>
+  </div>
+
+  <!-- Watchlist Table Section -->
+  <div class="card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;">
+    
+    <!-- Table Controls Header -->
+    <div style="padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <h2 style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0;">
+          {{ active_watchlist.name }}
+        </h2>
+        {% if active_watchlist.description %}
+        <span style="font-size: 12px; color: var(--text-muted);">&middot; {{ active_watchlist.description }}</span>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <input type="text" id="table-filter-input" placeholder="Filter this list…" class="form-control form-control-sm" style="width: 180px; height: 32px; font-size: 12px; border-radius: 8px;">
+        {% if watched_funds %}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="exportWatchlistCsv()" style="font-size: 11px; height: 32px; display: flex; align-items: center; gap: 4px;">
+          <span>📥</span> Export CSV
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    {% if watched_funds %}
+    <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
+      <table class="data-table" id="watchlist-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="min-width: 260px; text-align: left;" class="sortable" onclick="sortTable(0)">Fund / ETF Name ⬍</th>
+            <th style="min-width: 220px; text-align: left;" class="sortable" onclick="sortTable(1)">Notes / Rationale ⬍</th>
+            <th style="width: 80px; text-align: center;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in watched_funds %}
+          <tr id="row-item-{{ f.item_id }}" data-search="{{ f.name }} {{ f.category }} {{ f.fund_house }} {{ f.amfi_code }} {{ f.notes }}">
+            <td style="font-weight: 600; padding: 12px 14px;">
+              <div style="display: flex; flex-direction: column; gap: 3px;">
+                <a href="{% url 'funds:detail' f.amfi_code %}" style="color: var(--indigo-400); text-decoration: none; font-size: 13.5px; font-weight: 700;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                  {{ f.name }}
+                </a>
+                <div style="display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--text-muted); flex-wrap: wrap;">
+                  {% if f.is_etf %}
+                  <span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); padding: 1px 5px; border-radius: 4px; font-weight: 700; font-size: 10px;">ETF</span>
+                  {% endif %}
+                  <span>{{ f.category }}</span>
+                  <span>&middot;</span>
+                  <span>{{ f.fund_house }}</span>
+                  <span>&middot;</span>
+                  <span>AMFI: {{ f.amfi_code }}</span>
+                </div>
+              </div>
+            </td>
+            <td style="padding: 12px 14px;">
+              <input type="text" class="watchlist-note-input" value="{{ f.notes }}" placeholder="Add personal note or target…" data-item-id="{{ f.item_id }}" onblur="saveItemNote({{ f.item_id }}, this.value)" style="padding: 8px 10px; font-size: 12.5px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-elevated); width: 100%;">
+            </td>
+            <td style="text-align: center; padding: 12px 14px;">
+              <button type="button" class="btn-icon-danger" title="Remove from watchlist" onclick="removeItemFromWatchlist({{ f.item_id }}, '{{ f.name|escapejs }}')" style="padding: 8px; border-radius: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <!-- Empty Watchlist State -->
+    <div style="padding: 48px 24px; text-align: center;">
+      <div style="font-size: 42px; margin-bottom: 12px;">📂</div>
+      <h3 style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0 0 6px 0;">
+        This watchlist is currently empty
+      </h3>
+      <p style="font-size: 13px; color: var(--text-muted); max-width: 460px; margin: 0 auto 20px auto; line-height: 1.6;">
+        Search for any Mutual Fund or ETF using the search bar above, or click any quick suggestion below to add it to <strong>{{ active_watchlist.name }}</strong>.
+      </p>
+
+      <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickSearchAdd('Nifty 50')">📈 Add Nifty 50 ETF</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickSearchAdd('Flexi Cap')">🎯 Add Flexi Cap Fund</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickSearchAdd('Small Cap')">🚀 Add Small Cap Fund</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickSearchAdd('Gold')">🪙 Add Gold ETF</button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal: Create Watchlist -->
+<div id="modal-create-watchlist" class="modal-overlay" style="display: none;">
+  <div class="modal-card" style="max-width: 440px; width: 92%;">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">➕ Create New Watchlist</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('modal-create-watchlist')">✕</button>
+    </div>
+    <form id="create-watchlist-form" onsubmit="handleCreateWatchlist(event)">
+      {% csrf_token %}
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Watchlist Name *</label>
+        <input type="text" id="create-wl-name" class="form-control" placeholder="e.g. Core Equity, Thematic ETFs, Tech Funds" required maxlength="100">
+      </div>
+      <div style="margin-bottom: 18px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Description (Optional)</label>
+        <textarea id="create-wl-desc" class="form-control" placeholder="Short description or investment objective…" rows="2" maxlength="250"></textarea>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-watchlist')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="create-wl-btn">Create Watchlist</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Edit Watchlist -->
+<div id="modal-edit-watchlist" class="modal-overlay" style="display: none;">
+  <div class="modal-card" style="max-width: 440px; width: 92%;">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">✏️ Edit Watchlist</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('modal-edit-watchlist')">✕</button>
+    </div>
+    <form id="edit-watchlist-form" onsubmit="handleEditWatchlist(event)">
+      {% csrf_token %}
+      <input type="hidden" id="edit-wl-id" value="">
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Watchlist Name *</label>
+        <input type="text" id="edit-wl-name" class="form-control" required maxlength="100">
+      </div>
+      <div style="margin-bottom: 18px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Description</label>
+        <textarea id="edit-wl-desc" class="form-control" rows="2" maxlength="250"></textarea>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-watchlist')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="edit-wl-btn">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.watchlist-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.watchlist-tab-pill:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+.watchlist-tab-pill.active {
+  background: var(--accent-glow);
+  color: #818cf8;
+  border-color: rgba(99,102,241,0.4);
+}
+.watchlist-pill-count {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 99px;
+}
+.watchlist-tab-pill.active .watchlist-pill-count {
+  background: rgba(99,102,241,0.25);
+  color: #c7d2fe;
+}
+
+/* Search Dropdown */
+.watchlist-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+  max-height: 380px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+}
+.watchlist-search-dropdown.open {
+  display: block;
+}
+.search-res-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: background 0.12s;
+}
+.search-res-row:last-child {
+  border-bottom: none;
+}
+.search-res-row:hover {
+  background: var(--bg-elevated);
+}
+
+.watchlist-note-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  width: 100%;
+  transition: all 0.15s;
+}
+.watchlist-note-input:hover {
+  border-color: var(--border);
+}
+.watchlist-note-input:focus {
+  background: var(--bg-elevated);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.btn-icon-danger {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.btn-icon-danger:hover {
+  background: rgba(248,113,113,0.15);
+  color: var(--red-400);
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-card {
+  background: #111827;
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.6);
+  padding: 20px 24px;
+}
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+.modal-close-btn:hover {
+  color: var(--text-primary);
+}
+</style>
+
+<script>
+const ACTIVE_WATCHLIST_ID = {{ active_watchlist.id }};
+const WATCHLIST_API_URL = "{% url 'portfolio:watchlist_api' %}";
+const ITEM_API_URL = "{% url 'portfolio:watchlist_items_api' %}";
+const SEARCH_API_URL = "{% url 'portfolio:watchlist_search_api' %}";
+
+function getCsrfToken() {
+  const match = document.cookie.match(/(^|;)\s*csrftoken\s*=\s*([^;]+)/);
+  if (match) return match[2];
+  const input = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (input) return input.value;
+  return '{{ csrf_token }}';
+}
+
+function toast(msg, type = 'info') {
+  let container = document.getElementById('global-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'global-toast-container';
+    container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none;';
+    document.body.appendChild(container);
+  }
+  const el = document.createElement('div');
+  const bg = type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#4f46e5');
+  const icon = type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ');
+  el.style.cssText = `background:${bg};color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;pointer-events:auto;transition:all 0.3s ease;`;
+  el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-10px)';
+    setTimeout(() => el.remove(), 300);
+  }, 2800);
+}
+
+// ── Live Fund / ETF Search ───────────────────────────────────────
+(function() {
+  const input = document.getElementById('watchlist-fund-search');
+  const dropdown = document.getElementById('watchlist-search-results');
+  if (!input || !dropdown) return;
+
+  let searchTimer;
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = input.value.trim();
+    if (q.length < 2) {
+      dropdown.classList.remove('open');
+      return;
+    }
+    searchTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${SEARCH_API_URL}?q=${encodeURIComponent(q)}`);
+        const { results } = await res.json();
+        if (!results || !results.length) {
+          dropdown.innerHTML = `<div style="padding:14px;font-size:12px;color:var(--text-muted);text-align:center;">No funds or ETFs found matching "${q}"</div>`;
+          dropdown.classList.add('open');
+          return;
+        }
+
+        dropdown.innerHTML = results.map(r => {
+          const safeName = (r.name || '').replace(/"/g, '&quot;');
+          const encName = encodeURIComponent(r.name || '');
+          return `
+          <div class="search-res-row">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);">${safeName}</span>
+                ${r.is_etf ? '<span class="badge" style="background:rgba(168,85,247,0.15);color:#c084fc;font-size:9px;padding:1px 4px;border-radius:4px;">ETF</span>' : ''}
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                ${r.category || ''} &middot; ${r.fund_house || ''} ${r.aum ? `&middot; ₹${Number(r.aum).toFixed(1)} Cr` : ''}
+                ${r.r1y != null ? `&middot; 1Y: <strong style="color:${r.r1y >= 0 ? '#34d399' : '#f87171'}">${Number(r.r1y).toFixed(1)}%</strong>` : ''}
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px;" data-scheme-id="${r.scheme_id}" data-scheme-name="${encName}" onclick="addSchemeFromBtn(this)">
+              + Add
+            </button>
+          </div>
+        `}).join('');
+        dropdown.classList.add('open');
+      } catch (err) {
+        console.error('Search error', err);
+      }
+    }, 200);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+})();
+
+function quickSearchAdd(term) {
+  const input = document.getElementById('watchlist-fund-search');
+  if (input) {
+    input.value = term;
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  }
+}
+
+function addSchemeFromBtn(btn) {
+  const schemeId = btn.dataset.schemeId;
+  const name = decodeURIComponent(btn.dataset.schemeName || '');
+  addSchemeToActiveWatchlist(schemeId, name, btn);
+}
+
+// ── Add Item to Active Watchlist ────────────────────────────────
+async function addSchemeToActiveWatchlist(schemeId, name, btn = null) {
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+  }
+  try {
+    const res = await fetch(ITEM_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({
+        watchlist_id: ACTIVE_WATCHLIST_ID,
+        scheme_id: schemeId
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast(`Added "${name}" to ${data.watchlist_name}`, 'success');
+      setTimeout(() => window.location.reload(), 350);
+    } else {
+      toast(data.error || 'Failed to add item', 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '+ Add';
+      }
+    }
+  } catch (err) {
+    toast('Network error adding fund', 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '+ Add';
+    }
+  }
+}
+
+// ── Remove Item from Watchlist ──────────────────────────────────
+async function removeItemFromWatchlist(itemId, name) {
+  if (!confirm(`Remove "${name}" from this watchlist?`)) return;
+  try {
+    const res = await fetch(ITEM_API_URL, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ item_id: itemId })
+    });
+    if (res.ok) {
+      toast('Item removed', 'info');
+      const row = document.getElementById(`row-item-${itemId}`);
+      if (row) row.remove();
+      setTimeout(() => window.location.reload(), 350);
+    } else {
+      toast('Failed to remove item', 'error');
+    }
+  } catch (err) {
+    toast('Network error removing item', 'error');
+  }
+}
+
+// ── Save Item Note ──────────────────────────────────────────────
+async function saveItemNote(itemId, note) {
+  try {
+    await fetch(ITEM_API_URL, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ item_id: itemId, notes: note })
+    });
+  } catch (err) {}
+}
+
+// ── Create Custom Watchlist ─────────────────────────────────────
+function openCreateWatchlistModal() {
+  document.getElementById('create-wl-name').value = '';
+  document.getElementById('create-wl-desc').value = '';
+  const modal = document.getElementById('modal-create-watchlist');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('create-wl-name').focus(), 50);
+}
+
+async function handleCreateWatchlist(e) {
+  e.preventDefault();
+  const name = document.getElementById('create-wl-name').value.trim();
+  const desc = document.getElementById('create-wl-desc').value.trim();
+  if (!name) return;
+
+  const btn = document.getElementById('create-wl-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+  try {
+    const res = await fetch(WATCHLIST_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ name, description: desc })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast(`Watchlist "${data.name}" created!`, 'success');
+      window.location.href = `?w=${data.id}`;
+    } else {
+      toast(data.error || 'Failed to create watchlist', 'error');
+    }
+  } catch (err) {
+    toast('Network error creating watchlist', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create Watchlist';
+  }
+}
+
+// ── Edit Watchlist ──────────────────────────────────────────────
+function openEditWatchlistModal(id, name, desc) {
+  document.getElementById('edit-wl-id').value = id;
+  document.getElementById('edit-wl-name').value = name;
+  document.getElementById('edit-wl-desc').value = desc || '';
+  const modal = document.getElementById('modal-edit-watchlist');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('edit-wl-name').focus(), 50);
+}
+
+async function handleEditWatchlist(e) {
+  e.preventDefault();
+  const id = document.getElementById('edit-wl-id').value;
+  const name = document.getElementById('edit-wl-name').value.trim();
+  const desc = document.getElementById('edit-wl-desc').value.trim();
+
+  const btn = document.getElementById('edit-wl-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const res = await fetch(WATCHLIST_API_URL, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ watchlist_id: id, name, description: desc })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast('Watchlist updated!', 'success');
+      window.location.href = `?w=${id}`;
+    } else {
+      toast(data.error || 'Failed to update watchlist', 'error');
+    }
+  } catch (err) {
+    toast('Network error updating watchlist', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+  }
+}
+
+// ── Delete Watchlist ────────────────────────────────────────────
+async function deleteWatchlist(id, name) {
+  if (!confirm(`Are you sure you want to delete the watchlist "${name}" and all its saved items?`)) return;
+  try {
+    const res = await fetch(WATCHLIST_API_URL, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ watchlist_id: id })
+    });
+    if (res.ok) {
+      toast(`Watchlist "${name}" deleted`, 'info');
+      window.location.href = '{% url "portfolio:watchlist_hub" %}';
+    } else {
+      const data = await res.json();
+      toast(data.error || 'Failed to delete watchlist', 'error');
+    }
+  } catch (err) {
+    toast('Network error deleting watchlist', 'error');
+  }
+}
+
+function closeModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.style.display = 'none';
+}
+
+// ── Table Filtering & Sorting ───────────────────────────────────
+document.getElementById('table-filter-input')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('#watchlist-table tbody tr').forEach(tr => {
+    const text = tr.dataset.search.toLowerCase();
+    tr.style.display = text.includes(q) ? '' : 'none';
+  });
+});
+
+let sortDirections = {};
+function sortTable(colIndex, isNumeric = false) {
+  const table = document.getElementById('watchlist-table');
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  
+  sortDirections[colIndex] = !sortDirections[colIndex];
+  const dir = sortDirections[colIndex] ? 1 : -1;
+
+  rows.sort((a, b) => {
+    const cellA = a.children[colIndex];
+    const cellB = b.children[colIndex];
+    if (isNumeric) {
+      const valA = parseFloat(cellA.dataset.val ?? cellA.innerText) || 0;
+      const valB = parseFloat(cellB.dataset.val ?? cellB.innerText) || 0;
+      return (valA - valB) * dir;
+    } else {
+      const inputA = cellA.querySelector('input');
+      const inputB = cellB.querySelector('input');
+      const textA = (inputA ? inputA.value : cellA.innerText).trim().toLowerCase();
+      const textB = (inputB ? inputB.value : cellB.innerText).trim().toLowerCase();
+      return textA.localeCompare(textB) * dir;
+    }
+  });
+
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// ── CSV Export ──────────────────────────────────────────────────
+function exportWatchlistCsv() {
+  const table = document.getElementById('watchlist-table');
+  if (!table) return;
+
+  const rows = Array.from(table.querySelectorAll('tr'));
+  const csv = rows.map(row => {
+    const cells = Array.from(row.querySelectorAll('th, td'));
+    return cells.slice(0, -1).map(c => `"${c.innerText.replace(/"/g, '""').trim()}"`).join(',');
+  }).join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Watchlist_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+</script>
+{% endblock %}

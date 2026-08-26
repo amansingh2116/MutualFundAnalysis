@@ -2121,3 +2121,47 @@ input[type="range"]::-webkit-slider-thumb {
     width: min(300px, calc(100vw - 32px));
   }
 }
+
+/* ── Topbar Watchlist Button ────────────────────────────────── */
+.topbar-watchlist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.topbar-watchlist-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.topbar-watchlist-btn.active {
+  background: var(--accent-glow);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.topbar-watchlist-icon {
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .topbar-watchlist-text {
+    display: none;
+  }
+  .topbar-watchlist-btn {
+    padding: 6px 8px;
+  }
+}
+

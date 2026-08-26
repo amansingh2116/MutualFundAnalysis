@@ -92,3 +92,69 @@ class SavedStrategy(BaseModel):
 
     def __str__(self):
         return f"{self.user.username} — {self.name}"
+
+
+class Watchlist(BaseModel):
+    """
+    A user-created watchlist of mutual funds and ETFs.
+    Every user gets a default 'My Watchlist' upon first use.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='fund_watchlists',
+    )
+    name = models.CharField(max_length=120, default='My Watchlist')
+    description = models.TextField(blank=True, default='')
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-is_default', 'name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'name'],
+                name='unique_user_watchlist_name',
+            )
+        ]
+        verbose_name = 'Watchlist'
+        verbose_name_plural = 'Watchlists'
+
+    def __str__(self):
+        return f"{self.user.username} — {self.name}"
+
+    @property
+    def item_count(self) -> int:
+        return self.items.count()
+
+
+class WatchlistItem(BaseModel):
+    """An individual Scheme/ETF item within a user's Watchlist."""
+    watchlist = models.ForeignKey(
+        Watchlist,
+        on_delete=models.CASCADE,
+        related_name='items',
+    )
+    scheme = models.ForeignKey(
+        'funds.Scheme',
+        on_delete=models.CASCADE,
+        related_name='watchlist_items',
+    )
+    notes = models.CharField(max_length=255, blank=True, default='')
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['watchlist', 'scheme'],
+                name='unique_watchlist_scheme',
+            )
+        ]
+        indexes = [
+            models.Index(fields=['watchlist', 'scheme']),
+        ]
+        verbose_name = 'Watchlist Item'
+        verbose_name_plural = 'Watchlist Items'
+
+    def __str__(self):
+        return f"{self.watchlist.name} -> {self.scheme.scheme_name}"
+

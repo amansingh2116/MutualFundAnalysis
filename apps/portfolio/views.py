@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import models
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
@@ -1252,3 +1254,520 @@ def strategy_detail_api(request, strategy_id: int):
         return JsonResponse({'status': 'updated', 'id': str(strategy.id)})
 
     return JsonResponse({'error': 'Method not allowed.'}, status=405)
+
+
+# ── Watchlist Views & APIs ──────────────────────────────────────
+@login_required
+def watchlist_hub_view(request):
+    """
+    Main Watchlist Hub page:
+    - Lists all user watchlists (Default 'My Watchlist' + Custom themed watchlists).
+    - Displays watched funds & ETFs enriched with performance, risk, and fund metrics.
+    - Provides real-time fund search & add, CSV export, and watchlist management.
+    """
+    from apps.portfolio.models import Watchlist, WatchlistItem
+    from apps.funds.models import FundScreenerSnapshot, Scheme
+
+    # Ensure default 'My Watchlist' exists for the user
+    default_wl, _ = Watchlist.objects.get_or_create(
+        user=request.user,
+        is_default=True,
+        defaults={'name': 'My Watchlist', 'description': 'Primary fund & ETF watchlist'}
+    )
+
+    # Fetch all user watchlists with item counts
+    watchlists = list(Watchlist.objects.filter(user=request.user).order_by('-is_default', 'name'))
+    
+    # Active watchlist selection
+    active_id = request.GET.get('w')
+    active_watchlist = None
+    if active_id:
+        try:
+            active_watchlist = next((w for w in watchlists if str(w.id) == str(active_id)), None)
+        except Exception:
+            pass
+    if not active_watchlist:
+        active_watchlist = default_wl
+
+    # Get items in active watchlist
+    items_qs = WatchlistItem.objects.filter(watchlist=active_watchlist).select_related('scheme').order_by('-created_at')
+    
+    scheme_ids = [item.scheme_id for item in items_qs if item.scheme_id]
+    snapshot_map = {}
+    if scheme_ids:
+        for snap in FundScreenerSnapshot.objects.filter(scheme_id__in=scheme_ids):
+            snapshot_map[snap.scheme_id] = snap
+
+    # Format fund rows
+    watched_funds = []
+    total_aum = 0.0
+    r1y_vals = []
+    r3y_vals = []
+    er_vals = []
+    etf_count = 0
+
+    for item in items_qs:
+        s = item.scheme
+        snap = snapshot_map.get(s.id)
+        
+        name = snap.fund_name if snap else s.scheme_name
+        is_etf = snap.is_etf if snap else s.is_etf
+        cat = snap.scheme_sub_category if snap else (s.scheme_category or '')
+        house = snap.fund_house if snap else (s.fund_house or '')
+        aum = float(snap.aum_cr) if (snap and snap.aum_cr is not None) else None
+        er = float(snap.expense_ratio) if (snap and snap.expense_ratio is not None) else (float(s.expense_ratio) if s.expense_ratio is not None else None)
+        r1y = float(snap.returns_1y_pct) if (snap and snap.returns_1y_pct is not None) else None
+        r3y = float(snap.cagr_3y_pct) if (snap and snap.cagr_3y_pct is not None) else None
+        r5y = float(snap.returns_5y_pct) if (snap and snap.returns_5y_pct is not None) else None
+        sharpe = float(snap.sharpe_ratio) if (snap and snap.sharpe_ratio is not None) else None
+        vol = float(snap.volatility_3y_pct) if (snap and snap.volatility_3y_pct is not None) else None
+        model_score = float(snap.model_score) if (snap and snap.model_score is not None) else None
+        score_badge = snap.model_score_badge if snap else ''
+
+        if is_etf:
+            etf_count += 1
+        if aum is not None:
+            total_aum += aum
+        if r1y is not None:
+            r1y_vals.append(r1y)
+        if r3y is not None:
+            r3y_vals.append(r3y)
+        if er is not None:
+            er_vals.append(er)
+
+        watched_funds.append({
+            'item_id': item.id,
+            'scheme_id': s.id,
+            'amfi_code': s.amfi_code,
+            'name': name,
+            'is_etf': is_etf,
+            'category': cat,
+            'fund_house': house,
+            'aum': aum,
+            'expense_ratio': er,
+            'r1y': r1y,
+            'r3y': r3y,
+            'r5y': r5y,
+            'sharpe': sharpe,
+            'volatility': vol,
+            'model_score': model_score,
+            'score_badge': score_badge,
+            'notes': item.notes,
+            'added_date': item.created_at.strftime('%d %b %Y'),
+        })
+
+    avg_1y = (sum(r1y_vals) / len(r1y_vals)) if r1y_vals else None
+    avg_3y = (sum(r3y_vals) / len(r3y_vals)) if r3y_vals else None
+    avg_er = (sum(er_vals) / len(er_vals)) if er_vals else None
+
+    # Count total watched unique funds across all user watchlists
+    total_watched_unique = WatchlistItem.objects.filter(watchlist__user=request.user).values('scheme_id').distinct().count()
+
+    context = {
+        'watchlists': watchlists,
+        'active_watchlist': active_watchlist,
+        'watched_funds': watched_funds,
+        'item_count': len(watched_funds),
+        'etf_count': etf_count,
+        'mutual_fund_count': len(watched_funds) - etf_count,
+        'total_aum': total_aum if total_aum > 0 else None,
+        'avg_1y': avg_1y,
+        'avg_3y': avg_3y,
+        'avg_er': avg_er,
+        'total_watched_unique': total_watched_unique,
+    }
+    return render(request, 'portfolio/watchlist.html', context)
+
+
+@json_login_required
+def watchlist_api(request):
+    """
+    CRUD API for user Watchlists:
+    - GET: List all watchlists for current user with counts
+    - POST: Create a new custom watchlist
+    - PATCH / PUT: Rename or update description
+    - DELETE: Delete custom watchlist
+    """
+    from apps.portfolio.models import Watchlist
+
+    if request.method == 'GET':
+        wls = Watchlist.objects.filter(user=request.user).order_by('-is_default', 'name')
+        data = [{
+            'id': w.id,
+            'name': w.name,
+            'description': w.description,
+            'is_default': w.is_default,
+            'item_count': w.items.count(),
+            'updated_at': w.updated_at.isoformat(),
+        } for w in wls]
+        return JsonResponse({'watchlists': data})
+
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+        name = payload.get('name', '').strip()
+        if not name:
+            return JsonResponse({'error': 'Watchlist name is required.'}, status=400)
+        
+        if Watchlist.objects.filter(user=request.user, name__iexact=name).exists():
+            return JsonResponse({'error': f'A watchlist named "{name}" already exists.'}, status=400)
+
+        wl = Watchlist.objects.create(
+            user=request.user,
+            name=name,
+            description=payload.get('description', '').strip(),
+            is_default=False
+        )
+        return JsonResponse({
+            'status': 'created',
+            'id': wl.id,
+            'name': wl.name,
+            'description': wl.description,
+            'is_default': wl.is_default,
+            'item_count': 0
+        })
+
+    if request.method in ('PATCH', 'PUT'):
+        try:
+            payload = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+        wl_id = payload.get('watchlist_id') or payload.get('id')
+        if not wl_id:
+            return JsonResponse({'error': 'watchlist_id is required.'}, status=400)
+
+        try:
+            wl = Watchlist.objects.get(id=wl_id, user=request.user)
+        except Watchlist.DoesNotExist:
+            return JsonResponse({'error': 'Watchlist not found.'}, status=404)
+
+        new_name = payload.get('name', '').strip()
+        if new_name:
+            if Watchlist.objects.filter(user=request.user, name__iexact=new_name).exclude(id=wl.id).exists():
+                return JsonResponse({'error': f'A watchlist named "{new_name}" already exists.'}, status=400)
+            wl.name = new_name
+
+        if 'description' in payload:
+            wl.description = payload['description'].strip()
+
+        wl.save()
+        return JsonResponse({
+            'status': 'updated',
+            'id': wl.id,
+            'name': wl.name,
+            'description': wl.description,
+            'is_default': wl.is_default,
+        })
+
+    if request.method == 'DELETE':
+        try:
+            payload = json.loads(request.body)
+            wl_id = payload.get('watchlist_id') or payload.get('id')
+        except Exception:
+            wl_id = request.GET.get('id')
+
+        if not wl_id:
+            return JsonResponse({'error': 'watchlist_id is required.'}, status=400)
+
+        try:
+            wl = Watchlist.objects.get(id=wl_id, user=request.user)
+        except Watchlist.DoesNotExist:
+            return JsonResponse({'error': 'Watchlist not found.'}, status=404)
+
+        if wl.is_default:
+            return JsonResponse({'error': 'Cannot delete your default watchlist.'}, status=400)
+
+        wl.delete()
+        return JsonResponse({'status': 'deleted', 'id': wl_id})
+
+    return JsonResponse({'error': 'Method not allowed.'}, status=405)
+
+
+@json_login_required
+def watchlist_item_api(request):
+    """
+    Add, remove, or update items within a user's watchlist:
+    - POST: Add scheme to watchlist (watchlist_id, scheme_id or amfi_code, optional notes)
+    - DELETE: Remove item from watchlist (item_id or watchlist_id + scheme_id)
+    - PATCH: Update notes on item
+    """
+    from apps.portfolio.models import Watchlist, WatchlistItem
+    from apps.funds.models import Scheme
+
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+        wl_id = payload.get('watchlist_id')
+        if wl_id:
+            try:
+                wl = Watchlist.objects.get(id=wl_id, user=request.user)
+            except Watchlist.DoesNotExist:
+                return JsonResponse({'error': 'Watchlist not found.'}, status=404)
+        else:
+            wl, _ = Watchlist.objects.get_or_create(
+                user=request.user,
+                is_default=True,
+                defaults={'name': 'My Watchlist'}
+            )
+
+        scheme_id = payload.get('scheme_id')
+        amfi_code = payload.get('amfi_code')
+
+        scheme = None
+        if scheme_id:
+            scheme = Scheme.objects.filter(id=scheme_id).first()
+        elif amfi_code:
+            scheme = Scheme.objects.filter(amfi_code=str(amfi_code)).first()
+
+        if not scheme:
+            return JsonResponse({'error': 'Scheme / ETF not found.'}, status=404)
+
+        notes = payload.get('notes', '').strip()
+        item, created = WatchlistItem.objects.get_or_create(
+            watchlist=wl,
+            scheme=scheme,
+            defaults={'notes': notes}
+        )
+        if not created and notes:
+            item.notes = notes
+            item.save(update_fields=['notes', 'updated_at'])
+
+        # Total unique watched count for this user
+        total_unique = WatchlistItem.objects.filter(watchlist__user=request.user).values('scheme_id').distinct().count()
+
+        return JsonResponse({
+            'status': 'added' if created else 'exists',
+            'item_id': item.id,
+            'watchlist_id': wl.id,
+            'watchlist_name': wl.name,
+            'scheme_name': scheme.scheme_name,
+            'amfi_code': scheme.amfi_code,
+            'total_unique': total_unique,
+            'item_count': wl.items.count(),
+        })
+
+    if request.method == 'DELETE':
+        try:
+            payload = json.loads(request.body)
+        except Exception:
+            payload = {}
+
+        item_id = payload.get('item_id') or request.GET.get('item_id')
+        wl_id = payload.get('watchlist_id') or request.GET.get('watchlist_id')
+        amfi_code = payload.get('amfi_code') or request.GET.get('amfi_code')
+        scheme_id = payload.get('scheme_id') or request.GET.get('scheme_id')
+
+        item = None
+        if item_id:
+            item = WatchlistItem.objects.filter(id=item_id, watchlist__user=request.user).first()
+        elif wl_id and (scheme_id or amfi_code):
+            qs = WatchlistItem.objects.filter(watchlist_id=wl_id, watchlist__user=request.user)
+            if scheme_id:
+                qs = qs.filter(scheme_id=scheme_id)
+            elif amfi_code:
+                qs = qs.filter(scheme__amfi_code=str(amfi_code))
+            item = qs.first()
+
+        if not item:
+            return JsonResponse({'error': 'Watchlist item not found.'}, status=404)
+
+        wl = item.watchlist
+        item.delete()
+
+        total_unique = WatchlistItem.objects.filter(watchlist__user=request.user).values('scheme_id').distinct().count()
+
+        return JsonResponse({
+            'status': 'removed',
+            'watchlist_id': wl.id,
+            'total_unique': total_unique,
+            'item_count': wl.items.count(),
+        })
+
+    if request.method == 'PATCH':
+        try:
+            payload = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+        item_id = payload.get('item_id')
+        if not item_id:
+            return JsonResponse({'error': 'item_id is required.'}, status=400)
+
+        item = WatchlistItem.objects.filter(id=item_id, watchlist__user=request.user).first()
+        if not item:
+            return JsonResponse({'error': 'Watchlist item not found.'}, status=404)
+
+        if 'notes' in payload:
+            item.notes = payload['notes'].strip()
+            item.save(update_fields=['notes', 'updated_at'])
+
+        return JsonResponse({'status': 'updated', 'item_id': item.id, 'notes': item.notes})
+
+    return JsonResponse({'error': 'Method not allowed.'}, status=405)
+
+
+@login_required
+def watchlist_toggle_api(request):
+    """
+    Get or toggle watchlist presence for a specific fund/ETF across all user watchlists:
+    - GET ?amfi_code=... or ?scheme_id=...: Returns array of user's watchlists and whether this fund is in each.
+    - POST: Toggle/Add/Remove scheme in a specific watchlist or default watchlist.
+    """
+    from apps.portfolio.models import Watchlist, WatchlistItem
+    from apps.funds.models import Scheme
+
+    amfi_code = request.GET.get('amfi_code') or request.POST.get('amfi_code')
+    scheme_id = request.GET.get('scheme_id') or request.POST.get('scheme_id')
+
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body)
+            amfi_code = payload.get('amfi_code', amfi_code)
+            scheme_id = payload.get('scheme_id', scheme_id)
+            target_wl_id = payload.get('watchlist_id')
+            action = payload.get('action', 'toggle')  # 'toggle', 'add', 'remove'
+        except Exception:
+            target_wl_id = request.POST.get('watchlist_id')
+            action = request.POST.get('action', 'toggle')
+
+    scheme = None
+    if scheme_id:
+        scheme = Scheme.objects.filter(id=scheme_id).first()
+    elif amfi_code:
+        scheme = Scheme.objects.filter(amfi_code=str(amfi_code)).first()
+
+    if not scheme:
+        return JsonResponse({'error': 'Scheme / ETF not found.'}, status=404)
+
+    # Ensure default watchlist
+    default_wl, _ = Watchlist.objects.get_or_create(
+        user=request.user,
+        is_default=True,
+        defaults={'name': 'My Watchlist'}
+    )
+
+    user_wls = list(Watchlist.objects.filter(user=request.user).order_by('-is_default', 'name'))
+    watched_wl_ids = set(
+        WatchlistItem.objects.filter(watchlist__user=request.user, scheme=scheme)
+        .values_list('watchlist_id', flat=True)
+    )
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'scheme_name': scheme.scheme_name,
+            'amfi_code': scheme.amfi_code,
+            'is_in_any': len(watched_wl_ids) > 0,
+            'watchlists': [{
+                'id': w.id,
+                'name': w.name,
+                'is_default': w.is_default,
+                'is_active': w.id in watched_wl_ids,
+            } for w in user_wls]
+        })
+
+    if request.method == 'POST':
+        if target_wl_id:
+            try:
+                target_wl = next((w for w in user_wls if str(w.id) == str(target_wl_id)), None)
+            except Exception:
+                target_wl = None
+            if not target_wl:
+                return JsonResponse({'error': 'Target watchlist not found.'}, status=404)
+        else:
+            target_wl = default_wl
+
+        is_currently_watched = target_wl.id in watched_wl_ids
+
+        if action == 'add' or (action == 'toggle' and not is_currently_watched):
+            item, created = WatchlistItem.objects.get_or_create(watchlist=target_wl, scheme=scheme)
+            is_watched = True
+        elif action == 'remove' or (action == 'toggle' and is_currently_watched):
+            WatchlistItem.objects.filter(watchlist=target_wl, scheme=scheme).delete()
+            is_watched = False
+
+        total_unique = WatchlistItem.objects.filter(watchlist__user=request.user).values('scheme_id').distinct().count()
+
+        return JsonResponse({
+            'status': 'success',
+            'is_watched': is_watched,
+            'watchlist_id': target_wl.id,
+            'watchlist_name': target_wl.name,
+            'total_unique': total_unique,
+            'item_count': target_wl.items.count(),
+        })
+
+    return JsonResponse({'error': 'Method not allowed.'}, status=405)
+
+
+@login_required
+def watchlist_search_api(request):
+    """
+    Real-time auto-complete search across all mutual funds and ETFs:
+    - Queries Scheme and FundScreenerSnapshot
+    - Returns top 15 matches with AMFI, Name, House, Category, ETF badge, AUM, 1Y & 3Y returns
+    """
+    from apps.funds.models import Scheme, FundScreenerSnapshot
+
+    q = request.GET.get('q', '').strip()
+    if not q or len(q) < 2:
+        return JsonResponse({'results': []})
+
+    # Search in FundScreenerSnapshot first for richest data
+    snaps = list(
+        FundScreenerSnapshot.objects.filter(
+            models.Q(fund_name__icontains=q) |
+            models.Q(scheme__amfi_code__icontains=q) |
+            models.Q(fund_house__icontains=q) |
+            models.Q(scheme_sub_category__icontains=q)
+        ).select_related('scheme').order_by('-aum_cr')[:15]
+    )
+
+    results = []
+    seen_scheme_ids = set()
+
+    for sn in snaps:
+        seen_scheme_ids.add(sn.scheme_id)
+        results.append({
+            'scheme_id': sn.scheme_id,
+            'amfi_code': sn.scheme.amfi_code,
+            'name': sn.fund_name,
+            'is_etf': sn.is_etf,
+            'category': sn.scheme_sub_category,
+            'fund_house': sn.fund_house,
+            'aum': float(sn.aum_cr) if sn.aum_cr is not None else None,
+            'r1y': float(sn.returns_1y_pct) if sn.returns_1y_pct is not None else None,
+            'r3y': float(sn.cagr_3y_pct) if sn.cagr_3y_pct is not None else None,
+            'expense_ratio': float(sn.expense_ratio) if sn.expense_ratio is not None else None,
+        })
+
+    # Fallback to Scheme if few results
+    if len(results) < 15:
+        remaining = 15 - len(results)
+        schemes = Scheme.objects.filter(
+            models.Q(scheme_name__icontains=q) |
+            models.Q(amfi_code__icontains=q)
+        ).exclude(id__in=seen_scheme_ids)[:remaining]
+
+        for s in schemes:
+            results.append({
+                'scheme_id': s.id,
+                'amfi_code': s.amfi_code,
+                'name': s.scheme_name,
+                'is_etf': s.is_etf,
+                'category': s.scheme_category or '',
+                'fund_house': s.fund_house or '',
+                'aum': None,
+                'r1y': None,
+                'r3y': None,
+                'expense_ratio': float(s.expense_ratio) if s.expense_ratio is not None else None,
+            })
+
+    return JsonResponse({'results': results})
+

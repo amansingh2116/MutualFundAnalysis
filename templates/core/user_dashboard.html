@@ -277,9 +277,43 @@
     </div>
   </div>
 
-  {# ── SECTION 4: PREFERENCES & WATCHLISTS ── #}
+  {# ── SECTION 4: FUND & ETF WATCHLISTS ── #}
   <div class="dash-card">
-    <div class="dash-card-title">⚙️ Preferences &amp; Watchlists</div>
+    <div class="dash-card-title">⭐ Fund &amp; ETF Watchlists</div>
+    <div class="dash-card-body">
+      {% if fund_watchlists %}
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          {% for wl in fund_watchlists %}
+          <div class="item-row" style="padding:10px 12px;background:var(--bg-elevated);border-radius:10px">
+            <div class="item-row-left">
+              <div class="item-row-name">
+                <a href="{% url 'portfolio:watchlist_hub' %}?w={{ wl.id }}" style="color:var(--text-primary);text-decoration:none;font-weight:600">
+                  {% if wl.is_default %}⭐{% else %}📁{% endif %} {{ wl.name }}
+                </a>
+              </div>
+              <div class="item-row-meta">
+                {{ wl.item_count }} assets saved {% if wl.description %}&middot; {{ wl.description }}{% endif %}
+              </div>
+            </div>
+            <div class="item-row-right">
+              <a href="{% url 'portfolio:watchlist_hub' %}?w={{ wl.id }}" class="btn btn-secondary btn-sm" style="font-size:11px">Open</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">No watchlists created yet.</p>
+      {% endif %}
+    </div>
+    <div class="dash-card-footer">
+      <span class="item-row-meta">Organize and monitor mutual funds &amp; ETFs</span>
+      <a href="{% url 'portfolio:watchlist_hub' %}" class="btn btn-primary btn-sm">Manage Watchlists</a>
+    </div>
+  </div>
+
+  {# ── SECTION 5: PREFERENCES & WATCHLISTS ── #}
+  <div class="dash-card">
+    <div class="dash-card-title">⚙️ Preferences &amp; Benchmarks</div>
     <div class="dash-card-body">
       
       <div style="margin-bottom:16px">

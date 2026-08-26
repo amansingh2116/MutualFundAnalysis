@@ -26,4 +26,11 @@ urlpatterns = [
     path('strategies/compare/', views.strategy_compare_page, name='strategy_compare'),
     path('strategies/api/', views.strategy_list_api, name='strategy_list_api'),
     path('strategies/api/<int:strategy_id>/', views.strategy_detail_api, name='strategy_detail_api'),
+    # Fund & ETF Watchlists
+    path('watchlist/', views.watchlist_hub_view, name='watchlist_hub'),
+    path('watchlist/api/', views.watchlist_api, name='watchlist_api'),
+    path('watchlist/items/api/', views.watchlist_item_api, name='watchlist_items_api'),
+    path('watchlist/item/api/', views.watchlist_item_api, name='watchlist_item_api'),
+    path('watchlist/toggle/api/', views.watchlist_toggle_api, name='watchlist_toggle_api'),
+    path('watchlist/search/api/', views.watchlist_search_api, name='watchlist_search_api'),
 ]

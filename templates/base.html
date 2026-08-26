@@ -140,6 +140,9 @@
           <a href="{% url 'core:user_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'user_dashboard' %}active{% endif %}">
             <span class="nav-icon">👤</span> Dashboard
           </a>
+          <a href="{% url 'portfolio:watchlist_hub' %}" class="nav-item {% if request.resolver_match.url_name == 'watchlist_hub' %}active{% endif %}">
+            <span class="nav-icon">⭐</span> Watchlist
+          </a>
         </div>
       </div>
       {% endif %}
@@ -205,6 +208,19 @@
         <input id="global-search" type="text" placeholder="Search funds by name, AMC, ISIN…" autocomplete="off">
         <div class="search-results-dropdown" id="search-dropdown"></div>
       </div>
+
+      <!-- Topbar Watchlist Button -->
+      {% if user.is_authenticated %}
+      <a href="{% url 'portfolio:watchlist_hub' %}" class="topbar-watchlist-btn {% if request.resolver_match.url_name == 'watchlist_hub' %}active{% endif %}" title="View Watchlist">
+        <span class="topbar-watchlist-icon">⭐</span>
+        <span class="topbar-watchlist-text">Watchlist</span>
+      </a>
+      {% else %}
+      <a href="{% url 'login' %}?next={% url 'portfolio:watchlist_hub' %}" class="topbar-watchlist-btn" title="Sign in to view Watchlist">
+        <span class="topbar-watchlist-icon">⭐</span>
+        <span class="topbar-watchlist-text">Watchlist</span>
+      </a>
+      {% endif %}
 
       <!-- Actions -->
       <div class="topbar-actions">

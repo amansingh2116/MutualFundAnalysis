@@ -686,12 +686,16 @@ def user_dashboard_view(request):
     # 3. Recommendation Profile
     rec_profile = RecommendationProfile.objects.filter(user=request.user).first()
     
-    # 4. Benchmark Watchlist
+    # 4. Fund & ETF Watchlists
+    from apps.portfolio.models import Watchlist
+    fund_watchlists = list(Watchlist.objects.filter(user=request.user).order_by('-is_default', 'name'))
+
+    # 5. Benchmark Watchlist
     bench_profile = UserBenchmarkProfile.objects.filter(user=request.user).first()
     watchlist_ids = bench_profile.watchlist if bench_profile else []
     watchlist_indices = list(BenchmarkIndex.objects.filter(id__in=watchlist_ids, is_active=True).values_list('name', flat=True))
 
-    # 5. Market Strip Watchlist
+    # 6. Market Strip Watchlist
     market_profile = UserMarketStripProfile.objects.filter(user=request.user).first()
     chosen_metrics = market_profile.metrics if (market_profile and market_profile.metrics) else DEFAULT_METRIC_KEYS
     # chosen_metrics may contain dicts (fund entries) — filter to string keys only for label display
@@ -704,6 +708,7 @@ def user_dashboard_view(request):
         'portfolios': portfolios,
         'strategies': strategies,
         'rec_profile': rec_profile,
+        'fund_watchlists': fund_watchlists,
         'watchlist_indices': watchlist_indices,
         'chosen_metric_labels': chosen_metric_labels,
     })
