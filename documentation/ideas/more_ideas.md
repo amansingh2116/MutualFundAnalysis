@@ -80,7 +80,7 @@ Deep-dive intelligence exploring stock-to-fund linkages, AMC portfolio adjustmen
 - ✅ **Cap-Wise Portfolio Breakdown:** `CapClassifier` utility (`apps/holdings/cap_classifier.py`) maps equity holding names to SEBI large/mid/small using `rapidfuzz` fuzzy matching against `data/nifty_caplist.json` (Nifty 50 + Next 50 = Large, Nifty Midcap 150 = Mid, rest = Small). `MarketCapAllocation` stores the breakdown per scheme per month with `cap_method` traceability.
 - ❌ **Sector-Wise Top Stock Breakdown:** Identify top stock holdings grouped by industry sectors across mutual fund portfolios (![Sector Top Stocks](images/image-3.png)).
 - ✅ **Industry Inflows & Outflows:** `IndustryInflow` model and `ingest_industry_inflows` management command capture AMFI monthly gross purchase, redemption, and net inflow by category group (Equity, Debt, Hybrid, ETF, etc.). Home page widget served by `home_industry_inflows_api`. (![Industry Overall Flows](images/image-1.png))
-- ⬜ **Sector-Wise Capital Flows:** Granular tracking of net buying and selling capital flows across specific market sectors (![Sector Flows](images/image-2.png)). *Note: Requires AMFI sector-level disclosure data — not yet available from current sources.*
+- ❌ **Sector-Wise Capital Flows:** Granular tracking of net buying and selling capital flows across specific market sectors (![Sector Flows](images/image-2.png)). *Note: Requires AMFI sector-level disclosure data — not yet available from current sources.*
 
 ---
 
@@ -131,8 +131,38 @@ Integrating AI capabilities into research workflows while preserving strict data
 - ✅ **52-Week & Multi-Year Range Barometer (Fund Detail):** Integrated directly into the fund detail page Advanced Quant Suite with 52W/3Y/5Y visual channel indicators and behavioral guidance (![52-Week High/Low Tracker](images/image-14.png)).
 - ✅ **All-Time High / Low Tracker & Drawdown Matrix (Fund Detail):** Integrated directly into the fund detail page Advanced Quant Suite tracking ATH peak dates, days since peak, recovery multiples, and secular expansion status (![All-Time High/Low Tracker](images/image-15.png)).
 - ✅ **Multi-Platform One-Click Social Sharing:** Fixed overlaying floating share widget across all pages with modal popups for 1-click sharing to WhatsApp, LinkedIn, Instagram, SMS/Message, Email, Copy Link, and native device share sheet.
+- ✅ **Fund & ETF Multi-Watchlist Suite:** Personalized default and custom themed watchlists for logged-in users with topbar and sidebar navigation, real-time fund/ETF search and add, simplified 3-column table (Fund/ETF Name, Inline Editable Notes, Action), CSV exports, and 1-click toggling from fund detail pages.
 - ✅ **Community Discussion Feed:** Interactive investor discussions with live post creation, Explore and Following feeds, hashtags, image attachments, threaded replies, likes, user profile popup cards, and follower network management.
 - ✅ **Mobile Breakpoint Optimization:** Comprehensive UI & UX responsive layout polishing across all hubs, horizontal tab scrolling, table containers, touch controls, and mobile-adaptive Plotly chart sizing.
+- ⬜ **Exhaustive Automated Unit, Integration & Regression Test Suite:** Systematic coverage expanding unit test cases across all edge cases for 18 calculators, 16 forecasting models, portfolio XIRR/HHI math, CAS statement parsing, social APIs, auth rate-limiting, and UI rendering validations.
+
+---
+
+## 7. Comprehensive Page-by-Page & Subpage Inventory (Implemented vs. Upcoming)
+
+| Page / Hub / Feature | URL Route | Status | Detailed Subcomponents & Minute Capabilities |
+|---|---|---|---|
+| **Home Page** | `/` | ✅ Shipped | Hero search, AMFI fast search cache, live market strip ticker, top performing categories, industry inflows/outflows widget, quick calculator launchpads, floating share sheet. |
+| **Browse Funds & Direct Search** | `/funds/` | ✅ Shipped | Scheme directory, instant autocomplete across 14,000+ schemes, direct growth filters, plan filters, pagination. |
+| **Fund Detail & Analytics Hub** | `/funds/<scheme_code>/` | ✅ Shipped | 6 interactive tabs: Snapshot, Returns (Trailing, Calendar Year, Rolling 1Y-10Y), Risk Analytics, Portfolio Breakdown (Holdings, Sectors, Cap-weight), Analysis (6-pillar score, personalized ranking, score trend chart), Advanced Quant (Technical scanner, 10 SMAs/EMAs, Pivots, ATH/52W Barometer, VaR/CVaR matrix, 16 ML/DL forecasting models, StrategyLab backtester), and PDF institutional report download. |
+| **Fund Screener** | `/funds/screener/` | ✅ Shipped | Multi-metric filtering (Category, AUM, TER, Returns, Sharpe, Alpha, Model Score), dynamic column picker, sorting, CSV export, and quick watchlist addition. |
+| **Category Analysis Hub** | `/research/categories/` | ✅ Shipped | 4 asset group tabs (Equity, Debt, Hybrid, Other), SEBI mandate descriptions, category return meter, AUM bars, Sharpe averages, 2-to-4 category selector float bar. |
+| **Category Detail Page** | `/research/categories/<slug>/` | ✅ Shipped | Official SEBI mandate badge, 21-KPI summary strip, 6-tab analysis workspace (Snapshot, Returns with 3 sub-tabs, Risk, Portfolio Holdings/Sectors, Fees, Intelligence). |
+| **Category Side-by-Side Comparison** | `/research/categories/compare/` | ✅ Shipped | 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with direction-calibrated winner badges (★ Best). |
+| **AMC Analysis Directory** | `/research/amcs/` | ✅ Shipped | Directory of ~50 AMCs with AUM, fund counts, average 3Y CAGR, TER, model score, and 2-to-4 AMC comparison selector. |
+| **AMC Detail Page** | `/research/amcs/<slug>/` | ✅ Shipped | AUM history trend line, top 20 holdings, sector tilts, recent month-over-month exits/disinvestments, cross-fund high conviction stocks, and manager roster. |
+| **AMC Side-by-Side Comparison** | `/research/amcs/compare/` | ✅ Shipped | Side-by-side comparison of 2–4 AMCs across aggregate AUM, fund counts, Sharpe ratios, turnover, and manager quality. |
+| **Quartile Rankings Hub** | `/research/quartiles/` | ✅ Shipped | Sub-category dynamic quartile tables ranking funds across 1Y, 3Y, 5Y returns and risk metrics. |
+| **Watchlist Hub Suite** | `/portfolio/watchlist/` | ✅ Shipped | Logged-in default and custom multi-watchlists, real-time fund search & add, inline notes, delete actions, CSV export, topbar and sidebar quick links. |
+| **Portfolio Dashboard & Backtester** | `/portfolio/` | ✅ Shipped | CSV/manual portfolio upload, XIRR calculations, stock-level overlap matrix, sector HHI concentration, Strategy Backtester V2 with 5 rebalancing strategies and SIP compounding curves. |
+| **18 Financial Calculators** | `/calculators/*` | ✅ Shipped | SIP, Step-Up SIP, SWP, STP, Lumpsum, XIRR, Rolling Returns, Peer Comparison, Fund Comparison, Overlap, AMC Compare, Category Compare, Goal Planner, Retirement Planner (FIRE), Child Education, SWP Longevity, Capital Gains Tax (FY 2025-26), Net Worth Tracker. |
+| **Investor Community Discussion Feed** | `/learn/community/` | ✅ Shipped | Dual feeds (Explore & Following), live post creation with images and hashtags, trending hashtags ribbon & sidebar, like counters, threaded replies drawer, investor profile popup cards, profile customizer, follower/following network modal. |
+| **Data Status Dashboard** | `/data-status/` | ✅ Shipped | Pipeline coverage %, 7-day activity chart, monthly portfolio disclosure coverage, benchmark status table, weekly/monthly batch schedules. |
+| **User Authentication & Settings** | `/accounts/*` | ✅ Shipped | Registration, login with rate limiting, email verification, password reset, personal encrypted API key storage (FRED, etc.). |
+| **Automated CAS PDF Parser** | `/portfolio/upload/cas/` | ⬜ Planned | Auto-ingestion of CAMS / KFintech Consolidated Account Statements via `casparser`. |
+| **AI Fund Health Check & Conversational Screener** | `/ai/*` | ⬜ Planned | Natural language queries, structured deterministic summaries, and conversational risk profiling via grounded LLM pipelines. |
+| **Smart Drift & Event Alerts** | `/portfolio/alerts/` | ⬜ Planned | Automated notifications on asset allocation drift, manager changes, mandate shifts, and sudden expense ratio hikes. |
+
 
 ---
 

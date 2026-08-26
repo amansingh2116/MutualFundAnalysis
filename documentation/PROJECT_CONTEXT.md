@@ -124,6 +124,21 @@ apps/
 
 ---
 
+## 8. Fund & ETF Multi-Watchlist Suite
+
+1. **Architecture & Persistence (`apps/portfolio/models.py`)**:
+   - `Watchlist`: Owned by `User`, supports `is_default` flag for the primary watchlist and custom user-named lists with optional descriptions.
+   - `WatchlistItem`: Unique `(watchlist, scheme)` pair storing scheme references, personalized research notes, target entry prices, and timestamps.
+2. **REST Endpoints & Hub (`apps/portfolio/views.py`)**:
+   - `watchlist_hub_view` (`/portfolio/watchlist/`): Interactive hub with tabbed switching between default and custom watchlists, real-time fund/ETF search and addition via AMFI index, inline editable research notes, CSV export, and 1-click scheme removal.
+   - APIs:
+     - `POST /portfolio/watchlist/api/toggle/`: 1-click toggle from fund detail pages.
+     - `POST /portfolio/watchlist/api/items/add/`: Adds schemes to specific watchlists.
+     - `POST /portfolio/watchlist/api/items/<id>/notes/`: Updates inline notes without reloading.
+     - `POST /portfolio/watchlist/api/items/<id>/delete/`: Removes scheme from watchlist.
+     - `POST /portfolio/watchlist/api/create/`: Creates custom-themed watchlists.
+     - `POST /portfolio/watchlist/api/manage/`: Edits and deletes watchlists.
+
 ---
 
 ## 9. Investor Community & Discussion Feed Architecture
@@ -146,9 +161,48 @@ apps/
 
 ---
 
-## 10. Developer Guidelines
+## 10. Advanced Portfolio Intelligence & Diagnostic Models
+
+1. **Granular Asset Allocation Lookthrough**:
+   - Decomposes holdings into Equity (Large/Mid/Small-cap via `CapClassifier`), Debt (Sovereign G-Sec, AAA, AA, A1+ Corporate, Below-Investment Grade, Cash), Hybrid Arbitrage, Gold/Commodities, REITs/InvITs, and International Equities.
+2. **Concentration & Overlap Analysis**:
+   - Stock-level lookthrough overlap matrix identifying hidden cross-fund duplicate exposures.
+   - Sector Herfindahl-Hirschman Index (HHI) measuring portfolio concentration vs. diversified benchmarks.
+3. **Debt Portfolio Risk Breakdown**:
+   - Weighted Average Maturity (WAM), Modified Duration, Yield to Maturity (YTM), and Credit Rating Breakdown.
+4. **Automated CAS Parsing Architecture (Upcoming)**:
+   - Pipeline using `casparser` to extract consolidated PDF statements (CAMS / KFintech), decrypt passwords securely in-memory, normalize ISINs and folio numbers, and build transaction ledgers automatically.
+
+---
+
+## 11. AI Integration & Deterministic Financial Guardrails
+
+1. **Deterministic Structured Outputs**:
+   - All AI-generated research summaries and diagnostic reports must be parsed through strict Pydantic schemas before rendering in templates or institutional PDF exports.
+2. **Grounding & Semantic Caching**:
+   - Prompts strictly inject computed mathematical metrics (Alpha, Sharpe, VaR/CVaR, Rolling Returns) as factual context. Hallucination guardrails reject ungrounded assertions.
+   - Semantic response caching with 24-hour TTL to minimize API costs.
+3. **Bring Your Own Key (BYOK)**:
+   - User settings provide encrypted storage for OpenAI, Anthropic, and Gemini API keys to grant users higher rate limits.
+
+---
+
+## 12. Automated Testing Suite & Quality Assurance
+
+1. **Test Coverage Hierarchy**:
+   - **Quant & Analytics Engines** (`apps/analytics/test_quant.py`): Verifies statistical accuracy of Sharpe, Sortino, VaR/CVaR, Monte Carlo simulations, and forecasting models.
+   - **Portfolio & Calculators** (`apps/portfolio/tests.py`, `apps/calculators/tests.py`): Validates portfolio XIRR, overlap matrices, tax rules (FY 2025-26), and calculator equations.
+   - **Community Feed Suite** (`apps/core/tests.py`): Tests post creation, like toggles, reply threads, follow graphs, network APIs, profile customization, and hashtag filtering.
+   - **Database & Migration Check**: Every release runs `python manage.py check` and automated test suites against both SQLite and Docker PostgreSQL.
+2. **Continuous Integration**:
+   - Automated GitHub Actions CI workflow triggers migrations, static file collection, and unit test suites on every pull request and push to `main`.
+
+---
+
+## 13. Developer Guidelines
 
 - **Never mutate private third-party DOM properties**.
 - **Always use explicit UTF-8 encoding** when updating template files containing emojis.
-- **Inspect `python manage.py check`** after any template or view changes.
+- **Inspect `python manage.py check`** and execute `python manage.py test` after any template, view, or model changes.
+
 

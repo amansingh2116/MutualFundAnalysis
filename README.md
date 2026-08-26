@@ -137,6 +137,33 @@
 
 ---
 
+## 🗺️ Page-by-Page & Subpage Inventory (Shipped vs. Upcoming)
+
+| Page / Hub / Feature | URL Route | Status | Detailed Subcomponents & Minute Capabilities |
+|---|---|---|---|
+| **Home Page** | `/` | ✅ Shipped | Fast AMFI search cache, live market strip ticker (33 metrics), top performing categories, industry inflows/outflows widget, quick calculator launchpads, floating share widget. |
+| **Browse Funds & Search** | `/funds/` | ✅ Shipped | Complete scheme directory, instant autocomplete across 14,000+ schemes, direct growth and plan filters, pagination. |
+| **Fund Detail & Analytics Hub** | `/funds/<scheme_code>/` | ✅ Shipped | 6 interactive tabs: Snapshot, Returns (Trailing, Calendar Year, Rolling 1Y–10Y), Risk Analytics, Portfolio Breakdown (Holdings, Sectors, Cap-weight), Analysis (6-pillar score, personalized ranking, score trend chart), Advanced Quant (Technical scanner, 10 SMAs/EMAs, Pivots, ATH/52W Barometer, VaR/CVaR matrix, 16 ML/DL forecasting models, StrategyLab backtester), and PDF institutional report download. |
+| **Fund Screener** | `/funds/screener/` | ✅ Shipped | Multi-metric filtering (Category, AUM, TER, Returns, Sharpe, Alpha, Model Score), dynamic column picker, sorting, CSV export, and 1-click watchlist addition. |
+| **Category Analysis Hub** | `/research/categories/` | ✅ Shipped | 4 asset group tabs (Equity, Debt, Hybrid, Other), SEBI mandate descriptions, category return meter, AUM bars, Sharpe averages, 2-to-4 category selector float bar. |
+| **Category Detail Page** | `/research/categories/<slug>/` | ✅ Shipped | Official SEBI mandate badge, 21-KPI summary strip, 6-tab analysis workspace (Snapshot, Returns with 3 sub-tabs, Risk, Portfolio Holdings/Sectors, Fees, Intelligence). |
+| **Category Side-by-Side Comparison** | `/research/categories/compare/` | ✅ Shipped | 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with direction-calibrated winner badges (★ Best). |
+| **AMC Analysis Directory** | `/research/amcs/` | ✅ Shipped | Directory of ~50 AMCs with AUM, fund counts, average 3Y CAGR, TER, model score, and 2-to-4 AMC comparison selector. |
+| **AMC Detail Page** | `/research/amcs/<slug>/` | ✅ Shipped | AUM history trend line, top 20 holdings, sector tilts, recent month-over-month exits/disinvestments, cross-fund high conviction stocks, and manager roster. |
+| **AMC Side-by-Side Comparison** | `/research/amcs/compare/` | ✅ Shipped | Side-by-side comparison of 2–4 AMCs across aggregate AUM, fund counts, Sharpe ratios, turnover, and manager quality. |
+| **Quartile Rankings Hub** | `/research/quartiles/` | ✅ Shipped | Sub-category dynamic quartile tables ranking funds across 1Y, 3Y, 5Y returns and risk metrics. |
+| **Watchlist Hub Suite** | `/portfolio/watchlist/` | ✅ Shipped | Logged-in default and custom multi-watchlists, real-time fund search & add, inline notes, delete actions, CSV export, topbar and sidebar quick links. |
+| **Portfolio Dashboard & Backtester** | `/portfolio/` | ✅ Shipped | CSV/manual portfolio upload, XIRR calculations, stock-level overlap matrix, sector HHI concentration, Strategy Backtester V2 with 5 rebalancing strategies and SIP compounding curves. |
+| **18 Financial Calculators** | `/calculators/*` | ✅ Shipped | SIP, Step-Up SIP, SWP, STP, Lumpsum, XIRR, Rolling Returns, Peer Comparison, Fund Comparison, Overlap, AMC Compare, Category Compare, Goal Planner, Retirement Planner (FIRE), Child Education, SWP Longevity, Capital Gains Tax (FY 2025-26), Net Worth Tracker. |
+| **Investor Community Discussion Feed** | `/learn/community/` | ✅ Shipped | Dual feeds (Explore & Following), live post creation with images and hashtags, trending hashtags ribbon & sidebar, like counters, threaded replies drawer, investor profile popup cards, profile customizer, follower/following network modal. |
+| **Data Status Dashboard** | `/data-status/` | ✅ Shipped | Pipeline coverage %, 7-day activity chart, monthly portfolio disclosure coverage, benchmark status table, weekly/monthly batch schedules. |
+| **User Authentication & Settings** | `/accounts/*` | ✅ Shipped | Registration, login with rate limiting, email verification, password reset, personal encrypted API key storage (FRED, etc.). |
+| **Automated CAS PDF Parser** | `/portfolio/upload/cas/` | ⬜ Planned | Auto-ingestion of CAMS / KFintech Consolidated Account Statements via `casparser`. |
+| **AI Fund Health Check & Conversational Screener** | `/ai/*` | ⬜ Planned | Natural language queries, structured deterministic summaries, and conversational risk profiling via grounded LLM pipelines. |
+| **Smart Drift & Event Alerts** | `/portfolio/alerts/` | ⬜ Planned | Automated notifications on asset allocation drift, manager changes, mandate shifts, and sudden expense ratio hikes. |
+
+---
+
 ## 🔐 User Accounts & Authentication
 
 | Feature | Status |
@@ -230,9 +257,16 @@ Two options: **native Python** (SQLite, fast for UI work) or **Docker** (Postgre
    ```
    Open `http://127.0.0.1:8000/` in your browser.
 
+8. **Run Automated Test Suites**:
+   ```bash
+   python manage.py test apps.core apps.portfolio apps.calculators apps.analytics
+   python manage.py check
+   ```
+
 ---
 
 ### Option B: Docker + PostgreSQL 16 (Recommended for production-accurate testing)
+
 
 #### Prerequisites
 - Docker Desktop installed and running
