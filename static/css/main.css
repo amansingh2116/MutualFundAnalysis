@@ -1878,3 +1878,246 @@ input[type="range"]::-webkit-slider-thumb {
 .msi-signal-bullish, .msi-signal-excellent, .msi-signal-low-cost, .msi-signal-tight { background: rgba(52, 211, 153, 0.15); color: var(--emerald-400, #34d399); border: 1px solid rgba(52, 211, 153, 0.3); }
 .msi-signal-bearish, .msi-signal-high-fee, .msi-signal-high-te { background: rgba(248, 113, 113, 0.15); color: var(--red-400, #f87171); border: 1px solid rgba(248, 113, 113, 0.3); }
 .msi-signal-neutral, .msi-signal-defensive, .msi-signal-aggressive, .msi-signal-moderate, .msi-signal-dip, .msi-signal-caution { background: rgba(250, 204, 21, 0.15); color: var(--yellow-400, #facc15); border: 1px solid rgba(250, 204, 21, 0.3); }
+
+/* ── Global Floating Share Widget ───────────────────────────── */
+.global-share-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 990;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.global-share-fab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.4), 0 2px 6px rgba(0,0,0,0.3);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+}
+
+.global-share-fab:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 12px 28px rgba(79, 70, 229, 0.55), 0 4px 10px rgba(0,0,0,0.4);
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 50%, #4f46e5 100%);
+}
+
+.global-share-fab:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.share-fab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Share Popup Card */
+.global-share-modal {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: #0f172a;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(99, 102, 241, 0.15);
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px) scale(0.95);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
+  backdrop-filter: blur(20px);
+}
+
+.global-share-widget.open .global-share-modal {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.share-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.share-modal-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.share-modal-title {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.share-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.share-modal-close:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Page Context Box */
+.share-context-preview {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+}
+
+.share-context-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-context-url {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+/* Quick Copy Box */
+.share-copy-box {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.share-link-input {
+  flex: 1;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #cbd5e1;
+  outline: none;
+  font-family: monospace;
+}
+
+.share-copy-btn {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.share-copy-btn:hover {
+  background: var(--indigo-400);
+}
+
+.share-copy-btn.copied {
+  background: #10b981;
+}
+
+/* Grid of Share Targets */
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.share-grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.share-grid-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #ffffff;
+}
+
+.share-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-icon-whatsapp { background: rgba(37, 211, 102, 0.15); color: #25d366; }
+.share-icon-linkedin { background: rgba(10, 102, 194, 0.15); color: #0a66c2; }
+.share-icon-instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: #ffffff; }
+.share-icon-sms { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+.share-icon-mail { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.share-icon-native { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+
+.share-item-label {
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .global-share-widget {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+  }
+  .global-share-modal {
+    right: 0;
+    width: min(300px, calc(100vw - 32px));
+  }
+}

@@ -9,6 +9,7 @@ demand and cached in memory for a short time.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import json
 import subprocess
@@ -828,15 +829,19 @@ _MSTAR_RESOLVE_NEG_TTL = 60 * 60 * 24  # 24h negative-result cache — don't ret
 
 def _load_static_secid_map() -> dict[str, str]:
     """Load precomputed ISIN -> Morningstar SecId mapping (data/morningstar_secids.json)."""
-    path = os.path.join(os.getcwd(), "data", "morningstar_secids.json")
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-                if isinstance(data, dict):
-                    return data
-        except Exception:
-            pass
+    candidates = [
+        os.path.join(str(getattr(settings, "BASE_DIR", "")), "data", "morningstar_secids.json"),
+        os.path.join(os.getcwd(), "data", "morningstar_secids.json"),
+    ]
+    for path in candidates:
+        if path and os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+                    if isinstance(data, dict):
+                        return data
+            except Exception:
+                pass
     return {}
 
 

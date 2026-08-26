@@ -469,6 +469,166 @@ window.addEventListener('resize', () => {
   _resizeDebounceTimer = setTimeout(window.triggerAllChartResizes, 60);
 });
 
+// ── Global Multi-Platform Share Widget ─────────────────────────
+function initShareWidget() {
+  const widget = document.getElementById('global-share-widget');
+  const fab = document.getElementById('global-share-fab');
+  const modal = document.getElementById('global-share-modal');
+  const closeBtn = document.getElementById('global-share-close');
+  const copyBtn = document.getElementById('share-copy-btn');
+  const copyText = document.getElementById('share-copy-text');
+  const linkInput = document.getElementById('share-link-input');
+  const titlePreview = document.getElementById('share-context-title');
+  const urlPreview = document.getElementById('share-context-url');
+
+  if (!widget || !fab || !modal) return;
+
+  function getPageShareData() {
+    const rawTitle = document.title || 'Mutual Fund Analysis';
+    const cleanTitle = rawTitle.replace(/\s*—\s*MutualFundAnalysis\s*$/i, '').trim();
+    const url = window.location.href;
+    const shareText = `Check out "${cleanTitle}" on Indian Mutual Fund Analysis platform:\n${url}`;
+    return { title: cleanTitle, url, text: shareText };
+  }
+
+  function updateShareLinks() {
+    const data = getPageShareData();
+    if (titlePreview) titlePreview.textContent = data.title;
+    if (urlPreview) urlPreview.textContent = data.url;
+    if (linkInput) linkInput.value = data.url;
+
+    // WhatsApp
+    const wa = document.getElementById('share-opt-whatsapp');
+    if (wa) wa.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(data.text)}`;
+
+    // LinkedIn
+    const li = document.getElementById('share-opt-linkedin');
+    if (li) li.href = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.url)}`;
+
+    // SMS
+    const sms = document.getElementById('share-opt-sms');
+    if (sms) sms.href = `sms:?&body=${encodeURIComponent(data.text)}`;
+
+    // Mail
+    const mail = document.getElementById('share-opt-mail');
+    if (mail) mail.href = `mailto:?subject=${encodeURIComponent(data.title)}&body=${encodeURIComponent(data.text)}`;
+  }
+
+  function openShareModal() {
+    updateShareLinks();
+    widget.classList.add('open');
+    fab.setAttribute('aria-expanded', 'true');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeShareModal() {
+    widget.classList.remove('open');
+    fab.setAttribute('aria-expanded', 'false');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function toggleShareModal() {
+    if (widget.classList.contains('open')) {
+      closeShareModal();
+    } else {
+      openShareModal();
+    }
+  }
+
+  fab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleShareModal();
+  });
+
+  closeBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeShareModal();
+  });
+
+  // Copy Link Action
+  copyBtn?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const data = getPageShareData();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(data.url);
+      } else if (linkInput) {
+        linkInput.select();
+        document.execCommand('copy');
+      }
+      copyBtn.classList.add('copied');
+      if (copyText) copyText.textContent = 'Copied!';
+      toast('Link copied to clipboard!', 'success');
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        if (copyText) copyText.textContent = 'Copy';
+      }, 2000);
+    } catch (err) {
+      toast('Failed to copy link', 'error');
+    }
+  });
+
+  // Instagram Action
+  const igBtn = document.getElementById('share-opt-instagram');
+  igBtn?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const data = getPageShareData();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(data.text);
+      }
+      toast('Link & summary copied! Opening Instagram…', 'info');
+      setTimeout(() => {
+        window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+      }, 600);
+    } catch (err) {
+      window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+    }
+  });
+
+  // Native Web Share Action
+  const nativeBtn = document.getElementById('share-opt-native');
+  nativeBtn?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const data = getPageShareData();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: data.title,
+          text: `Check out ${data.title} on Mutual Fund Analysis`,
+          url: data.url
+        });
+        closeShareModal();
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          toast('Sharing not supported on this browser', 'info');
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(data.url);
+        toast('Link copied! Paste anywhere to share.', 'success');
+      } catch (err) {
+        toast('Share: ' + data.url, 'info');
+      }
+    }
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (widget.classList.contains('open') && !widget.contains(e.target)) {
+      closeShareModal();
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && widget.classList.contains('open')) {
+      closeShareModal();
+    }
+  });
+}
+
 // ── Init ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
@@ -476,6 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSearch();
   initRangeInputs();
   initInfoTooltips();
+  initShareWidget();
 
   // Attach ResizeObserver to main content container to handle sidebar animations & layout changes
   const mainContent = document.querySelector('.main-content');
