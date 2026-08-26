@@ -22,8 +22,38 @@ const MF_PLOTLY_LAYOUT_BASE = {
   hoverlabel: { bgcolor: '#1a2035', bordercolor: 'rgba(99,102,241,0.5)', font: { family: 'Inter', color: '#f1f5f9' } },
 };
 
+function isMobileScreen() {
+  return typeof window !== 'undefined' && window.innerWidth <= 640;
+}
+
 function mergePlotlyLayout(extra={}) {
-  return { ...MF_PLOTLY_LAYOUT_BASE, ...extra };
+  const isMob = isMobileScreen();
+  const responsiveBase = {
+    ...MF_PLOTLY_LAYOUT_BASE,
+    font: {
+      ...MF_PLOTLY_LAYOUT_BASE.font,
+      size: isMob ? 9.5 : 11,
+    },
+    margin: isMob ? { l: 36, r: 12, t: 24, b: 32 } : { l: 48, r: 16, t: 30, b: 40 },
+  };
+  return { ...responsiveBase, ...extra };
+}
+
+// ── Global Responsive Chart Resize Listener ────────────────────
+if (typeof window !== 'undefined') {
+  let _chartResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_chartResizeTimer);
+    _chartResizeTimer = setTimeout(() => {
+      if (window.Plotly) {
+        document.querySelectorAll('.js-plotly-plot').forEach((chartEl) => {
+          try {
+            Plotly.Plots.resize(chartEl);
+          } catch (e) {}
+        });
+      }
+    }, 150);
+  });
 }
 
 async function loadChart(containerId, apiUrl, buildFn) {
@@ -277,6 +307,11 @@ function initSidebar() {
   toggle.addEventListener('click', () => setSidebarOpen(!isOpen()));
   closeBtn?.addEventListener('click', () => setSidebarOpen(false));
   overlay?.addEventListener('click', () => setSidebarOpen(false));
+  sidebar.querySelectorAll('.sidebar-nav a').forEach(a => {
+    a.addEventListener('click', () => {
+      if (mobileQuery.matches) setSidebarOpen(false);
+    });
+  });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && isOpen() && mobileQuery.matches) setSidebarOpen(false);
   });

@@ -219,6 +219,9 @@ th.sort-active .table-sort span { color:#48c9c4; }
   .fp-grid { grid-template-columns:1fr 1fr; }
   .active-filters-popover { right:4px;left:4px;width:auto; }
 }
+@media (max-width:480px) {
+  .fp-grid { grid-template-columns:1fr; }
+}
 
 .add-filter-btn { width:100%; border:1px solid #48c9c4; border-radius:6px; background:rgba(72,201,196,0.1); color:#48c9c4; padding:8px; cursor:pointer; font-size:12px; font-weight:600; text-align:center; }
 .add-filter-btn:hover { background:rgba(72,201,196,0.2); }

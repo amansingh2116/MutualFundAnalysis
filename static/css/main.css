@@ -5,7 +5,7 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* â”€â”€ CSS Custom Properties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- CSS Custom Properties ------------------------------------ */
 :root {
   /* Colors */
   --bg-base:        #0a0e1a;
@@ -54,7 +54,7 @@
   --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
-/* â”€â”€ Reset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Reset ---------------------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
@@ -66,14 +66,14 @@ body {
   font-size: 14px;
 }
 
-/* â”€â”€ App Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- App Layout ----------------------------------------------- */
 .app-layout {
   display: flex;
   min-height: 100vh;
 }
 body.sidebar-scroll-lock { overflow: hidden; }
 
-/* â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Sidebar -------------------------------------------------- */
 .app-layout.sidebar-open .sidebar { transform: translateX(0); }
 .app-layout.sidebar-closed .sidebar { transform: translateX(calc(-1 * var(--sidebar-width))); }
 .app-layout.sidebar-closed .main-content { margin-left: 0; }
@@ -287,7 +287,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
 .user-name { font-size: 12px; font-weight: 600; color: var(--text-primary); truncate: ellipsis; }
 .user-role { font-size: 10px; color: var(--text-muted); }
 
-/* â”€â”€ Main Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Main Content --------------------------------------------- */
 .main-content {
   margin-left: var(--sidebar-width);
   transition: margin-left var(--transition);
@@ -303,7 +303,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
   width: 100%;
 }
 
-/* â”€â”€ Topbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Topbar --------------------------------------------------- */
 .sidebar-toggle-btn {
   width: 36px;
   height: 36px;
@@ -442,7 +442,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
 }
 .topbar-btn-primary:hover { background: var(--indigo-600); }
 
-/* â”€â”€ Page Body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Page Body ------------------------------------------------ */
 .page-body {
   padding: 24px;
   flex: 1;
@@ -473,7 +473,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
 .breadcrumb a:hover { color: var(--indigo-400); }
 .breadcrumb-sep { color: var(--text-muted); }
 
-/* â”€â”€ Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Cards ---------------------------------------------------- */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -506,7 +506,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
   background: var(--bg-surface);
 }
 
-/* â”€â”€ Stat Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Stat Cards ----------------------------------------------- */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -547,7 +547,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
   opacity: 0.15;
 }
 
-/* â”€â”€ Pill / Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Pill / Badge --------------------------------------------- */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -567,7 +567,7 @@ body.sidebar-scroll-lock { overflow: hidden; }
 .star { color: var(--amber-400); }
 .star-empty { color: var(--text-muted); }
 
-/* â”€â”€ Tables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Tables --------------------------------------------------- */
 .table-wrapper { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
@@ -601,7 +601,7 @@ td .fund-link { text-decoration: none; color: var(--text-primary); font-weight: 
 td .fund-link:hover { color: var(--indigo-400); }
 td .fund-house { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-/* â”€â”€ Forms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Forms ---------------------------------------------------- */
 .form-group { margin-bottom: 16px; }
 .form-label {
   font-size: 12px;
@@ -646,7 +646,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .range-value { font-size: 13px; font-weight: 600; color: var(--indigo-400); min-width: 60px; text-align: right; }
 
-/* â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Buttons -------------------------------------------------- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -723,7 +723,7 @@ input[type="range"]::-webkit-slider-thumb {
 .tab-panel { display: none; padding: 24px 0; }
 .tab-panel.active { display: block; }
 
-/* â”€â”€ Charts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Charts --------------------------------------------------- */
 .chart-container { position: relative; min-height: 320px; }
 .chart-placeholder {
   display: flex;
@@ -736,7 +736,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .chart-placeholder .placeholder-icon { font-size: 48px; opacity: 0.3; }
 
-/* â”€â”€ Loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Loader --------------------------------------------------- */
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator { display: flex; align-items: center; gap: 8px; }
 .htmx-request .htmx-content { opacity: 0.4; transition: opacity var(--transition); }
@@ -749,7 +749,7 @@ input[type="range"]::-webkit-slider-thumb {
   display: inline-block;
 }
 
-/* â”€â”€ Progress / Donut â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Progress / Donut ----------------------------------------- */
 .progress-bar {
   height: 6px;
   background: var(--bg-elevated);
@@ -766,7 +766,7 @@ input[type="range"]::-webkit-slider-thumb {
 .progress-fill.red { background: var(--red-400); }
 .progress-fill.amber { background: var(--amber-400); }
 
-/* â”€â”€ Alert / Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Alert / Toast -------------------------------------------- */
 .alert {
   padding: 12px 16px;
   border-radius: var(--radius);
@@ -802,13 +802,13 @@ input[type="range"]::-webkit-slider-thumb {
 }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
 
-/* â”€â”€ Data Freshness â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Data Freshness ------------------------------------------- */
 .data-freshness { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
 .data-freshness.stale { color: var(--amber-400); }
 .data-freshness.very-stale { color: var(--red-400); }
 .freshness-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-/* â”€â”€ Grid Layouts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Grid Layouts --------------------------------------------- */
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
@@ -817,7 +817,7 @@ input[type="range"]::-webkit-slider-thumb {
 .flex-center { display: flex; align-items: center; justify-content: center; }
 .flex-gap-2 { display: flex; gap: 8px; align-items: center; }
 
-/* â”€â”€ Filter Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Filter Sidebar ----------------------------------------- */
 .filter-sidebar { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; height: fit-content; position: sticky; top: 72px; }
 .filter-section { margin-bottom: 24px; }
 .filter-section:last-child { margin-bottom: 0; }
@@ -1069,7 +1069,7 @@ input[type="range"]::-webkit-slider-thumb {
 .screener-empty { min-height:240px;border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--text-muted); }
 .screener-empty strong { color:var(--text-primary); }
 
-/* â”€â”€ Fund Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Fund Card ------------------------------------------------ */
 .fund-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1093,7 +1093,7 @@ input[type="range"]::-webkit-slider-thumb {
 .fund-metric-value.negative { color: var(--red-400); }
 .fund-metric-value.neutral { color: var(--text-primary); }
 
-/* â”€â”€ Metric Definition Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Metric Definition Grid ----------------------------------- */
 .metrics-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; }
 .metrics-dl > div { padding: 14px 16px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
 .metrics-dl > div:last-child { border-bottom: none; }
@@ -1101,7 +1101,7 @@ input[type="range"]::-webkit-slider-thumb {
 .metric-val { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 .metric-val small { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
 
-/* â”€â”€ Market Ticker Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Market Ticker Strip -------------------------------------- */
 .market-strip {
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
@@ -1233,7 +1233,7 @@ input[type="range"]::-webkit-slider-thumb {
 /* Fund metric builder */
 .msi-fund-select { display:flex;flex-direction:column;gap:10px;margin-top:8px }
 
-/* â”€â”€ Upload Drop Zone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Upload Drop Zone ----------------------------------------- */
 .drop-zone {
   border: 2px dashed var(--border);
   border-radius: var(--radius-lg);
@@ -1250,7 +1250,7 @@ input[type="range"]::-webkit-slider-thumb {
 .drop-zone .dz-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
 .drop-zone .dz-sub { font-size: 12px; color: var(--text-muted); }
 
-/* â”€â”€ Auth Pages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Auth Pages ----------------------------------------------- */
 .auth-wrapper {
   min-height: 100vh;
   background: var(--bg-base);
@@ -1272,7 +1272,7 @@ input[type="range"]::-webkit-slider-thumb {
 .auth-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 8px; }
 .auth-sub { font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 28px; }
 
-/* â”€â”€ Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Calculator ----------------------------------------------- */
 .calc-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
 .calc-inputs { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
 .calc-results { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
@@ -1287,7 +1287,7 @@ input[type="range"]::-webkit-slider-thumb {
 .calc-result-highlight .value { font-size: 36px; font-weight: 800; color: var(--emerald-400); letter-spacing: -0.03em; margin: 4px 0; }
 .calc-result-highlight .sub { font-size: 12px; color: var(--text-secondary); }
 
-/* â”€â”€ Market Ticker Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Market Ticker Strip -------------------------------------- */
 .market-strip {
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
@@ -1305,14 +1305,14 @@ input[type="range"]::-webkit-slider-thumb {
 .market-chg.up { color: var(--emerald-400); }
 .market-chg.down { color: var(--red-400); }
 
-/* â”€â”€ Report / Print â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Report / Print ------------------------------------------- */
 @media print {
   .sidebar, .topbar, .no-print { display: none !important; }
   .main-content { margin-left: 0 !important; }
   .card { break-inside: avoid; box-shadow: none; border: 1px solid #e2e8f0; }
 }
 
-/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Responsive ----------------------------------------------- */
 @media (max-width: 1024px) {
   .topbar { z-index: 50; }
   .sidebar {
@@ -1425,13 +1425,13 @@ input[type="range"]::-webkit-slider-thumb {
   }
 }
 
-/* â”€â”€ Scrollbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Scrollbar ------------------------------------------------ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* â”€â”€ Info Button & Tooltip System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Info Button & Tooltip System ------------------------------ */
 /* The â“˜ button that appears inline next to labels */
 .info-btn {
   display: inline-flex;
@@ -1460,6 +1460,135 @@ input[type="range"]::-webkit-slider-thumb {
   font-style: normal;
   letter-spacing: 0;
 }
+
+/* ============================================================
+   Mobile Breakpoint & Responsive UI/UX Enhancements
+   ============================================================ */
+
+/* Horizontal Scrollable Tab Navigation across all hubs */
+.tab-nav-scroll,
+.amc-tabs,
+.fund-tabs,
+.sub-tabs,
+.category-tabs,
+.calc-nav-tabs,
+.fund-nav-tabs,
+.tab-list {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+  gap: 6px;
+  max-width: 100%;
+  padding-bottom: 2px;
+}
+.tab-nav-scroll::-webkit-scrollbar,
+.amc-tabs::-webkit-scrollbar,
+.fund-tabs::-webkit-scrollbar,
+.sub-tabs::-webkit-scrollbar,
+.category-tabs::-webkit-scrollbar,
+.calc-nav-tabs::-webkit-scrollbar,
+.fund-nav-tabs::-webkit-scrollbar,
+.tab-list::-webkit-scrollbar {
+  display: none;
+}
+
+/* Responsive Table Wrappers & Sticky Headers */
+.table-responsive,
+.data-table-wrap,
+#funds-container,
+#port-container,
+.screener-table-card {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.data-table th:first-child,
+.data-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--bg-card);
+  z-index: 10;
+}
+.data-table thead th:first-child {
+  z-index: 25;
+}
+
+/* Plotly Chart Responsive Containers */
+.js-plotly-plot,
+.plot-container,
+.chart-container,
+.plotly-graph-div {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* Mobile Breakpoints: Tablet (<= 768px) */
+@media (max-width: 768px) {
+  .calc-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .grid-4, .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .metric-card, .card, .section-card {
+    padding: 14px 16px;
+  }
+  .metrics-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .btn, .button, .form-control, .form-select {
+    min-height: 38px;
+    touch-action: manipulation;
+  }
+}
+
+/* Mobile Breakpoints: Smartphone (<= 640px) */
+@media (max-width: 640px) {
+  .page-body {
+    padding: 12px;
+  }
+  .data-table th,
+  .data-table td {
+    padding: 7px 9px;
+    font-size: 11.5px;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile Breakpoints: Small Smartphone (<= 480px) */
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .metric-card {
+    padding: 12px;
+  }
+  .metric-card-val {
+    font-size: 17px;
+  }
+}
+
+
+
 .info-btn:hover,
 .info-btn:focus,
 .info-btn.active {
