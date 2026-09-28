@@ -423,7 +423,7 @@ td.crash-na    { color: #94a3b8; }
     {% if score_data.final_score %}
     <div style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <div style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: 600;">QUANTITATIVE RATING SCORE</div>
+        <div style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: 600;">QUANTITATIVE SCORECARD</div>
         <div style="font-size: 19px; font-weight: 800; color: #ffffff; margin-top: 2px;">
           {{ score_data.final_score|floatformat:1 }} <span style="font-size: 11px; font-weight: 500; color: #94a3b8;">/ 100</span>
         </div>
@@ -563,7 +563,7 @@ td.crash-na    { color: #94a3b8; }
 <!-- Executive Analyst Verdict Card -->
 <div class="verdict-card">
   <div class="verdict-header">
-    <span class="verdict-title">Executive Research Verdict &amp; Recommendation</span>
+    <span class="verdict-title">Executive Quantitative Model Classification</span>
     <span class="verdict-badge-box" style="background: {{ narratives.verdict_color }};">
       {{ narratives.verdict_badge }}
     </span>
@@ -572,7 +572,7 @@ td.crash-na    { color: #94a3b8; }
   
   <div class="verdict-grid">
     <div class="verdict-item">
-      <div class="verdict-lbl">Recommended Horizon</div>
+      <div class="verdict-lbl">Suggested Horizon</div>
       <div class="verdict-val">{{ narratives.horizon }}</div>
     </div>
     <div class="verdict-item">
@@ -580,7 +580,7 @@ td.crash-na    { color: #94a3b8; }
       <div class="verdict-val">{{ narratives.investor_profile }}</div>
     </div>
     <div class="verdict-item">
-      <div class="verdict-lbl">Deployment Strategy</div>
+      <div class="verdict-lbl">Deployment Framework</div>
       <div class="verdict-val">{{ narratives.strategy }}</div>
     </div>
   </div>
@@ -1641,22 +1641,22 @@ td.crash-na    { color: #94a3b8; }
         <div style="font-size:9px;font-weight:700;margin-bottom:6px;color:#374151;">Signal Summary</div>
         <table class="data" style="margin-bottom:0;">
           <tr><td class="bold">Oscillators</td>
-            <td class="positive">{{ tf.osc_counts.buy }} Buy</td>
+            <td class="positive">{{ tf.osc_counts.buy }} Bullish</td>
             <td class="muted">{{ tf.osc_counts.neutral }} Neutral</td>
-            <td class="negative">{{ tf.osc_counts.sell }} Sell</td>
-            <td style="font-weight:700;color:{% if tf.osc_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.osc_counts.rating == 'Buy' %}#22c55e{% elif tf.osc_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.osc_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td>
+            <td class="negative">{{ tf.osc_counts.sell }} Bearish</td>
+            <td style="font-weight:700;color:{% if 'Bullish' in tf.osc_counts.rating or 'Buy' in tf.osc_counts.rating %}#16a34a{% elif 'Bearish' in tf.osc_counts.rating or 'Sell' in tf.osc_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td>
           </tr>
           <tr><td class="bold">Moving Avg</td>
-            <td class="positive">{{ tf.ma_counts.buy }} Buy</td>
+            <td class="positive">{{ tf.ma_counts.buy }} Bullish</td>
             <td class="muted">{{ tf.ma_counts.neutral }} Neutral</td>
-            <td class="negative">{{ tf.ma_counts.sell }} Sell</td>
-            <td style="font-weight:700;color:{% if tf.ma_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.ma_counts.rating == 'Buy' %}#22c55e{% elif tf.ma_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.ma_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td>
+            <td class="negative">{{ tf.ma_counts.sell }} Bearish</td>
+            <td style="font-weight:700;color:{% if 'Bullish' in tf.ma_counts.rating or 'Buy' in tf.ma_counts.rating %}#16a34a{% elif 'Bearish' in tf.ma_counts.rating or 'Sell' in tf.ma_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td>
           </tr>
           <tr style="background:#f8fafc;"><td class="bold">Overall</td>
-            <td class="positive">{{ tf.sum_counts.buy }} Buy</td>
+            <td class="positive">{{ tf.sum_counts.buy }} Bullish</td>
             <td class="muted">{{ tf.sum_counts.neutral }} Neutral</td>
-            <td class="negative">{{ tf.sum_counts.sell }} Sell</td>
-            <td style="font-weight:700;font-size:10px;color:{% if tf.sum_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.sum_counts.rating == 'Buy' %}#22c55e{% elif tf.sum_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.sum_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td>
+            <td class="negative">{{ tf.sum_counts.sell }} Bearish</td>
+            <td style="font-weight:700;font-size:10px;color:{% if 'Bullish' in tf.sum_counts.rating or 'Buy' in tf.sum_counts.rating %}#16a34a{% elif 'Bearish' in tf.sum_counts.rating or 'Sell' in tf.sum_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td>
           </tr>
         </table>
       </div>
@@ -1716,9 +1716,9 @@ td.crash-na    { color: #94a3b8; }
       <div>
         <div style="font-size:9px;font-weight:700;margin-bottom:6px;color:#374151;">Signal Summary</div>
         <table class="data" style="margin-bottom:0;">
-          <tr><td class="bold">Oscillators</td><td class="positive">{{ tf.osc_counts.buy }} Buy</td><td class="muted">{{ tf.osc_counts.neutral }} Neutral</td><td class="negative">{{ tf.osc_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.osc_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.osc_counts.rating == 'Buy' %}#22c55e{% elif tf.osc_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.osc_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td></tr>
-          <tr><td class="bold">Moving Avg</td><td class="positive">{{ tf.ma_counts.buy }} Buy</td><td class="muted">{{ tf.ma_counts.neutral }} Neutral</td><td class="negative">{{ tf.ma_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.ma_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.ma_counts.rating == 'Buy' %}#22c55e{% elif tf.ma_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.ma_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td></tr>
-          <tr style="background:#f8fafc;"><td class="bold">Overall</td><td class="positive">{{ tf.sum_counts.buy }} Buy</td><td class="muted">{{ tf.sum_counts.neutral }} Neutral</td><td class="negative">{{ tf.sum_counts.sell }} Sell</td><td style="font-weight:700;font-size:10px;color:{% if tf.sum_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.sum_counts.rating == 'Buy' %}#22c55e{% elif tf.sum_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.sum_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td></tr>
+          <tr><td class="bold">Oscillators</td><td class="positive">{{ tf.osc_counts.buy }} Bullish</td><td class="muted">{{ tf.osc_counts.neutral }} Neutral</td><td class="negative">{{ tf.osc_counts.sell }} Bearish</td><td style="font-weight:700;color:{% if 'Bullish' in tf.osc_counts.rating or 'Buy' in tf.osc_counts.rating %}#16a34a{% elif 'Bearish' in tf.osc_counts.rating or 'Sell' in tf.osc_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td></tr>
+          <tr><td class="bold">Moving Avg</td><td class="positive">{{ tf.ma_counts.buy }} Bullish</td><td class="muted">{{ tf.ma_counts.neutral }} Neutral</td><td class="negative">{{ tf.ma_counts.sell }} Bearish</td><td style="font-weight:700;color:{% if 'Bullish' in tf.ma_counts.rating or 'Buy' in tf.ma_counts.rating %}#16a34a{% elif 'Bearish' in tf.ma_counts.rating or 'Sell' in tf.ma_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td></tr>
+          <tr style="background:#f8fafc;"><td class="bold">Overall</td><td class="positive">{{ tf.sum_counts.buy }} Bullish</td><td class="muted">{{ tf.sum_counts.neutral }} Neutral</td><td class="negative">{{ tf.sum_counts.sell }} Bearish</td><td style="font-weight:700;font-size:10px;color:{% if 'Bullish' in tf.sum_counts.rating or 'Buy' in tf.sum_counts.rating %}#16a34a{% elif 'Bearish' in tf.sum_counts.rating or 'Sell' in tf.sum_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td></tr>
         </table>
       </div>
       {% if tf.gauge_chart %}
@@ -1756,9 +1756,9 @@ td.crash-na    { color: #94a3b8; }
       <div>
         <div style="font-size:9px;font-weight:700;margin-bottom:6px;color:#374151;">Signal Summary</div>
         <table class="data" style="margin-bottom:0;">
-          <tr><td class="bold">Oscillators</td><td class="positive">{{ tf.osc_counts.buy }} Buy</td><td class="muted">{{ tf.osc_counts.neutral }} Neutral</td><td class="negative">{{ tf.osc_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.osc_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.osc_counts.rating == 'Buy' %}#22c55e{% elif tf.osc_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.osc_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td></tr>
-          <tr><td class="bold">Moving Avg</td><td class="positive">{{ tf.ma_counts.buy }} Buy</td><td class="muted">{{ tf.ma_counts.neutral }} Neutral</td><td class="negative">{{ tf.ma_counts.sell }} Sell</td><td style="font-weight:700;color:{% if tf.ma_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.ma_counts.rating == 'Buy' %}#22c55e{% elif tf.ma_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.ma_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td></tr>
-          <tr style="background:#f8fafc;"><td class="bold">Overall</td><td class="positive">{{ tf.sum_counts.buy }} Buy</td><td class="muted">{{ tf.sum_counts.neutral }} Neutral</td><td class="negative">{{ tf.sum_counts.sell }} Sell</td><td style="font-weight:700;font-size:10px;color:{% if tf.sum_counts.rating == 'Strong Buy' %}#16a34a{% elif tf.sum_counts.rating == 'Buy' %}#22c55e{% elif tf.sum_counts.rating == 'Strong Sell' %}#dc2626{% elif tf.sum_counts.rating == 'Sell' %}#ef4444{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td></tr>
+          <tr><td class="bold">Oscillators</td><td class="positive">{{ tf.osc_counts.buy }} Bullish</td><td class="muted">{{ tf.osc_counts.neutral }} Neutral</td><td class="negative">{{ tf.osc_counts.sell }} Bearish</td><td style="font-weight:700;color:{% if 'Bullish' in tf.osc_counts.rating or 'Buy' in tf.osc_counts.rating %}#16a34a{% elif 'Bearish' in tf.osc_counts.rating or 'Sell' in tf.osc_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.osc_counts.rating }}</td></tr>
+          <tr><td class="bold">Moving Avg</td><td class="positive">{{ tf.ma_counts.buy }} Bullish</td><td class="muted">{{ tf.ma_counts.neutral }} Neutral</td><td class="negative">{{ tf.ma_counts.sell }} Bearish</td><td style="font-weight:700;color:{% if 'Bullish' in tf.ma_counts.rating or 'Buy' in tf.ma_counts.rating %}#16a34a{% elif 'Bearish' in tf.ma_counts.rating or 'Sell' in tf.ma_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.ma_counts.rating }}</td></tr>
+          <tr style="background:#f8fafc;"><td class="bold">Overall</td><td class="positive">{{ tf.sum_counts.buy }} Bullish</td><td class="muted">{{ tf.sum_counts.neutral }} Neutral</td><td class="negative">{{ tf.sum_counts.sell }} Bearish</td><td style="font-weight:700;font-size:10px;color:{% if 'Bullish' in tf.sum_counts.rating or 'Buy' in tf.sum_counts.rating %}#16a34a{% elif 'Bearish' in tf.sum_counts.rating or 'Sell' in tf.sum_counts.rating %}#dc2626{% else %}#64748b{% endif %};">{{ tf.sum_counts.rating }}</td></tr>
         </table>
       </div>
       {% if tf.gauge_chart %}
@@ -1865,6 +1865,9 @@ td.crash-na    { color: #94a3b8; }
         investment advice, a recommendation to buy or sell any security, or a solicitation of any offer.
       </p>
       <p style="margin-bottom:6px;">
+        <strong>SEBI RA REGULATION NOTICE:</strong> MutualFundAnalysis is an analytical software platform and is not registered as a Research Analyst (RA) or Investment Adviser (RIA) under the Securities and Exchange Board of India (SEBI) Regulations. All metrics, percentiles, classifications, and score breakdowns reflect backward-looking historical mathematical calculations. Nothing herein constitutes a buy, sell, or hold recommendation or research report under SEBI (Research Analysts) Regulations, 2014.
+      </p>
+      <p style="margin-bottom:6px;">
         <strong>PAST PERFORMANCE:</strong> Past performance is not indicative of future results.
         Mutual fund investments are subject to market risks. Read all scheme-related documents carefully
         before investing.
@@ -1884,7 +1887,6 @@ td.crash-na    { color: #94a3b8; }
       <p>
         <strong>TAX:</strong> Tax information provided is indicative based on general rules as of
         the report date and may change. Consult a qualified tax professional for personal tax advice.
-        SEBI Registration: Refer to the AMC's registered details.
       </p>
     </div>
   </div>
@@ -1893,14 +1895,14 @@ td.crash-na    { color: #94a3b8; }
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════════
-     PAGE 13 — ANALYST SUMMARY & FINAL INVESTMENT VERDICT
+     PAGE 13 — QUANTITATIVE MODEL SUMMARY & PERFORMANCE PROFILE
 ══════════════════════════════════════════════════════════════════ -->
 <div class="page-break">
-<div class="sec-hdr"><h2>Analyst Summary &amp; Final Investment Verdict</h2><p>Comprehensive portfolio role, allocation guidance, and final research takeaways</p></div>
+<div class="sec-hdr"><h2>Quantitative Model Summary &amp; Performance Profile</h2><p>Statistical positioning, historical risk-return profile, and quantitative takeaways</p></div>
 
 <div class="verdict-card">
   <div class="verdict-header">
-    <span class="verdict-title">Final Analyst Investment Verdict</span>
+    <span class="verdict-title">Final Quantitative Performance Classification</span>
     <span class="verdict-badge-box" style="background: {{ narratives.verdict_color }}; font-size:10px; padding:4px 14px;">
       {{ narratives.verdict_action }}
     </span>
@@ -1913,11 +1915,11 @@ td.crash-na    { color: #94a3b8; }
       <div class="verdict-val">Core Equity Allocation</div>
     </div>
     <div class="verdict-item">
-      <div class="verdict-lbl">Target Holding Horizon</div>
+      <div class="verdict-lbl">Suggested Holding Horizon</div>
       <div class="verdict-val">{{ narratives.horizon }}</div>
     </div>
     <div class="verdict-item">
-      <div class="verdict-lbl">Deployment Strategy</div>
+      <div class="verdict-lbl">Deployment Framework</div>
       <div class="verdict-val">{{ narratives.strategy }}</div>
     </div>
   </div>
@@ -1954,8 +1956,8 @@ td.crash-na    { color: #94a3b8; }
   </p>
 </div>
 
-<div class="alert-blue" style="margin-top:10px;">
-  <strong>Research Methodology Note:</strong> This quantitative mutual fund research report is automatically generated using proprietary multi-pillar scoring algorithms (Performance, Risk, Consistency, Cost, Composition, Manager). Quantitative scores are historical metrics and do not guarantee future returns.
+<div style="margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #475569; border-radius: 6px; padding: 8px 12px; font-size: 7.5px; color: #475569; line-height: 1.45;">
+  <strong>SEBI Compliance &amp; Statutory Disclaimer:</strong> This document is an automated quantitative research scorecard generated algorithmically by <strong>MutualFundAnalysis</strong> for research, screening, and educational purposes only. All performance classifications, percentile rankings, factor evaluations, and score breakdowns are derived purely from historical, publicly available data (AMFI, NSE, mfapi). <strong>MutualFundAnalysis is not registered as a Research Analyst (RA) or Investment Adviser (RIA) with the Securities and Exchange Board of India (SEBI).</strong> Nothing contained herein constitutes personal financial planning, investment advice, a portfolio recommendation, or a solicitation to buy, sell, or hold any security or mutual fund units under SEBI (Research Analysts) Regulations, 2014. Mutual fund investments are subject to market risks. Read all scheme-related documents carefully before making investment decisions.
 </div>
 </div>
 

@@ -746,32 +746,33 @@ def _compute_technical_indicators(nav_series) -> dict:
                 return "Neutral"
             if lower_is_buy:
                 if val <= buy_thresh:
-                    return "Buy"
+                    return "Bullish"
                 if val >= sell_thresh:
-                    return "Sell"
+                    return "Bearish"
             else:
                 if val >= buy_thresh:
-                    return "Buy"
+                    return "Bullish"
                 if val <= sell_thresh:
-                    return "Sell"
+                    return "Bearish"
             return "Neutral"
 
         def _get_counts(items):
-            buy = sum(1 for i in items if i["action"] == "Buy")
-            sell = sum(1 for i in items if i["action"] == "Sell")
+            bullish = sum(1 for i in items if i["action"] in ("Bullish", "Buy"))
+            bearish = sum(1 for i in items if i["action"] in ("Bearish", "Sell"))
             neu = sum(1 for i in items if i["action"] == "Neutral")
-            total = buy + neu + sell or 1
-            score = round(((buy - sell) / total) * 100)
+            total = bullish + neu + bearish or 1
+            score = round(((bullish - bearish) / total) * 100)
             rating = "Neutral"
             if score >= 50:
-                rating = "Strong Buy"
+                rating = "Strong Bullish"
             elif score >= 15:
-                rating = "Buy"
+                rating = "Bullish"
             elif score <= -50:
-                rating = "Strong Sell"
+                rating = "Strong Bearish"
             elif score <= -15:
-                rating = "Sell"
-            return {"buy": buy, "neutral": neu, "sell": sell,
+                rating = "Bearish"
+            return {"buy": bullish, "neutral": neu, "sell": bearish,
+                    "bullish": bullish, "bearish": bearish,
                     "score": score, "rating": rating}
 
         result = {}
@@ -1100,39 +1101,39 @@ def _build_research_narratives(ctx: dict) -> dict:
         score = 50.0
     percentile = _flt(sd.get("rank_percentile"), 50.0) or 50.0
 
-    # 1. Executive Verdict Determination
+    # 1. Executive Performance Classification (SEBI Option A: Score-Relative Percentiles)
     if score >= 75:
-        verdict_action = "STRONG BUY / OUTPERFORM"
-        verdict_badge = "Strong Buy"
+        verdict_action = "TOP DECILE / OUTPERFORM"
+        verdict_badge = "Top Decile"
         verdict_color = "#059669"
-        verdict_tagline = "Top-tier category performer demonstrating robust alpha generation, disciplined risk control, and superior rolling consistency."
-        horizon = "3 to 5+ Years"
-        investor_profile = "Growth & Aggressive investors seeking core long-term capital appreciation."
-        strategy = "Systematic Investment Plan (SIP) or staggered Lumpsum deployment on market pullbacks."
+        verdict_tagline = "Top-tier category performer demonstrating robust historical alpha generation, disciplined risk control, and superior rolling consistency."
+        horizon = "3 to 5+ Years (Suggested)"
+        investor_profile = "Growth & Aggressive asset allocation seeking core long-term capital appreciation."
+        strategy = "Systematic Investment Plan (SIP) or staggered deployment based on portfolio allocation."
     elif score >= 60:
-        verdict_action = "BUY / ACCUMULATE"
-        verdict_badge = "Buy"
+        verdict_action = "ABOVE AVERAGE / CORE PROFILE"
+        verdict_badge = "Above Average"
         verdict_color = "#16a34a"
-        verdict_tagline = "Solid core holding with consistent benchmark beating capability and healthy risk-adjusted return efficiency."
-        horizon = "3+ Years"
-        investor_profile = "Growth-oriented investors building long-term equity portfolio allocation."
-        strategy = "Regular SIP allocation for long-term wealth compounding."
+        verdict_tagline = "Solid core holding with consistent historical benchmark outperformance and healthy risk-adjusted efficiency."
+        horizon = "3+ Years (Suggested)"
+        investor_profile = "Growth-oriented investors seeking diversified long-term equity allocation."
+        strategy = "Regular SIP allocation aligned with long-term financial planning."
     elif score >= 45:
-        verdict_action = "HOLD / NEUTRAL"
-        verdict_badge = "Hold"
+        verdict_action = "CATEGORY AVERAGE / NEUTRAL ALIGNMENT"
+        verdict_badge = "Category Average"
         verdict_color = "#d97706"
-        verdict_tagline = "Balanced performance aligned with category averages. Suitable to hold for existing investors."
-        horizon = "3+ Years"
-        investor_profile = "Existing fund holders seeking category-aligned market performance."
-        strategy = "Maintain current SIP position; evaluate higher-alpha alternatives for incremental capital deployment."
+        verdict_tagline = "Balanced historical performance aligned with category peer averages."
+        horizon = "2 to 3+ Years (Suggested)"
+        investor_profile = "Existing holders seeking category-aligned market performance."
+        strategy = "Maintain current allocation; periodically compare against category benchmark."
     else:
-        verdict_action = "UNDERPERFORM / REBALANCE"
-        verdict_badge = "Underperform"
+        verdict_action = "BELOW AVERAGE / REVIEW WARRANTED"
+        verdict_badge = "Review Warranted"
         verdict_color = "#dc2626"
-        verdict_tagline = "Lagging relative returns or elevated risk metrics vs peer group. Rebalancing review recommended."
+        verdict_tagline = "Lagging relative returns or elevated volatility metrics vs peer group. Quantitative review warranted."
         horizon = "1 to 2 Years Review"
-        investor_profile = "Caution advised for prospective new investors."
-        strategy = "Pause incremental SIP contributions and evaluate peer category leaders."
+        investor_profile = "Caution advised; evaluate risk tolerance and investment objectives."
+        strategy = "Review allocation and compare metrics against category leaders."
 
     # 2. Extract Key Performance Metrics
     cagr_1y = None; cagr_3y = None; cagr_5y = None; ex_bm_3y = None; ex_cat_3y = None
@@ -1629,153 +1630,7 @@ def build_report_context(request, scheme) -> dict:
     ctx_out["narratives"] = _build_research_narratives(ctx_out)
     return ctx_out
 
-    """
-    Generate dynamic, metrics-driven institutional research commentary, key takeaways,
-    section-by-section interpretations, and an analyst recommendation verdict.
-    """
-    scheme = ctx.get("scheme")
-    meta = ctx.get("meta")
-    cat_name = ctx.get("category_name", "Mutual Fund Category")
-    bm_name = ctx.get("benchmark_name", "Benchmark")
-    sd = ctx.get("score_data", {})
-    risk3 = ctx.get("risk_3y") or ctx.get("risk_5y")
-    rolling_1y = ctx.get("rolling_1y")
-    rolling_3y = ctx.get("rolling_3y")
-    rolling_5y = ctx.get("rolling_5y")
-    trailing = ctx.get("trailing_returns", [])
-    calendar = ctx.get("calendar_returns", [])
-    crisis = ctx.get("crisis_periods", [])
-    regimes = ctx.get("market_regimes", [])
-    peers = ctx.get("peers_data", [])
-    tech = ctx.get("tech_indicators", {})
-    drawdown = ctx.get("drawdown")
-    top_holdings = ctx.get("top_holdings", [])
-    sector_alloc = ctx.get("sector_alloc", [])
-    top10_wt = ctx.get("top10_weight")
 
-    score = _flt(sd.get("final_score")) if sd and "final_score" in sd else _flt(sd.get("overall_score"), 50.0)
-    if score is None:
-        score = 50.0
-    percentile = _flt(sd.get("rank_percentile"), 50.0) or 50.0
-
-    # 1. Executive Verdict Determination
-    if score >= 75:
-        verdict_action = "STRONG BUY / OUTPERFORM"
-        verdict_badge = "Strong Buy"
-        verdict_color = "#059669"
-        verdict_tagline = "Top-tier category performer demonstrating robust alpha generation, disciplined risk control, and superior rolling consistency."
-        horizon = "3 to 5+ Years"
-        investor_profile = "Growth & Aggressive investors seeking core long-term capital appreciation."
-        strategy = "Systematic Investment Plan (SIP) or staggered Lumpsum deployment on market pullbacks."
-    elif score >= 60:
-        verdict_action = "BUY / ACCUMULATE"
-        verdict_badge = "Buy"
-        verdict_color = "#16a34a"
-        verdict_tagline = "Solid core holding with consistent benchmark beating capability and healthy risk-adjusted return efficiency."
-        horizon = "3+ Years"
-        investor_profile = "Growth-oriented investors building long-term equity portfolio allocation."
-        strategy = "Regular SIP allocation for long-term wealth compounding."
-    elif score >= 45:
-        verdict_action = "HOLD / NEUTRAL"
-        verdict_badge = "Hold"
-        verdict_color = "#d97706"
-        verdict_tagline = "Balanced performance aligned with category averages. Suitable to hold for existing investors."
-        horizon = "3+ Years"
-        investor_profile = "Existing fund holders seeking category-aligned market performance."
-        strategy = "Maintain current SIP position; evaluate higher-alpha alternatives for incremental capital deployment."
-    else:
-        verdict_action = "UNDERPERFORM / REBALANCE"
-        verdict_badge = "Underperform"
-        verdict_color = "#dc2626"
-        verdict_tagline = "Lagging relative returns or elevated risk metrics vs peer group. Rebalancing review recommended."
-        horizon = "1 to 2 Years Review"
-        investor_profile = "Caution advised for prospective new investors."
-        strategy = "Pause incremental SIP contributions and evaluate peer category leaders."
-
-    # 2. Extract Key Performance Metrics
-    cagr_1y = None; cagr_3y = None; cagr_5y = None; ex_bm_3y = None; ex_cat_3y = None
-    for tr in trailing:
-        p = getattr(tr, "period", "")
-        if p == "1Y": cagr_1y = _flt(getattr(tr, "cagr_pct", None))
-        elif p == "3Y":
-            cagr_3y = _flt(getattr(tr, "cagr_pct", None))
-            ex_bm_3y = _flt(getattr(tr, "excess_bm", None))
-            ex_cat_3y = _flt(getattr(tr, "excess_cat", None))
-        elif p == "5Y": cagr_5y = _flt(getattr(tr, "cagr_pct", None))
-
-    pos_cal_years = sum(1 for cr in calendar if (getattr(cr, "fund_return", 0) or 0) > 0)
-    total_cal_years = len(calendar)
-
-    r3_win0 = _flt(getattr(rolling_3y, "win_rate_0", None)) if rolling_3y else None
-    r3_win8 = _flt(getattr(rolling_3y, "win_rate_8", None)) if rolling_3y else None
-    r3_min = _flt(getattr(rolling_3y, "min_pct", None)) if rolling_3y else None
-    r3_max = _flt(getattr(rolling_3y, "max_pct", None)) if rolling_3y else None
-
-    alpha_val = _flt(getattr(risk3, "alpha", None)) if risk3 else None
-    beta_val = _flt(getattr(risk3, "beta", None)) if risk3 else None
-    sharpe_val = _flt(getattr(risk3, "sharpe_ratio", None)) if risk3 else None
-    vol_val = (_flt(getattr(risk3, "volatility", None)) or _flt(getattr(risk3, "std_dev", None))) if risk3 else None
-    max_dd = _flt(getattr(drawdown, "max_drawdown_pct", None)) or (_flt(getattr(risk3, "max_drawdown", None)) if risk3 else None)
-
-
-    daily_rating = tech.get("daily", {}).get("sum_counts", {}).get("rating", "Neutral")
-    weekly_rating = tech.get("weekly", {}).get("sum_counts", {}).get("rating", "Neutral")
-    monthly_rating = tech.get("monthly", {}).get("sum_counts", {}).get("rating", "Neutral")
-
-    # Strengths & Monitorables
-    strengths = []
-    if cagr_3y is not None and cagr_3y >= 15:
-        strengths.append(f"Delivered a strong 3-Year CAGR of {cagr_3y:.2f}%, outpacing long-term inflation and wealth creation hurdles.")
-    if alpha_val is not None and alpha_val > 1.5:
-        strengths.append(f"Generates positive annual Alpha (+{alpha_val:.2f}%), proving fund manager stock-selection efficacy.")
-    if r3_win0 is not None and r3_win0 >= 90:
-        strengths.append(f"Exceptional 3-Year Rolling Return Win Rate of {r3_win0:.1f}%, indicating near-zero historical capital loss risk across 3Y holding windows.")
-    if sharpe_val is not None and sharpe_val > 1.0:
-        strengths.append(f"Favorable Sharpe Ratio ({sharpe_val:.2f}) confirms superior risk-adjusted reward per unit of volatility.")
-    if not strengths:
-        strengths.append("Established track record with disciplined portfolio management.")
-        strengths.append("Well-balanced sector and asset allocation profile.")
-
-    concerns = []
-    if vol_val is not None and vol_val > 18:
-        concerns.append(f"Higher annualized volatility ({vol_val:.2f}%), requiring investors to tolerate short-term price fluctuations.")
-    if alpha_val is not None and alpha_val < 0:
-        concerns.append(f"Negative Alpha ({alpha_val:.2f}%), indicating lag against benchmark index on a risk-adjusted basis.")
-    if max_dd is not None and abs(max_dd) > 25:
-        concerns.append(f"Significant historical drawdown peak ({abs(max_dd):.1f}%), highlighting vulnerability during steep market corrections.")
-    if not concerns:
-        concerns.append("Performance remains vulnerable to broader macro-economic shifts and interest rate cycles.")
-        concerns.append("Dependent on key fund manager execution and continuity.")
-
-    cagr_3y_str = f"{cagr_3y:.2f}%" if cagr_3y is not None else "N/A"
-    ex_bm_3y_str = f"{ex_bm_3y:+.2f}%" if ex_bm_3y is not None else "N/A"
-    r3_win0_str = f"{r3_win0:.1f}%" if r3_win0 is not None else "N/A"
-    r3_win8_str = f"{r3_win8:.1f}%" if r3_win8 is not None else "N/A"
-    r3_min_str = f"{r3_min:.2f}%" if r3_min is not None else "N/A"
-    r3_max_str = f"{r3_max:.2f}%" if r3_max is not None else "N/A"
-    vol_val_str = f"{vol_val:.2f}%" if vol_val is not None else "N/A"
-    sharpe_val_str = f"{sharpe_val:.2f}" if sharpe_val is not None else "N/A"
-    alpha_val_str = f"{alpha_val:+.2f}%" if alpha_val is not None else "N/A"
-    beta_val_str = f"{beta_val:.2f}" if beta_val is not None else "N/A"
-
-    return {
-        "verdict_action": verdict_action,
-        "verdict_badge": verdict_badge,
-        "verdict_color": verdict_color,
-        "verdict_tagline": verdict_tagline,
-        "horizon": horizon,
-        "investor_profile": investor_profile,
-        "strategy": strategy,
-        "strengths": strengths,
-        "concerns": concerns,
-        "scorecard_text": f"{scheme.scheme_name} achieves an overall quantitative score of {score:.1f}/100, placing in the top {max(1, 100 - int(percentile))}% percentile of its peer group. This proprietary score synthesizes four analytical pillars: Performance ({sd.get('performance_badge','—')}), Risk ({sd.get('risk_badge','—')}), Consistency ({sd.get('consistency_badge','—')}), and Cost ({sd.get('cost_badge','—')}).",
-        "perf_text": f"Over the 3-year horizon, the fund delivered an annualized CAGR of {cagr_3y_str}" + (f" vs {bm_name}'s benchmark return, generating an excess alpha spread of {ex_bm_3y_str}." if ex_bm_3y is not None else ".") + f" Across {total_cal_years} calendar years evaluated, the fund achieved positive annual returns in {pos_cal_years} of {total_cal_years} years.",
-        "rolling_text": f"Rolling returns eliminate point-to-point bias by evaluating every possible investment timeframe. For 3-year holding periods, the fund achieved a {r3_win0_str} win-rate for positive returns and a {r3_win8_str} win-rate for beating an 8% inflation/hurdle rate. Historical 3Y rolling returns ranged between {r3_min_str} (minimum) and {r3_max_str} (maximum).",
-        "risk_text": f"The fund exhibits an annualized volatility (Standard Deviation) of {vol_val_str} and a Sharpe Ratio of {sharpe_val_str}. An Alpha of {alpha_val_str} demonstrates the portfolio manager's stock selection skill over market movements, while a Beta of {beta_val_str} measures systematic market sensitivity.",
-        "portfolio_text": f"The portfolio holds {len(top_holdings)} key stocks, with top 10 holdings accounting for {top10_wt:.1f}% of total assets." if top10_wt else "The portfolio features a well-diversified allocation across market capitalization and sector exposures.",
-        "peer_text": f"Compared against peer funds in {cat_name}, the scheme demonstrates competitive standing across Sharpe ratio, Alpha generation, and fee efficiency.",
-        "tech_text": f"Technical analysis indicates multi-timeframe trend alignment: Daily signals reflect '{daily_rating}', Weekly signals indicate '{weekly_rating}', and Monthly signals show '{monthly_rating}'.",
-    }
 
 
 

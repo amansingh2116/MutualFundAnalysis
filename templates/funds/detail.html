@@ -2511,11 +2511,11 @@
 
             <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.25);border-radius:8px;padding:12px">
               <div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
-                🧭 Actionable Decision Guide (SIP vs Lumpsum)
+                🧭 Historical Deployment Framework (SIP vs Lumpsum)
               </div>
               <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0">
-                <strong>SIP Investors:</strong> Continue monthly SIP uninterrupted. Rupee-cost averaging automatically acquires fewer units at peaks and more at dips.<br>
-                <strong>Lumpsum Investors:</strong> If NAV is at ATH with high category P/E, deploy via a 3–6 month STP. If NAV is &gt;15% below ATH during a broad market crash, it represents a high-conviction accumulation zone.
+                <strong>Systematic Allocation:</strong> Regular monthly SIP schedules utilize rupee-cost averaging to acquire units across market cycles without market timing.<br>
+                <strong>Phased Capital Staging:</strong> When NAV trades near historical peaks, institutional literature often favors staggered deployment (e.g. 3–6 month STP). During severe drawdowns (&gt;15% from ATH), margin of safety increases historically.
               </p>
             </div>
 
@@ -2528,7 +2528,7 @@
       <div class="card" style="margin-bottom:18px">
         <div class="card-header">
           <div class="card-title">Signal Summary
-            <button class="info-btn" data-t-title="Signal Summary" data-t-what="Three gauges: Oscillators (momentum-based indicators), Moving Averages (trend-following), and Overall Summary combining both." data-t-interp="Score from -100 (all bearish) to +100 (all bullish). Buy/Sell/Neutral based on signal consensus.">ⓘ</button>
+            <button class="info-btn" data-t-title="Signal Summary" data-t-what="Three gauges: Oscillators (momentum-based indicators), Moving Averages (trend-following), and Overall Summary combining both." data-t-interp="Score from -100 (bearish momentum) to +100 (bullish momentum). Bullish / Neutral / Bearish based on technical indicator consensus.">ⓘ</button>
           </div>
           <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
             <span style="font-size:11px;font-weight:700;color:var(--text-muted);margin-right:4px">Timeframe:
@@ -2547,9 +2547,9 @@
               <div id="adv-gauge-osc-wrap"></div>
               <div id="adv-val-osc" style="font-size:13px;font-weight:700;margin-top:4px">—</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
-                <span style="color:#ef4444" id="cnt-osc-sell">—</span> S &nbsp;·&nbsp;
-                <span style="color:#94a3b8" id="cnt-osc-neu">—</span> N &nbsp;·&nbsp;
-                <span style="color:#10b981" id="cnt-osc-buy">—</span> B
+                <span style="color:#ef4444" id="cnt-osc-sell">—</span> Bear &nbsp;·&nbsp;
+                <span style="color:#94a3b8" id="cnt-osc-neu">—</span> Neu &nbsp;·&nbsp;
+                <span style="color:#10b981" id="cnt-osc-buy">—</span> Bull
               </div>
             </div>
             <!-- Summary gauge -->
@@ -2558,9 +2558,9 @@
               <div id="adv-gauge-sum-wrap"></div>
               <div id="adv-val-sum" style="font-size:14px;font-weight:800;margin-top:4px">—</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
-                <span style="color:#ef4444" id="cnt-sum-sell">—</span> S &nbsp;·&nbsp;
-                <span style="color:#94a3b8" id="cnt-sum-neu">—</span> N &nbsp;·&nbsp;
-                <span style="color:#10b981" id="cnt-sum-buy">—</span> B
+                <span style="color:#ef4444" id="cnt-sum-sell">—</span> Bear &nbsp;·&nbsp;
+                <span style="color:#94a3b8" id="cnt-sum-neu">—</span> Neu &nbsp;·&nbsp;
+                <span style="color:#10b981" id="cnt-sum-buy">—</span> Bull
               </div>
             </div>
             <!-- Moving Averages gauge -->
@@ -2569,9 +2569,9 @@
               <div id="adv-gauge-ma-wrap"></div>
               <div id="adv-val-ma" style="font-size:13px;font-weight:700;margin-top:4px">—</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
-                <span style="color:#ef4444" id="cnt-ma-sell">—</span> S &nbsp;·&nbsp;
-                <span style="color:#94a3b8" id="cnt-ma-neu">—</span> N &nbsp;·&nbsp;
-                <span style="color:#10b981" id="cnt-ma-buy">—</span> B
+                <span style="color:#ef4444" id="cnt-ma-sell">—</span> Bear &nbsp;·&nbsp;
+                <span style="color:#94a3b8" id="cnt-ma-neu">—</span> Neu &nbsp;·&nbsp;
+                <span style="color:#10b981" id="cnt-ma-buy">—</span> Bull
               </div>
             </div>
           </div>
@@ -2582,13 +2582,13 @@
       <div class="card" style="margin-bottom:14px">
         <div class="card-header">
           <div class="card-title">Oscillators
-            <button class="info-btn" data-t-title="Oscillators" data-t-what="Momentum indicators like RSI, Stochastic, MACD, and CCI that identify overbought or oversold conditions." data-t-interp="Values near the upper bounds suggest overbought conditions (potential SELL), while values near lower bounds suggest oversold conditions (potential BUY).">ⓘ</button>
+            <button class="info-btn" data-t-title="Oscillators" data-t-what="Momentum indicators like RSI, Stochastic, MACD, and CCI that identify overbought or oversold conditions." data-t-interp="Values near upper bounds indicate overbought conditions (bearish reversal risk), while values near lower bounds indicate oversold conditions (bullish rebound potential).">ⓘ</button>
           </div>
         </div>
         <div class="card-body-tight">
           <div class="table-wrapper">
             <table class="indicator-table" id="adv-table-oscillators">
-              <thead><tr><th>Name</th><th style="text-align:right">Value</th><th style="text-align:right">Action</th></tr></thead>
+              <thead><tr><th>Name</th><th style="text-align:right">Value</th><th style="text-align:right">Signal</th></tr></thead>
               <tbody><tr><td colspan="3" style="text-align:center;color:var(--text-muted)"><div class="spinner"></div></td></tr></tbody>
             </table>
           </div>
@@ -2599,7 +2599,7 @@
       <div class="card" style="margin-bottom:14px">
         <div class="card-header">
           <div class="card-title">Moving Averages
-            <button class="info-btn" data-t-title="Moving Averages (SMA & EMA)" data-t-what="Simple (SMA) and Exponential (EMA) trend-following averages computed across 10D, 20D, 50D, 100D, and 200D windows." data-t-interp="BUY signal when current NAV is above the moving average. Golden Cross (50D > 200D) indicates strong bull trend; Death Cross (50D < 200D) indicates bear trend.">ⓘ</button>
+            <button class="info-btn" data-t-title="Moving Averages (SMA & EMA)" data-t-what="Simple (SMA) and Exponential (EMA) trend-following averages computed across 10D, 20D, 50D, 100D, and 200D windows." data-t-interp="Bullish momentum signal when current NAV trades above the moving average. Golden Cross (50D > 200D) indicates expansion trend; Death Cross (50D < 200D) indicates contraction trend.">ⓘ</button>
           </div>
         </div>
         <div class="card-body-tight">
@@ -2830,12 +2830,12 @@
                 <div><strong>MAPE ↓ (Mean Absolute % Error)</strong>: Lower is better. Measures average forecast percentage error against actual historical NAV.</div>
                 <div><strong>RMSE ↓ (Root Mean Square Error)</strong>: Dollar/rupee deviation error penalising large outliers.</div>
                 <div><strong>Dir. Hit Rate ↑</strong>: % of trading days the model correctly predicted direction (&gt;55% indicates statistical edge).</div>
-                <div><strong>🥇 Best Model Badge</strong>: Automatically highlights the model with lowest out-of-sample MAPE error over the last 90 days.</div>
+                <div><strong>🥇 Model Leader Badge</strong>: Automatically highlights the model with lowest out-of-sample MAPE error over the last 90 days.</div>
               </div>
             </div>
           </div>
           <div style="font-size:11px;color:var(--text-muted);font-style:italic">
-            🏆 <strong>Pro Tip:</strong> Always pay closest attention to the <strong>🏆 Ensemble Model</strong>. It blends all enabled models using inverse-MAPE weighting, providing the most reliable out-of-sample forecast precision.
+            💡 <strong>Quantitative Note:</strong> The <strong>🏆 Ensemble Model</strong> blends all enabled statistical models using inverse-MAPE weighting, which historically dampens individual model variance.
           </div>
         </div>
       </div>
@@ -2866,7 +2866,7 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
                   <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:11px">
                     <input type="checkbox" id="fc-ret-ensemble" checked style="accent-color:var(--accent)"> <strong>🏆 Ensemble (Blend)</strong>
-                    <button class="info-btn" style="font-size:9px;padding:0 3px" data-t-title="Ensemble (Inverse-MAPE Weighted Average)" data-t-what="Combines all enabled models using an inverse-MAPE weighted average. Reduces variance and maximizes forecast accuracy." data-t-interp="Recommended baseline for investment forecasts.">ⓘ</button>
+                    <button class="info-btn" style="font-size:9px;padding:0 3px" data-t-title="Ensemble (Inverse-MAPE Weighted Average)" data-t-what="Combines all enabled models using an inverse-MAPE weighted average. Reduces variance and maximizes forecast accuracy." data-t-interp="Standard baseline model for statistical return forecasts.">ⓘ</button>
                   </label>
                   <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:11px">
                     <input type="checkbox" id="fc-ret-arima" checked style="accent-color:var(--accent)"> ARIMA (2,1,1)
@@ -3164,7 +3164,7 @@
                   <th style="text-align:right">Sharpe</th>
                   <th style="text-align:right">Alpha vs B&amp;H</th>
                   <th style="text-align:center">StrategyLab Score</th>
-                  <th>Verdict</th>
+                  <th>Backtest Profile</th>
                 </tr>
               </thead>
               <tbody id="lab-leaderboard-tbody">
@@ -4426,6 +4426,9 @@ function renderRollingTable(el, data, catAvgData) {
       '<div class="card" style="margin-bottom:20px"><div class="card-header"><div class="peers-section-header">📈 Returns Comparison</div></div><div class="card-body-tight"><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Trailing CAGR · computed from live NAV data</div>' + tableWrap(trailingRows + rollingRows) + '</div></div>'+
       '<div class="card" style="margin-bottom:20px"><div class="card-header"><div class="peers-section-header">📋 Scheme Information</div></div><div class="card-body-tight">' + tableWrap(schemeRows) + '</div></div>'+
       '<div class="card" style="margin-bottom:20px"><div class="card-header"><div class="peers-section-header">🎯 Investment Objectives</div></div><div class="card-body-tight"><div class="table-wrapper"><table class="peers-compare-table"><tbody>' + objectiveRows + '</tbody></table></div></div></div>' +
+      '<div style="margin-top:16px;padding:12px 16px;background:rgba(148,163,184,.06);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.6">' +
+        'ℹ️ <strong>Peer Analysis Notice:</strong> Peer comparison displays mathematically computed historical returns, volatility metrics, and scheme data for quantitative research and screening purposes only. Ranking or relative performance across peers does not constitute investment advice, a solicitation, or a recommendation to purchase or redeem units in any mutual fund scheme. Mutual fund investments are subject to market risks; read all scheme-related documents carefully.' +
+      '</div>' +
       manualCompareCTA;
   }
 }());
@@ -5108,11 +5111,11 @@ window.renderTechnicalSection = function() {
   function getAction(val, buyThresh, sellThresh, isLowerBetter = false) {
     if (val === null || val === undefined || isNaN(val)) return { act: 'Neutral', cls: 'sig-neutral', c: '#94a3b8' };
     if (isLowerBetter) {
-      if (val <= buyThresh) return { act: 'Buy', cls: 'sig-buy', c: '#10b981' };
-      if (val >= sellThresh) return { act: 'Sell', cls: 'sig-sell', c: '#ef4444' };
+      if (val <= buyThresh) return { act: 'Bullish', cls: 'sig-buy', c: '#10b981' };
+      if (val >= sellThresh) return { act: 'Bearish', cls: 'sig-sell', c: '#ef4444' };
     } else {
-      if (val >= buyThresh) return { act: 'Buy', cls: 'sig-buy', c: '#10b981' };
-      if (val <= sellThresh) return { act: 'Sell', cls: 'sig-sell', c: '#ef4444' };
+      if (val >= buyThresh) return { act: 'Bullish', cls: 'sig-buy', c: '#10b981' };
+      if (val <= sellThresh) return { act: 'Bearish', cls: 'sig-sell', c: '#ef4444' };
     }
     return { act: 'Neutral', cls: 'sig-neutral', c: '#94a3b8' };
   }
@@ -5171,17 +5174,17 @@ window.renderTechnicalSection = function() {
   function getCounts(arr) {
     let buy = 0, neu = 0, sell = 0;
     arr.forEach(i => {
-      if (i.act === 'Buy') buy++;
-      else if (i.act === 'Sell') sell++;
+      if (i.act === 'Bullish' || i.act === 'Buy') buy++;
+      else if (i.act === 'Bearish' || i.act === 'Sell') sell++;
       else neu++;
     });
     const total = buy + neu + sell || 1;
     const score = Math.round(((buy - sell) / total) * 100);
     let rating = 'Neutral';
-    if (score >= 50) rating = 'Strong Buy';
-    else if (score >= 15) rating = 'Buy';
-    else if (score <= -50) rating = 'Strong Sell';
-    else if (score <= -15) rating = 'Sell';
+    if (score >= 50) rating = 'Strong Bullish';
+    else if (score >= 15) rating = 'Bullish';
+    else if (score <= -50) rating = 'Strong Bearish';
+    else if (score <= -15) rating = 'Bearish';
     return { buy, neu, sell, score, rating };
   }
 
@@ -5744,7 +5747,7 @@ function renderRiskMetrics() {
           <th style="text-align:right">Historical CVaR 95% <button class="info-btn" data-t-title="Historical 95% CVaR (Expected Shortfall)" data-t-what="Average percentage loss during the worst 5% historical crash scenarios." data-t-formula="CVaR_95 = Mean of returns below 5th percentile" data-t-interp="Measures severe crash severity.">ⓘ</button></th>
           <th style="text-align:right">Parametric CVaR 95% <button class="info-btn" data-t-title="Parametric 95% CVaR" data-t-what="Theoretical expected shortfall assuming normal distribution." data-t-formula="Parametric CVaR = μ - 2.063·σ" data-t-interp="Normal distribution assumption floor.">ⓘ</button></th>
           <th style="text-align:right">Fat-Tail Gap <button class="info-btn" data-t-title="Fat-Tail Kurtosis Gap" data-t-what="Difference between Historical CVaR and Parametric CVaR (|Hist CVaR| - |Param CVaR|)." data-t-interp="Positive values indicate fat tails (leptokurtosis) — market crashes are deeper in reality than standard normal statistics assume.">ⓘ</button></th>
-          <th>Tail Risk Verdict</th>
+          <th>Tail Risk Severity</th>
         </tr></thead>
         <tbody>${periodRows.map(r => `
           <tr>
@@ -6027,7 +6030,7 @@ window.advRunForecast = function (h, btn) {
       .map(([fn, name]) => ({ ...wfMAPE(nav, fn), name }));
     document.getElementById('adv-bt-table').innerHTML = `
       <table class="indicator-table">
-        <thead><tr><th>Model</th><th>MAPE (↓ better)</th><th>Directional Accuracy</th><th>Verdict</th></tr></thead>
+        <thead><tr><th>Model</th><th>MAPE (↓ better)</th><th>Directional Accuracy</th><th>Model Signal Reliability</th></tr></thead>
         <tbody>${bt.map(b => `<tr>
           <td style="font-weight:600">${b.name}</td>
           <td style="font-family:monospace">${b.mape}%</td>
@@ -6200,7 +6203,7 @@ window.renderSignals = function() {
           <th>Factor Score (0–100)</th>
           <th>Pillar Weight</th>
           <th>Weighted Contribution</th>
-          <th>Status Verdict</th>
+          <th>Factor Alignment</th>
         </tr></thead>
         <tbody>${sigs.map(s => {
           const fc = s.score >= 65 ? '#10b981' : s.score >= 45 ? '#6366f1' : '#ef4444';
@@ -6268,9 +6271,9 @@ window.drawGaugeSVG = function(W, H, score, label) {
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;margin:0 auto;overflow:visible">
     <path d="${bgPath}" fill="none" stroke="rgba(148,163,184,0.15)" stroke-width="9" stroke-linecap="round"/>
     <path d="${fgPath}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round"/>
-    <text x="${cx - r}" y="${cy + 14}" fill="#ef4444" font-size="9" font-weight="700" text-anchor="middle">SELL</text>
+    <text x="${cx - r}" y="${cy + 14}" fill="#ef4444" font-size="9" font-weight="700" text-anchor="middle">BEARISH</text>
     <text x="${cx}" y="${cy + 14}" fill="#94a3b8" font-size="9" font-weight="600" text-anchor="middle">NEUTRAL</text>
-    <text x="${cx + r}" y="${cy + 14}" fill="#10b981" font-size="9" font-weight="700" text-anchor="middle">BUY</text>
+    <text x="${cx + r}" y="${cy + 14}" fill="#10b981" font-size="9" font-weight="700" text-anchor="middle">BULLISH</text>
     <text x="${cx}" y="${cy - r * 0.35}" fill="${col}" font-size="18" font-weight="900" text-anchor="middle">${score > 0 ? '+' : ''}${score}</text>
     <line x1="${cx}" y1="${cy}" x2="${ix}" y2="${iy}" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>
     <circle cx="${cx}" cy="${cy}" r="4" fill="${col}"/>
@@ -6979,7 +6982,7 @@ function mlVolForecast(nav, horiz, rollW, scale) {
           'Naïve (RW)':             { what: 'Random Walk: tomorrow = today.', formula: 'F_{t+h} = NAV_t', interp: 'Market efficiency floor.' },
           'MA (20D)':               { what: 'Flat forecast at the 20-day SMA.', formula: 'F = SMA(NAV, 20)', interp: 'Mean-reversion anchor.' },
           'ETS':                    { what: 'Single exponential smoothing α=0.4.', formula: 'S_t = 0.4·NAV_t + 0.6·S_{t-1}', interp: 'Level baseline.' },
-          '🏆 Ensemble':            { what: 'Inverse-MAPE weighted average of all enabled models.', formula: 'w_i = (1/MAPE_i)/Σ(1/MAPE_j); F = Σ w_i F_i', interp: 'Recommended forecast.' },
+          '🏆 Ensemble':            { what: 'Inverse-MAPE weighted average of all enabled models.', formula: 'w_i = (1/MAPE_i)/Σ(1/MAPE_j); F = Σ w_i F_i', interp: 'Baseline ensemble forecast.' },
         };
 
         btEl.innerHTML = `
@@ -6991,7 +6994,7 @@ function mlVolForecast(nav, horiz, rollW, scale) {
               <th>MAPE ↓</th>
               <th>RMSE ↓ (₹)</th>
               <th>Dir. Hit Rate</th>
-              <th>Verdict</th>
+              <th>Model Reliability</th>
             </tr></thead>
             <tbody>${btFull.map(b => {
               const mapeNum = parseFloat(b.mape);
@@ -7558,7 +7561,7 @@ window.runStrategyLabLocal = function() {
     const isAlphaPos = bestStrat.alpha >= 0;
     heroEl.innerHTML = `
       <div style="flex:1;min-width:260px">
-        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">🏆 Recommended Strategy for This Fund</div>
+        <div style="font-size:11px;font-weight:700;color:var(--indigo-400);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">🏆 Top Backtested Strategy for This Fund</div>
         <div style="font-size:20px;font-weight:900;color:var(--text-primary)">${bestStrat.name}</div>
         <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">
           Generated <strong style="color:${isAlphaPos ? '#10b981' : '#ef4444'}">${isAlphaPos ? '+' : ''}${bestStrat.alpha.toFixed(2)}% Alpha</strong> over Buy &amp; Hold with <strong>${bestStrat.winRate.toFixed(1)}% win rate</strong> across ${bestStrat.trades} trades.

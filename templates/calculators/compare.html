@@ -151,6 +151,18 @@
       </div>
     </div>
   </div>
+
+  <!-- Comparison Legend & Regulatory Disclaimer -->
+  <div style="margin-top:16px; padding:12px 16px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--text-muted); line-height:1.5;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+      <span class="winner-badge winner-badge-0" style="font-size:10px; padding:2px 8px;">Leader</span>
+      <strong style="color:var(--text-primary)">Metric Leader Indicator:</strong>
+    </div>
+    <div>The "Leader" badge identifies the mathematically superior historical value for that specific individual parameter (e.g. highest Sharpe ratio, lowest expense ratio, lowest standard deviation). It is an objective quantitative indicator for that metric and does not constitute an overall fund rating, endorsement, or recommendation.</div>
+    <div style="margin-top:6px; font-size:11px; color:var(--text-muted); border-top:1px solid var(--border-subtle); padding-top:6px;">
+      ⚠️ <strong>Educational &amp; Research Tool:</strong> This comparison is generated for informational screening only. Not financial advice or an investment recommendation under SEBI (Research Analysts) Regulations, 2014.
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -339,7 +351,7 @@ function renderOverviewRows(funds) {
     { label: 'Min Lumpsum', key: 'min_lumpsum', fmt: v => v ? `₹${Number(v).toLocaleString('en-IN')}` : '—' },
     { label: 'Lock-in', key: 'lock_in_label', fmt: v => v || 'None' },
     { label: 'Tax Period', key: 'tax_period_days', fmt: v => v > 0 ? `${v} days` : 'None' },
-    { label: 'Portfolio Turnover <button class="info-btn" data-t-title="Portfolio Turnover Ratio" data-t-what="Measures how frequently the fund manager buys and sells securities within a year. A 100% turnover means the fund replaced its entire portfolio over the year." data-t-interp="Lower turnover is generally preferred (lower trading costs and tax drag). However, high turnover is not always bad — if the returns significantly justify the active trading, it can be worth it. Look at this metric alongside returns, not in isolation." data-t-note="Best badge = lowest turnover. Verify if a high-turnover fund also delivers superior returns to justify the churn." data-t-link-key="turnover">ⓘ</button>', key: 'portfolio_turnover', fmt: v => v != null ? `${v}%` : '—', lower_better: true },
+    { label: 'Portfolio Turnover <button class="info-btn" data-t-title="Portfolio Turnover Ratio" data-t-what="Measures how frequently the fund manager buys and sells securities within a year. A 100% turnover means the fund replaced its entire portfolio over the year." data-t-interp="Lower turnover is generally preferred (lower trading costs and tax drag). However, high turnover is not always bad — if the returns significantly justify the active trading, it can be worth it. Look at this metric alongside returns, not in isolation." data-t-note="Leader badge = lowest turnover. Verify if a high-turnover fund also delivers superior returns to justify the churn." data-t-link-key="turnover">ⓘ</button>', key: 'portfolio_turnover', fmt: v => v != null ? `${v}%` : '—', lower_better: true },
     { label: 'CRISIL Rating <button class="info-btn" data-t-title="CRISIL Rating" data-t-what="Overall rating assigned by CRISIL based on performance and risk." data-t-interp="5-star is highest. 1-star is lowest.">ⓘ</button>', key: 'crisil_rating', fmt: v => v || '—' },
 
   ];
@@ -554,7 +566,7 @@ function renderRiskRows(funds) {
   }
 
   if (worst5.length > 0) {
-    out += sectionHeader(`📉 Top Overlapping Worst Quarters <button class="info-btn" data-t-title="Worst Quarter Overlap Analysis" data-t-what="We find the 5 quarters where the AVERAGE return across all selected funds was the worst (lowest/most negative). These are crash or drawdown periods. We then compare how each fund held up during those specific bad quarters." data-t-interp="A fund with the smallest negative return (or even a positive return) during the worst quarters shows excellent downside protection. The 'Best' badge marks the least-bad performer.">ⓘ</button>`, funds.length);
+    out += sectionHeader(`📉 Top Overlapping Worst Quarters <button class="info-btn" data-t-title="Worst Quarter Overlap Analysis" data-t-what="We find the 5 quarters where the AVERAGE return across all selected funds was the worst (lowest/most negative). These are crash or drawdown periods. We then compare how each fund held up during those specific bad quarters." data-t-interp="A fund with the smallest negative return (or even a positive return) during the worst quarters shows excellent downside protection. The 'Leader' badge marks the least-bad performer.">ⓘ</button>`, funds.length);
     worst5.forEach(label => {
       const values = funds.map(f => {
         if (!f.data) return null;
@@ -578,8 +590,8 @@ function renderPortfolioRows(funds) {
 
   [
     { l:'No. of Holdings <button class="info-btn" data-t-title="Number of Holdings" data-t-what="Total number of distinct stocks/bonds the fund holds." data-t-interp="Fewer holdings (&lt;30) = concentrated/high risk. More holdings (&gt;60) = diversified/lower risk but may lead to average returns.">ⓘ</button>', k:'holdings_count', fmt: v => v || '—', hb:false },
-    { l:'Top-10 Weight <button class="info-btn" data-t-title="Top 10 Holdings Weight" data-t-what="Percentage of total portfolio invested in the 10 largest holdings." data-t-interp="Lower % is generally preferred as it signals wider diversification and lower single-stock risk. Focused equity and sector funds may be intentionally concentrated by design." data-t-note="Best badge = lowest top-10 weight (most diversified). Always check the fund category.">ⓘ</button>',  k:'top10_weight',  fmt: v => v != null ? `${v}%` : '—', lb:true },
-    { l:'Portfolio Turnover <button class="info-btn" data-t-title="Portfolio Turnover Ratio" data-t-what="Measures how frequently the fund manager buys and sells securities within a year. 100% turnover means the full portfolio was replaced over the year." data-t-interp="Lower turnover is generally preferred — lower trading costs and tax drag. However, a fund with 200% turnover but consistently superior alpha may justify the churn." data-t-note="Best badge = lowest turnover. A high-turnover fund with superior alpha may still justify the churn." data-t-link-key="turnover">ⓘ</button>', k:'portfolio_turnover', fmt: v => v != null ? `${v}%` : '—', lb:true },
+    { l:'Top-10 Weight <button class="info-btn" data-t-title="Top 10 Holdings Weight" data-t-what="Percentage of total portfolio invested in the 10 largest holdings." data-t-interp="Lower % is generally preferred as it signals wider diversification and lower single-stock risk. Focused equity and sector funds may be intentionally concentrated by design." data-t-note="Leader badge = lowest top-10 weight (most diversified). Always check the fund category.">ⓘ</button>',  k:'top10_weight',  fmt: v => v != null ? `${v}%` : '—', lb:true },
+    { l:'Portfolio Turnover <button class="info-btn" data-t-title="Portfolio Turnover Ratio" data-t-what="Measures how frequently the fund manager buys and sells securities within a year. 100% turnover means the full portfolio was replaced over the year." data-t-interp="Lower turnover is generally preferred — lower trading costs and tax drag. However, a fund with 200% turnover but consistently superior alpha may justify the churn." data-t-note="Leader badge = lowest turnover. A high-turnover fund with superior alpha may still justify the churn." data-t-link-key="turnover">ⓘ</button>', k:'portfolio_turnover', fmt: v => v != null ? `${v}%` : '—', lb:true },
   ].forEach(m => {
     const values = funds.map(f => f.data ? m.fmt(f.data[m.k]) : null);
     const numVals = funds.map(f => f.data ? (f.data[m.k] ?? null) : null);
@@ -861,7 +873,7 @@ function buildRow(label, values, winnerIdx, funds, extraOpts={}) {
     if (funds[i].error) return '<td style="color:var(--red-400)">Error</td>';
     if (v === null || v === '—' || v === 'NaN') return '<td style="color:var(--text-muted)">—</td>';
     const isWinner = winnerIdx === i;
-    return `<td class="${isWinner ? 'winner-'+(i%5) : ''}">${v}${isWinner ? ' <span class="winner-badge winner-badge-'+(i%5)+'">Best</span>' : ''}</td>`;
+    return `<td class="${isWinner ? 'winner-'+(i%5) : ''}">${v}${isWinner ? ' <span class="winner-badge winner-badge-'+(i%5)+'">Leader</span>' : ''}</td>`;
   }).join('')}</tr>`;
 }
 
@@ -871,7 +883,7 @@ function buildRawRow(label, rawHtmlValues, winnerIdx, funds) {
     if (funds[i].error) return '<td style="color:var(--red-400)">Error</td>';
     if (v === null || v === '—' || v === 'NaN') return '<td style="color:var(--text-muted)">—</td>';
     const isWinner = winnerIdx === i;
-    return `<td class="${isWinner ? 'winner-'+(i%5) : ''}">${v}${isWinner ? ' <br><span class="winner-badge winner-badge-'+(i%5)+'" style="margin-left:0;margin-top:4px">Best</span>' : ''}</td>`;
+    return `<td class="${isWinner ? 'winner-'+(i%5) : ''}">${v}${isWinner ? ' <br><span class="winner-badge winner-badge-'+(i%5)+'" style="margin-left:0;margin-top:4px">Leader</span>' : ''}</td>`;
   }).join('')}</tr>`;
 }
 

@@ -77,8 +77,8 @@
 
 {% block content %}
 <div class="page-header">
-  <div class="page-title">🎯 Your Mutual Fund Portfolio</div>
-  <div class="page-subtitle">Customized for a {{ profile.investor_archetype }}</div>
+  <div class="page-title">🎯 Model Portfolio Allocation</div>
+  <div class="page-subtitle">Algorithmic asset allocation aligned with a {{ profile.investor_archetype }} profile</div>
 </div>
 
 {% if red_flags %}
@@ -116,14 +116,14 @@
     <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Capacity: {{ profile.risk_capacity }} | Tolerance: {{ profile.risk_tolerance }}</div>
   </div>
   <div class="profile-stat">
-    <div class="stat-label">Recommended Strategy
-      <button class="info-btn" aria-label="Recommended Strategy" data-t-title="Investment Strategy" data-t-what="The approach we recommend based on your time horizon and risk profile. E.g., Core-Satellite uses stable index funds as the 'core' and active funds as 'satellites' for extra returns.">ⓘ</button>
+    <div class="stat-label">Model Strategy
+      <button class="info-btn" aria-label="Model Strategy" data-t-title="Model Strategy" data-t-what="The algorithmic asset allocation approach selected based on your investment horizon and capacity. E.g., Core-Satellite uses stable index/large cap funds as the 'core' and active funds as 'satellites' for extra returns.">ⓘ</button>
     </div>
     <div class="stat-value" style="text-transform: uppercase;">{{ profile.recommended_strategy }}</div>
   </div>
   <div class="profile-stat">
     <div class="stat-label">Plan Style
-      <button class="info-btn" aria-label="Plan Style" data-t-title="Plan &amp; Option Style" data-t-what="Whether to invest in Direct vs Regular plans, and Growth vs IDCW (Dividend) options." data-t-interp="We strongly recommend <strong>Direct Growth</strong> for wealth accumulation, as it avoids agent commissions and reinvests profits automatically.">ⓘ</button>
+      <button class="info-btn" aria-label="Plan Style" data-t-title="Plan &amp; Option Style" data-t-what="Whether to invest in Direct vs Regular plans, and Growth vs IDCW (Dividend) options." data-t-interp="<strong>Direct Growth</strong> plans eliminate distributor commission deductions, allowing the full investment return to compound directly in the fund.">ⓘ</button>
     </div>
     <div class="stat-value" style="text-transform: capitalize;">{{ profile.plan_style }} - {{ profile.option_style }}</div>
   </div>
@@ -136,7 +136,7 @@
 </div>
 
 <div class="analysis-card">
-  <h3 style="margin: 0 0 16px 0; font-size: 18px;">💡 Why this portfolio?</h3>
+  <h3 style="margin: 0 0 16px 0; font-size: 18px;">💡 Model Methodology &amp; Asset Split</h3>
   <p>
     Based on your inputs, your financial situation indicates a <strong>{{ profile.risk_capacity }}</strong> capacity to take risk, and your behavioral responses show a <strong>{{ profile.risk_tolerance }}</strong> tolerance for market volatility. We aligned your final risk profile to <strong>{{ profile.final_risk_profile }}</strong>.
   </p>
@@ -144,7 +144,7 @@
     Since your primary goal is <strong>{{ profile.get_goal_type_display }}</strong> over a horizon of <strong>{{ profile.get_goal_horizon_display }}</strong>, we designed an asset allocation of <strong>{{ profile.core_equity_pct }}% Core Equity</strong> for stable growth, <strong>{{ profile.satellite_pct }}% Satellite Equity</strong> for alpha generation, and <strong>{{ profile.core_debt_pct }}% Debt</strong> for downside protection.
   </p>
   <p style="margin-bottom: 0;">
-    The funds below were selected by our quantitative engine, scoring top decile funds in their respective categories based on consistent 3-year performance, risk-adjusted returns (Sharpe Ratio), and low expense ratios.
+    The funds below were selected algorithmically by our quantitative scoring engine, filtering for top decile funds in their respective categories based on consistent 3-year performance, risk-adjusted returns (Sharpe Ratio), and low expense ratios.
   </p>
 </div>
 
@@ -157,7 +157,7 @@
   </div>
   
   <div class="card">
-    <div class="card-header"><h3 style="margin:0;font-size:16px;">Recommended Funds</h3></div>
+    <div class="card-header"><h3 style="margin:0;font-size:16px;">Top Quantitative Model Selections</h3></div>
     <div class="card-body" style="padding: 12px;">
       {% if recommendations %}
         {% for rec in recommendations %}
@@ -182,10 +182,19 @@
   </div>
 </div>
 
+<div class="card" style="margin-bottom: 28px; background: var(--bg-card); border-left: 4px solid var(--border);">
+  <div class="card-body" style="font-size: 12px; color: var(--text-muted); line-height: 1.6;">
+    <strong>⚠️ Regulatory Disclaimer &amp; Quantitative Model Notice:</strong>
+    This questionnaire output and portfolio simulation are generated algorithmically for educational and screening purposes only.
+    <strong>MutualFundAnalysis is not registered as a Research Analyst (RA) or Investment Adviser (RIA) with SEBI.</strong>
+    The fund selections and asset split shown above do not constitute personal financial advice, investment recommendations, or an endorsement of any mutual fund scheme. Historical performance, ratios, and model scores do not guarantee future returns. Mutual fund investments are subject to market risks. Please read all scheme-related documents and consult a SEBI-registered financial advisor before investing.
+  </div>
+</div>
+
 <div style="text-align:center; margin-bottom: 40px;">
   <a href="{% url 'recommendations:backtest' %}" class="btn btn-primary" style="padding: 12px 24px; font-size: 16px;">Run 5-Year Backtest →</a>
   <br>
-  <a href="{% url 'recommendations:engine' %}?edit=1" style="display:inline-block; margin-top:16px; color:var(--text-muted); text-decoration:underline;">Edit Profile & Regenerate Recommendations</a>
+  <a href="{% url 'recommendations:engine' %}?edit=1" style="display:inline-block; margin-top:16px; color:var(--text-muted); text-decoration:underline;">Edit Profile &amp; Recompute Model Allocation</a>
 </div>
 {% endblock %}
 

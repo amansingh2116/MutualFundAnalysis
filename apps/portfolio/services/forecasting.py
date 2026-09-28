@@ -162,11 +162,11 @@ def calculate_ta_indicators(portfolio):
     holds = votes.count('HOLD')
     
     if buys > sells and buys >= holds:
-        consensus = 'BUY' if buys <= 2 else 'STRONG BUY'
+        consensus = 'BULLISH' if buys <= 2 else 'STRONG BULLISH'
     elif sells > buys and sells >= holds:
-        consensus = 'SELL' if sells <= 2 else 'STRONG SELL'
+        consensus = 'BEARISH' if sells <= 2 else 'STRONG BEARISH'
     else:
-        consensus = 'HOLD'
+        consensus = 'NEUTRAL'
         
     return {
         'current_value': round(latest['current_value'], 2),

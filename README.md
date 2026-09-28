@@ -19,7 +19,7 @@
 ### 1. 📄 Institutional PDF Research Report System
 - **Comprehensive Institutional PDF Report**: Automated Chrome-headless PDF generator creating wall-street style research documents for any Indian mutual fund scheme or ETF.
 - **Dynamic Analyst Narrative Generator**: Synthesizes scorecards, 3Y CAGR, Jensen's Alpha, Beta, Sharpe Ratios, Rolling Return Win-Rates, and Technical Signals into structured research commentaries.
-- **Executive Analyst Verdict Cards**: Assigns quantitative ratings (`STRONG BUY`, `BUY / ACCUMULATE`, `HOLD`, `REBALANCE`) with target holding horizons, investor profiles, deployment strategies, key strengths, and monitorable risks.
+- **Executive Quantitative Model Assessment**: Generates objective percentile-based quantitative classifications (`TOP DECILE / OUTPERFORM`, `ABOVE AVERAGE / CORE PROFILE`, `CATEGORY AVERAGE / NEUTRAL ALIGNMENT`, `BELOW AVERAGE / REVIEW WARRANTED`) with model-calibrated holding horizons, investor profiles, deployment frameworks, key strengths, and monitorable risks.
 - **In-Line Metric Definitions**: Educational explainer cards for Jensen's Alpha, Sharpe & Sortino Ratios, Beta, and Maximum Drawdown.
 - **Visual Analytics & Gauges**: Side-by-side rolling return distribution box plots (1Y–7Y), technical riskometer gauges (Daily/Weekly/Monthly), and 10-column peer comparison matrices.
 - *See [INSTITUTIONAL_REPORT.md](documentation/INSTITUTIONAL_REPORT.md) for full architecture and template specifications.*
@@ -100,7 +100,7 @@
   - **Official SEBI Mandate Badges**: Precise investment rules and asset allocation constraints for all 80+ SEBI categories.
   - **21-KPI Summary Strip**: Averages, medians, Sharpe, Sortino, rolling 3Y positive windows, alpha, beta, and max drawdowns.
   - **Interactive 6-Tab Workspace**: Snapshot, Returns (Trailing, Calendar Year, and Rolling Return sub-tabs), Risk Analytics, Portfolio Analysis (Equity sector breakdowns with asset allocation fallback for Debt/Liquid categories), Fees & Details, and Intelligence.
-  - **Side-by-Side Category Comparison (`/research/categories/compare/`)**: 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with winner badges (★ Best).
+  - **Side-by-Side Category Comparison (`/research/categories/compare/`)**: 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with metric leader badges (★ Leader).
 
 ---
 
@@ -147,7 +147,7 @@
 | **Fund Screener** | `/funds/screener/` | ✅ Shipped | Multi-metric filtering (Category, AUM, TER, Returns, Sharpe, Alpha, Model Score), dynamic column picker, sorting, CSV export, and 1-click watchlist addition. |
 | **Category Analysis Hub** | `/research/categories/` | ✅ Shipped | 4 asset group tabs (Equity, Debt, Hybrid, Other), SEBI mandate descriptions, category return meter, AUM bars, Sharpe averages, 2-to-4 category selector float bar. |
 | **Category Detail Page** | `/research/categories/<slug>/` | ✅ Shipped | Official SEBI mandate badge, 21-KPI summary strip, 6-tab analysis workspace (Snapshot, Returns with 3 sub-tabs, Risk, Portfolio Holdings/Sectors, Fees, Intelligence). |
-| **Category Side-by-Side Comparison** | `/research/categories/compare/` | ✅ Shipped | 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with direction-calibrated winner badges (★ Best). |
+| **Category Side-by-Side Comparison** | `/research/categories/compare/` | ✅ Shipped | 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with direction-calibrated metric leader badges (★ Leader). |
 | **AMC Analysis Directory** | `/research/amcs/` | ✅ Shipped | Directory of ~50 AMCs with AUM, fund counts, average 3Y CAGR, TER, model score, and 2-to-4 AMC comparison selector. |
 | **AMC Detail Page** | `/research/amcs/<slug>/` | ✅ Shipped | AUM history trend line, top 20 holdings, sector tilts, recent month-over-month exits/disinvestments, cross-fund high conviction stocks, and manager roster. |
 | **AMC Side-by-Side Comparison** | `/research/amcs/compare/` | ✅ Shipped | Side-by-side comparison of 2–4 AMCs across aggregate AUM, fund counts, Sharpe ratios, turnover, and manager quality. |

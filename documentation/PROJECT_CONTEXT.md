@@ -99,7 +99,7 @@ apps/
  1. **Category Analysis & Comparison**:
     - **Directory (`/research/categories/`)**: Group tabs (Equity, Debt, Hybrid, Other), card grid with AUM, CAGR averages, average Sharpe, TER, % positive 3Y rolling windows, SEBI 2017 mandate descriptions, fund quality score distribution bar, search, and float bar for 2–4 category comparison.
     - **Detail Page (`/research/categories/<slug>/`)**: Official SEBI mandate badge, 21-KPI snapshot strip, 6 interactive tabs (Snapshot, Returns with trailing/calendar/rolling subtabs, Risk, Portfolio Analysis with sector breakdown for equity funds and asset allocation/concentration fallback for debt/liquid funds, Fees & Details, and Intelligence).
-    - **Comparison (`/research/categories/compare/`)**: 6-dimension evaluation matrix comparing 2–4 categories side-by-side on 35+ metrics with direction-calibrated winner badges (★ Best), progress bars, and URL state persistence.
+    - **Comparison (`/research/categories/compare/`)**: 6-dimension evaluation matrix comparing 2–4 categories side-by-side on 35+ metrics with direction-calibrated metric leader badges (★ Leader), progress bars, and URL state persistence.
  2. **AMC Analysis & Comparison**:
     - **Directory (`/research/amcs/`)**: Browse all ~50 fund houses with aggregate AUM, fund count, 3Y returns, expense ratios, quality scores, and multi-select 2–4 AMC comparison.
     - **Detail Page (`/research/amcs/<slug>/`)**:

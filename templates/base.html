@@ -282,17 +282,21 @@
     </main>
 
     <!-- Footer -->
-    <footer style="padding:20px 24px;border-top:1px solid var(--border);background:var(--bg-card)">
-      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;max-width:1200px;margin:0 auto">
-        <div style="font-size:11px;color:var(--text-muted);line-height:1.6">
-          MF Analysis — Data from AMFI, mfapi.in, NSE. Not financial advice.
-          <br>Free to use &middot; Not open source &middot; All rights reserved.
+    <footer style="padding:24px;border-top:1px solid var(--border);background:var(--bg-card)">
+      <div style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary)">
+            MutualFundAnalysis &middot; Quantitative Research &amp; Analytics Platform
+          </div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+            <a href="{% url 'core:about' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">About</a>
+            <a href="{% url 'core:terms' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Terms</a>
+            <a href="{% url 'core:privacy' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Privacy</a>
+            <a href="{% url 'core:contact' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Contact</a>
+          </div>
         </div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap">
-          <a href="{% url 'core:about' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">About</a>
-          <a href="{% url 'core:terms' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Terms</a>
-          <a href="{% url 'core:privacy' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Privacy</a>
-          <a href="{% url 'core:contact' %}" style="font-size:11px;color:var(--text-muted);text-decoration:none" onmouseover="this.style.color='var(--indigo-400)'" onmouseout="this.style.color='var(--text-muted)'">Contact</a>
+        <div style="font-size:10.5px;color:var(--text-muted);line-height:1.6;border-top:1px solid rgba(255,255,255,0.05);padding-top:10px">
+          <strong>Regulatory &amp; Statutory Notice:</strong> MutualFundAnalysis is an automated quantitative screening and statistical analysis tool. Data sourced from AMFI, mfapi.in, and NSE. MutualFundAnalysis is <strong>not registered with SEBI as an Investment Adviser (RIA) or Research Analyst (RA)</strong> under SEBI (Investment Advisers) Regulations, 2013 or SEBI (Research Analysts) Regulations, 2014. All quantitative scores, percentiles, model outputs, and comparisons are strictly for educational and self-directed screening purposes and do not constitute financial advice, investment recommendations, or an endorsement of any scheme. Mutual fund investments are subject to market risks; read all scheme-related documents carefully.
         </div>
       </div>
     </footer>

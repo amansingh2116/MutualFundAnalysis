@@ -161,6 +161,11 @@
   </table>
 </div>
 
+<div style="margin-top:14px; padding:10px 16px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--text-muted); line-height:1.5;">
+  <span class="winner-badge" style="margin-right:6px">★ Leader</span>
+  <strong style="color:var(--text-primary)">Metric Leader Indicator:</strong> Identifies the fund house with the highest mathematical historical value for that single parameter (e.g. highest 3Y alpha, lowest average expense ratio). Does not represent an overall AMC rating, endorsement, or investment recommendation. For research and comparative screening only.
+</div>
+
 {# ── Sector Chart Section (rendered after data loads) ── #}
 <div id="sector-section" style="display:none;margin-top:32px">
   <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">🏭 Sector Allocation Comparison <button type="button" class="info-btn" aria-label="Info" data-t-title="Sector Allocation Comparison" data-t-what="Compares average sector weightings across equity funds between selected AMCs." data-t-interp="Highlights structural sector bets (e.g. Financials vs IT vs Industrials) between fund houses." data-t-link="mutual fund sector comparison">ⓘ</button></h3>
@@ -433,7 +438,7 @@ function renderTable(amcs) {
 
       return `<td style="text-align:center;${isBest ? 'background:rgba(34,197,94,0.05)' : ''}">
         <span style="font-weight:700;font-size:14px;${colorStyle}">${displayVal}</span>
-        ${isBest ? '<span class="winner-badge">★ Best</span>' : ''}
+        ${isBest ? '<span class="winner-badge">★ Leader</span>' : ''}
         ${bar}
       </td>`;
     }).join('');

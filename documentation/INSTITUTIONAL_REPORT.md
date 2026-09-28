@@ -66,18 +66,18 @@ Unlike traditional static PDF reports, this report synthesizes **quantitative me
 
 | Page # | Section Title | Key Visuals & Analytical Components |
 |---|---|---|
-| **Page 1** | **Institutional Cover Page** | Dark slate / indigo gradient hero banner, rating score badge, 6-card performance & risk KPI grid, fund specifications table, investment objective box, executive start disclaimer. |
-| **Page 2** | **Fund Scorecard & Executive Summary** | Executive Verdict Card (`STRONG BUY`, `BUY`, `HOLD`, `REBALANCE`), recommended holding horizon, investor profile, deployment strategy, key strengths bullet card, key risks bullet card, quantitative score gauge, category rank, 6-pillar score breakdown table. |
+| **Page 1** | **Institutional Cover Page** | Dark slate / indigo gradient hero banner, quantitative score badge, 6-card performance & risk KPI grid, fund specifications table, investment objective box, executive start disclaimer. |
+| **Page 2** | **Fund Scorecard & Executive Summary** | Executive Quantitative Classification Card (`TOP DECILE / OUTPERFORM`, `ABOVE AVERAGE / CORE PROFILE`, `CATEGORY AVERAGE / NEUTRAL ALIGNMENT`, `BELOW AVERAGE / REVIEW WARRANTED`), suggested holding horizon, investor profile, deployment framework, key strengths bullet card, monitorable risk factors card, quantitative score gauge, category rank, 6-pillar score breakdown table. |
 | **Page 3** | **Returns Analysis** | Historical CAGR & trailing performance commentary box, NAV growth chart, trailing CAGR table (1M, 3M, 6M, 1Y, 3Y, 5Y, Max vs benchmark & category), calendar-year returns bar chart & table. |
 | **Page 4** | **Rolling Returns Analysis** | Rolling return consistency & win-rate commentary box, side-by-side rolling return distribution box plot (1Y, 2Y, 3Y, 5Y, 7Y), 1Y / 3Y / 5Y rolling return timeseries charts, statistical tables (min, max, median, mean, win-rate >0%, win-rate >8%). |
 | **Page 5** | **Risk & Risk-Adjusted Returns** | Volatility & risk-adjusted return commentary box, 4-card metric explainer grid (Jensen's Alpha, Sharpe & Sortino, Beta, Max Drawdown), 3Y risk metrics table, 5Y risk metrics table, worst drawdown chart & recovery table. |
 | **Page 6** | **Yearly Risk & Market Regimes** | Yearly risk table (annualized volatility, max drawdown, Sharpe by calendar year), 6-period crisis stress-test table (2024–25 Tariff Shock, COVID-19 Crash, 2022 Rate Hikes, 2018 IL&FS, 2015 China Slowdown, 2008 GFC), market regime analysis table (Bull, Bear, Sideways, High Inflation, Rate Cut). |
 | **Page 7** | **Portfolio & Asset Allocation** | Portfolio concentration commentary box, top 20 stock holdings table, sector allocation donut chart & table, market-cap / asset-class allocation breakdown. |
 | **Page 8** | **Quarterly Performance & Peer Comparison** | Peer group positioning commentary box, best & worst quarterly return tables, 10-column peer fund comparison matrix (Fund, AMC, 1Y, 3Y, 5Y, Sharpe, Volatility, Alpha, Expense Ratio, AUM), link to interactive web calculator. |
-| **Page 9** | **Technical Indicators Summary** | Multi-timeframe technical trend commentary box, Daily / Weekly / Monthly technical indicator cards, quantitative signal counts (Buy, Neutral, Sell), moving average tables, oscillator tables, technical riskometer gauge charts. |
+| **Page 9** | **Technical Indicators Summary** | Multi-timeframe technical trend commentary box, Daily / Weekly / Monthly technical indicator cards, quantitative signal counts (Bullish, Neutral, Bearish), moving average tables, oscillator tables, technical riskometer gauge charts. |
 | **Page 10** | **SIP & Tax Analysis** | SIP returns table (1Y, 3Y, 5Y total invested, current value, XIRR), capital gains tax rules table (STCG, LTCG FY 2025-26 rules for Equity, Debt, and Hybrid funds). |
-| **Page 11** | **Fund Manager & Data Sources** | Fund manager profiles, lead tenure, investment objective statement, data provenance table (AMFI, mfapi.in, Yahoo Finance, Morningstar), model scoring methodology notes. |
-| **Page 12** | **Analyst Summary & Final Verdict** | Final analyst investment verdict card, core vs satellite allocation guidance, strategic rebalancing & exit trigger rules, institutional risk disclosure. |
+| **Page 11** | **Fund Manager & Data Sources** | Fund manager profiles, lead tenure, investment objective statement, data provenance table (AMFI, mfapi.in, Yahoo Finance, Morningstar), model scoring methodology notes, SEBI RA Regulation statutory notice. |
+| **Page 12** | **Analyst Summary & Final Classification** | Final quantitative model performance classification card, core vs satellite allocation framework, quantitative monitoring & review criteria, full statutory SEBI compliance disclaimer. |
 
 ---
 
@@ -90,16 +90,16 @@ def _build_research_narratives(ctx: dict) -> dict:
     """
     Evaluates calculated score, percentile rank, 3Y CAGR, Alpha, Beta,
     Sharpe Ratio, Volatility, Rolling Win-Rates, and Technical Signals.
-    Returns dynamic verdict action, tagline, horizon, profile, strategy,
+    Returns dynamic classification action, tagline, horizon, profile, strategy,
     bulleted strengths, monitorable concerns, and commentary text blocks.
     """
 ```
 
-### Rating Verdict Triggers:
-- **Score ≥ 75**: `STRONG BUY / OUTPERFORM` (Top-tier performer, robust alpha, disciplined risk control)
-- **Score ≥ 60**: `BUY / ACCUMULATE` (Solid core holding, consistent benchmark beating capability)
-- **Score ≥ 45**: `HOLD / NEUTRAL` (Balanced performance aligned with category averages)
-- **Score < 45**: `UNDERPERFORM / REBALANCE` (Lagging relative returns or elevated risk metrics)
+### Quantitative Model Classification Triggers:
+- **Score ≥ 75**: `TOP DECILE / OUTPERFORM` (Top-tier quantitative profile, robust historical alpha, disciplined risk control)
+- **Score ≥ 60**: `ABOVE AVERAGE / CORE PROFILE` (Solid quantitative profile, consistent benchmark beating capability)
+- **Score ≥ 45**: `CATEGORY AVERAGE / NEUTRAL ALIGNMENT` (Balanced performance aligned with category averages)
+- **Score < 45**: `BELOW AVERAGE / REVIEW WARRANTED` (Lagging relative returns or elevated risk metrics warranting review)
 
 ---
 

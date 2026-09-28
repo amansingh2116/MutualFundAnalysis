@@ -947,10 +947,10 @@ function renderTADashboard(ta) {
     // Style consensus pill
     const cPill = document.getElementById("ta-consensus-pill");
     cPill.innerText = ta.consensus;
-    if (ta.consensus.includes("BUY")) {
+    if (ta.consensus.includes("BUY") || ta.consensus.includes("BULLISH")) {
         cPill.style.background = "rgba(16,185,129,0.15)";
         cPill.style.color = "var(--emerald-400)";
-    } else if (ta.consensus.includes("SELL")) {
+    } else if (ta.consensus.includes("SELL") || ta.consensus.includes("BEARISH")) {
         cPill.style.background = "rgba(248,113,113,0.15)";
         cPill.style.color = "var(--red-400)";
     } else {
