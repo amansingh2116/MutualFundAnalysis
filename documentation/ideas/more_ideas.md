@@ -148,7 +148,7 @@ Integrating AI capabilities into research workflows while preserving strict data
 | **Fund Screener** | `/funds/screener/` | ✅ Shipped | Multi-metric filtering (Category, AUM, TER, Returns, Sharpe, Alpha, Model Score), dynamic column picker, sorting, CSV export, and quick watchlist addition. |
 | **Category Analysis Hub** | `/research/categories/` | ✅ Shipped | 4 asset group tabs (Equity, Debt, Hybrid, Other), SEBI mandate descriptions, category return meter, AUM bars, Sharpe averages, 2-to-4 category selector float bar. |
 | **Category Detail Page** | `/research/categories/<slug>/` | ✅ Shipped | Official SEBI mandate badge, 21-KPI summary strip, 6-tab analysis workspace (Snapshot, Returns with 3 sub-tabs, Risk, Portfolio Holdings/Sectors, Fees, Intelligence). |
-| **Category Side-by-Side Comparison** | `/research/categories/compare/` | ✅ Shipped | 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with direction-calibrated winner badges (★ Best). |
+| **Category Side-by-Side Comparison** | `/research/categories/compare/` | ✅ Shipped | 6-dimension evaluation matrix comparing 2–4 categories on 35+ metrics with direction-calibrated metric leader badges (★ Leader). |
 | **AMC Analysis Directory** | `/research/amcs/` | ✅ Shipped | Directory of ~50 AMCs with AUM, fund counts, average 3Y CAGR, TER, model score, and 2-to-4 AMC comparison selector. |
 | **AMC Detail Page** | `/research/amcs/<slug>/` | ✅ Shipped | AUM history trend line, top 20 holdings, sector tilts, recent month-over-month exits/disinvestments, cross-fund high conviction stocks, and manager roster. |
 | **AMC Side-by-Side Comparison** | `/research/amcs/compare/` | ✅ Shipped | Side-by-side comparison of 2–4 AMCs across aggregate AUM, fund counts, Sharpe ratios, turnover, and manager quality. |
@@ -179,3 +179,160 @@ Integrating AI capabilities into research workflows while preserving strict data
 - [SEBI Stock Category Changes India — Complete Story from 2018 to 2026](https://rightadvise.com/sebi-india-market-cap-story.php)
 - [SEBI Market Cap Category Changes — 2026 Update](https://rightadvise.com/sebi-market-cap-update.php)
 - [History of Mutual Funds in India (AMFI Knowledge Center)](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=HistoryOfMutualFundsInIndia)
+
+---
+
+## 8. ⏳ Future Work: Data Source Risk & Migration Strategy
+
+> **Status:** Not yet implemented. Capture of known technical debt and recommended migration path before scaling to production traffic.
+
+### 8.1 Source-by-Source ToS & IP-Block Risk Verdict
+
+This is a multi-source platform. Each source has a completely different risk profile:
+
+| Source | What it's used for | ToS stance | IP-block risk | Proxy needed? |
+|---|---|---|---|---|
+| **AMFI** (`amfiindia.com/spages/NAVAll.txt`) | Scheme universe, latest NAVs | Public regulator data, no restrictions stated | Very low — static file, rate-limited only | No |
+| **mfapi.in** | Historical NAV per scheme (~14,000 schemes) | Free API, explicitly for developers | Very low — community wrapper around AMFI | No |
+| **captnemo.in** | Expense ratio, AUM, SIP metadata | Free proxy of Kuvera data, community project | Low — 1s delay already coded | No |
+| **yfinance** | Benchmark prices, VIX, USD/INR, global indices | Yahoo ToS is strict but yfinance widely tolerated; Yahoo has not litigated individual developers | Medium — Yahoo rate-limits aggressively; 2s sleep already coded | Maybe (at thousands of concurrent users) |
+| **NSE Direct API** (`nseindia.com/api/*`) | Live indices, PCR, FII data, historical benchmark OHLC, Nifty cap classification | Explicitly **prohibits** "systematic or automated data collection" | **High** — session cookie warmup is a bot-evasion signal NSE actively fights; breaks regularly | Yes, eventually |
+| **mstarpy / Morningstar** | Holdings, sector allocation, trailing returns, risk metrics | Explicitly **prohibits** commercial use and automated scraping | **High** — 2s rate limit already coded; Morningstar actively kills these sessions | Yes, or replace |
+| **FRED API** | India CPI, RBI Repo, Fed Funds Rate | Official government API with free tier; key-based | Very low — BYOK model already in place | No |
+| **nsepython / nselib** | Historical index data | Same underlying issue as NSE Direct API | **High** | Same as NSE above |
+
+### 8.2 The Real Concern: NSE + Morningstar (Confirmed ToS Violations)
+
+Two confirmed ToS violators are embedded in the critical data path:
+
+**NSE** (benchmark data, live market strip PCR/FII/indices):
+- Files: `adapters/benchmark_adapter.py`, `apps/benchmarks/nsepython_adapter.py`, `apps/benchmarks/metric_providers.py`, `apps/funds/management/commands/update_nifty_caplist.py`
+- The session warmup trick (`GET homepage → GET market-data page → then API`) is a bot-evasion pattern — NSE knows this and blocks it periodically
+- **Actual risk:** Data quality degradation (silent 403s), occasional complete market strip outages, potential C&D if the platform grows large enough to notice
+
+**Morningstar** (holdings, sector allocation):
+- Files: `adapters/mstarpy_adapter.py`, `apps/funds/mstarpy_fetch.py`
+- Already has 2s rate limit, version-aware constructor inspection — all signs of active anti-bot fighting
+- Holdings data only covers schemes with a Morningstar ID; `morningstar_id` is nullable — platform silently degrades when this breaks
+- **Actual risk:** Completely losing all holdings/sector data for all funds (this will happen eventually)
+
+**Will proxies fix this?**
+- For NSE: Proxy IPs help with simple IP blocks, but NSE uses cookie-based session authentication. A proxy pool without browser-level fingerprinting (Playwright/Puppeteer + residential IPs) will not reliably fix this. Cost: residential proxy pools run $50–200/month.
+- For Morningstar: mstarpy works because it mimics a browser session. At scale, Morningstar will deploy fingerprinting that defeats simple proxies.
+
+### 8.3 Sustainable Architecture — No Proxies Needed for Core Features
+
+The platform's core analytical value does **not** require Morningstar or NSE scraping. Every risky source has a clean, legally sound alternative:
+
+| What you need | Current source (risky) | Clean alternative |
+|---|---|---|
+| Benchmark historical data | NSE Direct API | **Stooq.com** (free, no ToS restrictions) or pre-ingested DB; NSE officially sells historical data via NCFM |
+| Live index values | NSE `allIndices` endpoint | **yfinance** fallback (`^NSEI`, `^BSESN` etc.) — already coded in `benchmark_adapter.py` |
+| PCR / FII data | NSE options chain + FII endpoint | **SEBI** publishes FII data officially; PCR can be marked "live data unavailable" when NSE blocks |
+| Holdings / Sector data | mstarpy (Morningstar) | **AMFI Monthly Portfolio Disclosure** — SEBI mandates all AMCs publish full portfolio by the 10th of each month in standardized format |
+| Expense ratio / AUM | captnemo → Kuvera proxy | captnemo is fine; AMFI also publishes expense ratio data officially |
+
+> **Key insight:** AMFI mandates that every AMC publish its complete monthly portfolio (all stock holdings, weights, sector) in a standardized format by the 10th of each month. This is the **exact same data Morningstar sources**. Parsing AMFI portfolio disclosures would eliminate the Morningstar dependency entirely — legally, at no cost.
+
+### 8.4 Proposed Migration Plan
+
+```
+NSE Benchmark History   →  Stooq.com (free, no ToS restrictions) or pre-ingested DB
+NSE Live Indices        →  yfinance fallback (already coded in benchmark_adapter.py!)
+NSE FII/PCR data        →  SEBI official releases + AMFI SIP inflows (already coded)
+NSE Cap Classification  →  One-time download; store in DB; refresh quarterly from NSE bulk data files
+Morningstar Holdings    →  AMFI Monthly Portfolio Disclosure parser (new adapter to build)
+Morningstar Risk/Sector →  Derive from NAV + Holdings (engine.py already computes most of this)
+```
+
+> The yfinance fallback in `benchmark_adapter.py` is already correct and production-ready. The NSE direct API path should be demoted from primary to **last-resort**, and the benchmark ingest pipeline should use Stooq/Yahoo as primary. Estimated migration effort: **1–2 days**.
+
+---
+
+## 9. ⏳ Future Work: Score Predictive Validity Study
+
+> **Status:** Not yet implemented. This is the highest-ROI next research build — simultaneously builds platform trust, research credibility, and career capital.
+
+### 9.1 What "Score Validation" Means Technically
+
+The platform has a 6-pillar score for every fund, computed at every point in time where score trend data is available. The question is: **does a high score today predict better future returns?**
+
+Three statistical tests that matter:
+
+**1. Rank Information Coefficient (IC)**
+
+```
+At each rebalance date t:
+  - Compute score for all funds
+  - Rank funds by score
+  - 6 months later, rank same funds by actual return
+  - Compute Spearman correlation between score-rank and return-rank = IC_t
+
+IC > 0.10 consistently → score has genuine predictive signal
+IC ≈ 0               → score is decorative
+IC > 0.20            → strong signal (rare and valuable)
+```
+
+**2. Decile Spread**
+
+```
+At each rebalance date t:
+  - Sort all funds by score into 10 deciles
+  - Track forward 1Y/3Y returns of each decile
+  - Plot: Decile 1 (highest score) vs Decile 10 (lowest score) average returns
+
+A monotonic return gradient from D10→D1 validates the score is ordinal-informative
+```
+
+**3. Hit Rate**
+
+```
+For each fund scored above X (e.g., ≥ 70):
+  - Did it beat its category benchmark in the following 12 months?
+
+Hit Rate > 55% → score is useful for filtering
+Hit Rate > 65% → score is a genuine quality signal
+```
+
+### 9.2 Why This Can Be Run Now
+
+The database already has all three required inputs:
+- **Score trends** (`ingest_score_trend.py` actively ingesting)
+- **NAV history per scheme** (basis for return computation)
+- **Benchmark data per category** (for excess return / alpha computation)
+
+Study design: *"For every fund scored between 2024-01-01 and 2025-09-01, does score at time T predict 6-month/12-month return rank at time T+6M/T+12M?"*
+
+The earliest score records define the training window. Enough data exists for at least a partial IC analysis today.
+
+### 9.3 Three Audiences & What They Get
+
+| Audience | What they want | What score validation gives them |
+|---|---|---|
+| **Platform users** | "Should I trust this score?" | "Our IC is 0.14 — the score has real signal but isn't perfect" → trust |
+| **Research community** | Publishable quant study | Out-of-sample, chronologically validated IC/decile study on 1,500+ Indian MFs = genuine academic contribution |
+| **Career** | Quant portfolio talking point | "I built, ran, and published a predictive validity study on a proprietary 6-pillar scoring model for Indian mutual funds" |
+
+### 9.4 Published Output Structure
+
+A 4-section post/paper:
+1. **Methodology** — How the score is constructed (documented in `SCORING_MODEL.md`)
+2. **Validation design** — Out-of-sample, expanding window, no look-ahead bias
+3. **Results** — IC timeseries, decile return chart, hit rate by score bucket
+4. **Honest caveats** — Where the score doesn't predict (e.g., does it fail for debt funds? small-cap specifically?)
+
+> The "honest caveats" section is what converts skeptics. A platform that says "our score works except in these specific cases and here's why" is trusted far more than one that claims universal accuracy.
+
+---
+
+## 10. ⏳ Recommended Priority Stack (Pre-Launch)
+
+```
+Priority  Task                                 Rationale
+───────── ──────────────────────────────────── ────────────────────────────────────────────────────────────
+  1 ✅    Score Validation Study               Builds platform trust + research content + career capital simultaneously
+  2 ✅    Portfolio Health Centerpiece          Fixes UX focus problem; gives users a clear entry point
+  3 ✅    NSE + Morningstar Source Migration    Legal/reliability time bomb; must be resolved before scale
+  4 ✅    SEBI RA Verdict Language Reframe      Cheap (1 day), reduces regulatory surface materially — DONE
+  5 ⏳    Proxy strategy                        Not needed if #3 is addressed; revisit only for Yahoo/yfinance at scale
+```
