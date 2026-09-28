@@ -19,6 +19,41 @@ _turso_url = os.environ.get('TURSO_DB_URL', '')
 _raw_url = os.environ.get('DATABASE_URL', '')
 
 if _turso_url:
+    # ── Turso API Compatibility Patch ─────────────────────────────────────────
+    # Turso Hrana v2 HTTP API expects {"type": "float"}, but django_libsql 0.1.3
+    # serializes Python floats as {"type": "real"}. Patch it cleanly at import time.
+    try:
+        import django_libsql.base as _dlb
+        _orig_py_val = _dlb._py_value_to_turso_type
+        def _compat_py_value_to_turso_type(value):
+            res = _orig_py_val(value)
+            if res.get('type') == 'real':
+                res['type'] = 'float'
+            return res
+        _dlb._py_value_to_turso_type = _compat_py_value_to_turso_type
+
+        _orig_turso_val = _dlb._turso_value_to_py
+        def _compat_turso_value_to_py(cell):
+            if cell is None:
+                return None
+            if cell.get('type') == 'float':
+                return float(cell.get('value'))
+            return _orig_turso_val(cell)
+        _dlb._turso_value_to_py = _compat_turso_value_to_py
+
+        _orig_proc = _dlb.TursoCursor._process_response
+        def _compat_process_response(self, data):
+            # Turso v2 can return None for NULL cells; normalize to {"type": "null"}
+            res = data.get("result", {})
+            for row in res.get("rows", []):
+                for i in range(len(row)):
+                    if row[i] is None:
+                        row[i] = {"type": "null"}
+            return _orig_proc(self, data)
+        _dlb.TursoCursor._process_response = _compat_process_response
+    except ImportError:
+        pass
+
     DATABASES = {
         'default': {
             'ENGINE': 'django_libsql',
