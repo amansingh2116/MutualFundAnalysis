@@ -1,72 +1,46 @@
-"""config/settings/prod.py — Production settings (Render.com + CockroachDB)."""
+"""config/settings/prod.py — Production settings (Render.com + PostgreSQL).
+
+Supports any standard PostgreSQL provider: Neon, Supabase, Railway, or plain
+Render PostgreSQL. Set DATABASE_URL in Render env vars and GitHub Secrets.
+
+DATABASE_URL format:
+    postgresql://user:pass@host/dbname?sslmode=require
+"""
 from .base import *
 import os
-import urllib.parse
+import dj_database_url
 
 DEBUG = False
 
-# ── Belt-and-suspenders: patch PostgreSQL 14 version check at import time ─────
-# CockroachDB reports "PostgreSQL 13.0" for wire-compatibility; Django 5.x would
-# raise: NotSupportedError: PostgreSQL 14 or later is required.
-# Our custom backend overrides check_database_version_supported, but we ALSO
-# patch BaseDatabaseWrapper directly — that is the class where this method is
-# DEFINED in Django 5.x (previously it was called DatabaseWrapper; patching the
-# wrong name was a silent no-op and is why earlier attempts didn't work).
-from django.db.backends.base.base import BaseDatabaseWrapper as _BaseDatabaseWrapper
-from django.db.backends.postgresql.base import DatabaseWrapper as _PgDatabaseWrapper
-_BaseDatabaseWrapper.check_database_version_supported = lambda self: None
-_PgDatabaseWrapper.check_database_version_supported = lambda self: None
-
-# ── Database (CockroachDB via DATABASE_URL) ───────────────────────────────────
-# We parse DATABASE_URL ourselves with urllib.parse so ENGINE is set to
-# 'config.backends.cockroachdb' unconditionally (no conditional branch to miss).
-#
-# Supported URL formats:
-#   postgresql://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
-#   cockroachdb://user:pass@host.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
+# ── Database (Turso libSQL or PostgreSQL via DATABASE_URL) ───────────────────
+# If TURSO_DB_URL is provided, use django-libsql-backend (Turso serverless SQLite).
+# Otherwise, fall back to standard PostgreSQL via DATABASE_URL (Neon, Supabase, etc.).
+_turso_url = os.environ.get('TURSO_DB_URL', '')
 _raw_url = os.environ.get('DATABASE_URL', '')
-if _raw_url:
-    _url = (
-        _raw_url
-        .replace('cockroachdb://', 'postgresql://', 1)
-        .replace('cockroach://', 'postgresql://', 1)
-    )
-    _p = urllib.parse.urlparse(_url)
-    _qs = urllib.parse.parse_qs(_p.query)
+
+if _turso_url:
     DATABASES = {
         'default': {
-            'ENGINE':   'config.backends.cockroachdb',  # our CockroachDB-compatible backend
-            'NAME':     _p.path.lstrip('/') or 'defaultdb',
-            'USER':     urllib.parse.unquote(_p.username or ''),
-            'PASSWORD': urllib.parse.unquote(_p.password or ''),
-            'HOST':     _p.hostname or 'localhost',
-            'PORT':     str(_p.port or 26257),
-            # CONN_MAX_AGE=0: Do NOT use persistent connections.
-            # CockroachDB Cloud drops idle connections after a few minutes;
-            # reusing a dead connection causes a 500 on the next DB write
-            # (e.g. session save on login). 0 = close after each request.
-            'CONN_MAX_AGE':      0,
-            'CONN_HEALTH_CHECKS': True,
+            'ENGINE': 'django_libsql',
+            'NAME': _turso_url,
+            'AUTH_TOKEN': os.environ.get('TURSO_AUTH_TOKEN', ''),
             'OPTIONS': {
-                # sslmode=require: keeps connection encrypted but skips cert
-                # verification. verify-full fails on Render/GH Actions because
-                # neither has a CockroachDB root cert file.
-                'sslmode': 'require',
-            },
+                'timeout': 60,
+            }
         }
     }
+elif _raw_url:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            _raw_url,
+            conn_max_age=0,          # No persistent connections — cloud DBs drop idle
+            conn_health_checks=True,  # Validate connection before reuse
+            ssl_require=True,         # Always encrypt
+        )
+    }
 else:
-    # DATABASE_URL not set — app will fail on first DB access with a clear error.
-    DATABASES = {'default': {'ENGINE': 'config.backends.cockroachdb'}}
-
-
-# django_q migration 0003 is incompatible with CockroachDB (it tries to DROP
-# the integer primary-key column, which CockroachDB blocks). Using None tells
-# Django to skip the migration files and create these tables via syncdb from
-# the final model definition instead — which CockroachDB handles correctly.
-MIGRATION_MODULES = {
-    'django_q': None,
-}
+    # App will fail on first DB access if neither is set
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql'}}
 
 
 # WhiteNoise for static files

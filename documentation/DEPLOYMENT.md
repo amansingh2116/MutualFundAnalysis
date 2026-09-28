@@ -1,6 +1,6 @@
 # MF Analysis — Deployment Guide
 
-> **Production Stack:** Render.com (web service, free tier) + CockroachDB Serverless (database, free 10 GB) + GitHub Actions (weekly data pipeline, **free for public repositories**)
+> **Production Stack:** Render.com (web service, free tier) + Turso libSQL (database, free 5 GB) / PostgreSQL + GitHub Actions (weekly data pipeline, **free for public repositories**)
 > **Cost:** $0 — no credit card required on any platform.
 
 ---
@@ -65,65 +65,52 @@ Open **http://127.0.0.1:8000/**
 
 ---
 
-## Deploy to Production (Render + CockroachDB + GitHub Actions)
+## Deploy to Production (Render + Turso libSQL + GitHub Actions)
 
 ### Architecture Overview
 
 ```
 GitHub (public repository)
    │
-   ├── Render Web Service (mfanalysis-web)
+   ├── Render Web Service (custom name, e.g. mfanalysis)
    │     ├── build.sh → installs Chromium + pip install
-   │     ├── gunicorn → serves the Django app (2 workers)
+   │     ├── gunicorn → serves the Django app
    │     └── sleeps after 15 min inactivity (free tier)
    │
    ├── GitHub Actions (.github/workflows/weekly_pipeline.yml)
-   │     ├── Runs Mon–Sat at 8:30 PM UTC (2 AM IST)
-   │     ├── Each day processes 1 of 6 batches (~384 funds)
-   │     ├── FREE for public repos (unlimited minutes)
-   │     └── Writes directly to CockroachDB
+   │     ├── Runs every 6 hours (free for public repos)
+   │     └── Writes directly to Turso / PostgreSQL
    │
-   └── CockroachDB Basic (database)
-         ├── Free forever — 10 GB storage
-         ├── PostgreSQL wire-compatible (psycopg2 works directly)
-         └── Serverless — scales to zero when idle
+   └── Turso libSQL (database)
+         ├── Free tier — 5 GB storage (no credit card required)
+         ├── SQLite dialect (100% compatible with local dev data)
+         └── Serverless with edge replication (Mumbai region: bom)
 ```
 
-> ⚠️ **Public Repository Required:** The GitHub Actions pipeline uses ~1,860 min/month. Private repos are capped at 2,000 min/month (would be fine, but barely). Public repos have **unlimited free minutes**. The repository should be public.
+> ⚠️ **Public Repository Required:** The GitHub Actions pipeline runs every 6 hours. Public repos have **unlimited free minutes**. The repository should be public.
 
 ---
 
-### Phase 1 — Set Up CockroachDB (10 minutes)
+### Phase 1 — Set Up Turso (5 minutes)
 
-**1.1 Create a CockroachDB account**
+**1.1 Create a Turso account**
 
-Go to [cockroachlabs.cloud](https://cockroachlabs.cloud) → **Sign up**
-- Use Google or GitHub login — no credit card required.
+Go to [turso.tech](https://turso.tech) → **Sign up**
+- Sign in with your GitHub account — **no credit card required**.
 
-**1.2 Create a free cluster**
+**1.2 Create a database**
 
-- Dashboard → **Create Cluster**
-- Select **Basic** (free tier, 10 GB)
-- Choose a region: **GCP us-east1** or **AWS ap-south-1** (India — lower latency)
-- Cluster name: `mfanalysis`
-- Click **Create Cluster**
+- Dashboard → **Create Database**
+- Database name: `mfanalysis`
+- Location: Select **AWS AP South (Mumbai)** for lowest latency to India.
+- Click **Create Database**.
 
-**1.3 Create a database user**
+**1.3 Get Connection Details**
 
-When prompted after cluster creation:
-- Username: `mfanalysis`
-- Password: generate a strong random password and **save it somewhere safe**
-
-**1.4 Get the connection string**
-
-Cluster dashboard → **Connect** → **Connection string**
-
-It will look like:
-```
-postgresql://mfanalysis:<PASSWORD>@mfanalysis-abc123.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
-```
-
-Copy this entire string — you will paste it into Render as `DATABASE_URL`.
+On the database overview page:
+- Copy the **Database URL**: `libsql://mfanalysis-<username>.aws-ap-south-1.turso.io`
+- Click **Create Token** / **Generate Token** and copy the **Auth Token**.
+- You will paste these into Render and GitHub Secrets as `TURSO_DB_URL` and `TURSO_AUTH_TOKEN`.
 
 ---
 

@@ -12,8 +12,12 @@ services:
         value: config.settings.prod
       - key: SECRET_KEY
         generateValue: true
+      - key: TURSO_DB_URL
+        sync: false   # Paste Turso DB URL (e.g. libsql://mfanalysis-amansingh2116.turso.io)
+      - key: TURSO_AUTH_TOKEN
+        sync: false   # Paste Turso Auth Token
       - key: DATABASE_URL
-        sync: false   # Paste CockroachDB connection string from cockroachlabs.cloud
+        sync: false   # Optional fallback PostgreSQL connection URL
       - key: ALLOWED_HOSTS
         value: .onrender.com
       - key: DEBUG

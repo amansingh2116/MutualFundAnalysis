@@ -7,7 +7,7 @@
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)](https://www.docker.com/)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary_Non--Commercial-red.svg)](LICENSE)
 [![Deployed on Render](https://img.shields.io/badge/Deployed%20on-Render-46E3B7?logo=render)](https://render.com)
-[![Database: CockroachDB](https://img.shields.io/badge/Database-CockroachDB-6933FF?logo=cockroachlabs)](https://cockroachlabs.cloud)
+[![Database: Turso](https://img.shields.io/badge/Database-Turso_(libSQL)-4FF8D2?logo=sqlite)](https://turso.tech)
 [![Kaggle Dataset](https://img.shields.io/badge/Kaggle-Dataset-20BEFF?logo=kaggle)](https://www.kaggle.com/datasets/amansingh2116/indian-mutual-funds-complete-nav-analytics)
 
 **Disclaimer:** Mutual fund investments are subject to market risks. Read all scheme-related documents carefully before investing. This platform is built strictly for research, quantitative analysis, and educational purposes. It does not constitute financial, legal, or tax advice.
@@ -190,7 +190,7 @@
 | **Visualization** | Plotly.js, Plotly Python, Canvas PDF.js |
 | **PDF Generation** | Google Chrome Headless, Django HTML/CSS Paged Media |
 | **Frontend UI** | Django Templates, Vanilla CSS (Custom Design System), Vanilla JS, HTMX |
-| **Database** | SQLite (dev) / CockroachDB -- PostgreSQL-compatible (production, free 10 GB) / PostgreSQL 16 (Docker dev) |
+| **Database** | SQLite (dev) / Turso libSQL (production, free 5 GB) / PostgreSQL (Neon/Supabase/Docker) |
 | **Containerization** | Docker + Docker Compose (multi-stage build; PostgreSQL 16 service for local dev) |
 | **Auth & Email** | Django built-in auth, rate-limited login, email verification, SMTP (Sender.net / Gmail) |
 | **External Data APIs** | mfapi.in (incremental NAV), captnemo.in / Kuvera (metadata), yfinance + yahooquery (equity benchmarks & portfolio fallback), FRED API (macro), AMFI NAVAll.txt (8-col format), World Bank API (CPI), Morningstar REST API (portfolio holdings — plain HTTP, no Selenium), finapi (portfolio fallback) |
