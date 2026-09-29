@@ -4,9 +4,12 @@ name: Weekly Data Pipeline
 # HOW THE PIPELINE WORKS
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# The pipeline runs every 6 hours (4 times per day) — FREE for public repos.
+# The pipeline runs twice daily (6h and 18h UTC) — FREE for public repos.
 # Each run processes as many funds as it can within 5h 10min, then stops.
 # Funds are skipped once updated (--resume --resume-hours=167 = 7-day window).
+# On days with no new NAV data (weekends/holidays), --skip-analytics-if-no-new-nav
+# means the analytics + score write path is skipped entirely — only the cheap
+# NAV-check query runs, so Turso row writes are near zero on those days.
 #
 # SELF-COMPLETING WEEKLY CYCLE:
 #   Run 1  (Day 1, +0h):    ~250–350 funds updated, then time-limit hit
@@ -31,7 +34,8 @@ name: Weekly Data Pipeline
 
 on:
   schedule:
-    - cron: '30 */6 * * *'  # Every 6 hours: 12:30 AM, 6:30 AM, 12:30 PM, 6:30 PM UTC
+    - cron: '30 6 * * *'   # 6:30 AM UTC (12:00 PM IST) — after Indian market opens
+    - cron: '30 18 * * *'  # 6:30 PM UTC (12:00 AM IST) — after market close + NAV publish
   workflow_dispatch:
     inputs:
       time_limit_minutes:
@@ -39,13 +43,18 @@ on:
         required: false
         default: '310'
       resume_hours:
-        description: 'Skip funds updated within the last N hours (default 167 = 7 days)'
+        description: 'Skip funds updated within the last N hours (default 96 = 4 days)'
         required: false
-        default: '167'
+        default: '96'
       limit:
         description: 'Cap total funds processed this run (default 0 = no cap)'
         required: false
         default: '0'
+      skip_analytics_if_no_new_nav:
+        description: 'Skip analytics+score writes when no new NAV data (saves Turso quota)'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   run-pipeline:
@@ -101,19 +110,33 @@ jobs:
       - name: Recompute benchmark return snapshots
         run: python manage.py populate_benchmark_returns
 
-      # ── 6. Fund screener pipeline (resume-based, self-completing) ─────────
-      # --resume --resume-hours=167: skips funds updated in the last 7 days.
-      # --time-limit-minutes=310:    exits gracefully before the 6h job timeout.
-      # No offset/limit needed: resume mode automatically picks up where the
-      # last run stopped, ordered by amfi_code.
-      # When all funds are up-to-date, this step completes in < 5 minutes.
-      - name: Run fund data pipeline (resume-based weekly cycle)
+      # ── 6a. Phase 1: Download all new NAVs first (no analytics writes) ──────
+      # Loops through all 2,300 funds and downloads only new NAV rows since the
+      # last DB date. Fast: ~0.5-1s per fund → ~30-50 min total. No analytics,
+      # snapshot, or model score writes — just raw NAV row inserts.
+      # NAV step has its own per-fund dedup (checks latest_date), so no --resume needed.
+      - name: "Phase 1 — Download all new NAVs (no analytics)"
         run: |
-          TIME_LIMIT="${{ github.event.inputs.time_limit_minutes }}"
-          TIME_LIMIT="${TIME_LIMIT:-310}"
+          echo "=== Phase 1: NAV + Metadata download ==="
+          echo "  Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          echo "========================================"
 
+          python manage.py populate_screener \
+            --skip-analytics \
+            --skip-model-score \
+            --skip-home-dashboard
+
+      # ── 6b. Phase 2: Analytics for funds with today's NAV ─────────────────
+      # Reads from DB only (no network). Computes metrics, screener snapshot,
+      # and model score for each fund. --skip-analytics-if-no-new-nav skips
+      # any fund whose latest NAV date is not today (weekend/holiday/error) —
+      # so no redundant writes on non-trading days.
+      # --resume --resume-hours=20: if this run is interrupted, the next run
+      # picks up where it left off (funds with snapshot updated <20h ago skip).
+      - name: "Phase 2 — Compute analytics for funds with fresh NAVs"
+        run: |
           RESUME_HOURS="${{ github.event.inputs.resume_hours }}"
-          RESUME_HOURS="${RESUME_HOURS:-167}"
+          RESUME_HOURS="${RESUME_HOURS:-20}"
 
           LIMIT_ARG=""
           RAW_LIMIT="${{ github.event.inputs.limit }}"
@@ -122,17 +145,17 @@ jobs:
             LIMIT_ARG="--limit=$RAW_LIMIT"
           fi
 
-          echo "=== Pipeline run ==="
-          echo "  Resume window : ${RESUME_HOURS}h (skip funds updated in last ${RESUME_HOURS}h)"
-          echo "  Time limit    : ${TIME_LIMIT}min (exits gracefully before 6h job cap)"
-          echo "  Limit         : ${RAW_LIMIT:-none} (0 = no cap)"
+          echo "=== Phase 2: Analytics ==="
+          echo "  Resume window : ${RESUME_HOURS}h"
           echo "  Time          : $(date -u '+%Y-%m-%d %H:%M UTC')"
-          echo "===================="
+          echo "========================="
 
           python manage.py populate_screener \
+            --skip-nav \
+            --skip-metadata \
+            --skip-analytics-if-no-new-nav \
             --resume \
             --resume-hours="$RESUME_HOURS" \
-            --time-limit-minutes="$TIME_LIMIT" \
             $LIMIT_ARG
 
       # ── 7. Learn content sync ─────────────────────────────────────────────

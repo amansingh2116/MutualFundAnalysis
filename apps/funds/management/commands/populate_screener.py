@@ -375,15 +375,31 @@ class Command(BaseCommand):
 
                 time.sleep(cap_adapter.RATE_LIMIT_DELAY)
 
-            # ── 3. Analytics ───────────────────────────────────────────
+            # ── 3. Analytics, Screener Snapshot, Model Score ──────────────────
+            # All three steps are grouped: they are skipped together when
+            # --skip-analytics is set, or when --skip-analytics-if-no-new-nav
+            # is set and no new NAV rows arrived for this fund.
             if not skip_analytics:
-                # On weekends/holidays, no new NAV data arrives for any fund.
-                # If the caller passed --skip-analytics-if-no-new-nav, skip the
-                # ~50-second analytics computation for this fund since it would
-                # produce identical results to yesterday's run.
-                if skip_if_no_new_nav and not had_new_nav:
-                    analytics_ok += 1   # count as OK — data is still valid
+                # When running in analytics-only mode (--skip-nav), determine
+                # nav freshness by reading today's date from the DB instead of
+                # relying on had_new_nav (which is always False when nav is skipped).
+                if skip_if_no_new_nav:
+                    if skip_nav:
+                        # Analytics-only phase: check whether this fund's latest
+                        # NAV date is today (i.e. NAV phase already ran today).
+                        latest_date_check = (
+                            NAVHistory.objects.filter(scheme=scheme)
+                            .aggregate(Max("date"))["date__max"]
+                        )
+                        _should_run_analytics = bool(latest_date_check and latest_date_check >= today)
+                    else:
+                        # Normal mixed mode: use the flag set during NAV download.
+                        _should_run_analytics = had_new_nav
                 else:
+                    _should_run_analytics = True
+
+                if _should_run_analytics:
+                    # ── Analytics ────────────────────────────────────────────
                     try:
                         compute_all_metrics(scheme)
                         analytics_ok += 1
@@ -391,23 +407,26 @@ class Command(BaseCommand):
                         analytics_err += 1
                         logger.error(f"[{scheme.amfi_code}] analytics error: {exc}")
 
-            # ── 4. Screener snapshot ──────────────────────────────────────────
-            try:
-                scheme_with_meta = Scheme.objects.select_related("meta").get(pk=scheme.pk)
-                refresh_snapshot_for_scheme(scheme_with_meta)
-                snap_ok += 1
-            except Exception as exc:
-                snap_err += 1
-                logger.error(f"[{scheme.amfi_code}] snapshot error: {exc}")
+                    # ── Screener snapshot ─────────────────────────────────────
+                    try:
+                        scheme_with_meta = Scheme.objects.select_related("meta").get(pk=scheme.pk)
+                        refresh_snapshot_for_scheme(scheme_with_meta)
+                        snap_ok += 1
+                    except Exception as exc:
+                        snap_err += 1
+                        logger.error(f"[{scheme.amfi_code}] snapshot error: {exc}")
 
-            # ── 5. Model score (DB-only portfolio, Option B) ────────────────────
-            if not skip_model_score:
-                try:
-                    compute_and_save_model_score(scheme_with_meta)
-                    score_ok += 1
-                except Exception as exc:
-                    score_err += 1
-                    logger.error(f"[{scheme.amfi_code}] model score error: {exc}")
+                    # ── Model score ───────────────────────────────────────────
+                    if not skip_model_score:
+                        try:
+                            compute_and_save_model_score(scheme_with_meta)
+                            score_ok += 1
+                        except Exception as exc:
+                            score_err += 1
+                            logger.error(f"[{scheme.amfi_code}] model score error: {exc}")
+                else:
+                    # No new NAV data — existing analytics still valid, skip writes
+                    analytics_ok += 1
 
             # Progress reporting every 50 schemes
             if index % 50 == 0:
